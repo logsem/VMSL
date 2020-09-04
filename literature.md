@@ -1,6 +1,7 @@
 # Literature
 
 ## Non-Interference
+(Including Dan Frumin's list)
 
 ### Overviews
 
@@ -28,7 +29,8 @@
 ## Hypervisor
 
 ### Verification
-- TBA
+- Ernie Cohen. Validating the Microsoft Hypervisor. (only found abstract) <https://link.springer.com/content/pdf/10.1007%2F11813040_6.pdf>
+- Ernie Cohen, Wolfgang Paul, and Sabine Schmaltz. Theory of Multi Core Hypervisor Verification.<https://link.springer.com/content/pdf/10.1007%2F978-3-642-35843-2_1.pdf>
 
 ### sel4
 - TBA
