@@ -17,9 +17,9 @@
 ### Concurrency and Non-determinism
 
 - Andrei Sabelfeld and David Sands. Probabilistic Noninterference for Multi-threaded Programs. <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=856937>
-- Heiko Hantel, David Sands, and Henning Sudbrock. <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=5992165>
+- Heiko Hantel, David Sands, and Henning Sudbrock. Assumptions and Guarantees for Compositional Noninterference. <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=5992165>
 - Aleksandr Karbyshev, Kasper Svendsen, Aslan Askarov, and Lars Birkedal. Compositional Non-Interference for Concurrent Programs via Separation and Framing. <https://cs.au.dk/~birke/papers/noninterference-concurrent-conf.pdf>
-- Dan Frumin, Robbert Krebbers, and Lars Birkedal. Compositional Non-Interference for Fine-Grained Concurrent Programs.<https://iris-project.org/pdfs/2020-seloc-submission.pdf>
+- Dan Frumin, Robbert Krebbers, and Lars Birkedal. Compositional Non-Interference for Fine-Grained Concurrent Programs. <https://iris-project.org/pdfs/2020-seloc-submission.pdf>
 
 ### Observational Determinism
 - Steve Zdancewic and Andrew C. Myers. Observational Determinism for Concurrent Program Security. <https://www.cs.cornell.edu/andru/papers/csfw03.pdf>
@@ -31,4 +31,4 @@
 - TBA
 
 ### sel4
- -TBA
+- TBA
