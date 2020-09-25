@@ -37,6 +37,9 @@
 - Toby Murray et al. seL4: from General Purpose to a Proof of Information Flow Enforcement. <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6547124>
 - Toby Murray et al. Noninterference for Operating System Kernels <http://ts.data61.csiro.au/publications/nicta_full_text/6004.pdf>
 
+### NOVA
+- Udo Steinberg and Bernhard Kauer. NOVA: A Microhypervisor-Based Secure Virtualization Architecture. <http://www.hypervisor.de/eurosys2010.pdf>
+
 ## Others
 
 - Daniel Schoepe, et al. Explicit Secrecy: A Policy for Taint Tracking. <https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7467344>
