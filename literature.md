@@ -30,7 +30,13 @@
 
 ### Verification
 - Ernie Cohen. Validating the Microsoft Hypervisor. (only found abstract) <https://link.springer.com/content/pdf/10.1007%2F11813040_6.pdf>
-- Ernie Cohen, Wolfgang Paul, and Sabine Schmaltz. Theory of Multi Core Hypervisor Verification.<https://link.springer.com/content/pdf/10.1007%2F978-3-642-35843-2_1.pdf>
+- Ernie Cohen, Wolfgang Paul, and Sabine Schmaltz. Theory of Multi Core Hypervisor Verification. <https://link.springer.com/content/pdf/10.1007%2F978-3-642-35843-2_1.pdf>
 
 ### sel4
-- TBA
+- Gerwin Klein, et al. seL4: Formal Verification of an OS Kernel. <http://web1.cs.columbia.edu/~junfeng/09fa-e6998/papers/sel4.pdf>
+- Toby Murray et al. seL4: from General Purpose to a Proof of Information Flow Enforcement. <https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=6547124>
+- Toby Murray et al. Noninterference for Operating System Kernels <http://ts.data61.csiro.au/publications/nicta_full_text/6004.pdf>
+
+## Others
+
+- Daniel Schoepe, et al. Explicit Secrecy: A Policy for Taint Tracking. <https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7467344>
