@@ -43,3 +43,4 @@
 ## Others
 
 - Daniel Schoepe, et al. Explicit Secrecy: A Policy for Taint Tracking. <https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7467344>
+- Hira Taqdees Syeda and Gerwin Klein. Formal Reasoning Under Cached Address Translation. <https://link.springer.com/content/pdf/10.1007/s10817-019-09539-7.pdf>
