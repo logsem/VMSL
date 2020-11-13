@@ -47,3 +47,11 @@ Thumbs.db
 *.flv
 *.mov
 *.wmv
+
+# tex files
+*.pdf
+*.synctex.gz
+*.fls
+*.aux
+*.fdb_latexmk
+.auctex-auto/
