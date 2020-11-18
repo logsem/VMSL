@@ -1,8 +1,58 @@
 \documentclass[a4paper]{article}
 \usepackage[a4paper]{geometry}
 \usepackage{multicol}
-
+\usepackage{amsmath}
+\usepackage{mathpartir}
+\usepackage{todonotes}
 \usepackage{kpfonts}
+
+% notations
+\newcommand*{\defined}{\triangleq}
+\newcommand*{\maps}{\rightarrow}
+\newcommand*{\derived}{::=}
+\newcommand*{\sem}[1]{[[ {#1} ]]}
+
+
+% definitions
+\newcommand*{\CONF}{\text{ExecConf}}
+\newcommand*{\STATE}{\text{State}}
+\newcommand*{\MEM}{\text{GlobalMem}}
+\newcommand*{\SSS}{\text{ShareStates}}
+\newcommand*{\PID}{\text{PID}}
+\newcommand*{\REGS}{\text{Registers}}
+\newcommand*{\ADDR}{\text{Address}}
+\newcommand*{\WORD}{\text{Word}}
+\newcommand*{\VMID}{\text{VMID}}
+\newcommand*{\REGNAMES}{\text{RegisterName}}
+\newcommand*{\MODE}{\text{ExecMode}}
+\newcommand*{\DONE}{\text{DoneState}}
+\newcommand*{\INSTR}{\text{Instruction}}
+
+% parameters
+\newcommand*{\PABITS}{\text{ADDR\_BITS}}
+\newcommand*{\PPBITS}{\text{PAGE\_BITS}}
+\newcommand*{\PPIDBITS}{\text{PID\_BITS}}
+\newcommand*{\PAMAX}{\text{ADDR\_MAX}}
+\newcommand*{\PPMAX}{\text{PAGE\_MAX}}
+\newcommand*{\PPIDMAX}{\text{PID\_MAX}}
+\newcommand*{\PWBITS}{\text{WORD\_BITS}}
+\newcommand*{\PWMAX}{\text{WORD\_MAX}}
+\newcommand*{\PVMMAX}{\text{VM\_MAX}}
+
+
+% instructions
+\newcommand*{\instrm}[1]{\mathtt{#1}}
+\newcommand*{\instr}[1]{\texttt{#1}}
+
+%TODO: message passing instructions
+
+% expressions
+\newcommand*{\EI}[1]{\mathtt{ExecInstr} \; {#1}}
+\newcommand*{\RP}[1]{ \mathtt{Repeat} \; {#1}}
+\newcommand*{\DN}[1]{\mathtt{Done} \; {#1}}
+\newcommand*{\NXT}[1]{\mathtt{Next} \; {#1}}
+
+
 
 \title{Operational Semantics and Proof Rules for VMs in Halfnium}
 \date{\today}
@@ -13,6 +63,7 @@
 
 \section{Operational Semantics}
 
+  \todo{more realistic scheduling}
 \subsection{Settings of Halfnium}
 Halfnium is a type-1 hypervisor running on the AArch64 artitecture(for now), who is claimed can provide memory isolation between a set of virtual machines(VMs) running on it.
 Halfnium provides memory isolation by managing the stage-2 page tables of VMs. It controls the stage-2 translation by manipulating entries in stage-2 page tables only according to the FF-A calls issued by VMs. The hardware does the actual address translation by looking up page table entries, which we assume acting correctly as described. Therefore Halnium can guarantee that one VM can never access to the memory owned by another VM without that VM's consent.
@@ -21,19 +72,103 @@ For the sake of simplicity, stage-2 page tables managed by the Hafnium are simpl
 
 FF-A framework are designed as a protocol for components running on the ARM-A processor, the main purpose of which is to allow components in the normal world to communicate with components in the secure world. While in Hafnium, VMs and the hypervisor are all counted as components residing in the normal world. The FF-A framework is then used as an approach for VMs to do message passing and memory sharing with each other. We will see some examples of how exactly the FF-A framework is used in Hafnium later.
 
-One can read more details on the Hafnium artitacture at here.
-% TODO add the link at here
-
+One can read more details on the Hafnium artitacture at here.\todo{add the link}
 % https://github.com/lzy0505/hafnium/blob/master/docs/Architecture.md
 
-\subsection{System state}
-In our operational semantics, we abstract away the Halfnium hypersior, considering the whole system only consists of several virtual machines plus some additional information for the FF-A framwork.
+\subsection{Execution Configuration}
+\todo{improve error handling}
+The general purpose of the operational semantics is to reason about programs written in assembly language running on VMs. Therefore, in our operational semantics, we abstract away the Halfnium hypersior, considering the whole system only consists of several virtual machines plus some additional information for the FF-A framwork.
+
+\begin{figure}
+\begin{align*}
+  \phi &\in \CONF &\defined &list(\STATE) \times \MEM \times \SSS \\
+  \delta &\in \STATE &\defined &list(\PID) \times \REGS \times option(\PID \times \PID) \\
+  p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
+  r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
+  n & \in \REGNAMES &\derived  &\mathtt{pc} | \mathtt {r_{0}} | \mathtt{r_{1}} | \dots \\
+  m & \in \MEM &\defined  &\ADDR \maps \WORD \\
+  a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
+  w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
+  s & \in \SSS &\defined  &list(\PID \times \VMID) \\
+  v & \in \VMID &\defined  &[ 0, \PVMMAX ]
+\end{align*}
+\caption{Execution Configuration: VM States, Global Memory and Share States.}
+\end{figure}
+Figure 1 shows the definition of execution configuration, which includes three components: $\STATE$s of all VMs, a $\MEM$ shared to all VMs, and a $\SSS$ storing necessary information for memory sharing FF-A requests.
+
+In general, when saying the state of a machine, it represents values of all registers of that machine plus values of memory at all locations. In our case, we have multiple machines. A naive approach to write down the state of all VMs is to record their states respectively. While we only do it to registers and combine their memory together as a global memory. The global here means one VM could be able to access memory of another VM(in the case of memory sharing).
+
+The definition of $\MEM$ is straightforward.  While the $\STATE$ consists of not only registers, but also some $\PID$s. The list of $\PID$ notes $\PID$s of all pages that one VM owns, which is in principle determined by the stage-2 page table of that VM. One may notice that there are two special $\PID$s that are not included in the list. They are considered as RX/TX buffers for message passing. The size of those two buffers are exactly one page, which is consistent to the implementation of Hafnium. The reason that they are embraced by an $option$ is that the two pages are uninitialized. There is a FF-A call through which a VM can assign two pages it owns as its RX and TX pages.   Afterwards, the RX/TX pages are not strictly possessed by the VM anymore. In addition, VM is not able to reassign other pages as RX/TX pages, i.e. RX/TX pages of a VM can only be configured once.
+
+To explain why we defined the $\SSS$, we need to elaborate how memory sharing is specified in the FF-A framework, which we won't do until next section when we show the instructions. For now, it is enough for readers to know that $\PID$ is the page to share, $\VMID$ the receiver of the sharing, and both are essential to perform memory sharing. In Hafnium implementation, there is a similar but much more complicated data structure to record those information(and more), which is maintained by the Hafnium itself. Since we don't have the hypervisor in our model, we added $\SSS$ into the execution configuration.
+
+Some constants are introduced to specify basic configurations of the model. In the context of AArch64, $\PAMAX$ should be $2^{\PABITS} - 1$ where $\PABITS = 48$, $\PWMAX = 2^{\PWBITS} -1$ where $\PWBITS = 64$, and $\PPIDMAX = 2^{\PPIDBITS}-1$ where $\PPIDBITS = \PABITS - \PPBITS = 36$. $\PVMMAX$ makes sure we only have finite number of VMs.
+
+
+
+
 
 \subsection{Syntax and Instructions}
+\begin{figure}
+\begin{align*}
+  \mu &\in \MODE &\derived & \mathtt{ExecInstr} \; v | \mathtt{Repeat} \; \mu | \mathtt{Done} \; \theta \\
+  \theta &\in \DONE &\derived & \NXT{v} | \mathtt{Halt} | \mathtt{Fail}\\
+  \\
+  instr & \in  \INSTR &\derived & \instrm{jmp} \; r | \instrm{jnz} \; r \; r | \instrm{move} \; r \; w | \instrm{load} \; r\; r | \instrm{store} \; r \; r | \instrm{add} \; r \; r \; r | \instrm{sub} \; r \; r \; r | \instrm{lt} \; r \; r \; r | \instrm{lea} \; r \; r \\
+  & & & | \instrm{fail} | \instrm{halt} | \instrm{memd} \; r \; r | \instrm{memr} \; r\; r
+\end{align*}
+\caption{Syntax and Machine Instructions}
+\end{figure}
+\todo{add message passing instructions}
+
+\todo{ why we use set to define page tables?}
+% Normally, page tables essentially are mappings. However, we instead use a mathematical set of $\PID$ to describe the abstract page table of a VM. We argue that it is sufficient to record necessary information of the actrual page table as the $\PID$ in IP address space is always equal to the corresponding one in physical address space. Namly, we always have mappings like $x \mapsto
+%x$ in page tables.
+
 
 \subsection{Reduction rules}
 
-
+\begin{figure}
+  \begin{mathpar}
+  \inferrule[RepeatExec]
+  {(\EI{v},\, \phi) \rightarrow (\DN{\theta} ,\, \phi')}
+  {(\RP{\EI{v}} ,\, \phi) \rightarrow (\RP{\DN{\theta}} ,\, \phi')}
+  %
+  \and
+  %
+  \inferrule[RepeatHalt/Fail]
+  {\theta = \mathtt{Halt} \lor \theta = \mathtt{Fail}}
+  {(\RP{\DN{\theta}} ,\, \phi) \rightarrow (\DN{\theta} ,\, \phi)}
+  %
+  \and
+  %
+  \inferrule[RepeatNext]{}
+  {(\RP{\DN{\NXT{v}}} ,\, \phi) \rightarrow (\RP{\EI{v}} ,\, \phi)}
+  %
+  \and
+  %
+  \inferrule[ExecInstr]
+  {\phi = (\Delta, m, s)}
+  {{\begin{array}{l}
+    (\EI{v},\, \phi) \rightarrow \left\{
+    \begin{array}{l}
+      \sem{\mathit{decode}(instr)}(\phi,v)
+      \quad \begin{array}[t]{ll}
+        \mathrm{if}  \!\!\!\!&
+                               \Delta[v].r[\mathtt{pc}] = ia \land m[ia]=instr \\
+              &\land valida(\Delta[v],v,ia) \\[0.5em]
+      \end{array}
+      \\
+      (\DN{\mathtt{Fail}},\, \phi) \quad \mathrm{otherwise}
+    \end{array}
+    \right.
+    \end{array}}
+  }
+  \end{mathpar}
+  \caption{Reduction Steps.}
+%\vspace{-0.5cm}
+\end{figure}
+\todo{define valida}
 
 \section{Proof Rules}
 
