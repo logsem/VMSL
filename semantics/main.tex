@@ -5,12 +5,13 @@
 \usepackage{mathpartir}
 \usepackage{todonotes}
 \usepackage{kpfonts}
+\usepackage[T1]{fontenc}
 
 % notations
 \newcommand*{\defined}{\triangleq}
 \newcommand*{\maps}{\rightarrow}
 \newcommand*{\derived}{::=}
-\newcommand*{\sem}[1]{[[ {#1} ]]}
+\newcommand*{\sem}[1]{\llbracket {#1} \rrbracket}
 
 
 % definitions
@@ -52,7 +53,11 @@
 \newcommand*{\DN}[1]{\mathtt{Done} \; {#1}}
 \newcommand*{\NXT}[1]{\mathtt{Next} \; {#1}}
 
-
+% functions
+\newcommand*{\decode}{\text{decode}}
+\newcommand*{\valida}{\text{valida}}
+\newcommand*{\updpc}{\text{updpc}}
+\newcommand*{\pid}{\text{pid}}
 
 \title{Operational Semantics and Proof Rules for VMs in Halfnium}
 \date{\today}
@@ -65,7 +70,7 @@
 
   \todo{more realistic scheduling}
 \subsection{Settings of Halfnium}
-Halfnium is a type-1 hypervisor running on the AArch64 artitecture(for now), who is claimed can provide memory isolation between a set of virtual machines(VMs) running on it.
+Halfnium is a type-1 hypervisor running on the AArch64 artitecture(for now), which is claimed can provide memory isolation between a set of virtual machines(VMs) running on it.
 Halfnium provides memory isolation by managing the stage-2 page tables of VMs. It controls the stage-2 translation by manipulating entries in stage-2 page tables only according to the FF-A calls issued by VMs. The hardware does the actual address translation by looking up page table entries, which we assume acting correctly as described. Therefore Halnium can guarantee that one VM can never access to the memory owned by another VM without that VM's consent.
 
 For the sake of simplicity, stage-2 page tables managed by the Hafnium are simply one-to-one mappings, i.e. the IPAs are always equal to PAs. Besides, it is also the case for the stage-1 page table of the Hafnium itself.
@@ -109,7 +114,7 @@ Some constants are introduced to specify basic configurations of the model. In t
 
 
 \subsection{Syntax and Instructions}
-\begin{figure}
+\begin{figure}[h!]
 \begin{align*}
   \mu &\in \MODE &\derived & \mathtt{ExecInstr} \; v | \mathtt{Repeat} \; \mu | \mathtt{Done} \; \theta \\
   \theta &\in \DONE &\derived & \NXT{v} | \mathtt{Halt} | \mathtt{Fail}\\
@@ -119,56 +124,66 @@ Some constants are introduced to specify basic configurations of the model. In t
 \end{align*}
 \caption{Syntax and Machine Instructions}
 \end{figure}
-\todo{add message passing instructions}
+\todo{later: add message passing instructions}
 
-\todo{ why we use set to define page tables?}
+\todo{why we use set to define page tables?}
 % Normally, page tables essentially are mappings. However, we instead use a mathematical set of $\PID$ to describe the abstract page table of a VM. We argue that it is sufficient to record necessary information of the actrual page table as the $\PID$ in IP address space is always equal to the corresponding one in physical address space. Namly, we always have mappings like $x \mapsto
 %x$ in page tables.
+\todo{explain how did we omit memory translation}
+balabala
+
 
 
 \subsection{Reduction rules}
+\subsubsection{Notations}
+Except claiming explicitly, we use triple $(\Delta, m, s)$ to represent execution configuration $\phi$, where $\Delta$ is a list of $\STATE$. We notate the $\STATE$ of VM $i$ in $\Delta$ with $\Delta[i]$. Furthermore, we use the field access notation to represent the list of $\PID$ as $\Delta[i].pids$ and $\REGS$ as $\Delta[i].r$ repectively. We overload the square bracket notation for the $\REGS$ and $\MEM$ mapping.
+Occasionally, we borrow the $\in, \cup,$ and $\cap$ operators from set, applying them on the list while keeping the semantics
+same.
 
-\begin{figure}
+\todo{to be rephased}
+% In addition, mappings are treated as functions so that they have concepts of domain and codomain.
+
+\subsubsection{Rules}
+\begin{figure}[h!]
   \begin{mathpar}
   \inferrule[RepeatExec]
   {(\EI{v},\, \phi) \rightarrow (\DN{\theta} ,\, \phi')}
   {(\RP{\EI{v}} ,\, \phi) \rightarrow (\RP{\DN{\theta}} ,\, \phi')}
-  %
   \and
-  %
   \inferrule[RepeatHalt/Fail]
   {\theta = \mathtt{Halt} \lor \theta = \mathtt{Fail}}
   {(\RP{\DN{\theta}} ,\, \phi) \rightarrow (\DN{\theta} ,\, \phi)}
-  %
   \and
-  %
   \inferrule[RepeatNext]{}
   {(\RP{\DN{\NXT{v}}} ,\, \phi) \rightarrow (\RP{\EI{v}} ,\, \phi)}
-  %
   \and
-  %
-  \inferrule[ExecInstr]
-  {\phi = (\Delta, m, s)}
-  {{\begin{array}{l}
-    (\EI{v},\, \phi) \rightarrow \left\{
-    \begin{array}{l}
-      \sem{\mathit{decode}(instr)}(\phi,v)
-      \quad \begin{array}[t]{ll}
-        \mathrm{if}  \!\!\!\!&
-                               \Delta[v].r[\mathtt{pc}] = ia \land m[ia]=instr \\
-              &\land valida(\Delta[v],v,ia) \\[0.5em]
-      \end{array}
-      \\
-      (\DN{\mathtt{Fail}},\, \phi) \quad \mathrm{otherwise}
-    \end{array}
-    \right.
-    \end{array}}
-  }
+  \inferrule[ExecInstr]{}
+  {{(\EI{v},\, \phi) \rightarrow \left\{
+    \begin{array}{ll}
+      \sem{\decode(iw)}(\phi,v)
+     & \begin{array}[t]{ll}
+        \mathrm{if}  \!\!\!\!& \Delta[v].r[\mathtt{pc}] = ia \land m[ia]=iw \\
+              &\land \valida(\Delta[v],ia) \\
+      \end{array} \\
+      (\DN{\mathtt{Fail}},\, \phi) & \mathrm{otherwise}
+    \end{array} \right.}
+}
+\and
+  \begin{aligned}
+    \valida(\delta,ia) &=  \pid(ia) \in \delta.pids \\
+    \pid(a) &=  a >> \PPBITS
+    \end{aligned}
   \end{mathpar}
   \caption{Reduction Steps.}
 %\vspace{-0.5cm}
 \end{figure}
-\todo{define valida}
+
+\todo{explain repeat rules}
+
+
+The input of the $\decode$ function is a $\WORD$ $iw$ obtained from the global memory. $\decode$ function decodes it to the corresponding $\INSTR$ which has a predefined semantic interpretation. Applying the interpretation to execution configuration $\phi$ and $\VMID$ v will give us a new configuration after executing the instruction on VM $v$. If $iw$ is an invalid encoding, we decode it to $\mathtt{fail}$.
+
+To obtain the encoding of the next executing instruction $iw$, we first get the value of the \texttt{pc} register of VM $v$ as $ia$, which is the address of the $iw$ in the global memory. Before decoding $iw$, we have to ensure that VM $v$ has access to the location $ia$, i.e. $ia$ is in the range of a page that owned by $v$. That is exatly what $\valida$ does.
 
 \section{Proof Rules}
 
