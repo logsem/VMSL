@@ -54,4 +54,4 @@ Thumbs.db
 *.fls
 *.aux
 *.fdb_latexmk
-.auctex-auto/
+semantics/.auctex-auto/
