@@ -1,9 +1,0 @@
-\BOOKMARK [1][-]{section.1}{Operational Semantics}{}% 1
-\BOOKMARK [2][-]{subsection.1.1}{Settings of Halfnium}{section.1}% 2
-\BOOKMARK [2][-]{subsection.1.2}{Execution Configuration}{section.1}% 3
-\BOOKMARK [2][-]{subsection.1.3}{Syntax and Instructions}{section.1}% 4
-\BOOKMARK [2][-]{subsection.1.4}{Reduction rules}{section.1}% 5
-\BOOKMARK [3][-]{subsubsection.1.4.1}{Notations}{subsection.1.4}% 6
-\BOOKMARK [3][-]{subsubsection.1.4.2}{Rules}{subsection.1.4}% 7
-\BOOKMARK [2][-]{subsection.1.5}{Semantic Interpretations of Instructions}{section.1}% 8
-\BOOKMARK [1][-]{section.2}{Proof Rules}{}% 9

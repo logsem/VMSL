@@ -1,12 +1,16 @@
 \documentclass[a4paper]{article}
-\usepackage[a4paper]{geometry}
+\usepackage[a4paper,showframe=true]{geometry}
 \usepackage{multicol}
 \usepackage{amsmath}
 \usepackage{mathpartir}
 \usepackage{hyperref}
 \usepackage{todonotes}
 \usepackage{kpfonts}
+\usepackage{array}
+\usepackage{changepage}
 \usepackage[T1]{fontenc}
+
+\newcolumntype{L}{>{$}l<{$}}
 
 % notations
 \newcommand*{\defined}{\triangleq}
@@ -118,7 +122,7 @@ machines plus some additional information for the FF-A framework.
     \delta &\in \STATE &\defined &list(\PID) \times \REGS \times option(\PID \times \PID) \\
     p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
-    n & \in \REGNAMES &\derived  &\mathtt{pc} | \mathtt{NZCV} | \mathtt {r_{0}} | \mathtt{r_{1}} | \dots \\
+    n & \in \REGNAMES &\derived  &\mathtt{pc} | \mathtt{NZ} | \mathtt {r_{0}} | \mathtt{r_{1}} | \dots \\
     m & \in \MEM &\defined  &\ADDR \maps \WORD \\
     a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
@@ -151,7 +155,7 @@ are not strictly possessed by the VM anymore. In addition, VM is not able to
 reassign other pages as RX/TX pages, i.e. RX/TX pages of a VM can only be
 configured once.
 
-It is worth to note that the $\mathtt{NZCV}$ is a system register, which means one
+It is worth to note that the $\mathtt{NZ}$ is a system register, which means one
 is only able to access to this register if it is in a high enough Exception Level. This register
 is crucial to comparing and jumping instructions.
 %details in : https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/nzcv
@@ -218,6 +222,8 @@ same.
 % domain and codomain.
 
 \subsubsection{Rules}
+
+
 \begin{figure}[h!]
   \begin{mathpar}
     \inferrule[RepeatExec]
@@ -243,7 +249,7 @@ same.
                                      \NONE & \text{otherwise}
                                    \end{array}
                                    \right. \\
-      \pid(a) &= a >> \PPBITS
+     \pid(a) &= a >> \PPBITS
     \end{aligned}
   \end{mathpar}
   \caption{Reduction Steps.}
@@ -287,36 +293,66 @@ Note that all the register names in instructions below don't indicate actual reg
 For instance, $r_{1}$ donesn't have to be the $r_{1}$ register. They are just variables
 whose values could be in principle names of any general registers.
 \newcommand{\sema}[1]{\sem{ {#1} }(\phi,v)}
-\newcommand{\leftshift}{\!\!\!\!\!\!\!}
+\newcommand{\leftshift}{\!\!\!\!}
+\newcommand{\DNXT}[2]{(\DN{\NXT{ {#1} }}, \updpc( {#2} , {#1} ))\:)}
+\newcommand{\nextt}{\text{next}}
 \begin{figure}[h!]
-  \[
-\begin{array}{rlll}
-  \sema{\instrm{fail}} &\leftshift = (\DN{\mathtt{Fail}}, \phi) & & \\
-  \sema{\instrm{halt}} &\leftshift  = (\DN{\mathtt{Halt}}, \phi) & & \\
-  \sema{\instrm{jmp} \; r} &\leftshift = (\DN{\NXT{v}},(\Delta',m,s)\:) & \Delta'[v].rs[\mathtt{pc}]=w & w= \Delta[v].rs[r]\\
-  \sema{\instrm{jnz} \; r_{1} \; r_{2}} &\leftshift = (\DN{\NXT{v}}, (\Delta',m,s)\:) & \Delta'[v].rs[\mathtt{pc}]=w & w = \left\{
-                                                          \!\!\!\!\begin{array}{ll} \Delta[v].rs[r_{1}] &\!\!\!\! \text{if} \;
-                                                                                                    \Delta[v].rs[r_{2}]=0 \\
+\begin{adjustwidth}{-1cm}{}
+  \begin{tabular}[t]{L|L L| L}
+    \text{Instr}(i) & \sema{i} & & \text{Conditions} \\ \hline \hline
+  \instrm{fail}& \leftshift  (\DN{\mathtt{Fail}}, \phi) & & \\ \hline
+  \instrm{halt}&\leftshift   (\DN{\mathtt{Halt}}, \phi)  & & \\\hline
+  \instrm{br} \; r  &\leftshift  (\DN{\NXT{v}},(\Delta',m,s)\:)  & \Delta'[v].rs[\mathtt{pc}]=\Delta[v].rs[r]  &  \\\hline
+  \instrm{bne} \; r  & \leftshift  (\DN{\NXT{v}}, (\Delta',m,s)\:)  & \leftshift \begin{array}{l} \Delta'[v].rs[\mathtt{pc}]= \\ \;\;\;\;\left\{
+                                                          \!\!\!\!\begin{array}{ll} \Delta[v].rs[r] &\!\!\!\! \text{if} \;
+                                                                                                    \Delta[v].rs[\mathtt{NZ}].z=1 \\
                                                             \Delta[v].rs[\mathtt{pc}]+1 &\!\!\!\! \text{otherwise}
-                                                          \end{array}\right. \\
+                                                          \end{array}\right. \end{array} &  \\\hline
 
-  \sema{\instrm{mov}\; r\; w} &\leftshift = (\DN{\NXT{v}}, \updpc((\Delta', m, s), v))\:) & \Delta'[v].rs[r]=w & \\
-  \sema{\instrm{ldr}\; r_{1} \; r_{2}} &\leftshift = (\DN{\NXT{v}}, \updpc((\Delta', m, s), v))\:) & \Delta'[v].rs[r_{1}]=w &
-                                                           \text{if}\; \begin{array}{l} \SOME(a)=\valida(\Delta[v],r_{2})\\
-                                                                         \land w = m[a]
-                                                                       \end{array}\\
-  \sema{\instrm{str}\; r_{1} \; r_{2}} &\leftshift = (\DN{\NXT{v}},\updpc((\Delta, m', s),v))\:) & m'[a]=w &
-                                                            \text{if}\; \begin{array}{l} \SOME(a) =\valida(\Delta[v],r_{1})\\
-                                                                          \land w = \Delta[v].rs[r_{2}]
-                                                                        \end{array}\\
-  \sema{\instrm{add}\; r_{1}\; r_{2}\; r_{3}} &\leftshift = (\DN{\NXT{v}}, \updpc((\Delta', m, s), v))\:) & \Delta'[v].rs[r_{1}]=w & w=\Delta[v].regs[r_{2}] + \Delta[v].regs[r_{3}] \\
-  \sema{\instrm{sub}\; r_{1}\; r_{2}\; r_{3}} &\leftshift =(\DN{\NXT{v}}, \updpc((\Delta', m, s), v))\:) & \Delta'[v].rs[r_{1}]=w & w=\Delta[v].regs[r_{2}] - \Delta[v].regs[r_{3}] \\
-  \sema{\instrm{lt}\; r_{1}\; r_{2}\; r_{3}} &\leftshift = (\DN{\NXT{v}}, \updpc((\Delta', m, s), v))\:) & \Delta'[v].rs[r_{3}]=w & \\
-  \sema{\instrm{lea}\; r_{1}\; r_{2}\; r_{3}} &\leftshift = (\DN{\NXT{v}}, \updpc((\Delta', m, s), v))\:) & \Delta'[v].rs[r_{3}]=w & \\
-  \sema{\instrm{memd}\; r_{1}\; r_{2}} &\leftshift = & & \\
-  \sema{\instrm{memr}\; r_{1}\; r_{2}} &\leftshift = & & \\
-\end{array}
-\]
+  \instrm{mov}\; r\; w  &\leftshift \nextt(v)(\Delta', m, s)  & \Delta'[v].rs[r]=w & \\\hline
+  \instrm{ldr}\; r_{1} \; r_{2}  &\leftshift \nextt(v)(\Delta', m, s) & \Delta'[v].rs[r_{1}]=m[a]  &
+                                                           \SOME(a)=\valida(\Delta[v],r_{2}) \\\hline
+  \instrm{str}\; r_{1} \; r_{2}  &\leftshift\nextt(v)(\Delta', m, s)& m'[a]=\Delta[v].rs[r_{2}]&
+                                                            \SOME(a) =\valida(\Delta[v],r_{1}) \\\hline
+  \instrm{add}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]=\\  \Delta[v].rs[r_{2}] + \Delta[v].rs[r_{3}] \end{array} & \\\hline
+  \instrm{sub}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]= \\ \Delta[v].rs[r_{2}] - \Delta[v].rs[r_{3}] \end{array} & \\\hline
+  \instrm{cmp}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s)
+                               &\leftshift \begin{array}{l}
+                                             w = \Delta[v].rs[r_{1}] - \Delta[v].rs[r_{2}]\\
+                                             \Delta'[v].rs[\mathtt{NZ}].z= \\
+                                             \;\;\;\left\{ \!\!\!\! \begin{array}{ll} 1 &\text{if}\; w = 0 \\
+                                                   0 & \text{otherwise} \end{array} \right.\\
+                                             \Delta'[v].rs[\mathtt{NZ}].n= \\
+                                             \;\;\;\left\{\!\!\!\!\begin{array}{ll} 1 &\text{if}\; w < 0 \\
+                                                   0 & \text{otherwise} \end{array} \right.
+                         \end{array}
+                       &\\\hline
+  \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s')
+                               &\!\!\!\!\! \begin{array}{l}
+                                             h= \text{len}(s) \\
+                          \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(pa)\}  \\
+                          \Delta'[v].rs[\mathtt{r_{0}}]=h\\
+                          s'[h]=(\pid(pa), \Delta[v].rs[r_{2}])
+                        \end{array}
+                       &\leftshift\begin{array}{l}
+                                       \SOME(pa)=\valida(\Delta[v],r_{1}) \\
+                                       \land v \neq \Delta[v].rs[r_{2}]
+                        \end{array}\\\hline
+  \instrm{memr}\; r &\leftshift \nextt(v)(\Delta', m, s')
+                        &\!\!\!\!\! \begin{array}{l}
+                                      \Delta'[v].ps=\Delta[v].ps \cup \{p\}\\
+                                      s'= s \setminus \{(p,v)\}
+                                    \end{array}
+                       &\leftshift\begin{array}{l}
+                                       s[\Delta[v].rs[r_{1}]] = (p, v)\\
+                                       \land p \notin \Delta[v].ps
+                        \end{array} \\\hline
+  \end{tabular}
+  \end{adjustwidth}
+\begin{align*}
+  \updpc((\Delta,m,s),v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].rs[\mathtt{pc}] = \Delta[v].rs[\mathtt{pc}]+1\\
+     \nextt(v,\phi) &= \DNXT{v}{\phi}
+  \end{align*}
 \end{figure}
 \todo{later: consider overflow}
 \section{Proof Rules}
