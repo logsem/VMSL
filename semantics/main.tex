@@ -73,8 +73,7 @@
 \newcommand{\SOME}{\mathtt{Some}}
 \newcommand{\NONE}{\mathtt{None}}
 
-\title{Operational Semantics and Proof Rules for VMs in Halfnium}
-\date{\today}
+\title{Operational Semantics and Proof Rules for VMs in Halfnium} \date{\today}
 \author{Zongyuan Liu}
 
 \begin{document}
@@ -106,13 +105,13 @@ FF-A framework is then used as an approach for VMs to do message passing and
 memory sharing with each other. We will see some examples of how exactly the
 FF-A framework is used in Hafnium later.
 
-One can read more details on the Hafnium architecture at \href{https://review.trustedfirmware.org/plugins/gitiles/hafnium/hafnium/+/HEAD/docs/Architecture.md}{here}.
+One can read more details on the Hafnium architecture at
+\href{https://review.trustedfirmware.org/plugins/gitiles/hafnium/hafnium/+/HEAD/docs/Architecture.md}{here}.
 
 \subsection{Execution Configuration}
-\todo{later: improve error handling}
-The general purpose of the operational semantics
-is to reason about programs written in assembly language running on VMs.
-Therefore, in our operational semantics, we abstract away the Halfnium
+\todo{later: improve error handling} The general purpose of the operational
+semantics is to reason about programs written in assembly language running on
+VMs. Therefore, in our operational semantics, we abstract away the Halfnium
 hypervisor, considering the whole system only consists of several virtual
 machines plus some additional information for the FF-A framework.
 
@@ -145,9 +144,20 @@ could be able to access memory of another VM(in the case of memory sharing).
 The definition of $\MEM$ is straightforward. While the $\STATE$ consists of not
 only registers, but also some $\PID$s. The list of $\PID$ notes $\PID$s of all
 pages that one VM owns, which is in principle determined by the stage-2 page
-table of that VM. One may notice that there are two special $\PID$s that are not
-included in the list. They are considered as RX/TX buffers for message passing.
-The size of those two buffers are exactly one page, which is consistent to the
+table of that VM.
+\todo{why we use set to define page tables}
+
+\todo{explain how did we omit memory translation}
+% Normally, page tables essentially are mappings. However, we instead use a
+% mathematical set of $\PID$ to describe the abstract page table of a VM. We
+% argue that it is sufficient to record necessary information of the actual page
+% table as the $\PID$ in IP address space is always equal to the corresponding
+% one in physical address space. Namely, we always have mappings like
+% $x \mapsto x$ in page tables.
+
+One may notice that there are two special $\PID$s that are not included in the
+list. They are considered as RX/TX buffers for message passing. The size of
+those two buffers are exactly one page, which is consistent to the
 implementation of Hafnium. The reason that they are embraced by an $option$ is
 that the two pages are uninitialized. There is a FF-A call through which a VM
 can assign two pages it owns as its RX and TX pages. Afterwards, the RX/TX pages
@@ -156,10 +166,13 @@ reassign other pages as RX/TX pages, i.e. RX/TX pages of a VM can only be
 configured once.
 
 It is worth to note that the $\mathtt{NZ}$ is a system register, which means one
-is only able to access to this register if it is in a high enough Exception Level.
-This register is crucial to comparing and jumping instructions. It has similar
-functionality as the \href{https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/nzcv}
+is only able to access to this register if it is in a high enough Exception
+Level. This register is crucial to comparing and jumping instructions. It has
+similar functionality as the
+\href{https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/nzcv}
 {$\mathtt{NZCV}$ register} in real Arm-A processor.
+
+
 
 To explain why we defined the $\SSS$, we need to elaborate how memory sharing is
 specified in the FF-A framework, which we won't do until next section when we
@@ -192,17 +205,39 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
   \caption{Syntax and Machine Instructions}
 \end{figure}
 \todo{later: add message passing instructions}
-\todo{why we introduce two new instructions}
-\todo{why we use set to define page tables}
-% Normally, page tables essentially are mappings. However, we instead use a
-% mathematical set of $\PID$ to describe the abstract page table of a VM. We
-% argue that it is sufficient to record necessary information of the actual
-% page table as the $\PID$ in IP address space is always equal to the
-% corresponding one in physical address space. Namely, we always have mappings
-% like $x \mapsto x$ in page tables.
-\todo{explain how did we omit memory translation} blabla
+
+The syntax and instrutions included in our model is showed in Figure 2. The
+syntax of the expression is uncomplicated. Generally speaking, $\EI{v}$ is for
+executing a single instruction in VM $v$ and $\DN{\theta}$ implies the result of
+the execution. The result could be successful or failed. In case of success, we
+either proceed on next instruction in VM $v$ with $\NXT{v}$ or halt. One may ask
+why we don't use instructions as expressions in the language.
+
+We included a subset of AArch64 instructions and believe that these instructions
+are sufficient to construct interesting programs. Besides, it would be
+effortless to include new instructions. All we need to do is adding the
+instruction and giving a semantic interpretation.
+
+\subsubsection{Other Instructions}
+Other than regular AArch64 instructions, we introduced several new instructions
+for message passing and memory sharing. In reality, all sort of communications
+between VMs are indirect in Hafnium system(done through FF-A function calls).
+Namely, the hypervsior involves in them. For instance, for memory donation, page
+tables need to be modified while only the hypervisor has enough high Exception
+Level and access to the memory where page tables reside. The instruction
+\texttt{hvc} would be executed with some arguments by the VM to raise the
+Excetion Level and invoke the hypervisor to do the actual work. It more or less
+acts like a system call in OS. However, since our program language for VMs is
+assembly and the implementations of FF-A functions are written in C, we choose
+not to implement FF-A functions in assembly language but introduce new
+instructions with appropriate semantics describing what these functions do.
+There are currently two instructions for memory sharing, among that
+\texttt{memd} is for donating a page, and \texttt{memr} is for retrieving a
+page. We will talk about their semantics later.
 
 
+
+\todo{later:initial state?}
 
 \subsection{Reduction rules}
 \subsubsection{Notations}
@@ -212,7 +247,7 @@ to notate the $\STATE$ of VM $i$ in $\Delta$. Furthermore, we use the field
 access notation to indicate the list of $\PID$ as $\Delta[i].ps$ and $\REGS$ as
 $\Delta[i].rs$ respectively. We overload the square bracket notation to access
 the value of a given key in $\REGS$ and $\MEM$ mappings. Occasionally, we
-consider lists as sets and apply $\in, \cup,$ and $\cap$ operators on them,
+consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them,
 while remaining semantics the same since we barely use the order part of the
 list.
 
@@ -224,30 +259,27 @@ list.
 
 \begin{figure}[h!]
   \begin{mathpar}
-    \inferrule[RepeatExec]
-    {(\EI{v},\, \phi) \rightarrow (\DN{\theta} ,\, \phi')}
-    {(\RP{\EI{v}} ,\, \phi) \rightarrow (\RP{\DN{\theta}} ,\, \phi')}
-    \and \inferrule[RepeatHalt/Fail]
-    {\theta = \mathtt{Halt} \lor \theta = \mathtt{Fail}}
-    {(\RP{\DN{\theta}} ,\, \phi) \rightarrow (\DN{\theta} ,\, \phi)}
-    \and \inferrule[RepeatNext]{}
-    {(\RP{\DN{\NXT{v}}} ,\, \phi) \rightarrow (\RP{\EI{v}} ,\, \phi)}
-    \and \inferrule[ExecInstr]{}
+    \inferrule[RepeatExec] {(\EI{v},\, \phi) \rightarrow (\DN{\theta} ,\,
+      \phi')} {(\RP{\EI{v}} ,\, \phi) \rightarrow (\RP{\DN{\theta}} ,\, \phi')}
+    \and \inferrule[RepeatHalt/Fail] {\theta = \mathtt{Halt} \lor \theta =
+      \mathtt{Fail}} {(\RP{\DN{\theta}} ,\, \phi) \rightarrow (\DN{\theta} ,\,
+      \phi)} \and \inferrule[RepeatNext]{} {(\RP{\DN{\NXT{v}}} ,\, \phi)
+      \rightarrow (\RP{\EI{v}} ,\, \phi)} \and \inferrule[ExecInstr]{}
     {{(\EI{v},\, \phi) \rightarrow \left\{
           \begin{array}{ll}
             \sem{\decode(iw)}(\phi,v)
-               & \mathrm{if} \;\SOME(ia) = \valida(\Delta[v], \mathtt{pc}) \land m[ia]=iw \\
+            & \mathrm{if} \;\SOME(ia) = \valida(\Delta[v], \mathtt{pc}) \land m[ia]=iw \\
             (\DN{\mathtt{Fail}},\, \phi) & \mathrm{otherwise}
           \end{array} \right.}
     }
     \and
     \begin{aligned}
-      \valida(\delta,r) &=\left\{  \begin{array}{ll}
-                                     \SOME(ia) & \text{if} \; ia = \delta.rs[r] \land \pid(ia) \in \delta.ps \\
-                                     \NONE & \text{otherwise}
-                                   \end{array}
-                                   \right. \\
-     \pid(a) &= a >> \PPBITS
+      \valida(\delta,r) &=\left\{ \begin{array}{ll}
+                                    \SOME(ia) & \text{if} \; ia = \delta.rs[r] \land \pid(ia) \in \delta.ps \\
+                                    \NONE & \text{otherwise}
+                                  \end{array}
+                                \right. \\
+      \pid(a) &= a >> \PPBITS
     \end{aligned}
   \end{mathpar}
   \caption{Reduction Steps.}
@@ -280,84 +312,84 @@ The validation is done by $\valida$.
 
 \subsection{Semantic Interpretations of Instructions}
 
-The last piece of the puzzle for operational semantic is the semantic
-interpretation of instructions describing how to proceed on execution, which is shown
-in Figure 4.
+The last piece of the puzzle for operational semantic
+is the semantic interpretation of instructions describing how to proceed on
+execution, which is shown in Figure 4.
+
 \subsubsection{Notations}
 Regarding the modification of the $\STATE$, we use for instance $\Delta'$ to
 implies it is modified, distinguishing from the original $\Delta$. Excepting
-what we state explicitly, the rest components of $\Delta'$ is
-identical to the counterparts in $\Delta$. Informally, one can understand it as we first
-make a copy of the $\Delta$ as $\Delta'$, then do some minor modifications on
+what we state explicitly, the rest components of $\Delta'$ is identical to the
+counterparts in $\Delta$. Informally, one can understand it as we first make a
+copy of the $\Delta$ as $\Delta'$, then do some minor modifications on
 $\Delta'$.
 
 Note that we only use $\mathtt{mathtt}$ font to represent actual registers.
-While the regular \emph{Italic} font is used for any general registers. For instance,
-$r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
+While the regular \emph{Italic} font is used for any general registers. For
+instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
 
 
 \newcommand{\sema}[1]{\sem{ {#1} }(\phi,v)}
 \newcommand{\leftshift}{\!\!\!\!}
-\newcommand{\DNXT}[2]{(\DN{\NXT{ {#1} }}, \updpc( {#2} , {#1} ))\:)}
-\newcommand{\nextt}{\text{next}}
+\newcommand{\DNXT}[2]{(\DN{\NXT{ {#1} }}, \updpc( {#2} , {#1} ))\:)} \newcommand{\nextt}{\text{next}}
 \begin{figure}[h!]
-\begin{adjustwidth}{-1cm}{}
-  \begin{tabular}[t]{L|L L| L}
-    \text{Instr}(i) & \sema{i} & \text{where} & \text{Conditions} \\ \hline \hline
-  \instrm{fail}& \leftshift  (\DN{\mathtt{Fail}}, \phi) & & \\ \hline
-  \instrm{halt}&\leftshift   (\DN{\mathtt{Halt}}, \phi)  & & \\\hline
-  \instrm{br} \; r  &\leftshift  (\DN{\NXT{v}},(\Delta',m,s)\:)  & \Delta'[v].rs[\mathtt{pc}]=\Delta[v].rs[r]  &  \\\hline
-  \instrm{bne} \; r  & \leftshift  (\DN{\NXT{v}}, (\Delta',m,s)\:)  & \leftshift \begin{array}{l} \Delta'[v].rs[\mathtt{pc}]= \\ \;\;\;\;\left\{
-                \!\!\!\!\begin{array}{ll} \Delta[v].rs[r] &\!\!\!\! \text{if} \;   \Delta[v].rs[\mathtt{NZ}].z=1 \\
-                          \Delta[v].rs[\mathtt{pc}]+1 &\!\!\!\! \text{otherwise}
-                        \end{array}\right. \end{array} &  \\\hline
-  \instrm{mov}\; r\; w  &\leftshift \nextt(v)(\Delta', m, s)  & \Delta'[v].rs[r]=w & \\\hline
-  \instrm{ldr}\; r_{1} \; r_{2}  &\leftshift \nextt(v)(\Delta', m, s) & \Delta'[v].rs[r_{1}]=m[a]  &
-                                                           \SOME(a)=\valida(\Delta[v],r_{2}) \\\hline
-  \instrm{str}\; r_{1} \; r_{2}  &\leftshift\nextt(v)(\Delta', m, s)& m'[a]=\Delta[v].rs[r_{2}]&
-                                                            \SOME(a) =\valida(\Delta[v],r_{1}) \\\hline
-  \instrm{add}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]=\\  \Delta[v].rs[r_{2}] + \Delta[v].rs[r_{3}] \end{array} & \\\hline
-  \instrm{sub}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]= \\ \Delta[v].rs[r_{2}] - \Delta[v].rs[r_{3}] \end{array} & \\\hline
-  \instrm{cmp}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s)
-                               &\leftshift \begin{array}{l}
-                                             w = \Delta[v].rs[r_{1}] - \Delta[v].rs[r_{2}]\\
-                                             \Delta'[v].rs[\mathtt{NZ}].z= \\
-                                             \;\;\;\left\{ \!\!\!\! \begin{array}{ll} 1 &\text{if}\; w = 0 \\
-                                                   0 & \text{otherwise} \end{array} \right.\\
-                                             \Delta'[v].rs[\mathtt{NZ}].n= \\
-                                             \;\;\;\left\{\!\!\!\!\begin{array}{ll} 1 &\text{if}\; w < 0 \\
-                                                   0 & \text{otherwise} \end{array} \right.
-                         \end{array}
-                       &\\\hline
-  \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s')
-                               &\!\!\!\!\! \begin{array}{l}
-                                             h= \text{len}(s) \\
-                          \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(pa)\}  \\
-                          \Delta'[v].rs[\mathtt{r_{0}}]=h\\
-                          s'[h]=(\pid(pa), \Delta[v].rs[r_{2}])
-                        \end{array}
-                       &\leftshift\begin{array}{l}
-                                       \SOME(pa)=\valida(\Delta[v],r_{1}) \\
-                                       \land v \neq \Delta[v].rs[r_{2}]
-                        \end{array}\\\hline
-  \instrm{memr}\; r &\leftshift \nextt(v)(\Delta', m, s')
-                        &\!\!\!\!\! \begin{array}{l}
-                                      \Delta'[v].ps=\Delta[v].ps \cup \{p\}\\
-                                      s'= s \setminus \{(p,v)\}
-                                    \end{array}
-                       &\leftshift\begin{array}{l}
-                                       s[\Delta[v].rs[r_{1}]] = (p, v)\\
-                                       \land p \notin \Delta[v].ps
-                        \end{array} \\\hline
-  \end{tabular}
+  \begin{adjustwidth}{-1cm}{}
+    \begin{tabular}[t]{L|L L| L}
+      \text{Instr}(i) & \sema{i} & \text{where} & \text{Conditions} \\ \hline \hline
+      \instrm{fail}& \leftshift  (\DN{\mathtt{Fail}}, \phi) & & \\ \hline
+      \instrm{halt}&\leftshift   (\DN{\mathtt{Halt}}, \phi)  & & \\\hline
+      \instrm{br} \; r  &\leftshift  (\DN{\NXT{v}},(\Delta',m,s)\:)  & \Delta'[v].rs[\mathtt{pc}]=\Delta[v].rs[r]  &  \\\hline
+      \instrm{bne} \; r  & \leftshift  (\DN{\NXT{v}}, (\Delta',m,s)\:)  & \leftshift \begin{array}{l} \Delta'[v].rs[\mathtt{pc}]= \\ \;\;\;\;\left\{
+                                \!\!\!\!\begin{array}{ll} \Delta[v].rs[r] &\!\!\!\! \text{if} \;   \Delta[v].rs[\mathtt{NZ}].z=1 \\
+                                \Delta[v].rs[\mathtt{pc}]+1 &\!\!\!\! \text{otherwise}
+                                        \end{array}\right. \end{array} &  \\\hline
+      \instrm{mov}\; r\; w  &\leftshift \nextt(v)(\Delta', m, s)  & \Delta'[v].rs[r]=w & \\\hline
+      \instrm{ldr}\; r_{1} \; r_{2}  &\leftshift \nextt(v)(\Delta', m, s) & \Delta'[v].rs[r_{1}]=m[a]  &
+                                \SOME(a)=\valida(\Delta[v],r_{2}) \\\hline
+      \instrm{str}\; r_{1} \; r_{2}  &\leftshift\nextt(v)(\Delta', m, s)& m'[a]=\Delta[v].rs[r_{2}]&
+                                \SOME(a) =\valida(\Delta[v],r_{1}) \\\hline
+      \instrm{add}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]=\\  \Delta[v].rs[r_{2}] + \Delta[v].rs[r_{3}] \end{array} & \\\hline
+      \instrm{sub}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]= \\ \Delta[v].rs[r_{2}] - \Delta[v].rs[r_{3}] \end{array} & \\\hline
+      \instrm{cmp}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s)
+                                 &\leftshift \begin{array}{l}
+                                               w = \Delta[v].rs[r_{1}] - \Delta[v].rs[r_{2}]\\
+                                               \Delta'[v].rs[\mathtt{NZ}].z= \\
+                                               \;\;\;\left\{ \!\!\!\! \begin{array}{ll} 1 &\text{if}\; w = 0 \\
+                                                                        0 & \text{otherwise} \end{array} \right.\\
+                                               \Delta'[v].rs[\mathtt{NZ}].n= \\
+                                               \;\;\;\left\{\!\!\!\!\begin{array}{ll} 1 &\text{if}\; w < 0 \\
+                                                                      0 & \text{otherwise} \end{array} \right.
+                                             \end{array}&\\\hline
+      \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s')
+                                 &\!\!\!\!\! \begin{array}{l}
+                                               h= \text{len}(s) \\
+                                               \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(pa)\}  \\
+                                               \Delta'[v].rs[\mathtt{r_{0}}]=h\\
+                                               s'[h]=(\pid(pa), \Delta[v].rs[r_{2}])
+                                             \end{array}
+                      &\leftshift\begin{array}{l}
+                                   \SOME(pa)=\valida(\Delta[v],r_{1}) \\
+                                   \land v \neq \Delta[v].rs[r_{2}]
+                                 \end{array}\\\hline
+      \instrm{memr}\; r &\leftshift \nextt(v)(\Delta', m, s')
+                                 &\!\!\!\!\! \begin{array}{l}
+                                               \Delta'[v].ps=\Delta[v].ps \cup \{p\}\\
+                                               s'= s \setminus \{(p,v)\}
+                                             \end{array}
+                      &\leftshift\begin{array}{l}
+                                   s[\Delta[v].rs[r_{1}]] = (p, v)\\
+                                   \land p \notin \Delta[v].ps
+                                 \end{array} \\\hline
+    \end{tabular}
   \end{adjustwidth}
-\begin{align*}
-  \updpc((\Delta,m,s),v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].rs[\mathtt{pc}] = \Delta[v].rs[\mathtt{pc}]+1\\
-     \nextt(v,\phi) &= \DNXT{v}{\phi}
-\end{align*}
-\caption{Instruction Semantics.}
+  \begin{align*}
+    \updpc((\Delta,m,s),v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].rs[\mathtt{pc}] = \Delta[v].rs[\mathtt{pc}]+1\\
+    \nextt(v,\phi) &= \DNXT{v}{\phi}
+  \end{align*}
+  \caption{Instruction Semantics.}
 \end{figure}
 \todo{later: consider overflow}
+
 \subsubsection{Semantic Interpretations}
 The semantics of regular instructions from AArch64 instruction set are generally
 trivial. The only worth-mentioned point is the conditions of \instr{ldr} and
@@ -368,17 +400,17 @@ As mentioned in Section 1.3, we introduced two newly invented instructions for
 memory sharing between VMs. The $\instr{memd}\; r_{1}\; r_{2}$ is executed by
 the donor(Sender) to donate a page with $\PID$ stored in the first register to
 the recipient(Receiver) whose $\VMID$ is stored in the second register. However,
-\instr{memd} merely does half of the donation. According to the specification of the
-FF-A framework, it mainly does three things: 1. doing tons of
-checking; 2. removing the pid of donated page from sender's page table and 3.
-keeping donation details in the hypervisor(in $\SSS$) and returning a handle(an
-index). If you read the semantic interpretation of \instr{memd}, you will find
-out that it follows the specification, accomplishing the three things totally as
-well, just much simpler(so as our configuration). The second half of the
-donation is completed by the receiver with \instr{memr}. Hypervisor reads the
-information of the donation through the handle passed by the receiver, then it
-does more checking and adds the $\PID$ of the donated page into the page table
-of the receiver. The difference between the implementation and our simplified
+\instr{memd} merely does half of the donation. According to the specification of
+the FF-A framework, it mainly does three things: 1. doing tons of checking; 2.
+removing the pid of donated page from sender's page table and 3. keeping
+donation details in the hypervisor(in $\SSS$) and returning a handle(an index).
+If you read the semantic interpretation of \instr{memd}, you will find out that
+it follows the specification, accomplishing the three things totally as well,
+just much simpler(so as our configuration). The second half of the donation is
+completed by the receiver with \instr{memr}. Hypervisor reads the information of
+the donation through the handle passed by the receiver, then it does more
+checking and adds the $\PID$ of the donated page into the page table of the
+receiver. The difference between the implementation and our simplified
 instruction is that we remove the donation information from $\SSS$ while it is
 kept and has further usage in the implementation.
 
