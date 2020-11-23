@@ -344,14 +344,14 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                 \!\!\!\!\begin{array}{ll} \Delta[v].rs[r] &\!\!\!\! \text{if} \;   \Delta[v].rs[\mathtt{NZ}].z=1 \\
                                 \Delta[v].rs[\mathtt{pc}]+1 &\!\!\!\! \text{otherwise}
                                         \end{array}\right. \end{array} &  \\\hline
-      \instrm{mov}\; r\; w  &\leftshift \nextt(v)(\Delta', m, s)  & \Delta'[v].rs[r]=w & \\\hline
-      \instrm{ldr}\; r_{1} \; r_{2}  &\leftshift \nextt(v)(\Delta', m, s) & \Delta'[v].rs[r_{1}]=m[a]  &
+      \instrm{mov}\; r\; w  &\leftshift \nextt(v, \Delta', m, s)  & \Delta'[v].rs[r]=w & \\\hline
+      \instrm{ldr}\; r_{1} \; r_{2}  &\leftshift \nextt(v, \Delta', m, s) & \Delta'[v].rs[r_{1}]=m[a]  &
                                 \SOME(a)=\valida(\Delta[v],r_{2}) \\\hline
-      \instrm{str}\; r_{1} \; r_{2}  &\leftshift\nextt(v)(\Delta', m, s)& m'[a]=\Delta[v].rs[r_{2}]&
+      \instrm{str}\; r_{1} \; r_{2}  &\leftshift\nextt(v, \Delta', m, s)& m'[a]=\Delta[v].rs[r_{2}]&
                                 \SOME(a) =\valida(\Delta[v],r_{1}) \\\hline
-      \instrm{add}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]=\\  \Delta[v].rs[r_{2}] + \Delta[v].rs[r_{3}] \end{array} & \\\hline
-      \instrm{sub}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v)(\Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]= \\ \Delta[v].rs[r_{2}] - \Delta[v].rs[r_{3}] \end{array} & \\\hline
-      \instrm{cmp}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s)
+      \instrm{add}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v, \Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]=\\  \Delta[v].rs[r_{2}] + \Delta[v].rs[r_{3}] \end{array} & \\\hline
+      \instrm{sub}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v, \Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]= \\ \Delta[v].rs[r_{2}] - \Delta[v].rs[r_{3}] \end{array} & \\\hline
+      \instrm{cmp}\; r_{1}\; r_{2} &\leftshift \nextt(v, \Delta', m, s)
                                  &\leftshift \begin{array}{l}
                                                w = \Delta[v].rs[r_{1}] - \Delta[v].rs[r_{2}]\\
                                                \Delta'[v].rs[\mathtt{NZ}].z= \\
@@ -361,7 +361,7 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                                \;\;\;\left\{\!\!\!\!\begin{array}{ll} 1 &\text{if}\; w < 0 \\
                                                                       0 & \text{otherwise} \end{array} \right.
                                              \end{array}&\\\hline
-      \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(v)(\Delta', m, s')
+      \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(v, \Delta', m, s')
                                  &\!\!\!\!\! \begin{array}{l}
                                                h= \text{len}(s) \\
                                                \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(pa)\}  \\
@@ -372,7 +372,7 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                    \SOME(pa)=\valida(\Delta[v],r_{1}) \\
                                    \land v \neq \Delta[v].rs[r_{2}]
                                  \end{array}\\\hline
-      \instrm{memr}\; r &\leftshift \nextt(v)(\Delta', m, s')
+      \instrm{memr}\; r &\leftshift \nextt(v, \Delta', m, s')
                                  &\!\!\!\!\! \begin{array}{l}
                                                \Delta'[v].ps=\Delta[v].ps \cup \{p\}\\
                                                s'= s \setminus \{(p,v)\}
