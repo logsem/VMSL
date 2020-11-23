@@ -73,7 +73,8 @@
 \newcommand{\SOME}{\mathtt{Some}}
 \newcommand{\NONE}{\mathtt{None}}
 
-\title{Operational Semantics and Proof Rules for VMs in Hafnium} \date{\today}
+\title{Operational Semantics % and Proof Rules
+  for VMs in Hafnium} \date{\today}
 \author{Zongyuan Liu}
 
 \begin{document}
@@ -251,7 +252,7 @@ page. We will talk about their semantics later.
 \subsubsection{Notations}
 Except claiming explicitly, triple $(\Delta, m, s)$ represents an execution
 configuration $\phi$, where $\Delta$ is a list of $\STATE$. $\Delta[i]$ is used
-to notate the $\STATE$ of VM $i$ in $\Delta$. Furthermore, we use the field
+to notate the $\STATE$ of VM $i$ in $\Delta$. Furthermore, we utilize the field
 access notation to indicate the list of $\PID$ as $\Delta[i].ps$ and $\REGS$ as
 $\Delta[i].rs$ respectively. We overload the square bracket notation to access
 the value of a given key in $\REGS$ and $\MEM$ mappings. Occasionally, we
@@ -414,7 +415,7 @@ receiver. The difference between the implementation and our simplified
 instruction is that we remove the donation information from $\SSS$ while it is
 kept and has further usages in the implementation.
 
-\section{Proof Rules}
+%\section{Proof Rules}
 
 
 
