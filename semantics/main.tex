@@ -90,7 +90,7 @@ machines(VMs) running on it. Hafnium provides memory isolation by managing the
 stage-2 page tables of VMs. It controls the stage-2 translation by manipulating
 entries in stage-2 page tables only according to the FF-A calls issued by VMs.
 The hardware does the actual address translation by looking up page table
-entries, which we assume acting correctly as described. Therefore Hafnium can
+entries, which we assume working correctly. Therefore Hafnium can
 guarantee that one VM can never access to the memory owned by another VM without
 that VM's consent.
 
@@ -98,7 +98,7 @@ For the sake of simplicity, stage-2 page tables managed by the Hafnium are
 simply one-to-one mappings, i.e. the IPAs are always equal to PAs. Besides, it
 is also the case for the stage-1 page table of the Hafnium itself.
 
-FF-A framework are designed as a protocol for components running on the ARM-A
+FF-A framework is designed as a protocol for components running on the ARM-A
 processor, the main purpose of which is to allow components in the normal world
 to communicate with components in the secure world. While in Hafnium, VMs and
 the hypervisor are all counted as components residing in the normal world. The
@@ -135,10 +135,10 @@ Figure 1 shows the definition of execution configuration, which includes three
 components: $\STATE$s of all VMs, a $\MEM$ shared with all VMs, and a $\SSS$
 storing necessary information for memory sharing FF-A requests.
 
-In general, the state of a machine represents values of all
+Normally, the state of a machine includes values of all
 registers of that machine plus values of memory at all locations. In our case,
 we have multiple machines. A naive approach to write down the state of all VMs
-is to record their states respectively. We only apply it to registers and
+is to record their states seperately. However, we only apply it to registers and
 combine their memory together as a global memory. The global here means one VM
 could be able to access memory of another VM(in the case of memory sharing).
 
@@ -147,10 +147,10 @@ only registers, but also some $\PID$s. The list of $\PID$ notes $\PID$s of all
 pages that one VM owns, which is in principle determined by the stage-2 page
 table of that VM.
 
-Page tables essentially are mappings. However, we instead use a mathematical
-set($list$ in Figure 1) of $\PID$ to describe the abstract page table of a VM. We
+Despite page tables essentially are mappings, we instead use a mathematical
+set($list$ in Figure 1) of $\PID$s to describe the abstract page table of a VM. We
 argue that it is sufficient to record the necessary information on the actual page
-table. Because in Hafnium, the $\PID$ in IP address space is always equal to the
+table. Because in Hafnium, a $\PID$ in IP address space is always equal to the
 corresponding one in the physical address space. Namely, we always have mappings
 like $x \mapsto x$ in stage-2 page tables. Another benefit of this mapping scheme is
 that we can omit stage-2 translation entirely.
@@ -162,7 +162,7 @@ implementation of Hafnium. The reason that they are embraced by an $option$ is
 that the two pages are uninitialized. There is a FF-A call through which a VM
 can assign two pages it owns as its RX and TX pages. Afterwards, the RX/TX pages
 are not strictly possessed by the VM anymore. In addition, VM is no longer able to
-reassign other pages as RX/TX pages, i.e. RX/TX pages of a VM can only be
+reassign other pages as new RX/TX pages, i.e. RX/TX pages of a VM can only be
 configured once.
 
 It is worth to note that the $\mathtt{NZ}$ is a system register, which means one
@@ -181,7 +181,7 @@ much more complicated data structure to record those information(and more),
 which is maintained by the Hafnium itself. Since we don't have the hypervisor in
 our model, we added $\SSS$ into the execution configuration.
 
-Some constants are introduced to specify basic configurations of the model. In
+Some constants are introduced as well to specify basic configurations of the model. In
 the context of AArch64, $\PAMAX$ should be $2^{\PABITS} - 1$ where
 $\PABITS = 48$, $\PWMAX = 2^{\PWBITS} -1$ where $\PWBITS = 64$, and
 $\PPIDMAX = 2^{\PPIDBITS}-1$ where $\PPIDBITS = \PABITS - \PPBITS = 36$.
@@ -225,15 +225,16 @@ are sufficient to construct interesting programs. Besides, it would be
 effortless to include new instructions. All we need to do is adding the
 instruction and giving a semantic interpretation. One minor thing to mention is
 that we assume addresses in instructions are IPAs, i.e. they have undergone
-stage 1 translation.
+stage-1 translation. Even though it makes our model slightly unrealistic, we argue
+that it is totally acceptble since our main target is stage-2 memory access.
 
 \subsubsection{Other Instructions}
 Other than regular AArch64 instructions, we introduced several new instructions
 for message passing and memory sharing. In reality, all sorts of communications
 between VMs are indirect in Hafnium system(done through FF-A function calls).
-Namely, the hypervisor involves in them. For instance, for memory donation, page
-tables need to be modified while only the hypervisor has enough high Exception
-Level and access to the memory where page tables reside. The instruction
+Namely, the hypervisor involves in. For instance, for memory donation, page
+tables need to be modified while only the hypervisor has high enough Exception
+Level and access to the memory where page tables are stored. The instruction
 \texttt{hvc} would be executed with some arguments by the VM to raise the
 Exception Level and invoke the hypervisor to do the actual work. It more or less
 acts like a system call in OS. However, since our program language for VMs is
@@ -253,13 +254,12 @@ page. We will talk about their semantics later.
 Except claiming explicitly, triple $(\Delta, m, s)$ represents an execution
 configuration $\phi$, where $\Delta$ is a list of $\STATE$. $\Delta[i]$ is used
 to notate the $\STATE$ of VM $i$ in $\Delta$. Furthermore, we utilize the field
-access notation to indicate the list of $\PID$ as $\Delta[i].ps$ and $\REGS$ as
+access notation to express the list of $\PID$ as $\Delta[i].ps$ and $\REGS$ as
 $\Delta[i].rs$ respectively. We overload the square bracket notation to access
-the value of a given key in $\REGS$ and $\MEM$ mappings. Occasionally, we
+the value corresponding to a given key in $\REGS$ and $\MEM$ mappings. Occasionally, we
 consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.
-%,while remaining semantics the same since we barely use the order part of the list.
 
-% In addition, mappings are treated as functions so that they have concepts of
+% In addition, mappings are treated as functions so that they have
 % domain and codomain.
 
 \subsubsection{Rules}
@@ -294,21 +294,21 @@ consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.
   % \vspace{-0.5cm}
 \end{figure}
 
-The \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
+In Figure 3, the \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
 \refr{RepeatHalt/Fail} rules are applied to proceed with the execution.
 
 In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $iw$
-obtained from $\MEM$. $\decode$ function decodes it to the corresponding
+obtained from $\MEM$. The $\decode$ function decodes it to the corresponding
 $\INSTR$ which has a predefined semantic interpretation. Applying the
 interpretation to execution configuration $\phi$ and $\VMID$ v will give us a
 new configuration after executing the instruction on VM $v$. If $iw$ is an
-invalid encoding, we decode it to $\mathtt{fail}$.
+invalid encoding, we decode it as $\mathtt{fail}$.
 
 To obtain the encoding of the next executing instruction $iw$, we first get the
 value of the \texttt{pc} register of VM $v$ as $ia$, which is the address of the
 $iw$ in the global memory. Before decoding $iw$, we have to ensure that the
 memory access is valid, i.e. $ia$ is in the range of a page owned by $v$.
-The validation is done by $\valida$.
+The validation is done by $\valida$ function.
 
 
 \subsection{Semantic Interpretations of Instructions}
@@ -402,16 +402,16 @@ memory sharing between VMs. The $\instr{memd}\; r_{1}\; r_{2}$ is executed by
 the donor(Sender) to donate a page with $\PID$ stored in the first register to
 the recipient(Receiver) whose $\VMID$ is stored in the second register. However,
 \instr{memd} merely does half of the donation. According to the specification of
-the FF-A framework, it mainly does three things: 1. doing tons of checking; 2.
+the FF-A framework, it mainly does three things: 1. doing tons of checkings; 2.
 removing the $\PID$ of the donated page from sender's page table and 3. keeping
 donation details in the hypervisor(in $\SSS$) and returning a handle(an index).
 If one reads the semantic interpretation of \instr{memd}, he will find out that
-it follows the specification, accomplishing the three things totally as well,
-just much simpler(so as our configuration). The second half of the donation is
+it follows the specification, accomplishing the three things as well,
+just in a much simpler way(since our execution configuration is simplified). The second half of the donation is
 completed by the receiver with \instr{memr}. Hypervisor reads the information of
 the donation through the handle passed by the receiver, then it does more
-checking and adds the $\PID$ of the donated page into the page table of the
-receiver. The difference between the implementation and our simplified
+checkings and adds the $\PID$ of the donated page into the page table of the
+receiver. The difference between the implementation and our
 instruction is that we remove the donation information from $\SSS$ while it is
 kept and has further usages in the implementation.
 
