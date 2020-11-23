@@ -101,11 +101,11 @@ FF-A framework are designed as a protocol for components running on the ARM-A
 processor, the main purpose of which is to allow components in the normal world
 to communicate with components in the secure world. While in Hafnium, VMs and
 the hypervisor are all counted as components residing in the normal world. The
-FF-A framework is then used as an approach for VMs to do message passing and
+FF-A framework serves as an approach for VMs to do message passing and
 memory sharing with each other. We will see some examples of how exactly the
-FF-A framework is used in Hafnium later.
+FF-A framework is utilized in Hafnium later.
 
-One can read more details on the Hafnium architecture at
+One can read more details on the Hafnium architecture
 \href{https://review.trustedfirmware.org/plugins/gitiles/hafnium/hafnium/+/HEAD/docs/Architecture.md}{here}.
 
 \subsection{Execution Configuration}
@@ -131,13 +131,13 @@ machines plus some additional information for the FF-A framework.
   \caption{Execution Configuration: VM States, Global Memory and Share States.}
 \end{figure}
 Figure 1 shows the definition of execution configuration, which includes three
-components: $\STATE$s of all VMs, a $\MEM$ shared to all VMs, and a $\SSS$
+components: $\STATE$s of all VMs, a $\MEM$ shared with all VMs, and a $\SSS$
 storing necessary information for memory sharing FF-A requests.
 
-In general, when saying the state of a machine, it represents values of all
+In general, the state of a machine represents values of all
 registers of that machine plus values of memory at all locations. In our case,
 we have multiple machines. A naive approach to write down the state of all VMs
-is to record their states respectively. While we only do it to registers and
+is to record their states respectively. We only apply it to registers and
 combine their memory together as a global memory. The global here means one VM
 could be able to access memory of another VM(in the case of memory sharing).
 
@@ -147,33 +147,33 @@ pages that one VM owns, which is in principle determined by the stage-2 page
 table of that VM.
 
 Page tables essentially are mappings. However, we instead use a mathematical
-set(list in Figure 1) of $\PID$ to describe the abstract page table of a VM. We
-argue that it is sufficient to record necessary information of the actual page
+set($list$ in Figure 1) of $\PID$ to describe the abstract page table of a VM. We
+argue that it is sufficient to record the necessary information on the actual page
 table. Because in Hafnium, the $\PID$ in IP address space is always equal to the
-corresponding one in physical address space. Namely, we always have mappings
-like $x \mapsto x$ in page tables. Another benefit of this mapping scheme is
+corresponding one in the physical address space. Namely, we always have mappings
+like $x \mapsto x$ in stage-2 page tables. Another benefit of this mapping scheme is
 that we can omit stage-2 translation entirely.
 
 One may notice that there are two special $\PID$s that are not included in the
 list. They are considered as RX/TX buffers for message passing. The size of
-those two buffers are exactly one page, which is consistent to the
+those two buffers is exactly one page, which is consistent to the
 implementation of Hafnium. The reason that they are embraced by an $option$ is
 that the two pages are uninitialized. There is a FF-A call through which a VM
 can assign two pages it owns as its RX and TX pages. Afterwards, the RX/TX pages
-are not strictly possessed by the VM anymore. In addition, VM is not able to
+are not strictly possessed by the VM anymore. In addition, VM is no longer able to
 reassign other pages as RX/TX pages, i.e. RX/TX pages of a VM can only be
 configured once.
 
 It is worth to note that the $\mathtt{NZ}$ is a system register, which means one
-is only able to access to this register if it is in a high enough Exception
+is only able to access to this register if it is at a high enough Exception
 Level. This register is crucial to comparing and jumping instructions. It has
 similar functionality as the
 \href{https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/nzcv}
-{$\mathtt{NZCV}$ register} in real Arm-A processor.
+{$\mathtt{NZCV}$ register} in real Arm-A processors.
 
-To explain why we defined the $\SSS$, we need to elaborate how memory sharing is
-specified in the FF-A framework, which we won't do until next section when we
-show the instructions. For now, it is enough for readers to know that $\PID$ is
+To explain why we defined the $\SSS$, we need to elaborate on how memory sharing is
+specified in the FF-A framework, which we won't do until Section 1.5 when we
+show semantics of instructions. For now, it is enough for readers to know that $\PID$ is
 the page to share, $\VMID$ the receiver of the sharing, and both are essential
 to perform memory sharing. In Hafnium implementation, there is a similar but
 much more complicated data structure to record those information(and more),
@@ -203,18 +203,18 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
 \end{figure}
 \todo{later: add message passing instructions}
 
-The syntax and instructions included in our model is showed in Figure 2. The
+The syntax and instructions included in our model are shown in Figure 2. The
 syntax of the expression is uncomplicated. Generally speaking, $\EI{v}$ is for
 executing a single instruction in VM $v$ and $\DN{\theta}$ implies the result of
 the execution. The result could be successful or failed. In case of success, we
-either proceed on next instruction in VM $v$ with $\NXT{v}$ or halt.
+either proceed on the next instruction in VM $v$ with $\NXT{v}$ or halt.
 
-There are two major reasons on why we didn't use instructions as expressions.
-On one hand,
-instructions are related to the execution configuration, their encoding are
-stored in the memory. However, we want something independent to the
+There are two major reasons why we didn't use instructions as expressions. On
+one hand,
+instructions are related to the execution configuration, their encodings are
+stored in the memory. However, we want something independent of the
 configuration as expressions so that we can write down the rules in a more
-elegant way. On the other hand, the $\mathtt{Repeat}$ acts like a context.
+elegant way. On the other hand, $\mathtt{Repeat}$ acts like a context.
 Therefore it is more straightforward and natural to come up with the bind rule
 in the program logic, comparing to a sequence of instructions.
 
@@ -223,12 +223,12 @@ We included a subset of AArch64 instructions and believe that these instructions
 are sufficient to construct interesting programs. Besides, it would be
 effortless to include new instructions. All we need to do is adding the
 instruction and giving a semantic interpretation. One minor thing to mention is
-that we assume addresses in instructions are IPAs, i.e. they has undergone
+that we assume addresses in instructions are IPAs, i.e. they have undergone
 stage 1 translation.
 
 \subsubsection{Other Instructions}
 Other than regular AArch64 instructions, we introduced several new instructions
-for message passing and memory sharing. In reality, all sort of communications
+for message passing and memory sharing. In reality, all sorts of communications
 between VMs are indirect in Hafnium system(done through FF-A function calls).
 Namely, the hypervisor involves in them. For instance, for memory donation, page
 tables need to be modified while only the hypervisor has enough high Exception
@@ -294,7 +294,7 @@ consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.
 \end{figure}
 
 The \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
-\refr{RepeatHalt/Fail} rules are applied to proceed the execution.
+\refr{RepeatHalt/Fail} rules are applied to proceed with the execution.
 
 In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $iw$
 obtained from $\MEM$. $\decode$ function decodes it to the corresponding
@@ -306,7 +306,7 @@ invalid encoding, we decode it to $\mathtt{fail}$.
 To obtain the encoding of the next executing instruction $iw$, we first get the
 value of the \texttt{pc} register of VM $v$ as $ia$, which is the address of the
 $iw$ in the global memory. Before decoding $iw$, we have to ensure that the
-memory access is valid, i.e. $ia$ is in the range of a page that owned by $v$.
+memory access is valid, i.e. $ia$ is in the range of a page owned by $v$.
 The validation is done by $\valida$.
 
 
@@ -319,7 +319,7 @@ execution, which is shown in Figure 4.
 \subsubsection{Notations}
 Regarding the modification of the $\STATE$, we use for instance $\Delta'$ to
 implies it is modified, distinguishing from the original $\Delta$. Excepting
-what we state explicitly, the rest components of $\Delta'$ is identical to the
+what we state explicitly, the rest components of $\Delta'$ are identical to the
 counterparts in $\Delta$. Informally, one can understand it as we first make a
 copy of the $\Delta$ as $\Delta'$, then do some minor modifications on
 $\Delta'$.
@@ -391,7 +391,7 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
 \todo{later: consider overflow}
 
 \subsubsection{Semantic Interpretations}
-The semantics of regular instructions from AArch64 instruction set are generally
+The semantics interpretations of instructions from AArch64 instruction set are generally
 trivial. The only worth-mentioned point is the conditions of \instr{ldr} and
 \instr{str}. The validity of the target memory accessing address has to be
 checked to guarantee the memory isolation property.
@@ -402,9 +402,9 @@ the donor(Sender) to donate a page with $\PID$ stored in the first register to
 the recipient(Receiver) whose $\VMID$ is stored in the second register. However,
 \instr{memd} merely does half of the donation. According to the specification of
 the FF-A framework, it mainly does three things: 1. doing tons of checking; 2.
-removing the pid of donated page from sender's page table and 3. keeping
+removing the $\PID$ of the donated page from sender's page table and 3. keeping
 donation details in the hypervisor(in $\SSS$) and returning a handle(an index).
-If one read the semantic interpretation of \instr{memd}, he will find out that
+If one reads the semantic interpretation of \instr{memd}, he will find out that
 it follows the specification, accomplishing the three things totally as well,
 just much simpler(so as our configuration). The second half of the donation is
 completed by the receiver with \instr{memr}. Hypervisor reads the information of
@@ -415,5 +415,9 @@ instruction is that we remove the donation information from $\SSS$ while it is
 kept and has further usages in the implementation.
 
 \section{Proof Rules}
+
+
+
+
 
 \end{document}
