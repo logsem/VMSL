@@ -147,13 +147,11 @@ only registers, but also some $\PID$s. The list of $\PID$ notes $\PID$s of all
 pages that one VM owns, which is in principle determined by the stage-2 page
 table of that VM.
 
-Despite page tables essentially are mappings, we instead use a mathematical
-set($list$ in Figure 1) of $\PID$s to describe the abstract page table of a VM. We
-argue that it is sufficient to record the necessary information on the actual page
-table. Because in Hafnium, a $\PID$ in IP address space is always equal to the
-corresponding one in the physical address space. Namely, we always have mappings
-like $x \mapsto x$ in stage-2 page tables. Another benefit of this mapping scheme is
-that we can omit stage-2 translation entirely.
+Despite page tables essentially are mappings, we instead use a mathematical set($list$ in Figure 1) of $\PID$s to describe the abstract page table of a VM.
+\todo{Lars: I don't understand this para} We argue that it is sufficient to record the necessary information on the actual page table.
+Because in Hafnium, a $\PID$ in IP address space is always equal to the corresponding one in the physical address space.
+Namely, we always have mappings like $x \mapsto x$ in stage-2 page tables.
+Another benefit of this mapping scheme is that we can omit stage-2 translation entirely.
 
 One may notice that there are two special $\PID$s that are not included in the
 list. They are considered as RX/TX buffers for message passing. The size of
@@ -251,13 +249,14 @@ page. We will talk about their semantics later.
 
 \subsection{Reduction rules}
 \subsubsection{Notations}
-Except claiming explicitly, triple $(\Delta, m, s)$ represents an execution
+Except claiming explicitly\todo{Lars: ??}, triple $(\Delta, m, s)$ represents an execution
 configuration $\phi$, where $\Delta$ is a list of $\STATE$. $\Delta[i]$ is used
 to notate the $\STATE$ of VM $i$ in $\Delta$. Furthermore, we utilize the field
 access notation to express the list of $\PID$ as $\Delta[i].ps$ and $\REGS$ as
 $\Delta[i].rs$ respectively. We overload the square bracket notation to access
 the value corresponding to a given key in $\REGS$ and $\MEM$ mappings. Occasionally, we
-consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.
+consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.\todo{Lars:
+  later we should check if/when we rely on the lists being ordered}
 
 % In addition, mappings are treated as functions so that they have
 % domain and codomain.
@@ -299,10 +298,11 @@ In Figure 3, the \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
 
 In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $iw$
 obtained from $\MEM$. The $\decode$ function decodes it to the corresponding
-$\INSTR$ which has a predefined semantic interpretation. Applying the
-interpretation to execution configuration $\phi$ and $\VMID$ v will give us a
+$\INSTR$ which has a predefined semantic interpretation.\todo{Lars: in that rule, is $m$ the global memory ? It should be a parameter somehow to the rule, I guess}
+Applying the interpretation to execution configuration $\phi$ and $\VMID$ v will give us a
 new configuration after executing the instruction on VM $v$. If $iw$ is an
 invalid encoding, we decode it as $\mathtt{fail}$.
+\todo{Lars: a detail: using $iw$ and $ia$ as variables is a little confusing}
 
 To obtain the encoding of the next executing instruction $iw$, we first get the
 value of the \texttt{pc} register of VM $v$ as $ia$, which is the address of the
