@@ -143,7 +143,10 @@ combine their memory together as a global memory. The global here means one VM
 could be able to access memory of another VM(in the case of memory sharing).
 
 The definition of $\MEM$ is straightforward. While the $\STATE$ consists of not
-only registers, but also some $\PID$s. The list of $\PID$ notes $\PID$s of all
+only registers, but also some $\PID$s.
+\todo{Lars: shouldn't there be some condition expressing that the memory mapped
+  by pages belonging to different VMs do not overlap ?}
+The list of $\PID$ notes $\PID$s of all
 pages that one VM owns, which is in principle determined by the stage-2 page
 table of that VM.
 
