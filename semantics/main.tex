@@ -1,5 +1,5 @@
 \documentclass[a4paper]{article}
-\usepackage[a4paper,showframe=false]{geometry}
+\usepackage[a4paper,tmargin=0.75in,bmargin=1in,showframe=false]{geometry}
 \usepackage{multicol}
 \usepackage{amsmath}
 \usepackage{mathpartir}
@@ -35,6 +35,8 @@
 \newcommand*{\MODE}{\text{ExecMode}}
 \newcommand*{\DONE}{\text{DoneState}}
 \newcommand*{\INSTR}{\text{Instruction}}
+\newcommand*{\MB}{\text{MailBox}}
+\newcommand*{\TIMER}{\text{Timer}}
 
 % parameters
 \newcommand*{\PABITS}{\text{ADDR\_BITS}}
@@ -47,7 +49,13 @@
 \newcommand*{\PWMAX}{\text{WORD\_MAX}}
 \newcommand*{\PVMMAX}{\text{VM\_MAX}}
 
-
+% FFA functions
+\newcommand*{\INT}{\text{INTERRUPT}}
+\newcommand*{\MSGS}{\text{MSG\_SEND}}
+\newcommand*{\MSGW}{\text{MSG\_WAIT}}
+\newcommand*{\YIELD}{\text{YIELD}}
+\newcommand*{\BUSY}{\text{BUSY}}
+\newcommand*{\SUCC}{\text{SUCCESS}}
 % instructions
 \newcommand*{\instrm}[1]{\mathtt{#1}}
 \newcommand*{\instr}[1]{\texttt{#1}}
@@ -121,7 +129,9 @@ machines plus some additional information for the FF-A framework.
 \begin{figure}
   \begin{align*}
     \phi &\in \CONF &\defined &list(\STATE) \times \MEM \times \SSS \\
-    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times option(\PID \times \PID) \\
+    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \TIMER \times option(\PID) \times \MB \\
+    \pi & \in \MB &\defined &option(\PID \times \text{Bool} \times \WORD \times \VMID) \\
+    t & \in \TIMER &\defined & \WORD \\
     p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
     n & \in \REGNAMES &\derived  &\mathtt{pc} | \mathtt{NZ} | \mathtt {r_{0}} | \mathtt{r_{1}} | \dots \\
@@ -133,6 +143,7 @@ machines plus some additional information for the FF-A framework.
   \end{align*}
   \caption{Execution Configuration: VM States, Global Memory and Share States.}
 \end{figure}
+\todo{write list($\PID$) and option($\PID$) seperately}
 Figure 1 shows the definition of execution configuration, which includes three
 components: $\STATE$s of all VMs, a $\MEM$ shared with all VMs, and a $\SSS$
 storing necessary information for memory sharing FF-A requests.
@@ -140,7 +151,7 @@ storing necessary information for memory sharing FF-A requests.
 Normally, the state of a machine includes values of all
 registers of that machine plus values of memory at all locations. In our case,
 we have multiple machines. A naive approach to write down the state of all VMs
-is to record their states seperately. However, we only apply it to registers and
+is to record their states separately. However, we only apply it to registers and
 combine their memory together as a global memory. The global here means one VM
 could be able to access memory of another VM(in the case of memory sharing).
 
@@ -160,8 +171,9 @@ whether any memory sharing is happening by looking at the $\SSS$, which is respo
 for tracking all memory sharing operations.
 
 Despite page tables essentially are maps, we instead use a mathematical list of
-$\PID$s as the abstract page table of a VM. % \todo{Lars: I don't understand
-this para} We argue it is sufficient to record all the necessary translation
+$\PID$s as the abstract page table of a VM.
+% \todo{Lars: I don't understand this para}
+We argue it is sufficient to record all the necessary translation
 information in the actual page table. Because in Hafnium, a $\PID$ in IP address
 space is always equal to the corresponding one in the physical address space.
 \todo{add a drawing}
@@ -176,7 +188,7 @@ that the two pages are uninitialized. There is a FF-A call through which a VM
 can assign two pages it owns as its RX and TX pages. Afterwards, the RX/TX pages
 are not strictly possessed by the VM anymore. In addition, VM is no longer able to
 reassign other pages as new RX/TX pages, i.e. RX/TX pages of a VM can only be
-configured once.
+configured once. \todo{comment on new mailbox}
 
 It is worth to note that the $\mathtt{NZ}$ is a system register, which means one
 is only able to access to this register if it is at a high enough Exception
@@ -239,7 +251,7 @@ effortless to include new instructions. All we need to do is adding the
 instruction and giving a semantic interpretation. One minor thing to mention is
 that we assume addresses in instructions are IPAs, i.e. they have undergone
 stage-1 translation. Even though it makes our model slightly unrealistic, we argue
-that it is totally acceptble since our main target is stage-2 memory access.
+that it is totally acceptable since our main target is stage-2 memory access.
 
 \subsubsection{Other Instructions}
 Other than regular AArch64 instructions, we introduced several new instructions
@@ -293,15 +305,15 @@ and removing elements from a list respectively.
       \rightarrow (\RP{\EI{v}} ,\, \phi)} \and \inferrule[ExecInstr]{}
     {{(\EI{v},\, \phi) \rightarrow \left\{
           \begin{array}{ll}
-            \sem{\decode(i_w)}(\phi.\Delta, \phi.m, \phi.s ,v)
-            & \mathrm{if} \;\SOME(i_a) = \valida(\phi.\Delta[v], \mathtt{pc}) \land m[i_a]=i_w \\
+            \sem{\decode(w_i)}(\phi.\Delta, \phi.m, \phi.s ,v)
+            & \mathrm{if} \;\SOME(a_i) = \valida(\phi.\Delta[v], \mathtt{pc}) \land m[a_i]=w_i \\
             (\DN{\mathtt{Fail}},\, \phi) & \mathrm{otherwise}
           \end{array} \right.}
     }
     \and
     \begin{aligned}
       \valida(\delta,r) &=\left\{ \begin{array}{ll}
-                                    \SOME(i_a) & \text{if} \; i_a = \delta.rs[r] \land \pid(i_a) \in \delta.ps \\
+                                    \SOME(a_i) & \text{if} \; a_i = \delta.rs[r] \land \pid(a_i) \in \delta.ps \\
                                     \NONE & \text{otherwise}
                                   \end{array}
                                 \right. \\
@@ -315,19 +327,19 @@ and removing elements from a list respectively.
 In Figure 3, the \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
 \refr{RepeatHalt/Fail} rules are applied to proceed with the execution.
 
-In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $i_{w}$(for instruction word)
+In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $w_{i}$(for instruction word)
 obtained from $\MEM$. The $\decode$ function decodes it to the corresponding
 $\INSTR$ which has a predefined semantic interpretation.
 %\todo{Lars: in that rule, is $m$ the global memory ? It should be a parameter somehow to the rule, I guess}
 Applying the interpretation to execution configuration $\phi$ and $\VMID$ v will give us a
-new configuration after executing the instruction on VM $v$. If $i_{w}$ is an
+new configuration after executing the instruction on VM $v$. If $w_{i}$ is an
 invalid encoding, we decode it as $\mathtt{fail}$.
 %\todo{Lars: a detail: using $iw$ and $ia$ as variables is a little confusing}
 
-To obtain the encoding of the next executing instruction $i_{w}$, we first get the
-value of the \texttt{pc} register of VM $v$ as $i_{a}$, which is the address of the
-$i_{w}$ in the global memory. Before decoding $i_{w}$, we have to ensure that the
-memory access is valid, i.e., $i_{a}$ is in the range of a page owned by $v$.
+To obtain the encoding of the next executing instruction $w_{i}$, we first get the
+value of the \texttt{pc} register of VM $v$ as $w_{i}$, which is the address of the
+$w_{i}$ in the global memory. Before decoding $w_{i}$, we have to ensure that the
+memory access is valid, i.e., $a_{i}$ is in the range of a page owned by $v$.
 The validation is done by $\valida$ function.
 
 
@@ -336,6 +348,11 @@ The validation is done by $\valida$ function.
 The last piece of the puzzle of operational semantic
 is the semantic interpretations of instructions describing how to proceed on
 execution, which is shown in Figure 4.
+
+The semantics interpretations of AArch64 instructions are generally
+trivial. The only worth-mentioned point is the conditions of \instr{ldr} and
+\instr{str}. The validity of the target memory accessing address has to be
+checked to guarantee the memory isolation property.
 
 \subsubsection{Notations}
 Regarding the modification of the $\STATE$, we use for instance $\Delta'$ to
@@ -353,26 +370,27 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
 \newcommand{\sema}[1]{\sem{ {#1} }(\Delta,m,s,v)}
 \newcommand{\llen}[1]{\text{len}( {#1})}
 \newcommand{\leftshift}{\!\!\!\!}
-\newcommand{\DNXT}[2]{(\DN{\NXT{ {#1} }}, \updpc( {#2} , {#1} ))\:)} \newcommand{\nextt}{\text{next}}
+\newcommand{\DNXT}[2]{(\DN{\NXT{ {#1} }}, {#2})}
+\newcommand{\nextt}{\text{tick}}
 \begin{figure}[h!]
   \begin{adjustwidth}{-1cm}{}
     \begin{tabular}[t]{L|L L| L}
       \text{Instr}(i) & \sema{i} & \text{where} & \text{Conditions} \\ \hline \hline
       \instrm{fail}& \leftshift  (\DN{\mathtt{Fail}}, (\Delta,m,s)) & & \\ \hline
       \instrm{halt}&\leftshift   (\DN{\mathtt{Halt}}, (\Delta,m,s))  & & \\\hline
-      \instrm{br} \; r  &\leftshift  (\DN{\NXT{v}},(\Delta',m,s)\:)  & \Delta'[v].rs[\mathtt{pc}]=\Delta[v].rs[r]  &  \\\hline
-      \instrm{bne} \; r  & \leftshift  (\DN{\NXT{v}}, (\Delta',m,s)\:)  & \leftshift \begin{array}{l} \Delta'[v].rs[\mathtt{pc}]= \\ \;\;\;\;\left\{
+      \instrm{br} \; r  &\leftshift \nextt(\Delta',m,s,\text{id},v,v)  & \Delta'[v].rs[\mathtt{pc}]=\Delta[v].rs[r]  &  \\\hline
+      \instrm{bne} \; r  & \leftshift \nextt(\Delta',m,s,\text{id},v,v) & \leftshift \begin{array}{l} \Delta'[v].rs[\mathtt{pc}]= \\ \;\;\;\;\left\{
                                 \!\!\!\!\begin{array}{ll} \Delta[v].rs[r] &\!\!\!\! \text{if} \;   \Delta[v].rs[\mathtt{NZ}].z=1 \\
                                 \Delta[v].rs[\mathtt{pc}]+1 &\!\!\!\! \text{otherwise}
                                         \end{array}\right. \end{array} &  \\\hline
-      \instrm{mov}\; r\; w  &\leftshift \nextt(v, \Delta', m, s)  & \Delta'[v].rs[r]=w & \\\hline
-      \instrm{ldr}\; r_{1} \; r_{2}  &\leftshift \nextt(v, \Delta', m, s) & \Delta'[v].rs[r_{1}]=m[a]  &
+      \instrm{mov}\; r\; w  &\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].rs[r]=w & \\\hline
+      \instrm{ldr}\; r_{1} \; r_{2}  &\leftshift \nextt(\Delta', m, s,\updpc,v,v) & \Delta'[v].rs[r_{1}]=m[a]  &
                                 \SOME(a)=\valida(\Delta[v],r_{2}) \\\hline
-      \instrm{str}\; r_{1} \; r_{2}  &\leftshift\nextt(v, \Delta', m, s)& m'[a]=\Delta[v].rs[r_{2}]&
+      \instrm{str}\; r_{1} \; r_{2}  &\leftshift \nextt(\Delta', m, s,\updpc,v,v) & m'[a]=\Delta[v].rs[r_{2}]&
                                 \SOME(a) =\valida(\Delta[v],r_{1}) \\\hline
-      \instrm{add}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v, \Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]=\\  \Delta[v].rs[r_{2}] + \Delta[v].rs[r_{3}] \end{array} & \\\hline
-      \instrm{sub}\; r_{1}\; r_{2}\; r_{3} &\leftshift\nextt(v, \Delta', m, s) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]= \\ \Delta[v].rs[r_{2}] - \Delta[v].rs[r_{3}] \end{array} & \\\hline
-      \instrm{cmp}\; r_{1}\; r_{2} &\leftshift \nextt(v, \Delta', m, s)
+      \instrm{add}\; r_{1}\; r_{2}\; r_{3} &\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]=\\  \Delta[v].rs[r_{2}] + \Delta[v].rs[r_{3}] \end{array} & \\\hline
+      \instrm{sub}\; r_{1}\; r_{2}\; r_{3} &\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].rs[r_{1}]= \\ \Delta[v].rs[r_{2}] - \Delta[v].rs[r_{3}] \end{array} & \\\hline
+      \instrm{cmp}\; r_{1}\; r_{2} &\leftshift \nextt(\Delta', m, s,\updpc,v,v)
                                  &\leftshift \begin{array}{l}
                                                w = \Delta[v].rs[r_{1}] - \Delta[v].rs[r_{2}]\\
                                                \Delta'[v].rs[\mathtt{NZ}].z= \\
@@ -382,19 +400,19 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                                \;\;\;\left\{\!\!\!\!\begin{array}{ll} 1 &\text{if}\; w < 0 \\
                                                                       0 & \text{otherwise} \end{array} \right.
                                              \end{array}&\\\hline
-      \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(v, \Delta', m, s')
+      \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(\Delta', m, s',\updpc,v,v)
                                  &\!\!\!\!\! \begin{array}{l}
-                                               \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(pa)\}  \\
+                                               \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(a_p)\}  \\
                                                \Delta'[v].rs[\mathtt{r_{0}}]=\llen{s'}\\
                                                r =  \Delta[v].rs[r_{2}] \\
-                                               s' = s \append [(\pid(pa), \Delta[v].rs[r_{2}])]
+                                               s' = s \append [(\pid(a_p), \Delta[v].rs[r_{2}])]
                                              \end{array}
                       &\leftshift\begin{array}{l}
-                                   \SOME(pa)=\valida(\Delta[v],r_{1}) \\
+                                   \SOME(a_p)=\valida(\Delta[v],r_{1}) \\
                                    \land r < \llen{\Delta}
                                    \land v \neq r \\
                                  \end{array}\\\hline
-      \instrm{memr}\; r &\leftshift \nextt(v, \Delta', m, s')
+      \instrm{memr}\; r &\leftshift \nextt(\Delta', m, s',\updpc,v,v)
                                  &\!\!\!\!\! \begin{array}{l}
                                                \Delta'[v].ps=\Delta[v].ps \append [p]\\
                                                s'= s \setminus \{(p,v)\}
@@ -403,21 +421,82 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                    s[\Delta[v].rs[r]] = (p, v)\\
                                    \land p \notin \Delta[v].ps
                                  \end{array} \\\hline
+      \instrm{run}\; r & \leftshift \nextt(\Delta', m, s,\updpc,v, v_n)
+                                 &\!\!\!\!\!\begin{array}{l}
+                                              v_n=\Delta[v].rs[r_0]\\
+                                              \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi\\
+                                              \!\!\!\!\!\left.\begin{array}{l}
+                                              \Delta'[v_n].rs[\mathtt{r_0}]=\MSGS\\
+                                              \Delta'[v_n].rs[\mathtt{r_1}]=v_s\\
+                                              \Delta'[v_n].rs[\mathtt{r_3}]=w_s
+                                                        \end{array}\!\!\!\!\!\right\} \text{if } b
+                                              \end{array}
+                                    & v=0 \land v_n < \llen{\Delta} \\\hline
+      \instrm{yld} & \leftshift \nextt(\Delta', m, s,\updpc, v, 0)
+                                 &\!\!\!\!\! \begin{array}{l}
+                                               \Delta'[0].rs[\mathtt{r_0}]=\YIELD\\
+                                               \Delta'[0].rs[\mathtt{r_1}]=v
+                                               \end{array}& \\\hline
+      \instrm{msgw} & \leftshift \nextt(\Delta', m, s,\updpc, v, v_n)
+                                 &\!\!\!\!\!\begin{array}{l}
+                                              \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi\\
+                                              \!\!\!\!\!\left.\begin{array}{l}
+                                              v_n=v\\
+                                              \Delta'[v_n].rs[\mathtt{r_0}]=\MSGS\\
+                                              \Delta'[v_n].rs[\mathtt{r_1}]=v_s\\
+                                              \Delta'[v_n].rs[\mathtt{r_3}]=w_s
+                                                              \end{array}\!\!\!\!\!\right\} \text{if } b\\
+                                              \!\!\!\!\!\left.\begin{array}{l}
+                                              v_n=0\\
+                                              \Delta'[v_n].rs[\mathtt{r_0}]=\MSGW\\
+                                              \Delta'[v_n].rs[\mathtt{r_1}]=v
+                                                              \end{array}\!\!\!\!\!\right\} \text{if } !b\\
+                                              \end{array} & \\\hline
+      \instrm{msgs}\; r_1 \; r_2 & \leftshift \nextt(\Delta', m', s,\updpc,v,v_n)
+                                 &\!\!\!\!\!\begin{array}{l}
+                                              v_r=\Delta[v].rs[r_1]\\
+                                              w_s=\Delta[v].rs[r_2]\\
+                                              \SOME(p_r,b,-,-)=\Delta[v_r].\pi\\
+                                              \!\!\!\!\!\left.\begin{array}{l}
+                                              v_n=0\\
+                                              \Delta'[v_r].\pi=\SOME(p_r,\mathtt{true},w_s,v)\\
+                                              m'=\text{memcpy}(m,p_t,p_r,w_s)\\
+                                              \Delta'[v].rs[\mathtt{r_0}]=\SUCC\\
+                                              \Delta'[0].rs[\mathtt{r_0}]=\MSGS\;\text{if}\;v\neq 0\\
+                                              \Delta'[0].rs[\mathtt{r_1}]=\text{comb}(v,p_r)\;\text{if}\;v\neq 0
+                                                              \end{array}\!\!\!\!\!\right\} \text{if}\;!b\\
+                                              \!\!\!\!\!\left.\begin{array}{l}
+                                                                v_n=v\\
+                                                                \Delta'[v].rs[\mathtt{r_0}]=\BUSY
+                                                              \end{array}\!\!\!\!\!\right\}\;\text{if}\;b
+                                            \end{array}
+                      &\SOME(p_t)=\Delta[v].tx \\\hline
+      \instrm{msgr} & \leftshift  \nextt(\Delta', m, s,\updpc, v, v_n)& \Delta'[v].\pi = \SOME(p_r,\mathtt{false},-,-) &\Delta[v].\pi=\SOME(p_r,\mathtt{true},-,-) \\\hline
     \end{tabular}
   \end{adjustwidth}
-  \begin{align*}
-    \updpc((\Delta,m,s),v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].rs[\mathtt{pc}] = \Delta[v].rs[\mathtt{pc}]+1\\
-    \nextt(v,\phi) &= \DNXT{v}{\phi}
-  \end{align*}
   \caption{Instruction Semantics.}
 \end{figure}
+\todo{change notation: rs ->r, tx -> ?}
 \todo{later: consider overflow}
+\begin{figure}
+  \begin{align*}
+    \updpc(\Delta,m,s,v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].rs[\mathtt{pc}] = \Delta[v].rs[\mathtt{pc}]+1\\
+    \text{id}(\Delta,m,s,v)& = (\Delta,m,s)\\
+    \nextt(\Delta,m,s,f,v,n)&= \left\{\!\!\!\!\begin{array}{lll}
+                                               \DNXT{n}{f(\Delta',m,s,v)} &\text{where } \Delta'[v].t = \Delta[v].t-1& \text{if}\: \Delta[v].t -1 \neq 0\\
+                                               &\\
+                                               \DNXT{0}{f(\Delta',m,s,v)} &\text{where } \!\!\!\! \begin{array}{l}
+                                                                                      \Delta'[v].t = \Delta[v].t-1,\\
+                                                                                      \Delta'[0].rs[\mathtt{r_{0}}]=\INT,\\
+                                                                                      \Delta'[0].rs[r_{1}] = v
+                                                                                      \end{array}& \text{otherwise}
+                                              \end{array}  \right.\\
+    \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+(w_{2}&(\PWMAX-(2^{\PWBITS/2}-1)))
 
-\subsubsection{Semantic Interpretations}
-The semantics interpretations of instructions from AArch64 instruction set are generally
-trivial. The only worth-mentioned point is the conditions of \instr{ldr} and
-\instr{str}. The validity of the target memory accessing address has to be
-checked to guarantee the memory isolation property.
+  \end{align*}
+  \caption{Instruction Semantics(Cont.).}
+\end{figure}
+\subsubsection{Memory Sharing}
 
 As mentioned in Section 1.3, we introduced two newly invented instructions for
 memory sharing between VMs. The $\instr{memd}\; r_{1}\; r_{2}$ is executed by
@@ -436,7 +515,12 @@ checkings and adds the $\PID$ of the donated page into the page table of the
 receiver. The difference between the implementation and our
 instruction is that we remove the donation information from $\SSS$ while it is
 kept and has further usages in the implementation.
+\todo{elaborate it in depth}
 
+\subsubsection{Message Passing and Scheduling}
+WIP
+
+\todo{vm0 is the primary vm}
 %\section{Proof Rules}
 
 
