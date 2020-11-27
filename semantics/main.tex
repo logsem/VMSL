@@ -478,7 +478,7 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
 \end{figure}
 \todo{change notation: rs ->r, tx -> ?}
 \todo{later: consider overflow}
-\begin{figure}
+\begin{figure}[!h]
   \begin{align*}
     \updpc(\Delta,m,s,v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].rs[\mathtt{pc}] = \Delta[v].rs[\mathtt{pc}]+1\\
     \text{id}(\Delta,m,s,v)& = (\Delta,m,s)\\
@@ -492,7 +492,6 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                                                                       \end{array}& \text{otherwise}
                                               \end{array}  \right.\\
     \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+(w_{2}&(\PWMAX-(2^{\PWBITS/2}-1)))
-
   \end{align*}
   \caption{Instruction Semantics(Cont.).}
 \end{figure}
