@@ -5,6 +5,7 @@
 \usepackage{mathpartir}
 \usepackage{hyperref}
 \usepackage{todonotes}
+\usepackage{graphicx}
 \usepackage{kpfonts}
 \usepackage{array}
 \usepackage{changepage}
@@ -17,6 +18,7 @@
 \newcommand*{\maps}{\rightarrow}
 \newcommand*{\derived}{::=}
 \newcommand*{\sem}[1]{\llbracket {#1} \rrbracket}
+\newcommand*{\append}{\scalebox{0.8}{+\kern-0.4ex+}}
 
 
 % definitions
@@ -144,15 +146,25 @@ could be able to access memory of another VM(in the case of memory sharing).
 
 The definition of $\MEM$ is straightforward. While the $\STATE$ consists of not
 only registers, but also some $\PID$s.
-\todo{Lars: shouldn't there be some condition expressing that the memory mapped
-  by pages belonging to different VMs do not overlap ?}
+%\todo{Lars: shouldn't there be some condition expressing that the memory mapped
+%  by pages belonging to different VMs do not overlap ?}
 The list of $\PID$ notes $\PID$s of all
 pages that one VM owns, which is in principle determined by the stage-2 page
 table of that VM.
+Somehow, the memory isolation property might be able to be derived
+by looking at the disjointness among these lists. Namely, if none of $\PID$s is in
+lists of two VMs, we may argue that their memory are isolated from each other.
+But, one should be careful to say it if there are any memory sharings, where the $\PID$
+of the shared page will appear in two lists. Fortunately, it is feasible to tell
+whether any memory sharing is happening by looking at the $\SSS$, which is responsible
+for tracking all memory sharing operations.
 
-Despite page tables essentially are mappings, we instead use a mathematical set($list$ in Figure 1) of $\PID$s to describe the abstract page table of a VM.
-\todo{Lars: I don't understand this para} We argue that it is sufficient to record the necessary information on the actual page table.
-Because in Hafnium, a $\PID$ in IP address space is always equal to the corresponding one in the physical address space.
+Despite page tables essentially are maps, we instead use a mathematical list of
+$\PID$s as the abstract page table of a VM. % \todo{Lars: I don't understand
+this para} We argue it is sufficient to record all the necessary translation
+information in the actual page table. Because in Hafnium, a $\PID$ in IP address
+space is always equal to the corresponding one in the physical address space.
+\todo{add a drawing}
 Namely, we always have mappings like $x \mapsto x$ in stage-2 page tables.
 Another benefit of this mapping scheme is that we can omit stage-2 translation entirely.
 
@@ -252,14 +264,18 @@ page. We will talk about their semantics later.
 
 \subsection{Reduction rules}
 \subsubsection{Notations}
-Except claiming explicitly\todo{Lars: ??}, triple $(\Delta, m, s)$ represents an execution
-configuration $\phi$, where $\Delta$ is a list of $\STATE$. $\Delta[i]$ is used
+An execution configuration $\phi$ is a triple, where $\phi.\Delta$
+is a list of $\STATE$,$\phi.m$ the global memory, and $\phi.s$ the $\SSS$. $\Delta[i]$ is used
 to notate the $\STATE$ of VM $i$ in $\Delta$. Furthermore, we utilize the field
 access notation to express the list of $\PID$ as $\Delta[i].ps$ and $\REGS$ as
 $\Delta[i].rs$ respectively. We overload the square bracket notation to access
 the value corresponding to a given key in $\REGS$ and $\MEM$ mappings. Occasionally, we
-consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.\todo{Lars:
-  later we should check if/when we rely on the lists being ordered}
+borrow $\in$ and $\setminus$ operators from sets, applying on lists. We still require
+the property that elements are ordered sometimes, therefore these
+operators might only be considered as operators for finding
+and removing elements from a list respectively.
+
+%\todo{Lars: later we should check if/when we rely on the lists being ordered}
 
 % In addition, mappings are treated as functions so that they have
 % domain and codomain.
@@ -277,15 +293,15 @@ consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.
       \rightarrow (\RP{\EI{v}} ,\, \phi)} \and \inferrule[ExecInstr]{}
     {{(\EI{v},\, \phi) \rightarrow \left\{
           \begin{array}{ll}
-            \sem{\decode(iw)}(\phi,v)
-            & \mathrm{if} \;\SOME(ia) = \valida(\Delta[v], \mathtt{pc}) \land m[ia]=iw \\
+            \sem{\decode(i_w)}(\phi.\Delta, \phi.m, \phi.s ,v)
+            & \mathrm{if} \;\SOME(i_a) = \valida(\phi.\Delta[v], \mathtt{pc}) \land m[i_a]=i_w \\
             (\DN{\mathtt{Fail}},\, \phi) & \mathrm{otherwise}
           \end{array} \right.}
     }
     \and
     \begin{aligned}
       \valida(\delta,r) &=\left\{ \begin{array}{ll}
-                                    \SOME(ia) & \text{if} \; ia = \delta.rs[r] \land \pid(ia) \in \delta.ps \\
+                                    \SOME(i_a) & \text{if} \; i_a = \delta.rs[r] \land \pid(i_a) \in \delta.ps \\
                                     \NONE & \text{otherwise}
                                   \end{array}
                                 \right. \\
@@ -299,18 +315,19 @@ consider lists as sets and apply $\in, \cup,$ and $\setminus$ operators on them.
 In Figure 3, the \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
 \refr{RepeatHalt/Fail} rules are applied to proceed with the execution.
 
-In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $iw$
+In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $i_{w}$(for instruction word)
 obtained from $\MEM$. The $\decode$ function decodes it to the corresponding
-$\INSTR$ which has a predefined semantic interpretation.\todo{Lars: in that rule, is $m$ the global memory ? It should be a parameter somehow to the rule, I guess}
+$\INSTR$ which has a predefined semantic interpretation.
+%\todo{Lars: in that rule, is $m$ the global memory ? It should be a parameter somehow to the rule, I guess}
 Applying the interpretation to execution configuration $\phi$ and $\VMID$ v will give us a
-new configuration after executing the instruction on VM $v$. If $iw$ is an
+new configuration after executing the instruction on VM $v$. If $i_{w}$ is an
 invalid encoding, we decode it as $\mathtt{fail}$.
-\todo{Lars: a detail: using $iw$ and $ia$ as variables is a little confusing}
+%\todo{Lars: a detail: using $iw$ and $ia$ as variables is a little confusing}
 
-To obtain the encoding of the next executing instruction $iw$, we first get the
-value of the \texttt{pc} register of VM $v$ as $ia$, which is the address of the
-$iw$ in the global memory. Before decoding $iw$, we have to ensure that the
-memory access is valid, i.e. $ia$ is in the range of a page owned by $v$.
+To obtain the encoding of the next executing instruction $i_{w}$, we first get the
+value of the \texttt{pc} register of VM $v$ as $i_{a}$, which is the address of the
+$i_{w}$ in the global memory. Before decoding $i_{w}$, we have to ensure that the
+memory access is valid, i.e., $i_{a}$ is in the range of a page owned by $v$.
 The validation is done by $\valida$ function.
 
 
@@ -333,15 +350,16 @@ While the regular \emph{Italic} font is used for any general registers. For
 instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
 
 
-\newcommand{\sema}[1]{\sem{ {#1} }(\phi,v)}
+\newcommand{\sema}[1]{\sem{ {#1} }(\Delta,m,s,v)}
+\newcommand{\llen}[1]{\text{len}( {#1})}
 \newcommand{\leftshift}{\!\!\!\!}
 \newcommand{\DNXT}[2]{(\DN{\NXT{ {#1} }}, \updpc( {#2} , {#1} ))\:)} \newcommand{\nextt}{\text{next}}
 \begin{figure}[h!]
   \begin{adjustwidth}{-1cm}{}
     \begin{tabular}[t]{L|L L| L}
       \text{Instr}(i) & \sema{i} & \text{where} & \text{Conditions} \\ \hline \hline
-      \instrm{fail}& \leftshift  (\DN{\mathtt{Fail}}, \phi) & & \\ \hline
-      \instrm{halt}&\leftshift   (\DN{\mathtt{Halt}}, \phi)  & & \\\hline
+      \instrm{fail}& \leftshift  (\DN{\mathtt{Fail}}, (\Delta,m,s)) & & \\ \hline
+      \instrm{halt}&\leftshift   (\DN{\mathtt{Halt}}, (\Delta,m,s))  & & \\\hline
       \instrm{br} \; r  &\leftshift  (\DN{\NXT{v}},(\Delta',m,s)\:)  & \Delta'[v].rs[\mathtt{pc}]=\Delta[v].rs[r]  &  \\\hline
       \instrm{bne} \; r  & \leftshift  (\DN{\NXT{v}}, (\Delta',m,s)\:)  & \leftshift \begin{array}{l} \Delta'[v].rs[\mathtt{pc}]= \\ \;\;\;\;\left\{
                                 \!\!\!\!\begin{array}{ll} \Delta[v].rs[r] &\!\!\!\! \text{if} \;   \Delta[v].rs[\mathtt{NZ}].z=1 \\
@@ -366,22 +384,23 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                              \end{array}&\\\hline
       \instrm{memd}\; r_{1}\; r_{2} &\leftshift \nextt(v, \Delta', m, s')
                                  &\!\!\!\!\! \begin{array}{l}
-                                               h= \text{len}(s) \\
                                                \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(pa)\}  \\
-                                               \Delta'[v].rs[\mathtt{r_{0}}]=h\\
-                                               s'[h]=(\pid(pa), \Delta[v].rs[r_{2}])
+                                               \Delta'[v].rs[\mathtt{r_{0}}]=\llen{s'}\\
+                                               r =  \Delta[v].rs[r_{2}] \\
+                                               s' = s \append [(\pid(pa), \Delta[v].rs[r_{2}])]
                                              \end{array}
                       &\leftshift\begin{array}{l}
                                    \SOME(pa)=\valida(\Delta[v],r_{1}) \\
-                                   \land v \neq \Delta[v].rs[r_{2}]
+                                   \land r < \llen{\Delta}
+                                   \land v \neq r \\
                                  \end{array}\\\hline
       \instrm{memr}\; r &\leftshift \nextt(v, \Delta', m, s')
                                  &\!\!\!\!\! \begin{array}{l}
-                                               \Delta'[v].ps=\Delta[v].ps \cup \{p\}\\
+                                               \Delta'[v].ps=\Delta[v].ps \append [p]\\
                                                s'= s \setminus \{(p,v)\}
                                              \end{array}
                       &\leftshift\begin{array}{l}
-                                   s[\Delta[v].rs[r_{1}]] = (p, v)\\
+                                   s[\Delta[v].rs[r]] = (p, v)\\
                                    \land p \notin \Delta[v].ps
                                  \end{array} \\\hline
     \end{tabular}
