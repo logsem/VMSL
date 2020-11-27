@@ -40,6 +40,10 @@
 ### NOVA
 - Udo Steinberg and Bernhard Kauer. NOVA: A Microhypervisor-Based Secure Virtualization Architecture. <http://www.hypervisor.de/eurosys2010.pdf>
 
+### The [Pip Protokernel](http://pip.univ-lille1.fr/)
+- Narjes Jomaa, Paolo Torrini, David Nowak, Gilles Grimaud, and Samuel Hym. Proof-Oriented Design of a Separation Kernel with Minimal Trusted Computing Base. <https://hal.archives-ouvertes.fr/hal-01816830>
+- Narjes Jomaa, David Nowak, Gilles Grimaud, and Samuel Hym. Formal proof of dynamic memory isolation based on MMU. <https://hal.archives-ouvertes.fr/hal-01712347>
+
 ## Others
 
 - Daniel Schoepe, et al. Explicit Secrecy: A Policy for Taint Tracking. <https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7467344>
