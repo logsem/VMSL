@@ -93,7 +93,7 @@
 \section{Operational Semantics}
 
 \todo{later: more realistic scheduling}
-\subsection{Settings of Hafnium}
+\subsection{Setting of Hafnium}
 Hafnium is a type-1 hypervisor running on the AArch64 architecture(for now),
 which is claimed can provide memory isolation between a set of virtual
 machines(VMs) running on it. Hafnium provides memory isolation by managing the
@@ -129,8 +129,8 @@ machines plus some additional information for the FF-A framework.
 \begin{figure}
   \begin{align*}
     \phi &\in \CONF &\defined &list(\STATE) \times \MEM \times \SSS \\
-    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \TIMER \times option(\PID) \times \MB \\
-    \pi & \in \MB &\defined &option(\PID \times \text{Bool} \times \WORD \times \VMID) \\
+    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \TIMER  \times \MB \\
+    \pi & \in \MB &\defined &option(\PID) \times option(\PID \times \text{Bool} \times \WORD \times \VMID) \\
     t & \in \TIMER &\defined & \WORD \\
     p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
@@ -141,9 +141,9 @@ machines plus some additional information for the FF-A framework.
     s & \in \SSS &\defined  &list(\PID \times \VMID) \\
     v & \in \VMID &\defined  &[ 0, \PVMMAX ]
   \end{align*}
-  \caption{Execution Configuration: VM States, Global Memory and Share States.}
+  \caption{Execution Configuration: VM States, Global Memory, and Share States.}
 \end{figure}
-\todo{write list($\PID$) and option($\PID$) seperately}
+\todo{write list($\PID$) and option($\PID$) separately}
 Figure 1 shows the definition of execution configuration, which includes three
 components: $\STATE$s of all VMs, a $\MEM$ shared with all VMs, and a $\SSS$
 storing necessary information for memory sharing FF-A requests.
@@ -223,12 +223,12 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
                                     \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
                                     \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r |
                                     \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r \\
-        & & & | \instrm{fail} | \instrm{halt} | \instrm{memd} \; r \; r | \instrm{memr} \; r\; r
+        & & & | \instrm{fail} | \instrm{halt} | \instrm{memd} \; r \; r | \instrm{memr} \; r\; r | \instrm{run} \; r|
+              \instrm{yld} | \instrm{msgw} | \instrm{msgs} \; r_1 \; r_{2} | \instrm{msgr}
   \end{align*}
   \caption{Syntax and Machine Instructions}
 \end{figure}
-\todo{later: add message passing instructions}
-
+\todo{later: change new instructions back to hvc}
 The syntax and instructions included in our model are shown in Figure 2. The
 syntax of the expression is uncomplicated. Generally speaking, $\EI{v}$ is for
 executing a single instruction in VM $v$ and $\DN{\theta}$ implies the result of
@@ -279,8 +279,9 @@ page. We will talk about their semantics later.
 An execution configuration $\phi$ is a triple, where $\phi.\Delta$
 is a list of $\STATE$,$\phi.m$ the global memory, and $\phi.s$ the $\SSS$. $\Delta[i]$ is used
 to notate the $\STATE$ of VM $i$ in $\Delta$. Furthermore, we utilize the field
-access notation to express the list of $\PID$ as $\Delta[i].ps$ and $\REGS$ as
-$\Delta[i].rs$ respectively. We overload the square bracket notation to access
+access notation to express the list of $\PID$ as $\Delta[i].ps$, the RX buffer as $\Delta[i].\pi_{r}$,
+and the TX buffer as $\Delta[i].\pi_{t}$.
+We overload the square bracket notation to access
 the value corresponding to a given key in $\REGS$ and $\MEM$ mappings. Occasionally, we
 borrow $\in$ and $\setminus$ operators from sets, applying on lists. We still require
 the property that elements are ordered sometimes, therefore these
@@ -306,14 +307,17 @@ and removing elements from a list respectively.
     {{(\EI{v},\, \phi) \rightarrow \left\{
           \begin{array}{ll}
             \sem{\decode(w_i)}(\phi.\Delta, \phi.m, \phi.s ,v)
-            & \mathrm{if} \;\SOME(a_i) = \valida(\phi.\Delta[v], \mathtt{pc}) \land m[a_i]=w_i \\
+            & \mathrm{if} \;\SOME(a_i) = \valida(\phi.\Delta[v], \mathtt{pc},V) \land m[a_i]=w_i \\
             (\DN{\mathtt{Fail}},\, \phi) & \mathrm{otherwise}
           \end{array} \right.}
     }
     \and
     \begin{aligned}
-      \valida(\delta,r) &=\left\{ \begin{array}{ll}
-                                    \SOME(a_i) & \text{if} \; a_i = \delta.rs[r] \land \pid(a_i) \in \delta.ps \\
+      \valida(\delta,r,P) &=\left\{ \begin{array}{ll}
+                                      \SOME(a_i) & \text{if} \; a_i = \delta.r[r] \\
+                                                 &\land \big( (P=V \land \pid(a_i) \in \delta.ps) \\
+                                                 &\lor (P=R \land (\pid(a_i)\in \delta.ps \lor \SOME(\pid(a_i),-,-,-)=\delta.\pi_r)) \\
+                                                 &\lor (P=W \land (\pid(a_i)\in \delta.ps \lor \SOME(\pid(a_i))=\delta.\pi_t))\big) \\
                                     \NONE & \text{otherwise}
                                   \end{array}
                                 \right. \\
@@ -352,7 +356,10 @@ execution, which is shown in Figure 4.
 The semantics interpretations of AArch64 instructions are generally
 trivial. The only worth-mentioned point is the conditions of \instr{ldr} and
 \instr{str}. The validity of the target memory accessing address has to be
-checked to guarantee the memory isolation property.
+checked to guarantee the memory isolation property. Note we give different last arguments in $\valida$.
+$R$ indicates it is a read operation, therefore it is allowed to let the RX buffer be
+the location to be read. Similarly, the TX buffer could be the location of write operations.
+
 
 \subsubsection{Notations}
 Regarding the modification of the $\STATE$, we use for instance $\Delta'$ to
@@ -385,9 +392,9 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                & & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[\mathtt{pc}]+1 &\multicolumn{2}{l|}{otherwise} \\\hline
       \instr{mov} $r$ $w$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r]=w & \multicolumn{2}{l|}{} \\\hline
       \instr{ldr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & \Delta'[v].r[r_{1}]=m[a]  &
-                                \multicolumn{2}{l|}{$\SOME(a)=\valida(\Delta[v],r_{2})$} \\\hline
+                                \multicolumn{2}{l|}{$\SOME(a)=\valida(\Delta[v],r_{2},R)$} \\\hline
       \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
-                                \multicolumn{2}{l|}{$\SOME(a) =\valida(\Delta[v],r_{1})$} \\\hline
+                                \multicolumn{2}{l|}{$\SOME(a) =\valida(\Delta[v],r_{1},W)$} \\\hline
       \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]=\\  \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
       \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \\ \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
       \multirow{4}{*}{\instr{cmp} $r_{1}$ $r_{2}$}&\multirow{4}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v,v)$}
@@ -403,7 +410,7 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                                s' = s \append [(\pid(a_p), \Delta[v].r[r_{2}])]
                                              \end{array}
                       & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
-                                   \SOME(a_p)=\valida(\Delta[v],r_{1}) \\
+                                   \SOME(a_p)=\valida(\Delta[v],r_{1},V) \\
                                    \land r < \llen{\Delta}\\
                                    \land v \neq r
                                  \end{array}$}\\\hline
@@ -419,7 +426,7 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
       \multirow{5}{*}{\instr{run} $r$}& \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
                                  & v_n=\Delta[v].r[r_0] &\multicolumn{2}{l|}{\multirow{2}{*}{$v=0 \land v_n < \llen{\Delta}$}}\\
                                  & &\SOME(p_r,b,w_s,v_s)=\Delta[v].\pi &\multicolumn{2}{l|}{\multirow{2}{*}{}}\\\cline{3-4}
-                                 & &!\!\!\!\!\begin{array}{l}
+                                 & &\!\!\!\!\!\begin{array}{l}
                                               \Delta'[v_n].r[\mathtt{r_0}]=\MSGS\\
                                               \Delta'[v_n].r[\mathtt{r_1}]=v_s\\
                                               \Delta'[v_n].r[\mathtt{r_3}]=w_s
@@ -429,8 +436,8 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                                \Delta'[0].r[\mathtt{r_0}]=\YIELD\\
                                                \Delta'[0].r[\mathtt{r_1}]=v
                                                \end{array}& \multicolumn{2}{l|}{} \\\hline
-      \multirow{8}{*}{\instr{msgw}}& \multirow{8}{*}{$\nextt(\Delta', m, s,\updpc, v, v_n)$}
-                                 & \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi& \multicolumn{2}{l|}{} \\\cline{3-4}
+      \multirow{8}{*}{\instr{msgw}}&\multirow{8}{*}{$\leftshift \nextt(\Delta', m, s,\updpc, v, v_n)$}
+                                 & \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi_r& \multicolumn{2}{l|}{} \\\cline{3-4}
                                  & &\!\!\!\!\!\begin{array}{l}
                                               v_n=v\\
                                               \Delta'[v_n].r[\mathtt{r_0}]=\MSGS\\
@@ -443,7 +450,7 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                               \Delta'[v_n].r[\mathtt{r_1}]=v
                                  \end{array}& $!b$& \\\hline
       \multirow{11}{*}{\instr{msgs} $r_{1}$ $r_{2}$}& \multirow{11}{*}{$\leftshift \nextt(\Delta', m', s,\updpc,v,v_n)$}
-                                 & v_r=\Delta[v].r[r_1]&\multicolumn{2}{l|}{\multirow{3}{*}{$\SOME(p_t)=\Delta[v].tx$}} \\
+                                 & v_r=\Delta[v].r[r_1]&\multicolumn{2}{l|}{\multirow{3}{*}{$\Delta[v].\pi_{t}=\SOME(p_t)$}} \\
                                  & & w_s=\Delta[v].r[r_2]& \multicolumn{2}{l|}{}\\
                                  & & \SOME(p_r,b,-,-)=\Delta[v_r].\pi& \multicolumn{2}{l|}{} \\\cline{3-4}
                                  & & \!\!\!\!\!\begin{array}{l}
@@ -458,24 +465,23 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                                v_n=v\\
                                                \Delta'[v].r[\mathtt{r_0}]=\BUSY
                                              \end{array} & $b$&\\\hline
-      \instr{msgr}& \leftshift  \nextt(\Delta', m, s,\updpc, v, v_n)& \Delta'[v].\pi = \SOME(p_r,\mathtt{false},-,-) &\multicolumn{2}{l|}{$\Delta[v].\pi=\SOME(p_r,\mathtt{true},-,-)$} \\\hline
+      \instr{msgr}& \leftshift  \nextt(\Delta', m, s,\updpc, v, v_n)& \Delta'[v].\pi_r = \SOME(p_r,\mathtt{false},-,-) &\multicolumn{2}{l|}{$\Delta[v].\pi_{r}=\SOME(p_r,\mathtt{true},-,-)$} \\\hline
     \end{tabular}
   \end{adjustwidth}
   \caption{Instruction Semantics.}
 \end{figure}
-\todo{change notation: tx -> ?}
 \todo{later: consider overflow}
 \begin{figure}[!h]
   \begin{align*}
-    \updpc(\Delta,m,s,v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].rs[\mathtt{pc}] = \Delta[v].rs[\mathtt{pc}]+1\\
+    \updpc(\Delta,m,s,v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].r[\mathtt{pc}] = \Delta[v].r[\mathtt{pc}]+1\\
     \text{id}(\Delta,m,s,v)& = (\Delta,m,s)\\
     \nextt(\Delta,m,s,f,v,n)&= \left\{\!\!\!\!\begin{array}{lll}
                                                \DNXT{n}{f(\Delta',m,s,v)} &\text{where } \Delta'[v].t = \Delta[v].t-1& \text{if}\: \Delta[v].t -1 \neq 0\\
                                                &\\
                                                \DNXT{0}{f(\Delta',m,s,v)} &\text{where } \!\!\!\! \begin{array}{l}
                                                                                       \Delta'[v].t = \Delta[v].t-1,\\
-                                                                                      \Delta'[0].rs[\mathtt{r_{0}}]=\INT,\\
-                                                                                      \Delta'[0].rs[r_{1}] = v
+                                                                                      \Delta'[0].r[\mathtt{r_{0}}]=\INT,\\
+                                                                                      \Delta'[0].r[\mathtt{r_{1}}] = v
                                                                                       \end{array}& \text{otherwise}
                                               \end{array}  \right.\\
     \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+(w_{2}\&(\PWMAX-(2^{\PWBITS/2}-1)))
@@ -501,12 +507,30 @@ checkings and adds the $\PID$ of the donated page into the page table of the
 receiver. The difference between the implementation and our
 instruction is that we remove the donation information from $\SSS$ while it is
 kept and has further usages in the implementation.
-\todo{elaborate it in depth}
+\todo{elaborate it in detail}
 
 \subsubsection{Message Passing and Scheduling}
-WIP
+We will elaborate message passing and scheduling together in this section as these two are closely related. Loosely speaking,
+sending and waiting for messages expect the scheduler to schedule a specific VM, usually either the sender or the receiver, to run next. It is for getting the sender or the receiver notified.
 
-\todo{vm0 is the primary vm}
+Let's talk about the less-complicated scheduling first. In Hafnium, the scheduler resides in the primary VM which usually uses its thread scheduler as the VM level scheduler. To achieve it, the primary VM allocates threads for all VMs, and then schedule them as regular threads. However, to let the whole system function correctly, several expectations are given to the primary VM scheduler according to the FF-A specification. We will mention them when we meet.
+
+Making use of primary VM's scheduler instead of writing a scheduler in the hypervisor dramatically reduces the verification work of hypervisor. Although the downside is we lose the availability guarantee of
+all secondary VMs.
+
+To make the scheduling more realistic, we introduced a $\TIMER$ and a mechanism working like the timer interrupt in our model. The $\TIMER$ countdowns by $1$ whenever executing an instruction. When it becomes zero, the current running VM will be preempted, switching back to the primary VM(the VM with $\VMID$ 0), and meanwhile, telling the primary VM who was running before the ''interrupt''(we don't have actual interrupts) . These are done by the tick function. One may notice that the telling part is carried out by assigning values to registers of primary VM. We say it is the mechanism for hypervisor to communicate with VMs regulated by FF-A framework. Intuitively, it can be seen as function calls to VMs, in which $\mathtt{r_{0}}$ stores the function name and the rest store arguments. We call these registers parameter registers. In the $\INT$ case, the hypervisor invokes primary VM to handle the ''timer interrupt'' towards the preempted VM. The scheduler will decide who is the next to run and execute \instr{run}.
+
+% In Hafnium, the expectation to the scheduler is checking if the $\TIMER$ of that VM is zero. If not, the scheduler must execute \instr{run} to allow the VM to continue.
+
+The \instr{run} $r$ instruction can only be executed by the primary VM, allowing primary VM to switch to the VM whose $\VMID$ is stored in $r$ with the help of the hypervisor. The hypervisor will check if the the executer is the primary VM, and whether the given $\VMID$ is valid. Next, hypervisor examines the state of $\MB$ of the next running VM. If a message in $\MB$ is ready to read, the hypervisor additionally sets parameter registers of that VM, notifying the VM along with the sender and the length of the message.\todo{the pvm is responsible for setting the timer, to do so the timer must be a register. Or it is ok to let hypervisor do it?}
+
+The second scheduling related instruction is \instr{yld}. It is executed by a VM when it wants to yield the CPU and pass control to the scheduler. The semantic of this instruction is trivial, it just informs primary the previous running VM yielded. The expectation to scheduler is it must not run that VM again immediately.
+%However, there is an expectation for $\YIELD$ to the primary VM, which is that the yielding VM must be run through \instr{run} after a given timeout.
+
+The instruction \instr{msgw} is used by a VM to wait for a message. While in fact, \instr{msgw} is essentially a scheduling instruction. When it is executed by a VM, the hypervisor will inspect the $\MB$. If there is a ready message, the control is given back to the VM, notifying it in the same manner as \instr{run}. Otherwise, hypervisor informs the scheduler that the VM is waiting. The scheduler is expected not to run that VM again unless a message to the VM is sent.
+
+
+
 %\section{Proof Rules}
 
 
