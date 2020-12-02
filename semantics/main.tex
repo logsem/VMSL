@@ -499,35 +499,80 @@ the FF-A framework, it mainly does three things: 1. doing tons of checkings; 2.
 removing the $\PID$ of the donated page from sender's page table and 3. keeping
 donation details in the hypervisor(in $\SSS$) and returning a handle(an index).
 If one reads the semantic interpretation of \instr{memd}, he will find out that
-it follows the specification, accomplishing the three things as well,
-just in a much simpler way(since our execution configuration is simplified). The second half of the donation is
-completed by the receiver with \instr{memr}. Hypervisor reads the information of
-the donation through the handle passed by the receiver, then it does more
-checkings and adds the $\PID$ of the donated page into the page table of the
-receiver. The difference between the implementation and our
+it follows the specification, accomplishing the three things as well, just in a
+much simpler way(since our execution configuration is simplified). The second
+half of the donation is completed by the receiver with \instr{memr}. Hypervisor
+reads the information of the donation through the handle passed by the receiver,
+then it does more checkings and adds the $\PID$ of the donated page into the
+page table of the receiver. The difference between the implementation and our
 instruction is that we remove the donation information from $\SSS$ while it is
 kept and has further usages in the implementation.
 \todo{elaborate it in detail}
 
 \subsubsection{Message Passing and Scheduling}
-We will elaborate message passing and scheduling together in this section as these two are closely related. Loosely speaking,
-sending and waiting for messages expect the scheduler to schedule a specific VM, usually either the sender or the receiver, to run next. It is for getting the sender or the receiver notified.
+We will elaborate message passing and scheduling together in this section as
+these two are closely related. Loosely speaking, sending and waiting for
+messages expect the scheduler to schedule a specific VM, usually either the
+sender or the receiver, to run next. It is for getting the sender or the
+receiver notified.
 
-Let's talk about the less-complicated scheduling first. In Hafnium, the scheduler resides in the primary VM which usually uses its thread scheduler as the VM level scheduler. To achieve it, the primary VM allocates threads for all VMs, and then schedule them as regular threads. However, to let the whole system function correctly, several expectations are given to the primary VM scheduler according to the FF-A specification. We will mention them when we meet.
+Let's talk about the less-complicated scheduling first. In Hafnium, the
+scheduler resides in the primary VM which usually uses its thread scheduler as
+the VM level scheduler. To achieve it, the primary VM allocates threads for all
+VMs, and then schedule them as regular threads. However, to let the whole system
+function correctly, several expectations are given to the primary VM scheduler
+according to the FF-A specification. We will mention them when we meet.
 
-Making use of primary VM's scheduler instead of writing a scheduler in the hypervisor dramatically reduces the verification work of hypervisor. Although the downside is we lose the availability guarantee of
-all secondary VMs.
+Making use of primary VM's scheduler instead of writing a scheduler in the
+hypervisor dramatically reduces the verification work of hypervisor. Although
+the downside is we lose the availability guarantee of all secondary VMs.
 
-To make the scheduling more realistic, we introduced a $\TIMER$ and a mechanism working like the timer interrupt in our model. The $\TIMER$ countdowns by $1$ whenever executing an instruction. When it becomes zero, the current running VM will be preempted, switching back to the primary VM(the VM with $\VMID$ 0), and meanwhile, telling the primary VM who was running before the ''interrupt''(we don't have actual interrupts) . These are done by the tick function. One may notice that the telling part is carried out by assigning values to registers of primary VM. We say it is the mechanism for hypervisor to communicate with VMs regulated by FF-A framework. Intuitively, it can be seen as function calls to VMs, in which $\mathtt{r_{0}}$ stores the function name and the rest store arguments. We call these registers parameter registers. In the $\INT$ case, the hypervisor invokes primary VM to handle the ''timer interrupt'' towards the preempted VM. The scheduler will decide who is the next to run and execute \instr{run}.
+To make the scheduling more realistic, we introduced a $\TIMER$ and a mechanism
+working like the timer interrupt in our model. The $\TIMER$ countdowns by $1$
+whenever executing an instruction. When it becomes zero, the current running VM
+will be preempted, switching back to the primary VM(the VM with $\VMID$ 0), and
+meanwhile, telling the primary VM who was running before the ''interrupt''(we
+don't have actual interrupts) . These are done by the tick function. One may
+notice that the telling part is carried out by assigning values to registers of
+primary VM. We say it is the mechanism for hypervisor to communicate with VMs
+regulated by FF-A framework. Intuitively, it can be seen as function calls to
+VMs, in which $\mathtt{r_{0}}$ stores the function name and the rest store
+arguments. We call these registers parameter registers. In the $\INT$ case, the
+hypervisor invokes primary VM to handle the ''timer interrupt'' towards the
+preempted VM. The scheduler will decide who is the next to run and execute
+\instr{run}.
 
-% In Hafnium, the expectation to the scheduler is checking if the $\TIMER$ of that VM is zero. If not, the scheduler must execute \instr{run} to allow the VM to continue.
+% In Hafnium, the expectation to the scheduler is checking if the $\TIMER$ of
+% that VM is zero. If not, the scheduler must execute \instr{run} to allow the VM
+% to continue.
 
-The \instr{run} $r$ instruction can only be executed by the primary VM, allowing primary VM to switch to the VM whose $\VMID$ is stored in $r$ with the help of the hypervisor. The hypervisor will check if the the executer is the primary VM, and whether the given $\VMID$ is valid. Next, hypervisor examines the state of $\MB$ of the next running VM. If a message in $\MB$ is ready to read, the hypervisor additionally sets parameter registers of that VM, notifying the VM along with the sender and the length of the message.\todo{the pvm is responsible for setting the timer, to do so the timer must be a register. Or it is ok to let hypervisor do it?}
+The \instr{run} $r$ instruction can only be executed by the primary VM, allowing
+primary VM to switch to the VM whose $\VMID$ is stored in $r$ with the help of
+the hypervisor. The hypervisor will check if the the executer is the primary VM,
+and whether the given $\VMID$ is valid. Next, hypervisor examines the state of
+$\MB$ of the next running VM. If a message in $\MB$ is ready to read, the
+hypervisor additionally sets parameter registers of that VM, notifying the VM
+along with the sender and the length of the message.\todo{the pvm is responsible
+for setting the timer, to do so the timer must be a register. Or it is ok to let
+hypervisor do it?}
 
-The second scheduling related instruction is \instr{yld}. It is executed by a VM when it wants to yield the CPU and pass control to the scheduler. The semantic of this instruction is trivial, it just informs primary the previous running VM yielded. The expectation to scheduler is it must not run that VM again immediately.
-%However, there is an expectation for $\YIELD$ to the primary VM, which is that the yielding VM must be run through \instr{run} after a given timeout.
+The second scheduling related instruction is \instr{yld}. It is executed by a VM
+when it wants to yield the CPU and pass control to the scheduler. The semantic
+of this instruction is trivial, it just informs primary the previous running VM
+yielded. The expectation to scheduler is it must not run that VM again
+immediately.
 
-The instruction \instr{msgw} is used by a VM to wait for a message. While in fact, \instr{msgw} is essentially a scheduling instruction. When it is executed by a VM, the hypervisor will inspect the $\MB$. If there is a ready message, the control is given back to the VM, notifying it in the same manner as \instr{run}. Otherwise, hypervisor informs the scheduler that the VM is waiting. The scheduler is expected not to run that VM again unless a message to the VM is sent.
+% However, there is an expectation for $\YIELD$ to the primary VM,
+% which is that the yielding VM must be run through \instr{run} after a given
+% timeout.
+
+The instruction \instr{msgw} is used by a VM to wait for a message. While in
+fact, \instr{msgw} is essentially a scheduling instruction. When it is executed
+by a VM, the hypervisor will inspect the $\MB$. If there is a ready message, the
+control is given back to the VM, notifying it in the same manner as \instr{run}.
+Otherwise, hypervisor informs the scheduler that the VM is waiting. The
+scheduler is expected not to run that VM again unless a message to the VM is
+sent.
 
 
 
