@@ -134,7 +134,7 @@ machines plus some additional information for the FF-A framework.
     t & \in \TIMER &\defined & \WORD \\
     p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
-    n & \in \REGNAMES &\derived  &\mathtt{pc} | \mathtt{NZ} | \mathtt {r_{0}} | \mathtt{r_{1}} | \dots \\
+    n & \in \REGNAMES &\derived  &\mathtt{pc} | \mathtt{NZ} | \mathtt {R0} | \mathtt{R1} | \dots \\
     m & \in \MEM &\defined  &\ADDR \maps \WORD \\
     a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
@@ -223,8 +223,9 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
                                     \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
                                     \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r |
                                     \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r \\
-        & & & | \instrm{fail} | \instrm{halt} | \instrm{memd} \; r \; r | \instrm{memr} \; r\; r | \instrm{run} \; r|
-              \instrm{yld} | \instrm{msgw} | \instrm{msgs} \; r_1 \; r_{2} | \instrm{msgr}
+        & & & | \instrm{fail} | \instrm{halt} | \instrm{hvc}
+              %\instrm{memd} \; r \; r | \instrm{memr} \; r\; r | \instrm{run} \; r|
+              %\instrm{yld} | \instrm{msgw} | \instrm{msgs} \; r_1 \; r_{2} | \instrm{msgr}
   \end{align*}
   \caption{Syntax and Machine Instructions}
 \end{figure}
@@ -253,22 +254,22 @@ that we assume addresses in instructions are IPAs, i.e. they have undergone
 stage-1 translation. Even though it makes our model slightly unrealistic, we argue
 that it is totally acceptable since our main target is stage-2 memory access.
 
-\subsubsection{Other Instructions}
-Other than regular AArch64 instructions, we introduced several new instructions
-for message passing and memory sharing. In reality, all sorts of communications
+\subsubsection{\instr{hvc} Instruction}
+In reality, all sorts of communications
 between VMs are indirect in Hafnium system(done through FF-A function calls).
 Namely, the hypervisor involves in. For instance, for memory donation, page
 tables need to be modified while only the hypervisor has high enough Exception
 Level and access to the memory where page tables are stored. The instruction
 \texttt{hvc} would be executed with some arguments by the VM to raise the
 Exception Level and invoke the hypervisor to do the actual work. It more or less
-acts like a system call in OS. However, since our program language for VMs is
-assembly and the implementations of FF-A functions are written in C, we choose
-not to implement FF-A functions in assembly language but introduce new
-instructions with appropriate semantics describing what these functions do.
-There are currently two instructions for memory sharing, among that
-\texttt{memd} is for donating a page, and \texttt{memr} is for retrieving a
-page. We will talk about their semantics later.
+acts like a system call in OS.
+% However, since our program language for VMs is
+% assembly and the implementations of FF-A functions are written in C, we choose
+% not to implement FF-A functions in assembly language but introduce new
+% instructions with appropriate semantics describing what these functions do.
+% There are currently two instructions for memory sharing, among that
+% \texttt{memd} is for donating a page, and \texttt{memr} is for retrieving a
+% page. We will talk about their semantics later.
 
 
 
@@ -371,7 +372,18 @@ $\Delta'$.
 
 Note that we only use $\mathtt{mathtt}$ font to represent actual registers.
 While the regular \emph{Italic} font is used for any general registers. For
-instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
+instance, $r_{1}$ doesn't have to be the $\mathtt{R1}$ register.
+
+\newcommand{\reg}[1]{\texttt{{#1}}}
+
+\subsubsection{\instr{hvc} Calling Conventions}
+All FF-A calls are implemented as synchronous exceptions, since they need higher EL to complete. The \instr{hvc} instruction is used to generate such exceptions that will be handled by the hypervisor. In \href{https://developer.arm.com/documentation/den0028/latest}{this} document, calling conventions of hvc calls are specified, which are complied with by FF-A calls as well. Readers will see we followed the conventions in the semantic interpretation of \instr{hvc}.
+
+%Most of FF-A calls are so-called fast call, which means these calls executions that are atomic from the view of VMs.
+
+A FF-A call contains a function identifier determining the function to be invoked, several arguments, and the return. All of these components are stored in registers. In AArch64, \reg{R0}-\reg{R7} registers are used. In particular, \reg{W0} identified as the least significant 32-bits of \reg{R0} has the role of function identifier in FF-A calls. Furthermore, \reg{W1}-\reg{W6} works as parameter registers, which implies FF-A can have at maxinum six arguments. For return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
+
+
 
 
 \newcommand{\sema}[1]{\sem{ {#1} }(\Delta,m,s,v)}
@@ -379,6 +391,8 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
 \newcommand{\leftshift}{\!\!\!\!}
 \newcommand{\DNXT}[2]{(\DN{\NXT{ {#1} }}, {#2})}
 \newcommand{\nextt}{\text{tick}}
+% \newcommand{\toword}[1]{\text{toWRD}(\text{{#1}})}
+\newcommand{\toword}[1]{\text{{#1}}}
 \begin{figure}[h!]
   \begin{adjustwidth}{-1cm}{}
     \begin{tabular}[t]{|l|L L|l|l|}
@@ -395,77 +409,92 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                 \multicolumn{2}{l|}{$\SOME(a)=\valida(\Delta[v],r_{2},R)$} \\\hline
       \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
                                 \multicolumn{2}{l|}{$\SOME(a) =\valida(\Delta[v],r_{1},W)$} \\\hline
-      \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]=\\  \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
-      \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \\ \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
+      \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
+      \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
       \multirow{4}{*}{\instr{cmp} $r_{1}$ $r_{2}$}&\multirow{4}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v,v)$}
                                  & w = \Delta[v].r[r_{1}] - \Delta[v].r[r_{2}] & \multicolumn{2}{l|}{} \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 1 & $w = 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 2 & $w < 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 0 & otherwise &\\\hline
-      \instr{memd} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
-                                 &\!\!\!\!\! \begin{array}{l}
+      \multirow{33}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+                                    &\!\!\!\!\! \begin{array}{l}
                                                \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(a_p)\}  \\
-                                               \Delta'[v].r[\mathtt{r_{0}}]=\llen{s'}\\
-                                               r =  \Delta[v].r[r_{2}] \\
-                                               s' = s \append [(\pid(a_p), \Delta[v].r[r_{2}])]
+                                               v_r =  \Delta[v].r[\mathtt{R2}] \\
+                                               s' = s \append [(\pid(a_p), v_r)]\\
+                                               \Delta'[v].r[\mathtt{R2}]=\llen{s'}\\
+                                               \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}
                                              \end{array}
-                      & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
-                                   \SOME(a_p)=\valida(\Delta[v],r_{1},V) \\
-                                   \land r < \llen{\Delta}\\
-                                   \land v \neq r
-                                 \end{array}$}\\\hline
-      \instr{memr} $r$&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
-                                 &\!\!\!\!\! \begin{array}{l}
-                                               \Delta'[v].ps=\Delta[v].ps \append [p]\\
-                                               s'= s \setminus \{(p,v)\}
-                                             \end{array}
-                      &\multicolumn{2}{l|}{$\leftshift\begin{array}{l}
-                                   s[\Delta[v].r[r]] = (p, v)\\
-                                   \land p \notin \Delta[v].ps
-                                 \end{array}$} \\\hline
-      \multirow{5}{*}{\instr{run} $r$}& \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
-                                 & v_n=\Delta[v].r[r_0] &\multicolumn{2}{l|}{\multirow{2}{*}{$v=0 \land v_n < \llen{\Delta}$}}\\
-                                 & &\SOME(p_r,b,w_s,v_s)=\Delta[v].\pi &\multicolumn{2}{l|}{\multirow{2}{*}{}}\\\cline{3-4}
+                                    & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
+                                                    \Delta[v].r[\mathtt{R0}]=\toword{MEM\_DNT}\\
+                                                    \SOME(a_p)=\valida(\Delta[v],\mathtt{R1},V) \\
+                                                    v_r < \llen{\Delta}\\
+                                                    v \neq v_r
+                                                  \end{array}$}\\\cline{2-5}
+      &\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+                           &\!\!\!\!\! \begin{array}{l}
+                                         \Delta'[v].ps=\Delta[v].ps \append [p]\\
+                                         s'= s \setminus \{(p,v)\}\\
+                                         \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RTRVP}
+                                       \end{array}
+                 &\multicolumn{2}{l|}{$\leftshift\begin{array}{l}
+                                                   \Delta[v].r[\mathtt{R0}]=\toword{MEM\_RTRVQ}\\
+                                                   s[\Delta[v].r[\mathtt{R1}]] = (p, v)\\
+                                                   p \notin \Delta[v].ps
+                                 \end{array}$} \\\cline{2-5}
+      & \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
+                                      & v_n=\Delta[v].r[\mathtt{R1}]
+                                          & \multicolumn{2}{l|}{\multirow{2}{*}{$\leftshift \begin{array}{l}
+                                                                                              \Delta[v].r[\mathtt{R0}]=\toword{RUN}\\
+                                                                                              v=0 \land v_n < \llen{\Delta}
+                                                                                              \end{array}$}}\\
+                                 & &\SOME(p_r,b,w_s,v_s)=\Delta[v_n].\pi &\multicolumn{2}{l|}{\multirow{2}{*}{}}\\\cline{3-4}
                                  & &\!\!\!\!\!\begin{array}{l}
-                                              \Delta'[v_n].r[\mathtt{r_0}]=\MSGS\\
-                                              \Delta'[v_n].r[\mathtt{r_1}]=v_s\\
-                                              \Delta'[v_n].r[\mathtt{r_3}]=w_s
-                                                        \end{array}& $b$ & \\\hline
-      \instr{yld}& \leftshift \nextt(\Delta', m, s,\updpc, v, 0)
+                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
+                                              \Delta'[v_n].r[\mathtt{R1}]=\text{comb}(v_s,v_n)\\
+                                              \Delta'[v_n].r[\mathtt{R3}]=w_s
+                                                        \end{array}& $b$ & \\\cline{2-5}
+      & \leftshift \nextt(\Delta', m, s,\updpc, v, 0)
                                  &\!\!\!\!\! \begin{array}{l}
-                                               \Delta'[0].r[\mathtt{r_0}]=\YIELD\\
-                                               \Delta'[0].r[\mathtt{r_1}]=v
-                                               \end{array}& \multicolumn{2}{l|}{} \\\hline
-      \multirow{8}{*}{\instr{msgw}}&\multirow{8}{*}{$\leftshift \nextt(\Delta', m, s,\updpc, v, v_n)$}
-                                 & \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi_r& \multicolumn{2}{l|}{} \\\cline{3-4}
+                                               \Delta'[0].r[\mathtt{R0}]=\toword{\YIELD}\\
+                                               \Delta'[0].r[\mathtt{R1}]=v
+                                               \end{array}& \multicolumn{2}{l|}{$\Delta[v].r[\mathtt{R0}]=\toword{YIELD}$} \\\cline{2-5}
+      \multirow{8}{*}{}&\multirow{8}{*}{$\leftshift \nextt(\Delta', m, s,\updpc, v, v_n)$}
+                                 & \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi_r& \multicolumn{2}{l|}{$\Delta[v].r[\mathtt{R0}]=\toword{MSG\_WAIT}$} \\\cline{3-4}
                                  & &\!\!\!\!\!\begin{array}{l}
                                               v_n=v\\
-                                              \Delta'[v_n].r[\mathtt{r_0}]=\MSGS\\
-                                              \Delta'[v_n].r[\mathtt{r_1}]=v_s\\
-                                              \Delta'[v_n].r[\mathtt{r_3}]=w_s
+                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGS}\\
+                                              \Delta'[v_n].r[\mathtt{R1}]=v_s\\
+                                              \Delta'[v_n].r[\mathtt{R3}]=w_s
                                               \end{array} & $b$&\\\cline{3-4}
                                  & &\!\!\!\!\!\begin{array}{l}
                                               v_n=0\\
-                                              \Delta'[v_n].r[\mathtt{r_0}]=\MSGW\\
-                                              \Delta'[v_n].r[\mathtt{r_1}]=v
-                                 \end{array}& $!b$& \\\hline
-      \multirow{11}{*}{\instr{msgs} $r_{1}$ $r_{2}$}& \multirow{11}{*}{$\leftshift \nextt(\Delta', m', s,\updpc,v,v_n)$}
-                                 & v_r=\Delta[v].r[r_1]&\multicolumn{2}{l|}{\multirow{3}{*}{$\Delta[v].\pi_{t}=\SOME(p_t)$}} \\
-                                 & & w_s=\Delta[v].r[r_2]& \multicolumn{2}{l|}{}\\
+                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGW}\\
+                                              \Delta'[v_n].r[\mathtt{R1}]=v
+                                 \end{array}& $!b$& \\\cline{2-5}
+      \multirow{11}{*}{}& \multirow{11}{*}{$\leftshift \nextt(\Delta', m', s,\updpc,v,v_n)$}
+                           & v_r=\Delta[v].r[\mathtt{R1}]&\multicolumn{2}{l|}{\multirow{3}{*}{$\leftshift\begin{array}{l}
+                                                                                                   \Delta[v].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
+                                                                                                   \Delta[v].\pi_{t}=\SOME(p_t)
+                                                                                                   \end{array}$}} \\
+                                 & & w_s=\Delta[v].r[\mathtt{R2}]& \multicolumn{2}{l|}{}\\
                                  & & \SOME(p_r,b,-,-)=\Delta[v_r].\pi& \multicolumn{2}{l|}{} \\\cline{3-4}
                                  & & \!\!\!\!\!\begin{array}{l}
-                                                       v_n=0\\
-                                                       \Delta'[v_r].\pi=\SOME(p_r,\mathtt{true},w_s,v)\\
-                                                       m'=\text{memcpy}(m,p_t,p_r,w_s)\\
-                                                       \Delta'[v].r[\mathtt{r_0}]=\SUCC\\
-                                                       \Delta'[0].r[\mathtt{r_0}]=\MSGS\;\text{if}\;v\neq 0\\
-                                                       \Delta'[0].r[\mathtt{r_1}]=\text{comb}(v,p_r)\;\text{if}\;v\neq 0
+                                                 v_n=0\\
+                                                 \Delta'[v_r].\pi=\SOME(p_r,\mathtt{true},w_s,v)\\
+                                                 m'=\text{memcpy}(m,p_t,p_r,w_s)\\
+                                                 \Delta'[v].r[\mathtt{R0}]=\toword{\SUCC}\\
+                                                 \Delta'[0].r[\mathtt{R0}]=\toword{\MSGS}\;\text{if}\;v\neq 0\\
+                                                 \Delta'[0].r[\mathtt{R1}]=\text{comb}(v,p_r)\;\text{if}\;v\neq 0
                                                \end{array} & $!b$ &\\\cline{3-4}
                                 & &\!\!\!\!\!\begin{array}{l}
                                                v_n=v\\
-                                               \Delta'[v].r[\mathtt{r_0}]=\BUSY
-                                             \end{array} & $b$&\\\hline
-      \instr{msgr}& \leftshift  \nextt(\Delta', m, s,\updpc, v, v_n)& \Delta'[v].\pi_r = \SOME(p_r,\mathtt{false},-,-) &\multicolumn{2}{l|}{$\Delta[v].\pi_{r}=\SOME(p_r,\mathtt{true},-,-)$} \\\hline
+                                               \Delta'[v].r[\mathtt{R0}]=\toword{\BUSY}
+                                             \end{array} & $b$&\\\cline{2-5}
+      & \leftshift  \nextt(\Delta', m, s,\updpc, v, v_n)& \Delta'[v].\pi_r = \SOME(p_r,\mathtt{false},-,-)
+                                          &\multicolumn{2}{l|}{$\leftshift \begin{array}{l}
+                                                                             \Delta[v].r[\mathtt{R0}]=\toword{MSG\_RCV}\\
+                                                                             \Delta[v].\pi_{r}=\SOME(p_r,\mathtt{true},-,-)
+                                                                             \end{array}$} \\\hline
     \end{tabular}
   \end{adjustwidth}
   \caption{Instruction Semantics.}
@@ -480,16 +509,15 @@ instance, $r_{1}$ doesn't have to be the $\mathtt{r_{1}}$ register.
                                                &\\
                                                \DNXT{0}{f(\Delta',m,s,v)} &\text{where } \!\!\!\! \begin{array}{l}
                                                                                       \Delta'[v].t = \Delta[v].t-1,\\
-                                                                                      \Delta'[0].r[\mathtt{r_{0}}]=\INT,\\
-                                                                                      \Delta'[0].r[\mathtt{r_{1}}] = v
+                                                                                      \Delta'[0].r[\mathtt{R0}]=\toword{INTERRUPT},\\
+                                                                                      \Delta'[0].r[\mathtt{R1}] = v
                                                                                       \end{array}& \text{otherwise}
                                               \end{array}  \right.\\
-    \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+(w_{2}\&(\PWMAX-(2^{\PWBITS/2}-1)))
+    \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+w_{2}
   \end{align*}
   \caption{Instruction Semantics(Cont.).}
 \end{figure}
 \subsubsection{Memory Sharing}
-
 As mentioned in Section 1.3, we introduced two newly invented instructions for
 memory sharing between VMs. The $\instr{memd}\; r_{1}\; r_{2}$ is executed by
 the donor(Sender) to donate a page with $\PID$ stored in the first register to
@@ -510,6 +538,7 @@ kept and has further usages in the implementation.
 \todo{elaborate it in detail}
 
 \subsubsection{Message Passing and Scheduling}
+\todo{a bit too concrete?}
 We will elaborate message passing and scheduling together in this section as
 these two are closely related. Loosely speaking, sending and waiting for
 messages expect the scheduler to schedule a specific VM, usually either the
@@ -548,7 +577,7 @@ preempted VM. The scheduler will decide who is the next to run and execute
 
 The \instr{run} $r$ instruction can only be executed by the primary VM, allowing
 primary VM to switch to the VM whose $\VMID$ is stored in $r$ with the help of
-the hypervisor. The hypervisor will check if the the executer is the primary VM,
+the hypervisor. The hypervisor will check if the executer is the primary VM,
 and whether the given $\VMID$ is valid. Next, hypervisor examines the state of
 $\MB$ of the next running VM. If a message in $\MB$ is ready to read, the
 hypervisor additionally sets parameter registers of that VM, notifying the VM
@@ -570,9 +599,9 @@ The instruction \instr{msgw} is used by a VM to wait for a message. While in
 fact, \instr{msgw} is essentially a scheduling instruction. When it is executed
 by a VM, the hypervisor will inspect the $\MB$. If there is a ready message, the
 control is given back to the VM, notifying it in the same manner as \instr{run}.
-Otherwise, hypervisor informs the scheduler that the VM is waiting. The
-scheduler is expected not to run that VM again unless a message to the VM is
-sent.
+Otherwise, hypervisor informs the scheduler that the VM is waiting and switch to
+the scheduler. The scheduler is expected not to run that VM again unless a message
+to the VM is sent.
 
 
 
