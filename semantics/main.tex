@@ -374,16 +374,28 @@ Note that we only use $\mathtt{mathtt}$ font to represent actual registers.
 While the regular \emph{Italic} font is used for any general registers. For
 instance, $r_{1}$ doesn't have to be the $\mathtt{R1}$ register.
 
+The primary VM always has $\VMID$ 0.
+
 \newcommand{\reg}[1]{\texttt{{#1}}}
 
 \subsubsection{\instr{hvc} Calling Conventions}
-All FF-A calls are implemented as synchronous exceptions, since they need higher EL to complete. The \instr{hvc} instruction is used to generate such exceptions that will be handled by the hypervisor. In \href{https://developer.arm.com/documentation/den0028/latest}{this} document, calling conventions of hvc calls are specified, which are complied with by FF-A calls as well. Readers will see we followed the conventions in the semantic interpretation of \instr{hvc}.
+All FF-A calls are implemented as synchronous exceptions, since they need higher
+EL to complete. The \instr{hvc} instruction is used to generate such exceptions
+that will be handled by the hypervisor. In
+\href{https://developer.arm.com/documentation/den0028/latest}{this} document,
+calling conventions of hvc calls are specified, which are complied with by FF-A
+calls as well. Readers will see we followed the conventions in the semantic
+interpretation of \instr{hvc}.
 
 %Most of FF-A calls are so-called fast call, which means these calls executions that are atomic from the view of VMs.
 
-A FF-A call contains a function identifier determining the function to be invoked, several arguments, and the return. All of these components are stored in registers. In AArch64, \reg{R0}-\reg{R7} registers are used. In particular, \reg{W0} identified as the least significant 32-bits of \reg{R0} has the role of function identifier in FF-A calls. Furthermore, \reg{W1}-\reg{W6} works as parameter registers, which implies FF-A can have at maxinum six arguments. For return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
-
-
+A FF-A call contains a function identifier determining the function to be
+invoked, several arguments, and the return. All of these components are stored
+in registers. In AArch64, \reg{R0}-\reg{R7} registers are used. In particular,
+\reg{W0} identified as the least significant 32-bits of \reg{R0} has the role of
+function identifier in FF-A calls. Furthermore, \reg{W1}-\reg{W6} works as
+parameter registers, which implies FF-A can have at maxinum six arguments. For
+return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
 
 
 \newcommand{\sema}[1]{\sem{ {#1} }(\Delta,m,s,v)}
@@ -539,67 +551,70 @@ kept and has further usages in the implementation.
 
 \subsubsection{Message Passing and Scheduling}
 \todo{a bit too concrete?}
-We will elaborate message passing and scheduling together in this section as
+We will elaborate on message passing and scheduling together in this section as
 these two are closely related. Loosely speaking, sending and waiting for
-messages expect the scheduler to schedule a specific VM, usually either the
-sender or the receiver, to run next. It is for getting the sender or the
+messages expect the scheduler to run a specific VM, usually either the
+sender or the receiver, next. The purpose is to get the sender or the
 receiver notified.
 
 Let's talk about the less-complicated scheduling first. In Hafnium, the
 scheduler resides in the primary VM which usually uses its thread scheduler as
-the VM level scheduler. To achieve it, the primary VM allocates threads for all
-VMs, and then schedule them as regular threads. However, to let the whole system
-function correctly, several expectations are given to the primary VM scheduler
+the VM level scheduler. To achieve this, the primary VM allocates threads for all
+VMs, and then treat them as regular threads. However, to let the whole system
+function correctly, several expectations are given to the primary VM's scheduler
 according to the FF-A specification. We will mention them when we meet.
 
-Making use of primary VM's scheduler instead of writing a scheduler in the
-hypervisor dramatically reduces the verification work of hypervisor. Although
+Making use of the primary VM's scheduler instead of writing a scheduler in the
+hypervisor dramatically reduces the verification work of the hypervisor. Although
 the downside is we lose the availability guarantee of all secondary VMs.
 
 To make the scheduling more realistic, we introduced a $\TIMER$ and a mechanism
-working like the timer interrupt in our model. The $\TIMER$ countdowns by $1$
-whenever executing an instruction. When it becomes zero, the current running VM
-will be preempted, switching back to the primary VM(the VM with $\VMID$ 0), and
-meanwhile, telling the primary VM who was running before the ''interrupt''(we
-don't have actual interrupts) . These are done by the tick function. One may
-notice that the telling part is carried out by assigning values to registers of
-primary VM. We say it is the mechanism for hypervisor to communicate with VMs
-regulated by FF-A framework. Intuitively, it can be seen as function calls to
-VMs, in which $\mathtt{r_{0}}$ stores the function name and the rest store
-arguments. We call these registers parameter registers. In the $\INT$ case, the
+working like the timer interrupt(not an actual interrupt!) in our model. The $\TIMER$ countdowns by $1$
+whenever executing an instruction. When its value becomes zero, the currently running VM
+will be preempted, switching back to the primary VM, and
+meanwhile, notifying the primary VM who was running before the ''interrupt''.
+These tasks are done by the tick function. One may
+notice that the notification is carried out by assigning values to registers of
+primary VM, which is exactly the foregoing hvc call conventions.
+% We say it is the mechanism for hypervisor to communicate with VMs
+% regulated by FF-A framework. Intuitively, it can be seen as function calls to
+% VMs, in which $\mathtt{r_{0}}$ stores the function name and the rest store
+% arguments. We call these registers parameter registers.
+In the $\INT$ case, the
 hypervisor invokes primary VM to handle the ''timer interrupt'' towards the
-preempted VM. The scheduler will decide who is the next to run and execute
-\instr{run}.
+preempted VM. The scheduler will decide who is the next to run and switch with
+the RUN FFA function(by executing \instr{hvc}).
 
 % In Hafnium, the expectation to the scheduler is checking if the $\TIMER$ of
 % that VM is zero. If not, the scheduler must execute \instr{run} to allow the VM
 % to continue.
 
-The \instr{run} $r$ instruction can only be executed by the primary VM, allowing
-primary VM to switch to the VM whose $\VMID$ is stored in $r$ with the help of
-the hypervisor. The hypervisor will check if the executer is the primary VM,
-and whether the given $\VMID$ is valid. Next, hypervisor examines the state of
-$\MB$ of the next running VM. If a message in $\MB$ is ready to read, the
+The RUN can only be invoked by the primary VM, allowing the
+primary VM to pass the control to the VM whose $\VMID$ is stored in $r$ with the help of
+the hypervisor. The hypervisor will check if the caller is the primary VM,
+and whether the given $\VMID$ is valid. Next, the hypervisor examines the state of
+$\MB$ of the next running VM. If the message in $\MB$ is ready to read, the
 hypervisor additionally sets parameter registers of that VM, notifying the VM
-along with the sender and the length of the message.\todo{the pvm is responsible
-for setting the timer, to do so the timer must be a register. Or it is ok to let
+along with the sender and the length of the message.
+\todo{the pvm is responsible
+for setting the timer when scheduling, to do so the timer must be a register. Or it is ok to let
 hypervisor do it?}
 
-The second scheduling related instruction is \instr{yld}. It is executed by a VM
+The second scheduling related FFA call is YIELD. It is called by a VM
 when it wants to yield the CPU and pass control to the scheduler. The semantic
-of this instruction is trivial, it just informs primary the previous running VM
-yielded. The expectation to scheduler is it must not run that VM again
+of this function is trivial, it just informs the scheduler the previous running VM just
+yielded. The expectation to the scheduler is it must not run that VM again
 immediately.
 
 % However, there is an expectation for $\YIELD$ to the primary VM,
 % which is that the yielding VM must be run through \instr{run} after a given
 % timeout.
 
-The instruction \instr{msgw} is used by a VM to wait for a message. While in
-fact, \instr{msgw} is essentially a scheduling instruction. When it is executed
+The MEG\_WAIT is used by a VM to wait for a message. While in
+fact, it is essentially a scheduling FFA function. When it is invoked
 by a VM, the hypervisor will inspect the $\MB$. If there is a ready message, the
-control is given back to the VM, notifying it in the same manner as \instr{run}.
-Otherwise, hypervisor informs the scheduler that the VM is waiting and switch to
+control is given back to the VM, notifying it in the same manner as RUN.
+Otherwise, the hypervisor informs the scheduler that the VM is waiting and switch to
 the scheduler. The scheduler is expected not to run that VM again unless a message
 to the VM is sent.
 
