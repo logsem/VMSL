@@ -143,7 +143,6 @@ machines plus some additional information for the FF-A framework.
   \end{align*}
   \caption{Execution Configuration: VM States, Global Memory, and Share States.}
 \end{figure}
-\todo{write list($\PID$) and option($\PID$) separately}
 Figure 1 shows the definition of execution configuration, which includes three
 components: $\STATE$s of all VMs, a $\MEM$ shared with all VMs, and a $\SSS$
 storing necessary information for memory sharing FF-A requests.
@@ -188,7 +187,8 @@ that the two pages are uninitialized. There is a FF-A call through which a VM
 can assign two pages it owns as its RX and TX pages. Afterwards, the RX/TX pages
 are not strictly possessed by the VM anymore. In addition, VM is no longer able to
 reassign other pages as new RX/TX pages, i.e. RX/TX pages of a VM can only be
-configured once. \todo{comment on new mailbox}
+configured once.
+\todo{comment on new mailbox}
 
 It is worth to note that the $\mathtt{NZ}$ is a system register, which means one
 is only able to access to this register if it is at a high enough Exception
@@ -229,7 +229,7 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
   \end{align*}
   \caption{Syntax and Machine Instructions}
 \end{figure}
-\todo{later: change new instructions back to hvc}
+\todo{add mrs /msr (for accessing to system registers)}
 The syntax and instructions included in our model are shown in Figure 2. The
 syntax of the expression is uncomplicated. Generally speaking, $\EI{v}$ is for
 executing a single instruction in VM $v$ and $\DN{\theta}$ implies the result of
@@ -459,7 +459,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                                                                               \Delta[v].r[\mathtt{R0}]=\toword{RUN}\\
                                                                                               v=0 \land v_n < \llen{\Delta}
                                                                                               \end{array}$}}\\
-                                 & &\SOME(p_r,b,w_s,v_s)=\Delta[v_n].\pi &\multicolumn{2}{l|}{\multirow{2}{*}{}}\\\cline{3-4}
+                                 & &\SOME(p_r,b,w_s,v_s)=\Delta[v_n].\pi_r &\multicolumn{2}{l|}{\multirow{2}{*}{}}\\\cline{3-4}
                                  & &\!\!\!\!\!\begin{array}{l}
                                               \Delta'[v_n].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
                                               \Delta'[v_n].r[\mathtt{R1}]=\text{comb}(v_s,v_n)\\
@@ -496,13 +496,13 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                                  m'=\text{memcpy}(m,p_t,p_r,w_s)\\
                                                  \Delta'[v].r[\mathtt{R0}]=\toword{\SUCC}\\
                                                  \Delta'[0].r[\mathtt{R0}]=\toword{\MSGS}\;\text{if}\;v\neq 0\\
-                                                 \Delta'[0].r[\mathtt{R1}]=\text{comb}(v,p_r)\;\text{if}\;v\neq 0
+                                                 \Delta'[0].r[\mathtt{R1}]=\text{comb}(v,v_r)\;\text{if}\;v\neq 0
                                                \end{array} & $!b$ &\\\cline{3-4}
                                 & &\!\!\!\!\!\begin{array}{l}
                                                v_n=v\\
                                                \Delta'[v].r[\mathtt{R0}]=\toword{\BUSY}
                                              \end{array} & $b$&\\\cline{2-5}
-      & \leftshift  \nextt(\Delta', m, s,\updpc, v, v_n)& \Delta'[v].\pi_r = \SOME(p_r,\mathtt{false},-,-)
+      & \leftshift  \nextt(\Delta', m, s,\updpc, v, v)& \Delta'[v].\pi_r = \SOME(p_r,\mathtt{false},-,-)
                                           &\multicolumn{2}{l|}{$\leftshift \begin{array}{l}
                                                                              \Delta[v].r[\mathtt{R0}]=\toword{MSG\_RCV}\\
                                                                              \Delta[v].\pi_{r}=\SOME(p_r,\mathtt{true},-,-)
@@ -550,7 +550,7 @@ kept and has further usages in the implementation.
 \todo{elaborate it in detail}
 
 \subsubsection{Message Passing and Scheduling}
-\todo{a bit too concrete?}
+%\todo{a bit too concrete?}
 We will elaborate on message passing and scheduling together in this section as
 these two are closely related. Loosely speaking, sending and waiting for
 messages expect the scheduler to run a specific VM, usually either the
@@ -572,7 +572,7 @@ To make the scheduling more realistic, we introduced a $\TIMER$ and a mechanism
 working like the timer interrupt(not an actual interrupt!) in our model. The $\TIMER$ countdowns by $1$
 whenever executing an instruction. When its value becomes zero, the currently running VM
 will be preempted, switching back to the primary VM, and
-meanwhile, notifying the primary VM who was running before the ''interrupt''.
+meanwhile, notifying the primary VM who was running before the ``interrupt''.
 These tasks are done by the tick function. One may
 notice that the notification is carried out by assigning values to registers of
 primary VM, which is exactly the foregoing hvc call conventions.
