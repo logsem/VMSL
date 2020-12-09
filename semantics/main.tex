@@ -129,17 +129,19 @@ machines plus some additional information for the FF-A framework.
 \begin{figure}
   \begin{align*}
     \phi &\in \CONF &\defined &list(\STATE) \times \MEM \times \SSS \\
-    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \TIMER  \times \MB \\
+    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \MB \\% \TIMER \times
     \pi & \in \MB &\defined &option(\PID) \times option(\PID \times \text{Bool} \times \WORD \times \VMID) \\
-    t & \in \TIMER &\defined & \WORD \\
+   % t & \in \TIMER &\defined & \WORD \\
     p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
-    n & \in \REGNAMES &\derived  &\mathtt{pc} | \mathtt{NZ} | \mathtt {R0} | \mathtt{R1} | \dots \\
+    n & \in \REGNAMES &\defined &\text{SysRegs} \cup \text{GenRegs} \\
     m & \in \MEM &\defined  &\ADDR \maps \WORD \\
     a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
     s & \in \SSS &\defined  &list(\PID \times \VMID) \\
-    v & \in \VMID &\defined  &[ 0, \PVMMAX ]
+    v & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
+      & \;\;\;\; \text{SysRegs} &\derived & \mathtt{NV} | \mathtt{CNT\_VAL} | \mathtt{CNT\_CTL} | \dots \\
+      & \;\;\;\; \text{GenRegs} &\derived & \mathtt{pc} | \mathtt {R0} | \mathtt{R1} | \dots
   \end{align*}
   \caption{Execution Configuration: VM States, Global Memory, and Share States.}
 \end{figure}
@@ -223,13 +225,10 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
                                     \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
                                     \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r |
                                     \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r \\
-        & & & | \instrm{fail} | \instrm{halt} | \instrm{hvc}
-              %\instrm{memd} \; r \; r | \instrm{memr} \; r\; r | \instrm{run} \; r|
-              %\instrm{yld} | \instrm{msgw} | \instrm{msgs} \; r_1 \; r_{2} | \instrm{msgr}
+        & & & | \instrm{fail} | \instrm{halt} | \instrm{hvc} |\instrm{mrs} \; r\;r | \instrm{msr} \; r \; r
   \end{align*}
   \caption{Syntax and Machine Instructions}
 \end{figure}
-\todo{add mrs /msr (for accessing to system registers)}
 The syntax and instructions included in our model are shown in Figure 2. The
 syntax of the expression is uncomplicated. Generally speaking, $\EI{v}$ is for
 executing a single instruction in VM $v$ and $\DN{\theta}$ implies the result of
@@ -506,7 +505,9 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                           &\multicolumn{2}{l|}{$\leftshift \begin{array}{l}
                                                                              \Delta[v].r[\mathtt{R0}]=\toword{MSG\_RCV}\\
                                                                              \Delta[v].\pi_{r}=\SOME(p_r,\mathtt{true},-,-)
-                                                                             \end{array}$} \\\hline
+                                                                           \end{array}$} \\\hline
+      \instr{mrs} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r_1]=\Delta[v].r[r_2] & \multicolumn{2}{l|}{$r_{2}\in \text{SysRegs}\land r_{1}\in \text{GenRegs}$} \\\hline
+      \instr{msr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r_1]=\Delta[v].r[r_2] & \multicolumn{2}{l|}{$r_{1}\in \text{SysRegs}\land r_{2}\in \text{GenRegs}$} \\\hline
     \end{tabular}
   \end{adjustwidth}
   \caption{Instruction Semantics.}
@@ -517,13 +518,17 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
     \updpc(\Delta,m,s,v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].r[\mathtt{pc}] = \Delta[v].r[\mathtt{pc}]+1\\
     \text{id}(\Delta,m,s,v)& = (\Delta,m,s)\\
     \nextt(\Delta,m,s,f,v,n)&= \left\{\!\!\!\!\begin{array}{lll}
-                                               \DNXT{n}{f(\Delta',m,s,v)} &\text{where } \Delta'[v].t = \Delta[v].t-1& \text{if}\: \Delta[v].t -1 \neq 0\\
-                                               &\\
-                                               \DNXT{0}{f(\Delta',m,s,v)} &\text{where } \!\!\!\! \begin{array}{l}
-                                                                                      \Delta'[v].t = \Delta[v].t-1,\\
-                                                                                      \Delta'[0].r[\mathtt{R0}]=\toword{INTERRUPT},\\
-                                                                                      \Delta'[0].r[\mathtt{R1}] = v
-                                                                                      \end{array}& \text{otherwise}
+                                \DNXT{0}{f(\Delta',m,s,v)} &\text{where }&\Delta'[v].r[\mathtt{CNT\_VAL}] = \Delta[v].r[\mathtt{CNT\_VAL}] -1,\\
+                                & & \Delta'[0].r[\mathtt{CNT\_VAL}] = \Delta[0].r[\mathtt{CNT\_VAL}] -1,\\
+                                & &\Delta'[0].r[\mathtt{CNT\_CTL}] = 0,\\
+                                & &\Delta'[0].r[\mathtt{R0}]=\toword{INTERRUPT},\\
+                                & &\Delta'[0].r[\mathtt{R1}] = v\\
+                                & \text{if}&(\Delta[v].r[\mathtt{CNT\_VAL}] -1 \le 0 \land\Delta[v].r[\mathtt{CNT\_CTL}] = 1)\\
+                                & &\lor(\Delta[0].r[\mathtt{CNT\_VAL}] -1 \le 0\land\Delta[0].r[\mathtt{CNT\_CTL}] = 1)\\
+                                \\
+                                \DNXT{n}{f(\Delta',m,s,v)} &\text{where}&\Delta'[v].r[\mathtt{CNT\_VAL}] = \Delta[v].r[\mathtt{CNT\_VAL}] -1\\
+                                & &\Delta'[0].r[\mathtt{CNT\_VAL}] = \Delta[0].r[\mathtt{CNT\_VAL}] -1\\
+                                & \text{otherwise}\\
                                               \end{array}  \right.\\
     \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+w_{2}
   \end{align*}
