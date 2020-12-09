@@ -36,7 +36,6 @@
 \newcommand*{\DONE}{\text{DoneState}}
 \newcommand*{\INSTR}{\text{Instruction}}
 \newcommand*{\MB}{\text{MailBox}}
-\newcommand*{\TIMER}{\text{Timer}}
 
 % parameters
 \newcommand*{\PABITS}{\text{ADDR\_BITS}}
@@ -92,7 +91,6 @@
 
 \section{Operational Semantics}
 
-\todo{later: more realistic scheduling}
 \subsection{Setting of Hafnium}
 Hafnium is a type-1 hypervisor running on the AArch64 architecture(for now),
 which is claimed can provide memory isolation between a set of virtual
@@ -129,9 +127,8 @@ machines plus some additional information for the FF-A framework.
 \begin{figure}
   \begin{align*}
     \phi &\in \CONF &\defined &list(\STATE) \times \MEM \times \SSS \\
-    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \MB \\% \TIMER \times
+    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \MB \\
     \pi & \in \MB &\defined &option(\PID) \times option(\PID \times \text{Bool} \times \WORD \times \VMID) \\
-   % t & \in \TIMER &\defined & \WORD \\
     p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
     n & \in \REGNAMES &\defined &\text{SysRegs} \cup \text{GenRegs} \\
@@ -592,40 +589,41 @@ call conventions.
 % regulated by FF-A framework. Intuitively, it can be seen as function calls to
 % VMs, in which $\mathtt{r_{0}}$ stores the function name and the rest store
 % arguments. We call these registers parameter registers.
-In the $\INT$ case, the
-hypervisor invokes primary VM to handle the ''timer interrupt'' towards the
-preempted VM. The scheduler will decide who is the next to run and switch with
-the RUN FFA function(by executing \instr{hvc}).
+In the $\INT$ case, the hypervisor invokes primary VM to handle the ''timer
+interrupt'' towards the preempted VM. The scheduler will decide who is the next
+to run and switch with the RUN FFA function(by executing \instr{hvc}).
 
 % In Hafnium, the expectation to the scheduler is checking if the $\TIMER$ of
 % that VM is zero. If not, the scheduler must execute \instr{run} to allow the VM
 % to continue.
 
-The RUN can only be invoked by the primary VM, allowing the
-primary VM to pass the control to the VM whose $\VMID$ is stored in $r$ with the help of
-the hypervisor. The hypervisor will check if the caller is the primary VM($v=0$),
-and whether the given $\VMID$ $v_{n}$ exists($v_{n} < \text{len}(\Delta)$). Next, the hypervisor examines the state of
-$\MB$ of the next running VM. If the message in $\MB$ is ready to read($b=\mathtt{True}$), the
-hypervisor additionally sets parameter registers of VM $v_{n}$, notifying the VM
-along with the sender($v_{s}$) and the length of the message($w_{s}$).
+The RUN can only be invoked by the primary VM, allowing the primary VM to pass
+the control to the VM whose $\VMID$ is stored in $r$ with the help of the
+hypervisor. The hypervisor will check if the caller is the primary VM($v=0$),
+and whether the given $\VMID$ $v_{n}$ exists($v_{n} < \text{len}(\Delta)$).
+Next, the hypervisor examines the state of $\MB$ of the next running VM. If the
+message in $\MB$ is ready to read($b=\mathtt{True}$), the hypervisor
+additionally sets parameter registers of VM $v_{n}$, notifying the VM along with
+the sender($v_{s}$) and the length of the message($w_{s}$).
 
-The second scheduling related FFA call is YIELD. It is called by a VM
-when it wants to yield the CPU and pass control to the scheduler. The semantic
-of this function is trivial, it just informs the scheduler the previous running VM $v$ just
-yielded. The expectation to the scheduler is it must not run that VM again
+The second scheduling related FFA call is YIELD. It is called by a VM when it
+wants to yield the CPU and pass control to the scheduler. The semantic of this
+function is trivial, it just informs the scheduler the previous running VM $v$
+just yielded. The expectation to the scheduler is it must not run that VM again
 immediately.
 
 % However, there is an expectation for $\YIELD$ to the primary VM,
 % which is that the yielding VM must be run through \instr{run} after a given
 % timeout.
 
-The MSG\_WAIT is used by a VM to wait for a message. However in
-fact, it is essentially a scheduling FFA function. When it is invoked
-by a VM $v$, the hypervisor will inspect the $\MB$. If there is a ready message($b=\mathtt{True}$), the
-control is given back to the VM($v_{n}=v$), notifying it in the same manner as RUN.
-Otherwise, the hypervisor informs the scheduler that the VM is waiting and switch to
-the scheduler($v_{n}=0$). The scheduler is expected not to run that VM again unless a message
-to the VM is sent.
+The MSG\_WAIT is used by a VM to wait for a message. However in fact, it is
+essentially a scheduling FFA function. When it is invoked by a VM $v$, the
+hypervisor will inspect the $\MB$. If there is a ready
+message($b=\mathtt{True}$), the control is given back to the VM($v_{n}=v$),
+notifying it in the same manner as RUN. Otherwise, the hypervisor informs the
+scheduler that the VM is waiting and switch to the scheduler($v_{n}=0$). The
+scheduler is expected not to run that VM again unless a message to the VM is
+sent.
 
 
 
