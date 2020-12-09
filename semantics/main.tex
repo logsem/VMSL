@@ -192,12 +192,14 @@ reassign other pages as new RX/TX pages, i.e. RX/TX pages of a VM can only be
 configured once.
 \todo{comment on new mailbox}
 
-It is worth to note that the $\mathtt{NZ}$ is a system register, which means one
+There are two kinds of registers in the model, general registers and system registers.
+System register can only be accessed through two special instructions. Thus, they usually are not involved in computation. Instead, they are used for specific purpose like storing system state, changing hardware behaviors, and etc.
+ $\mathtt{NZ}$ is one of system registers, which means one
 is only able to access to this register if it is at a high enough Exception
 Level. This register is crucial to comparing and jumping instructions. It has
 similar functionality as the
 \href{https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/nzcv}
-{$\mathtt{NZCV}$ register} in real Arm-A processors.
+{$\mathtt{NZCV}$ register} in real Arm-A processors. Besides, we included two timer registers as system registers as well.
 
 To explain why we defined the $\SSS$, we need to elaborate on how memory sharing is
 specified in the FF-A framework, which we won't do until Section 1.5 when we
@@ -411,19 +413,19 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
       Instr$(i)$ &\sema{i} & \text{where} &  \multicolumn{2}{l|}{Conditions} \\ \hline \hline
       \instr{fail}&\leftshift (\DN{\mathtt{Fail}}, (\Delta,m,s)) & & \multicolumn{2}{l|}{} \\ \hline
       \instr{halt}&\leftshift (\DN{\mathtt{Halt}}, (\Delta,m,s)) & & \multicolumn{2}{l|}{} \\\hline
-      \instr{br} $r$&\leftshift \nextt(\Delta',m,s,\text{id},v,v)  & \Delta'[v].r[\mathtt{pc}]=\Delta[v].r[r] & \multicolumn{2}{l|}{} \\\hline
+      \instr{br} $r$&\leftshift \nextt(\Delta',m,s,\text{id},v,v)  & \Delta'[v].r[\mathtt{pc}]=\Delta[v].r[r] & \multicolumn{2}{l|}{$r \in \text{GenRegs}$} \\\hline
       \multirow{2}{*}{\instr{bne} $r$}&\multirow{2}{*}{$\leftshift \nextt(\Delta',m,s,\text{id},v,v)$}
-                               & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[r] & \multicolumn{2}{l|}{$\Delta[v].r[\mathtt{NZ}].z=1$} \\\cline{3-5}
-                               & & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[\mathtt{pc}]+1 &\multicolumn{2}{l|}{otherwise} \\\hline
-      \instr{mov} $r$ $w$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r]=w & \multicolumn{2}{l|}{} \\\hline
+                               & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[r] & $\Delta[v].r[\mathtt{NZ}].z=1$& $r \in \text{GenRegs}$\\\cline{3-4}
+                               & & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[\mathtt{pc}]+1 &otherwise& \\\hline
+      \instr{mov} $r$ $w$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r]=w & \multicolumn{2}{l|}{$r \in \text{GenRegs}$} \\\hline
       \instr{ldr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & \Delta'[v].r[r_{1}]=m[a]  &
-                                \multicolumn{2}{l|}{$\SOME(a)=\valida(\Delta[v],r_{2},R)$} \\\hline
+                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a)=\valida(\Delta[v],r_{2},R)\end{array}$} \\\hline
       \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
-                                \multicolumn{2}{l|}{$\SOME(a) =\valida(\Delta[v],r_{1},W)$} \\\hline
-      \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
-      \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{} \\\hline
+                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a) =\valida(\Delta[v],r_{1},W)\end{array}$} \\\hline
+      \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
+      \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
       \multirow{4}{*}{\instr{cmp} $r_{1}$ $r_{2}$}&\multirow{4}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v,v)$}
-                                 & w = \Delta[v].r[r_{1}] - \Delta[v].r[r_{2}] & \multicolumn{2}{l|}{} \\\cline{3-4}
+                                 & w = \Delta[v].r[r_{1}] - \Delta[v].r[r_{2}] & \multicolumn{2}{l|}{$r_{1},r_{2} \in \text{GenRegs}$} \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 1 & $w = 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 2 & $w < 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 0 & otherwise &\\\hline
@@ -555,32 +557,37 @@ kept and has further usages in the implementation.
 \todo{elaborate it in detail}
 
 \subsubsection{Message Passing and Scheduling}
-%\todo{a bit too concrete?}
 We will elaborate on message passing and scheduling together in this section as
 these two are closely related. Loosely speaking, sending and waiting for
-messages expect the scheduler to run a specific VM, usually either the
-sender or the receiver, next. The purpose is to get the sender or the
+messages expect the scheduler to schedule a certain VM, usually either the
+sender or the receiver. The purpose is to get the sender or the
 receiver notified.
 
 Let's talk about the less-complicated scheduling first. In Hafnium, the
 scheduler resides in the primary VM which usually uses its thread scheduler as
-the VM level scheduler. To achieve this, the primary VM allocates threads for all
+the VM-level scheduler. To achieve this, the primary VM allocates threads for all
 VMs, and then treat them as regular threads. However, to let the whole system
 function correctly, several expectations are given to the primary VM's scheduler
 according to the FF-A specification. We will mention them when we meet.
 
 Making use of the primary VM's scheduler instead of writing a scheduler in the
 hypervisor dramatically reduces the verification work of the hypervisor. Although
-the downside is we lose the availability guarantee of all secondary VMs.
+the downside is we lose the availability of all secondary VMs.
 
-To make the scheduling more realistic, we introduced a $\TIMER$ and a mechanism
-working like the timer interrupt(not an actual interrupt!) in our model. The $\TIMER$ countdowns by $1$
-whenever executing an instruction. When its value becomes zero, the currently running VM
-will be preempted, switching back to the primary VM, and
-meanwhile, notifying the primary VM who was running before the ``interrupt''.
-These tasks are done by the tick function. One may
-notice that the notification is carried out by assigning values to registers of
-primary VM, which is exactly the foregoing hvc call conventions.
+To make the scheduling more realistic, we introduced timer registers and a
+mechanism working like the timer interrupt(not an actual interrupt!) in our
+model. The \texttt{CNT\_VAL} register which stores the current value of the
+timer countdowns by $1$ whenever executing an instruction. When the timer is
+enabled by setting \texttt{CNT\_CTL} to 1 and its value becomes(or less than)
+zero , the currently running VM will be preempted, switching back to the primary
+VM, and meanwhile, notifying the primary VM who was running before the
+``interrupt''. These tasks are done by the tick function. An interesting point
+of the tick function is that it modifies not only the timer of current VM, but
+also the primary VM. The primary VM then is able to interrupt a running
+secondary VM by setting its timer, preventing the secondary VM from occupying
+unlimited CPU time. One may also notice that the notification is carried out by
+assigning values to registers of primary VM, which is exactly the foregoing hvc
+call conventions.
 % We say it is the mechanism for hypervisor to communicate with VMs
 % regulated by FF-A framework. Intuitively, it can be seen as function calls to
 % VMs, in which $\mathtt{r_{0}}$ stores the function name and the rest store
@@ -596,18 +603,15 @@ the RUN FFA function(by executing \instr{hvc}).
 
 The RUN can only be invoked by the primary VM, allowing the
 primary VM to pass the control to the VM whose $\VMID$ is stored in $r$ with the help of
-the hypervisor. The hypervisor will check if the caller is the primary VM,
-and whether the given $\VMID$ is valid. Next, the hypervisor examines the state of
-$\MB$ of the next running VM. If the message in $\MB$ is ready to read, the
-hypervisor additionally sets parameter registers of that VM, notifying the VM
-along with the sender and the length of the message.
-\todo{the pvm is responsible
-for setting the timer when scheduling, to do so the timer must be a register. Or it is ok to let
-hypervisor do it?}
+the hypervisor. The hypervisor will check if the caller is the primary VM($v=0$),
+and whether the given $\VMID$ $v_{n}$ exists($v_{n} < \text{len}(\Delta)$). Next, the hypervisor examines the state of
+$\MB$ of the next running VM. If the message in $\MB$ is ready to read($b=\mathtt{True}$), the
+hypervisor additionally sets parameter registers of VM $v_{n}$, notifying the VM
+along with the sender($v_{s}$) and the length of the message($w_{s}$).
 
 The second scheduling related FFA call is YIELD. It is called by a VM
 when it wants to yield the CPU and pass control to the scheduler. The semantic
-of this function is trivial, it just informs the scheduler the previous running VM just
+of this function is trivial, it just informs the scheduler the previous running VM $v$ just
 yielded. The expectation to the scheduler is it must not run that VM again
 immediately.
 
@@ -615,12 +619,12 @@ immediately.
 % which is that the yielding VM must be run through \instr{run} after a given
 % timeout.
 
-The MEG\_WAIT is used by a VM to wait for a message. While in
+The MSG\_WAIT is used by a VM to wait for a message. However in
 fact, it is essentially a scheduling FFA function. When it is invoked
-by a VM, the hypervisor will inspect the $\MB$. If there is a ready message, the
-control is given back to the VM, notifying it in the same manner as RUN.
+by a VM $v$, the hypervisor will inspect the $\MB$. If there is a ready message($b=\mathtt{True}$), the
+control is given back to the VM($v_{n}=v$), notifying it in the same manner as RUN.
 Otherwise, the hypervisor informs the scheduler that the VM is waiting and switch to
-the scheduler. The scheduler is expected not to run that VM again unless a message
+the scheduler($v_{n}=0$). The scheduler is expected not to run that VM again unless a message
 to the VM is sent.
 
 
