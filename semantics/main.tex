@@ -602,7 +602,7 @@ the control to the VM whose $\VMID$ is stored in $r$ with the help of the
 hypervisor. The hypervisor will check if the caller is the primary VM($v=0$),
 and whether the given $\VMID$ $v_{n}$ exists($v_{n} < \text{len}(\Delta)$).
 Next, the hypervisor examines the state of $\MB$ of the next running VM. If the
-message in $\MB$ is ready to read($b=\mathtt{True}$), the hypervisor
+message in $\MB$ is ready to read($b=\mathtt{true}$), the hypervisor
 additionally sets parameter registers of VM $v_{n}$, notifying the VM along with
 the sender($v_{s}$) and the length of the message($w_{s}$).
 
@@ -619,13 +619,28 @@ immediately.
 The MSG\_WAIT is used by a VM to wait for a message. However in fact, it is
 essentially a scheduling FFA function. When it is invoked by a VM $v$, the
 hypervisor will inspect the $\MB$. If there is a ready
-message($b=\mathtt{True}$), the control is given back to the VM($v_{n}=v$),
+message($b=\mathtt{true}$), the control is given back to the VM($v_{n}=v$),
 notifying it in the same manner as RUN. Otherwise, the hypervisor informs the
-scheduler that the VM is waiting and switch to the scheduler($v_{n}=0$). The
-scheduler is expected not to run that VM again unless a message to the VM is
-sent.
+scheduler that the VM is waiting and switch to the scheduler($v_{n}=0$).
+Intuitively, the hypervisor forward the MSG\_WAIT to the scheduler. The scheduler
+is expected not to run that VM again unless a message to the VM is sent.
 
+MSG\_SEND is the core of the FFA message passing mechanism. After the VM $v$
+writes a $w_{s}$-byte message to its TX page, it invokes the hypervisor with
+MSG\_SEND plus $w_{s}$ and the receiver VM $v_{r}$. The hypervisor then checkes
+if a message is ready in $v_{s}$'s $\MB$($b=\mathtt{true}$). If so, it returns
+back to the sender $v$ with the error code $\text{BUSY}$ in the result register.
+Otherwise($b=\mathtt{false}$), it copies the message from $v$'s TX page($p_{t}$)
+to $v_{s}$'s RX page($p_{r}$), telling $v$ the operation succeeds and giving the
+control to the scheduler($v_{n}=0$). When giving away the control, hypervisor
+sees if the sender is not the primary VM($v\neq 0$). If it is the case, the
+hypervisor also needs to inform the scheduler who is sending a message to whom,
+so that the scheduler can schedule accordingly. Otherwise, if primary VM is
+sending the message, then it already knew the sender and the recevier.
+Therefore, it is unnecessary to use return registers.
 
+MSG\_RCV is another trivial FFA function, its usage is emptying the $\MB$(by
+setting $b=\mathtt{false}$), so that the $\MB$ can receive a new message.
 
 %\section{Proof Rules}
 
