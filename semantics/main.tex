@@ -10,6 +10,9 @@
 \usepackage{array}
 \usepackage{changepage}
 \usepackage[T1]{fontenc}
+\usepackage{tikz}
+
+\usetikzlibrary{arrows,positioning,fit,shapes}
 
 \newcolumntype{L}{>{$}l<{$}}
 
@@ -102,9 +105,54 @@ entries, which we assume working correctly. Therefore Hafnium can
 guarantee that one VM can never access to the memory owned by another VM without
 that VM's consent.
 
+\begin{figure}[!h]
+  \tikzset{
+pagetable/.style = {draw, minimum width=2cm,text height = 0.20cm},
+memory/.style= {rectangle , draw = black, thick, minimum width = 2cm},
+address space/.style = { rectangle, draw=black!80, ultra thick,minimum width=2cm,minimum height=6cm}}
+
+\pgfdeclarelayer{foreground}
+\pgfsetlayers{main,foreground}
+\centering
+\begin{tikzpicture}[node distance=1cm, on grid]
+    \begin{pgfonlayer}{foreground}
+      \node [address space] (IPA)  at (-3,0) {};
+      \node [address space] (PA) at (3,0) {};
+      \node [above] at (PA.north) {PA};
+      \node [above] at (IPA.north) {IPA};
+    \end{pgfonlayer}
+    \node [memory] (IP1)[fill = blue!50,minimum height = 1.5cm] at (-3,0.5) {VM$_{1}$};
+    \node (X)[xshift = -3mm] at (IP1.north west) {$x$};
+    \node [memory] (IP2)[fill = red!50,minimum height = 1.5cm] at (-3,-2) {VM$_{2}$};
+    \node (Y)[xshift = -3mm] at (IP2.north west) {$y$};
+    \node [memory] (PH)[fill = black!30,minimum height = 1.5cm] at (3,2.25) {};
+
+    \node [pagetable] (PT1) at (3,2.25){PT$_{1}$};
+    \node [pagetable] (PT2) at (3,1.75){PT$_{2}$};
+    \node [above] at (PT1.north) {Hypervisor};
+
+    \node [memory] (P1)[fill = blue!50,minimum height = 1.5cm] at (3,0.5) {VM$_{1}$}edge[<-] (IP1.east |- P1.west);
+    \node (X')[xshift = -3mm] at (P1.north west) {$x$};
+    \node [memory] (P2)[fill = red!50,minimum height = 1.5cm] at (3,-2) {VM$_{2}$}edge[<-] (IP2.east |- P2.west);
+    \node (Y')[xshift = -3mm] at (P2.north west) {$y$};
+    \node (E1)[minimum height = 0.5cm] at (0,0.8) {$x \mapsto x$};%edge[<-] (PT1.west);
+    \node (E2)[minimum height = 0.5cm] at (0,-1.7) {$y \mapsto y$};%edge[<-] (PT2.west);
+
+  \end{tikzpicture}
+ \caption{Stage-2 Memory Translation}
+  \end{figure}
 For the sake of simplicity, stage-2 page tables managed by the Hafnium are
 simply one-to-one mappings, i.e. the IPAs are always equal to PAs. Besides, it
 is also the case for the stage-1 page table of the Hafnium itself.
+For instance in Figure 1, the blue block whose $\PID$ is $x$ is a page owned by
+VM1, and the red box is a page owned by VM2. All page tables are in hypervisor's
+memory so that VMs are not able to modify entries of page tables directly. They
+have to ask the hypervisor for help. The page table of VM1 maps from $x$ in IPA
+space to $x$ in PA space, the same applies to VM2. Therefore we say if we
+consider stage-2 page tables as functions, then they are actually always
+identical functions. All we care is if $\PID$ of a page is in the domin of a
+function(a VM's page table). If so, then the VM owns the memory page.
+
 
 FF-A framework is designed as a protocol for components running on the ARM-A
 processor, the main purpose of which is to allow components in the normal world
@@ -142,7 +190,7 @@ machines plus some additional information for the FF-A framework.
   \end{align*}
   \caption{Execution Configuration: VM States, Global Memory, and Share States.}
 \end{figure}
-Figure 1 shows the definition of execution configuration, which includes three
+Figure 2 shows the definition of execution configuration, which includes three
 components: $\STATE$s of all VMs, a $\MEM$ shared with all VMs, and a $\SSS$
 storing necessary information for memory sharing FF-A requests.
 
@@ -171,11 +219,10 @@ for tracking all memory sharing operations.
 Despite page tables essentially are maps, we instead use a mathematical list of
 $\PID$s as the abstract page table of a VM.
 % \todo{Lars: I don't understand this para}
-We argue it is sufficient to record all the necessary translation
-information in the actual page table. Because in Hafnium, a $\PID$ in IP address
+We argue using list instead of map is sufficient to record all the necessary
+information for stage-2 translation. Because as mentioned before, a $\PID$ in IP address
 space is always equal to the corresponding one in the physical address space.
-\todo{add a drawing}
-Namely, we always have mappings like $x \mapsto x$ in stage-2 page tables.
+Namely, we always have entries like $x \mapsto x$ in stage-2 page tables.
 Another benefit of this mapping scheme is that we can omit stage-2 translation entirely.
 
 
@@ -237,7 +284,7 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
   \end{align*}
   \caption{Syntax and Machine Instructions}
 \end{figure}
-The syntax and instructions included in our model are shown in Figure 2. The
+The syntax and instructions included in our model are shown in Figure 3. The
 syntax of the expression is uncomplicated. Generally speaking, $\EI{v}$ is for
 executing a single instruction in VM $v$ and $\DN{\theta}$ implies the result of
 the execution. The result could be successful or failed. In case of success, we
@@ -336,7 +383,7 @@ and removing elements from a list respectively.
   % \vspace{-0.5cm}
 \end{figure}
 
-In Figure 3, the \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
+In Figure 4, the \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
 \refr{RepeatHalt/Fail} rules are applied to proceed with the execution.
 
 In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$
@@ -357,7 +404,7 @@ The validation is done by $\valida$ function.
 
 The last piece of the puzzle of operational semantic
 is the semantic interpretations of instructions describing how to proceed on
-execution, which is shown in Figure 4.
+execution, which is shown in Figure 5.
 
 The semantics interpretations of AArch64 instructions are generally trivial. The
 only worth-mentioned point is the conditions of \instr{ldr} and \instr{str}. The
@@ -550,7 +597,7 @@ the FF-A framework, MEM\_DNT mainly does three things: 1. checking(confirm if
 $a_{p}$ is a valid address of $v$); 2. removing the $\PID$ of the donated
 page($\text{pid}(a_{p})$) from sender's page table($\Delta[v].ps$) and 3.
 keeping donation details($\text{pid}(a_{p})$ and $v_{p}$) in the hypervisor(in
-$\SSS$ $s$) as a pair and returning a handle $\len(s')$ (which is an fresh index
+$\SSS$ $s$) as a pair and returning a handle $\text{len}(s')$ (which is a fresh index
 in $\SSS$) via the result register.
 
 However, MEM\_DNT merely does half of the donation. The second half is completed
@@ -562,7 +609,7 @@ $v$. If so, the hypervisor adds the $\PID$ of the donated page $p$ into the page
 table of the receiver$\Delta[v].ps$. The difference between the implementation
 and our semantic interpretation is that we remove the pair from $\SSS$ while it
 is kept and has further usages in the implementation. Finally, the hypervisor
-returns MEM\_RTRVP as a respond to the caller via the result register.
+returns MEM\_RTRVP as a response to the caller via the result register.
 
 
 \subsubsection{Message Passing and Scheduling}
@@ -585,17 +632,17 @@ the downside is we lose the availability of all secondary VMs.
 
 To make the scheduling more realistic, we introduced timer registers and a
 mechanism working like the timer interrupt(not an actual interrupt!) in our
-model. The \texttt{CNT\_VAL} register which stores the current value of the
+model. The \texttt{CNT\_VAL} register stores the current value of the
 timer countdowns by $1$ whenever executing an instruction. When the timer is
 enabled by setting \texttt{CNT\_CTL} to 1 and its value becomes(or less than)
 zero , the currently running VM will be preempted, switching back to the primary
 VM, and meanwhile, notifying the primary VM who was running before the
 ``interrupt''. These tasks are done by the tick function. An interesting point
-of the tick function is that it modifies not only the timer of current VM, but
-also the primary VM. The primary VM then is able to interrupt a running
-secondary VM by setting its timer, preventing the secondary VM from occupying
+of the tick function is that it modifies not only the timer of the current VM but
+also the primary VM. The primary VM then is capable of interrupting a running
+secondary VMs by setting its timer, preventing secondary VMs from occupying
 unlimited CPU time. One may also notice that the notification is carried out by
-assigning values to registers of primary VM, which is exactly the foregoing hvc
+assigning values to registers of the primary VM, which is exactly the foregoing hvc
 call conventions.
 % We say it is the mechanism for hypervisor to communicate with VMs
 % regulated by FF-A framework. Intuitively, it can be seen as function calls to
@@ -609,7 +656,7 @@ to run and switch with the RUN FFA function(by executing \instr{hvc}).
 % that VM is zero. If not, the scheduler must execute \instr{run} to allow the VM
 % to continue.
 
-The RUN can only be invoked by the primary VM, allowing the primary VM to pass
+The RUN function can only be invoked by the primary VM, allowing the primary VM to pass
 the control to the VM whose $\VMID$ is stored in $r$ with the help of the
 hypervisor. The hypervisor will check if the caller is the primary VM($v=0$),
 and whether the given $\VMID$ $v_{n}$ exists($v_{n} < \text{len}(\Delta)$).
@@ -634,7 +681,7 @@ hypervisor will inspect the $\MB$. If there is a ready
 message($b=\mathtt{true}$), the control is given back to the VM($v_{n}=v$),
 notifying it in the same manner as RUN. Otherwise, the hypervisor informs the
 scheduler that the VM is waiting and switch to the scheduler($v_{n}=0$).
-Intuitively, the hypervisor forward the MSG\_WAIT to the scheduler. The scheduler
+Intuitively, the hypervisor forwards the MSG\_WAIT to the scheduler. The scheduler
 is expected not to run that VM again unless a message to the VM is sent.
 
 MSG\_SEND is the core of the FFA message passing mechanism. After the VM $v$
@@ -644,15 +691,15 @@ if a message is ready in $v_{s}$'s $\MB$($b=\mathtt{true}$). If so, it returns
 back to the sender $v$ with the error code $\text{BUSY}$ in the result register.
 Otherwise($b=\mathtt{false}$), it copies the message from $v$'s TX page($p_{t}$)
 to $v_{s}$'s RX page($p_{r}$), telling $v$ the operation succeeds and giving the
-control to the scheduler($v_{n}=0$). When giving away the control, hypervisor
+control to the scheduler($v_{n}=0$). When giving away the control, the hypervisor
 sees if the sender is not the primary VM($v\neq 0$). If it is the case, the
 hypervisor also needs to inform the scheduler who is sending a message to whom,
-so that the scheduler can schedule accordingly. Otherwise, if primary VM is
+so that the scheduler can schedule accordingly. Otherwise, if the primary VM is
 sending the message, then it already knew the sender and the receiver.
 Therefore, it is unnecessary to use return registers.
 
 MSG\_RCV is another trivial FFA function, its usage is emptying the $\MB$(by
-setting $b=\mathtt{false}$), so that the $\MB$ can receive a new message.
+setting $b=\mathtt{false}$) so that the $\MB$ can receive a new message.
 
 %\section{Proof Rules}
 
