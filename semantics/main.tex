@@ -147,8 +147,8 @@ is also the case for the stage-1 page table of the Hafnium itself.
 For instance in Figure 1, the blue block whose $\PID$ is $x$ is a page owned by
 VM1, and the red box is a page owned by VM2. All page tables are in hypervisor's
 memory so that VMs are not able to modify entries of page tables directly. They
-have to ask the hypervisor for help. The page table of VM1 maps from $x$ in IPA
-space to $x$ in PA space, the same applies to VM2. Therefore we say if we
+have to ask the hypervisor for help. The page table of VM1 maps $x$ in IPA
+space to $x$ in PA space, the same applies to VM2. Therefore, we say if we
 consider stage-2 page tables as functions, then they are actually always
 identical functions. All we care is if $\PID$ of a page is in the domin of a
 function(a VM's page table). If so, then the VM owns the memory page.
