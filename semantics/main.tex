@@ -178,25 +178,34 @@ space is always equal to the corresponding one in the physical address space.
 Namely, we always have mappings like $x \mapsto x$ in stage-2 page tables.
 Another benefit of this mapping scheme is that we can omit stage-2 translation entirely.
 
-One may notice that there are two special $\PID$s that are not included in the
-list. They are considered as RX/TX buffers for message passing. The size of
-those two buffers is exactly one page, which is consistent to the
-implementation of Hafnium. The reason that they are embraced by an $option$ is
-that the two pages are uninitialized. There is a FF-A call through which a VM
-can assign two pages it owns as its RX and TX pages. Afterwards, the RX/TX pages
-are not strictly possessed by the VM anymore. In addition, VM is no longer able to
-reassign other pages as new RX/TX pages, i.e. RX/TX pages of a VM can only be
-configured once.
-\todo{comment on new mailbox}
 
-There are two kinds of registers in the model, general registers and system registers.
-System register can only be accessed through two special instructions. Thus, they usually are not involved in computation. Instead, they are used for specific purpose like storing system state, changing hardware behaviors, and etc.
- $\mathtt{NZ}$ is one of system registers, which means one
-is only able to access to this register if it is at a high enough Exception
-Level. This register is crucial to comparing and jumping instructions. It has
-similar functionality as the
+
+There are two kinds of registers in the model, general registers and system
+registers. System register can only be accessed through two special
+instructions. Thus, they usually are not involved in computation. Instead, they
+are used for specific purpose like storing system state, changing hardware
+behaviors, and etc. $\mathtt{NZ}$ is one of system registers, which means one is
+only able to access to this register if it is at a high enough Exception Level.
+This register is crucial to comparing and jumping instructions. It has similar
+functionality as the
 \href{https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/nzcv}
-{$\mathtt{NZCV}$ register} in real Arm-A processors. Besides, we included two timer registers as system registers as well.
+{$\mathtt{NZCV}$ register} in real Arm-A processors. Besides, we included two
+timer registers as system registers as well.
+
+
+The third components of a State is $\MB$ which is used for messaging. $\MB$ has
+a RX and a TX buffer. The size of those two buffers is exactly one page, which
+is consistent to the implementation of Hafnium. The reason that they are
+embraced by an $option$ is that the two pages are uninitialized. There is a FF-A
+call through which a VM can assign two pages it owns as its RX and TX pages.
+Afterwards, the RX/TX pages are not strictly possessed by the VM anymore. In
+addition, VM is no longer able to reassign other pages as new RX/TX pages, i.e.
+RX/TX pages of a VM can only be configured once. The TX page is only writable
+and RX is only readable to the VM, so that the VM can write a message into the
+TX page and read from the RX page. Only the $\PID$ of the TX page needs to be
+remember. Whereas for the RX buffer, the state of the buffer(whether a message
+is ready), the length of the received message, and the sender of the message are
+also necessary, in order to ensure the system works correctly.
 
 To explain why we defined the $\SSS$, we need to elaborate on how memory sharing is
 specified in the FF-A framework, which we won't do until Section 1.5 when we
@@ -330,14 +339,12 @@ and removing elements from a list respectively.
 In Figure 3, the \refr{RepeatExec} rule combined with the \refr{RepeatNext} and
 \refr{RepeatHalt/Fail} rules are applied to proceed with the execution.
 
-In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$ $w_{i}$(for instruction word)
-obtained from $\MEM$. The $\decode$ function decodes it to the corresponding
-$\INSTR$ which has a predefined semantic interpretation.
-%\todo{Lars: in that rule, is $m$ the global memory ? It should be a parameter somehow to the rule, I guess}
-Applying the interpretation to execution configuration $\phi$ and $\VMID$ v will give us a
-new configuration after executing the instruction on VM $v$. If $w_{i}$ is an
-invalid encoding, we decode it as $\mathtt{fail}$.
-%\todo{Lars: a detail: using $iw$ and $ia$ as variables is a little confusing}
+In \refr{ExecInstr}, the input of the $\decode$ function is a $\WORD$
+$w_{i}$(for instruction word) obtained from $\MEM$. The $\decode$ function
+decodes it to the corresponding $\INSTR$ which has a predefined semantic
+interpretation. Applying the interpretation to execution configuration $\phi$
+and $\VMID$ v will give us a new configuration after executing the instruction
+on VM $v$. If $w_{i}$ is an invalid encoding, we decode it as $\mathtt{fail}$.
 
 To obtain the encoding of the next executing instruction $w_{i}$, we first get the
 value of the \texttt{pc} register of VM $v$ as $w_{i}$, which is the address of the
@@ -352,12 +359,13 @@ The last piece of the puzzle of operational semantic
 is the semantic interpretations of instructions describing how to proceed on
 execution, which is shown in Figure 4.
 
-The semantics interpretations of AArch64 instructions are generally
-trivial. The only worth-mentioned point is the conditions of \instr{ldr} and
-\instr{str}. The validity of the target memory accessing address has to be
-checked to guarantee the memory isolation property. Note we give different last arguments in $\valida$.
-$R$ indicates it is a read operation, therefore it is allowed to let the RX buffer be
-the location to be read. Similarly, the TX buffer could be the location of write operations.
+The semantics interpretations of AArch64 instructions are generally trivial. The
+only worth-mentioned point is the conditions of \instr{ldr} and \instr{str}. The
+validity of the target memory accessing address has to be checked to guarantee
+the memory isolation property. Note we give different last arguments in
+$\valida$. $R$ indicates it is a read operation, therefore it is allowed to let
+the RX buffer be the location to be read. Similarly, the TX buffer could be the
+location of write operations.
 
 
 \subsubsection{Notations}
@@ -385,7 +393,7 @@ calling conventions of hvc calls are specified, which are complied with by FF-A
 calls as well. Readers will see we followed the conventions in the semantic
 interpretation of \instr{hvc}.
 
-%Most of FF-A calls are so-called fast call, which means these calls executions that are atomic from the view of VMs.
+%Most of FF-A calls are so-called fast calls, which means these calls executions that are atomic from the view of VMs.
 
 A FF-A call contains a function identifier determining the function to be
 invoked, several arguments, and the return. All of these components are stored
@@ -534,24 +542,28 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
   \caption{Instruction Semantics(Cont.).}
 \end{figure}
 \subsubsection{Memory Sharing}
-As mentioned in Section 1.3, we introduced two newly invented instructions for
-memory sharing between VMs. The $\instr{memd}\; r_{1}\; r_{2}$ is executed by
-the donor(Sender) to donate a page with $\PID$ stored in the first register to
-the recipient(Receiver) whose $\VMID$ is stored in the second register. However,
-\instr{memd} merely does half of the donation. According to the specification of
-the FF-A framework, it mainly does three things: 1. doing tons of checkings; 2.
-removing the $\PID$ of the donated page from sender's page table and 3. keeping
-donation details in the hypervisor(in $\SSS$) and returning a handle(an index).
-If one reads the semantic interpretation of \instr{memd}, he will find out that
-it follows the specification, accomplishing the three things as well, just in a
-much simpler way(since our execution configuration is simplified). The second
-half of the donation is completed by the receiver with \instr{memr}. Hypervisor
-reads the information of the donation through the handle passed by the receiver,
-then it does more checkings and adds the $\PID$ of the donated page into the
-page table of the receiver. The difference between the implementation and our
-instruction is that we remove the donation information from $\SSS$ while it is
-kept and has further usages in the implementation.
-\todo{elaborate it in detail}
+We introduced two FF-A functions for memory sharing between VMs. The MEM\_DNT is
+invoked by the donor(Sender $v$) to donate a page with $\PID$ $a_{p}$ stored in
+the $\mathtt{R_{1}}$ register to the recipient(Receiver) whose $\VMID$ $v_{r}$
+is stored in the $\mathtt{R_{2}}$ register. According to the specification of
+the FF-A framework, MEM\_DNT mainly does three things: 1. checking(confirm if
+$a_{p}$ is a valid address of $v$); 2. removing the $\PID$ of the donated
+page($\text{pid}(a_{p})$) from sender's page table($\Delta[v].ps$) and 3.
+keeping donation details($\text{pid}(a_{p})$ and $v_{p}$) in the hypervisor(in
+$\SSS$ $s$) as a pair and returning a handle $\len(s')$ (which is an fresh index
+in $\SSS$) via the result register.
+
+However, MEM\_DNT merely does half of the donation. The second half is completed
+by the receiver $v$ with the invocation of MEM\_RTERVQ. Hypervisor reads the
+information of the donation (the pair $(p,v)$) from $\SSS$ $s$ through the
+handle(stored in $\mathtt{R1}$) passed by the receiver. Then it confirms if $v$ is
+indeed the receiver by incepting whether the second component of the pair is
+$v$. If so, the hypervisor adds the $\PID$ of the donated page $p$ into the page
+table of the receiver$\Delta[v].ps$. The difference between the implementation
+and our semantic interpretation is that we remove the pair from $\SSS$ while it
+is kept and has further usages in the implementation. Finally, the hypervisor
+returns MEM\_RTRVP as a respond to the caller via the result register.
+
 
 \subsubsection{Message Passing and Scheduling}
 We will elaborate on message passing and scheduling together in this section as
@@ -627,7 +639,7 @@ is expected not to run that VM again unless a message to the VM is sent.
 
 MSG\_SEND is the core of the FFA message passing mechanism. After the VM $v$
 writes a $w_{s}$-byte message to its TX page, it invokes the hypervisor with
-MSG\_SEND plus $w_{s}$ and the receiver VM $v_{r}$. The hypervisor then checkes
+MSG\_SEND plus $w_{s}$ and the receiver VM $v_{r}$. The hypervisor then checks
 if a message is ready in $v_{s}$'s $\MB$($b=\mathtt{true}$). If so, it returns
 back to the sender $v$ with the error code $\text{BUSY}$ in the result register.
 Otherwise($b=\mathtt{false}$), it copies the message from $v$'s TX page($p_{t}$)
@@ -636,7 +648,7 @@ control to the scheduler($v_{n}=0$). When giving away the control, hypervisor
 sees if the sender is not the primary VM($v\neq 0$). If it is the case, the
 hypervisor also needs to inform the scheduler who is sending a message to whom,
 so that the scheduler can schedule accordingly. Otherwise, if primary VM is
-sending the message, then it already knew the sender and the recevier.
+sending the message, then it already knew the sender and the receiver.
 Therefore, it is unnecessary to use return registers.
 
 MSG\_RCV is another trivial FFA function, its usage is emptying the $\MB$(by
