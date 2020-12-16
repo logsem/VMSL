@@ -56,3 +56,6 @@ Thumbs.db
 *.fdb_latexmk
 *.out
 semantics/.auctex-auto/
+
+#coq files
+*.cache
