@@ -59,3 +59,5 @@ semantics/.auctex-auto/
 
 #coq files
 *.cache
+*.vio
+*.vos
