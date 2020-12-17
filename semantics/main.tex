@@ -472,7 +472,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
       \instr{mov} $r$ $w$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r]=w & \multicolumn{2}{l|}{$r \in \text{GenRegs}$} \\\hline
       \instr{ldr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & \Delta'[v].r[r_{1}]=m[a]  &
                                 \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a)=\valida(\Delta[v],r_{2},R)\end{array}$} \\\hline
-      \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
+      \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta, m', s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
                                 \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a) =\valida(\Delta[v],r_{1},W)\end{array}$} \\\hline
       \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
       \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline

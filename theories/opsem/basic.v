@@ -1,6 +1,5 @@
 From Coq Require Import Eqdep_dec.
-From Coq.micromega Require Import ZifyClasses.
-From stdpp Require Import base gmap fin_maps list.
+From stdpp Require Export base gmap fin_maps list.
 
 
 
@@ -264,14 +263,14 @@ Proof.
     rewrite <-(iter_div2_zero s);done.
     apply (IHs p).
     assert (0 ≤Z.neg p)%Z.
-    { rewrite <-Heqn. apply (IHs m).}
+    { rewrite <-Heqn. apply (IHs m). }
     contradiction.
   - intro.
     destruct (Pos.iter Z.div2 (Z.pos m) s)%Z eqn:Heqn.
     rewrite <-(iter_div2_zero s);done.
     apply (IHs p).
     assert (0 ≤Z.neg p)%Z.
-    { rewrite <-Heqn. apply (IHs m).}
+    { rewrite <-Heqn. apply (IHs m). }
     contradiction.
   - intro.
     destruct m;simpl;done.
@@ -304,7 +303,7 @@ Proof.
       * rewrite <-(iter_div2_zero s);done.
       * apply iter_div2_noneg.
       * assert (0 ≤Z.neg p)%Z.
-        { rewrite <-Heqn. apply iter_div2_noneg.}
+        { rewrite <-Heqn. apply iter_div2_noneg. }
         contradiction.
     + destruct (Pos.iter Z.div2 (Z.pos n) s)%Z eqn:Heqn.
       * rewrite <-(iter_div2_zero s).
@@ -327,7 +326,7 @@ Proof.
         { rewrite <-Heqn, <-Heqm. apply (IHs). done. done. }
         contradiction.
     + assert (0 ≤Z.neg p)%Z.
-        { rewrite <-Heqm. apply iter_div2_noneg.}
+        { rewrite <-Heqm. apply iter_div2_noneg. }
         contradiction.
   - intros.
     destruct (Pos.iter Z.div2 (Z.pos m) s)%Z eqn:Heqm.
@@ -336,7 +335,7 @@ Proof.
       * rewrite <-(iter_div2_zero s);done.
       * apply iter_div2_noneg.
       * assert (0 ≤Z.neg p)%Z.
-        { rewrite <-Heqn. apply iter_div2_noneg.}
+        { rewrite <-Heqn. apply iter_div2_noneg. }
         contradiction.
     + destruct (Pos.iter Z.div2 (Z.pos n) s)%Z eqn:Heqn.
       * rewrite <-(iter_div2_zero s).
@@ -359,7 +358,7 @@ Proof.
         { rewrite <-Heqn, <-Heqm. apply (IHs). done. done. }
         contradiction.
     + assert (0 ≤Z.neg p)%Z.
-        { rewrite <-Heqm. apply iter_div2_noneg.}
+        { rewrite <-Heqm. apply iter_div2_noneg. }
         contradiction.
   - intros.
     destruct m,n;try done.
@@ -553,9 +552,10 @@ Notation "δ .gr" := (genreg_of δ) (at level 20).
 Notation "δ .sr" := (sysreg_of δ) (at level 20).
 Notation "δ .ps" := (pids_of δ) (at level 20).
 Notation "δ .π" := (mb_of δ) (at level 20).
-Notation "Δ !s! i " := (state_of Δ i) (at level 20).
-Notation "g !gr! r " := (GenRegLocate g r)(at level 20).
-Notation "s !sr! r " := (SysRegLocate s r)(at level 20).
+Notation "Δ !s! i" := (state_of Δ i) (at level 20).
+Notation "g !gr! r" := (GenRegLocate g r)(at level 20).
+Notation "s !sr! r" := (SysRegLocate s r)(at level 20).
+Notation "m !m! a" := (MemLocate m a)(at level 20).
 
 
 Inductive MemPermission :Type :=
@@ -640,6 +640,20 @@ Definition upd_sys_reg Δ v (r: SysRegName) (w: Word): list State :=
     | None => Δ
   end.
 
+Definition upd_mem m (a: Addr) (w: Word): Mem :=
+   <[a:=w]>m.
+
+Definition upd_ps_rm Δ v p: list State:=
+  match (Δ !s! v) with
+    | Some δ => <[v:=((difference (δ.ps) {[ p ]}), ((δ.gr), (δ.sr, δ.π )))]>Δ
+    | None => Δ
+  end.
+
+Definition upd_ps_add Δ v p: list State:=
+  match (Δ !s! v) with
+    | Some δ => <[v:=((union (δ.ps) {[ p ]}), ((δ.gr), (δ.sr, δ.π )))]>Δ
+    | None => Δ
+  end.
 
 
 Definition updPC Δ m s v: ExecConf :=
@@ -658,7 +672,8 @@ Inductive ReturnCode: Type:=
 |MSG_WAIT
 |MSG_SEND
 |MEM_RTRVP
-|YIELD.
+|YIELD
+|UNKNOWN.
 
 Definition rc_to_w (rc : ReturnCode):Word.
 Proof.
@@ -670,7 +685,60 @@ Proof.
   - exact (W 4 eq_refl eq_refl).
   - exact (W 5 eq_refl eq_refl).
   - exact (W 6 eq_refl eq_refl).
+  - exact (W 42 eq_refl eq_refl).
 Defined.
+
+Definition w_to_rc (w :Word) : ReturnCode:=
+  match w with
+  | W z _ _ => match z with
+               | 0%Z => INTERRUPT
+               | 1%Z => SUCCESS
+               | 2%Z => BUSY
+               | 3%Z => MSG_WAIT
+               | 4%Z => MSG_SEND
+               | 5%Z => MEM_RTRVP
+               | 6%Z => YIELD
+               | _ => UNKNOWN
+               end
+  end.
+
+Inductive FuncIdentifier: Type:=
+|F_RUN
+|F_MEM_DNT
+|F_MSG_WAIT
+|F_MSG_RCV
+|F_MSG_SEND
+|F_MEM_RTRVQ
+|F_YIELD
+|F_UNKNOWN.
+
+Definition fi_to_w (fi : FuncIdentifier):Word.
+Proof.
+  destruct fi eqn:Hrc.
+  - exact (W 0 eq_refl eq_refl).
+  - exact (W 1 eq_refl eq_refl).
+  - exact (W 2 eq_refl eq_refl).
+  - exact (W 3 eq_refl eq_refl).
+  - exact (W 4 eq_refl eq_refl).
+  - exact (W 5 eq_refl eq_refl).
+  - exact (W 6 eq_refl eq_refl).
+  - exact (W 42 eq_refl eq_refl).
+Defined.
+
+Definition w_to_fi (w :Word) : FuncIdentifier:=
+  match w with
+  | W z _ _ => match z with
+               | 0%Z => F_RUN
+               | 1%Z => F_MEM_DNT
+               | 2%Z => F_MSG_WAIT
+               | 3%Z => F_MSG_RCV
+               | 4%Z => F_MSG_SEND
+               | 5%Z => F_MEM_RTRVQ
+               | 6%Z => F_YIELD
+               | _ => F_UNKNOWN
+               end
+  end.
+
 
 Definition z_to_w (z:Z):Word.
 Proof.
@@ -724,4 +792,3 @@ Definition comb (w1 w2 : Word) : Word:=
   end.
 
 
-(*TODO decode*)
