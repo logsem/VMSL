@@ -239,6 +239,12 @@ Definition PageBitSize : Z := 12.
 
 Definition PIDNum :Z := Z.shiftr MemNum PageBitSize.
 
+Lemma PIDNum_eq_MemNum : (PIDNum ≪ PageBitSize = MemNum)%Z.
+Proof.
+  unfold PIDNum.
+  done.
+Qed.
+
 Inductive PID :Type :=
   | P (z:Z) (fin: Z.leb z PIDNum = true) (pos: Z.leb 0 z = true).
 
@@ -370,6 +376,24 @@ Proof.
       lia.
 Qed.
 
+
+Lemma Z_pos_mult_mono:forall n m p: positive, (n ≤ m)%positive → (p * n ≤ p * m)%positive.
+Proof.
+  Admitted.
+
+(*Z.mul_nonneg_nonneg*)
+
+
+Lemma iter_mul2_mono:forall (m n s:positive), (0 ≤ Z.pos s)%Z -> (m≤n)%positive
+        → (Pos.iter (Z.mul 2) (Z.pos m) s ≤ Pos.iter (Z.mul 2) (Z.pos n) s)%Z.
+Proof.
+  intros.
+  generalize dependent m.
+  generalize dependent n.
+  induction s as [s | s|];simpl.
+  Admitted.
+
+
 Lemma shiftr_le: forall (m n s: Z), (0≤m)%Z -> (0≤n)%Z -> (0≤s)%Z-> (m≤n)%Z -> ((m≫s) ≤ (n ≫s))%Z.
 Proof.
   intros.
@@ -392,6 +416,27 @@ Proof.
       done.
 Defined.
 
+Lemma shiftl_le: forall (m n s: Z), (0≤m)%Z -> (0≤n)%Z -> (0≤s)%Z-> (m≤n)%Z -> ((m≪s) ≤ (n ≪s))%Z.
+
+Proof.
+  intros.
+  destruct m ,n; try (rewrite (Z.shiftl_0_l _));auto;try contradiction.
+  - rewrite (Z.shiftl_nonneg _ _). done.
+  - destruct s.
+    + rewrite (Z.shiftl_0_r _).
+      rewrite (Z.shiftl_0_r _).
+      done.
+    + unfold Z.shiftl.
+      simpl.
+      apply iter_mul2_mono.
+      done.
+      rewrite Zpos_le.
+      done.
+    + unfold Z.shiftl.
+      simpl.
+      done.
+Defined.
+
 Definition a_to_pid (a : Addr) : PID.
 Proof.
   destruct a.
@@ -407,6 +452,23 @@ Proof.
     { apply Z.shiftr_nonneg.  done. }
    apply (Z.leb_le 0 (z≫ PageBitSize)) in H0.
     exact (P (z≫ PageBitSize)%Z H H0).
+Defined.
+Definition pid_to_a (p: PID): Addr.
+Proof.
+  destruct p.
+  assert((z ≪ PageBitSize) ≤ MemNum )%Z.
+  { unfold PIDNum.
+    apply (Z.leb_le z PIDNum) in fin.
+    apply (Z.leb_le 0 z) in pos.
+    rewrite <-PIDNum_eq_MemNum.
+    apply shiftl_le;done.
+  }
+ apply (Z.leb_le (z≪ PageBitSize) MemNum) in H.
+    apply (Z.leb_le 0 z) in pos.
+    assert (0≤ (z ≪ PageBitSize))%Z.
+    { apply Z.shiftl_nonneg.  done. }
+   apply (Z.leb_le 0 (z≪ PageBitSize)) in H0.
+    exact (A (z≪ PageBitSize)%Z H H0).
 Defined.
 
 
@@ -652,6 +714,18 @@ Definition upd_ps_rm Δ v p: list State:=
 Definition upd_ps_add Δ v p: list State:=
   match (Δ !s! v) with
     | Some δ => <[v:=((union (δ.ps) {[ p ]}), ((δ.gr), (δ.sr, δ.π )))]>Δ
+    | None => Δ
+  end.
+
+Definition upd_rx Δ v (rx: option (PID * bool * Word * VMID)): list State:=
+  match (Δ !s! v) with
+    | Some δ => <[v:=(δ.ps, ((δ.gr), (δ.sr, (δ.π.1, rx) )))]>Δ
+    | None => Δ
+  end.
+
+Definition upd_tx Δ v (tx: option PID): list State:=
+  match (Δ !s! v) with
+    | Some δ => <[v:=(δ.ps, ((δ.gr), (δ.sr, (tx, δ.π.2) )))]>Δ
     | None => Δ
   end.
 
