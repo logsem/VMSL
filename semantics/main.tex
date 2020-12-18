@@ -481,7 +481,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                  & & \Delta'[v].r[\mathtt{NZ}]= 1 & $w = 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 2 & $w < 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 0 & otherwise &\\\hline
-      \multirow{33}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+      \multirow{34}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
                                     &\!\!\!\!\! \begin{array}{l}
                                                \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(a_p)\}  \\
                                                v_r =  \Delta[v].r[\mathtt{R2}] \\
@@ -536,13 +536,16 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                               \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGW}\\
                                               \Delta'[v_n].r[\mathtt{R1}]=v
                                  \end{array}& $!b$& \\\cline{2-5}
-      \multirow{11}{*}{}& \multirow{11}{*}{$\leftshift \nextt(\Delta', m', s,\updpc,v,v_n)$}
-                           & v_r=\Delta[v].r[\mathtt{R1}]&\multicolumn{2}{l|}{\multirow{3}{*}{$\leftshift\begin{array}{l}
+      \multirow{12}{*}{}& \multirow{12}{*}{$\leftshift \nextt(\Delta', m', s,\updpc,v,v_n)$}
+                            & v_r=\Delta[v].r[\mathtt{R1}]&\multicolumn{2}{l|}{\multirow{4}{*}{$\leftshift\begin{array}{l}
                                                                                                    \Delta[v].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
-                                                                                                   \Delta[v].\pi_{t}=\SOME(p_t)
+                                                                                                           \Delta[v].\pi_{t}=\SOME(p_t) \\
+                                                                                                           ws\le \PPMAX\\
+                                                                                                           vr < \llen{\Delta}
                                                                                                    \end{array}$}} \\
-                                 & & w_s=\Delta[v].r[\mathtt{R2}]& \multicolumn{2}{l|}{}\\
-                                 & & \SOME(p_r,b,-,-)=\Delta[v_r].\pi& \multicolumn{2}{l|}{} \\\cline{3-4}
+                            & & w_s=\Delta[v].r[\mathtt{R2}]& \multicolumn{2}{l|}{}\\
+                            & & \SOME(p_r,b,-,-)=\Delta[v_r].\pi& \multicolumn{2}{l|}{} \\
+                            & & & \multicolumn{2}{l|}{} \\\cline{3-4}
                                  & & \!\!\!\!\!\begin{array}{l}
                                                  v_n=0\\
                                                  \Delta'[v_r].\pi=\SOME(p_r,\mathtt{true},w_s,v)\\

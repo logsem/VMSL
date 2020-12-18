@@ -376,13 +376,39 @@ Proof.
       lia.
 Qed.
 
-
-Lemma Z_pos_mult_mono:forall n m p: positive, (n ≤ m)%positive → (p * n ≤ p * m)%positive.
+Lemma iter_mul2_zero:forall (s:positive), (0=(Pos.iter (Z.mul 2) 0 s))%Z.
 Proof.
-  Admitted.
+  intro.
+  induction s as [s|s|];simpl.
+  do 2 rewrite <-IHs;done.
+do 2  rewrite <-IHs;done.
+  done.
+Qed.
 
-(*Z.mul_nonneg_nonneg*)
-
+Lemma iter_mul2_noneg:forall (m s:positive), (0≤(Pos.iter (Z.mul 2) (Z.pos m) s))%Z.
+Proof.
+  intros.
+  generalize dependent m.
+  induction s as [s|s|];simpl.
+  - intro.
+    apply Z.mul_nonneg_nonneg.
+    done.
+    destruct (Pos.iter (Z.mul 2) (Z.pos m) s)%Z eqn:Heqn.
+    rewrite <-(iter_mul2_zero s);done.
+    apply (IHs p).
+    assert (0 ≤Z.neg p)%Z.
+    { rewrite <-Heqn. apply (IHs m). }
+    contradiction.
+  - intro.
+    destruct (Pos.iter (Z.mul 2) (Z.pos m) s)%Z eqn:Heqn.
+    rewrite <-(iter_mul2_zero s);done.
+    apply (IHs p).
+    assert (0 ≤Z.neg p)%Z.
+    { rewrite <-Heqn. apply (IHs m). }
+    contradiction.
+  - intro.
+    destruct m;simpl;done.
+Qed.
 
 Lemma iter_mul2_mono:forall (m n s:positive), (0 ≤ Z.pos s)%Z -> (m≤n)%positive
         → (Pos.iter (Z.mul 2) (Z.pos m) s ≤ Pos.iter (Z.mul 2) (Z.pos n) s)%Z.
@@ -391,7 +417,75 @@ Proof.
   generalize dependent m.
   generalize dependent n.
   induction s as [s | s|];simpl.
-  Admitted.
+  - intros.
+    apply Z.mul_le_mono_nonneg_l.
+    done.
+    destruct (Pos.iter (Z.mul 2) (Z.pos m) s)%Z eqn:Heqm.
+    + rewrite <-(iter_mul2_zero s).
+      destruct (Pos.iter (Z.mul 2) (Z.pos n) s)%Z eqn:Heqn.
+      * rewrite <-(iter_mul2_zero s);done.
+      * apply iter_mul2_noneg.
+      * assert (0 ≤Z.neg p)%Z.
+        { rewrite <-Heqn. apply iter_mul2_noneg. }
+        contradiction.
+    + destruct (Pos.iter (Z.mul 2) (Z.pos n) s)%Z eqn:Heqn.
+      * rewrite <-(iter_mul2_zero s).
+        destruct (Pos.iter (Z.mul 2) (Z.pos p) s)%Z eqn:Heqp.
+        done.
+        exfalso.
+        assert (Z.pos p ≤ 0)%Z.
+        { rewrite <-Heqn, <-Heqm. apply (IHs). done. done. }
+        contradiction.
+        done.
+      * apply IHs.
+        done.
+        rewrite Zpos_le.
+        rewrite <-Heqm,<-Heqn.
+        apply IHs.
+        done.
+        done.
+      * exfalso.
+        assert (Z.pos p ≤ Z.neg p0)%Z.
+        { rewrite <-Heqn, <-Heqm. apply (IHs). done. done. }
+        contradiction.
+    + assert (0 ≤Z.neg p)%Z.
+        { rewrite <-Heqm. apply iter_mul2_noneg. }
+        contradiction.
+  - intros.
+    destruct (Pos.iter (Z.mul 2) (Z.pos m) s)%Z eqn:Heqm.
+    + rewrite <-(iter_mul2_zero s).
+      destruct (Pos.iter (Z.mul 2) (Z.pos n) s)%Z eqn:Heqn.
+      * rewrite <-(iter_mul2_zero s);done.
+      * apply iter_mul2_noneg.
+      * assert (0 ≤Z.neg p)%Z.
+        { rewrite <-Heqn. apply iter_mul2_noneg. }
+        contradiction.
+    + destruct (Pos.iter (Z.mul 2) (Z.pos n) s)%Z eqn:Heqn.
+      * rewrite <-(iter_mul2_zero s).
+        destruct (Pos.iter (Z.mul 2) (Z.pos p) s)%Z eqn:Heqp.
+        done.
+        exfalso.
+        assert (Z.pos p ≤ 0)%Z.
+        { rewrite <-Heqn, <-Heqm. apply (IHs). done. done. }
+        contradiction.
+        done.
+      * apply IHs.
+        done.
+        rewrite Zpos_le.
+        rewrite <-Heqm,<-Heqn.
+        apply IHs.
+        done.
+        done.
+      * exfalso.
+        assert (Z.pos p ≤ Z.neg p0)%Z.
+        { rewrite <-Heqn, <-Heqm. apply (IHs). done. done. }
+        contradiction.
+    + assert (0 ≤Z.neg p)%Z.
+        { rewrite <-Heqm. apply iter_mul2_noneg. }
+        contradiction.
+  - intros.
+    destruct m,n;try done.
+Qed.
 
 
 Lemma shiftr_le: forall (m n s: Z), (0≤m)%Z -> (0≤n)%Z -> (0≤s)%Z-> (m≤n)%Z -> ((m≫s) ≤ (n ≫s))%Z.
@@ -665,6 +759,23 @@ Proof.
   apply (Z.leb_le (Z.modulo (z+i) WordNum) WordNum) in H0.
   exact (W (Z.modulo (z+i) WordNum) H0 H).
 Defined.
+
+Definition a_add_z (a: Addr) (i:Z) : Addr.
+Proof.
+  destruct a.
+  assert ((0 ≤ (Z.modulo (z+i) MemNum) )%Z
+          ∧ ((Z.modulo (z+i) MemNum)< MemNum)%Z).
+  { apply (Z_mod_lt (z+i) MemNum). done. }
+  destruct H.
+  apply (Z.leb_le 0 (Z.modulo (z+i) MemNum)) in H.
+  apply Z.lt_le_incl in H0.
+  apply (Z.leb_le (Z.modulo (z+i) MemNum) MemNum) in H0.
+  exact (A (Z.modulo (z+i) MemNum) H0 H).
+Defined.
+
+
+Definition a_add_nat (a:Addr) (n: nat): Addr:=
+  a_add_z a (Z.of_nat n).
 
 Definition w_add_w (w1: Word) (w2: Word) : Word:=
   match w2 with

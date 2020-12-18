@@ -9,18 +9,16 @@ Section opsem.
   | right _ => false
    end.
 
-
-(*TODO*)
-  Fixpoint mem_copy_aux (m:Mem) (pt pr: PID) (ws: nat): Mem:=
+  Fixpoint mem_copy_aux (m:Mem) (atx arx: Addr) (ws: nat): Mem:=
     match ws with
     | 0 => m
-    | S n => mem_copy_aux m pt pr n
+    | S n => mem_copy_aux (upd_mem m (a_add_nat arx n) (m !m! (a_add_nat atx n))) atx arx n
     end.
 
    Definition mem_copy (m:Mem) (pt pr: PID) (ws : Z) : Mem :=
-    if (Z.lt ws 0) then
+    if (Z.ltb ws 0) then
       let ws := (Z.to_nat ws) in
-      (mem_copy_aux m pt pr ws)
+      (mem_copy_aux m (pid_to_a pt) (pid_to_a pr) ws)
     else m.
 
   Definition exec (i: instr) (ϕ : ExecConf) (v:VMID) : Conf :=
@@ -117,9 +115,31 @@ Section opsem.
                                     (tick Δ' m s v 0 updPC)
                               | None => ((Done Fail), ϕ)
                               end
-               | F_MSG_SEND =>let Δ' := Δ in (*TODO: memcpy*)
-                              let n:= 1 in
-                             (tick Δ m s v n updPC)
+               | F_MSG_SEND =>match δ_v.π.1 with
+                              | Some (pt) =>
+                                let vr := (Z.to_nat (z_of_w (δ_v.gr !gr! (nat_to_r 1)))) in
+                                let ws := (z_of_w (δ_v.gr !gr! (nat_to_r 2))) in
+                                if (Z.leb ws (Z.pow 2 PageBitSize)) then
+                                  match (Δ !s! vr) with
+                                    | Some δ_vr => match δ_vr.π.2 with
+                                                   | Some (((pr, true), _), _) =>
+                                                     let m' := (mem_copy m pt pr ws) in
+                                                     let Δ' := (upd_gen_reg Δ v (nat_to_r 0) (rc_to_w SUCCESS)) in
+                                                     if (v =? 0) then (tick Δ' m' s v 0 updPC)
+                                                     else
+                                                       let Δ' := (upd_gen_reg Δ' 0 (nat_to_r 0) (rc_to_w MSG_SEND)) in
+                                                       let Δ' := (upd_gen_reg Δ' 0 (nat_to_r 1) (comb (nat_to_w v) (nat_to_w vr))) in
+                                                       (tick Δ' m' s v 0 updPC)
+                                                   | Some (((pr, false), _), _) =>
+                                                     let Δ' := (upd_gen_reg Δ v (nat_to_r 0) (rc_to_w BUSY)) in
+                                                     (tick Δ' m s v v updPC)
+                                                   | None => ((Done Fail), ϕ)
+                                                   end
+                                    | None => ((Done Fail), ϕ)
+                                  end
+                                else ((Done Fail), ϕ)
+                              | None => ((Done Fail), ϕ)
+                              end
                | F_MSG_RCV => match δ_v.π.2 with
                               | Some (((pr, b), ws), vs) =>
                                 if b then
