@@ -1,13 +1,9 @@
 Require Import basic.
 
 Section opsem.
-  Context `{MachineParameters}.
+Ltac inv H := inversion H; clear H; subst.
 
-  Definition gset_elemofb {A} `{Countable A} (p:A) (ps: gset A):bool:=
-  match (decide (p ∈@{gset A} ps)) with
-  | left _ => true
-  | right _ => false
-   end.
+  Context `{InstrEncoding} .
 
   Fixpoint mem_copy_aux (m:Mem) (atx arx: Addr) (ws: nat): Mem:=
     match ws with
@@ -76,7 +72,7 @@ Section opsem.
                               end
                | F_MEM_RTRVQ => let hd := (Z.to_nat (z_of_w (δ_v.gr !gr! (nat_to_r 1)))) in
                                 match (s !! hd ) with
-                                | Some (p,v) => if (gset_elemofb p (δ_v.ps)) then ((Done Fail), ϕ)
+                                | Some (p,v) => if (gset_elem_of_b p (δ_v.ps)) then ((Done Fail), ϕ)
                                                 else let Δ' := (upd_ps_add Δ v p) in
                                                      let Δ' := (upd_gen_reg Δ' v (nat_to_r 0) (rc_to_w MEM_RTRVP)) in
                                                      let s' := (delete hd s) in
@@ -157,8 +153,120 @@ Section opsem.
       end
     | _,_ => ((Done Fail), ϕ)
     end.
+ (* valid_a = Some a is better *)
+(* Inductive isValidPC: list State -> VMID -> Prop :=
+| isValidPC_intro:
+    forall (Δ: list State) (δ: State) v (a: Addr),
+      (Δ !s! v) =Some δ ->
+       (valid_a δ PC VA)=(Some a) ->
+      (isValidPC Δ v).
 
+Lemma isValidPC_dec:
+  forall Δ v , { isValidPC Δ v } + { not (isValidPC Δ v ) }.
+Proof.
+  intros.
+  destruct (Δ !s! v) eqn:Hδ.
+  - destruct (valid_a s PC VA) eqn:Ha.
+    + left.
+      econstructor.
+      rewrite Hδ.
+      done.
+      rewrite Ha.
+      done.
+    + right; red; intro HH.
+      inversion HH;subst. naive_solver.
+  - right; red; intro HH.
+      inversion HH;subst. naive_solver.
+Qed.
+  *)
 
+Inductive step: Conf → Conf → Prop :=
+  | step_exec_invalid_vmid:
+      forall ϕ v,
+        (ϕ.1 !s! v) = None->
+        step ((ExecInstr v), ϕ) ((Done Fail), ϕ)
+  | step_exec_invalid_pc:
+      forall ϕ v δ,
+        (ϕ.1 !s! v) =Some δ ->
+        (valid_a δ PC VA)=None ->
+        step ((ExecInstr v), ϕ) ((Done Fail), ϕ)
+  | step_exec_instr:
+      forall ϕ v δ a i,
+        (ϕ.1 !s! v) =Some δ ->
+       (valid_a δ PC VA)=(Some a) ->
+        decodeInstr ((ϕ.m) !m! a) = i →
+        step ((ExecInstr v), ϕ) (exec i ϕ v).
 
+Lemma normal_always_step:
+    forall ϕ v, exists cf ϕ', step ((ExecInstr v), ϕ) (cf, ϕ').
+  Proof.
+    intros.
+    destruct (ϕ.1 !s! v) eqn:Hδ.
+    - destruct  (valid_a s PC VA) eqn:Ha.
+      + destruct (exec (decodeInstr ((ϕ.m) !m! a)) ϕ v) eqn:He.
+        exists e, e0. rewrite <-He. eapply step_exec_instr; eauto.
+      + exists (Done Fail), ϕ.
+        eapply step_exec_invalid_pc.
+        done.
+        assumption.
+    - exists (Done Fail), ϕ.
+      eapply step_exec_invalid_vmid.
+      assumption.
+Qed.
+
+  Lemma step_deterministic:
+    forall c1 c2 c2' σ1 σ2 σ2',
+      step (c1, σ1) (c2, σ2) ->
+      step (c1, σ1) (c2', σ2') ->
+      c2 = c2' ∧ σ2 = σ2'.
+  Proof.
+    intros * H1 H2; split; inv H1; inv H2; auto; try congruence.
+  Qed.
+(* why need these ?*)
+  Lemma step_exec_inv (Δ : list State) (m:Mem)  (s: ShareStates) (δ:State) v a w (i:instr) (c: ExecMode) (σ: ExecConf) :
+    (Δ !s! v)= Some δ ->
+    valid_a δ PC VA = Some a ->
+    m !m! a = w ->
+    step ((ExecInstr v) ,(Δ, (m,s)) ) (c, σ) ->
+    exec (decodeInstr w) (Δ, (m,s)) v = (c, σ).
+  Proof.
+    intros. inv H3;subst.
+    - simpl in H5.
+      rewrite H5 in H0.
+      inversion H0.
+    - simpl in H7.
+      rewrite H0 in H7.
+      inv H7.
+      rewrite H9 in H1.
+      inversion H1.
+    - simpl in H7.
+      rewrite H0 in H7.
+      inv H7.
+      rewrite H1 in H8.
+      inv H8.
+      done.
+Qed.
+
+  Lemma step_invalid_vmid_fail_inv (Δ : list State) (m:Mem)  (s: ShareStates)v c (ϕ': ExecConf) :
+    (Δ !s! v)= None ->
+    step ((ExecInstr v) ,(Δ, (m,s))) (c, ϕ') ->
+    c = (Done Fail) ∧ ϕ' = (Δ, (m,s)).
+  Proof.
+    intros.
+   inv H1.
+   - done.
+   - simpl in H5.
+     rewrite H0 in H5.
+     inv H5.
+   - simpl in H5.
+     rewrite H0 in H5.
+     inv H5.
+  Qed.
+
+  (*TODO: step_invalid_pc_fail_inv*)
+
+    (*TODO:val*)
+
+    (*TODO:expr*)
 
 End opsem.

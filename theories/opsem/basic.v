@@ -730,7 +730,26 @@ Proof.
   - exact (A MemNum eq_refl eq_refl).
 Defined.
 
-Definition valid_a δ (r: GenRegName) (p : MemPermission) : option Addr.
+
+ Definition gset_elem_of_b {A} `{Countable A} (p:A) (ps: gset A):bool:=
+  match (decide (p ∈@{gset A} ps)) with
+  | left _ => true
+  | right _ => false
+   end.
+
+ Definition valid_a δ (r: GenRegName) (p : MemPermission) : option Addr.
+   (* alternative *)
+   (*:=
+   let a:= (w_to_a (δ.gr !gr! r)) in
+   match p with
+   | VA => if (gset_elem_of_b a (pids_of δ)) then Some a
+           else None
+   | RE => match (δ.π.2) with
+             | Some (((prx, _ ),_),_) =>  (if (orb (gset_elem_of_b a (pids_of δ)) () )
+   | WR =>
+    end.
+    *)
+
 Proof.
   destruct p eqn:Hp.
   - exact ((gset_to_gmap (w_to_a (δ.gr !gr! r)) (pids_of δ)) !! (a_to_pid (w_to_a (δ.gr !gr! r)))).
