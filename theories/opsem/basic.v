@@ -657,13 +657,13 @@ Definition ExecConf: Type := list State * (Mem * ShareStates).
 (*ExecMode*)
 
 Inductive DoneState: Type:=
-| Next (v: VMID)
-| Halt
-| Fail.
+| NextD (v: VMID)
+| HaltD
+| FailD.
+
 
 Inductive ExecMode: Type :=
 | ExecInstr (v: VMID)
-| Repeat (u : ExecMode)
 | Done (d : DoneState).
 
 
@@ -980,13 +980,13 @@ Definition tick Δ m s v n (f: list State -> Mem -> ShareStates -> VMID -> ExecC
                                 let Δ' := upd_sys_reg Δ' 0 CNTCTL (z_to_w 0) in
                                 let Δ' := upd_gen_reg Δ' 0 (nat_to_r 0) (rc_to_w INTERRUPT) in
                                 let Δ' := upd_gen_reg Δ' 0 (nat_to_r 1) (nat_to_w v) in
-                                ((Done (Next 0)),(f Δ' m s v))
+                                ((Done (NextD 0)),(f Δ' m s v))
                               else
                                 let Δ' := upd_sys_reg Δ 0 CNTVAL (w_sub_z (δ_p.sr !sr! CNTVAL) 1) in
-                                ((Done (Next n)),(f Δ' m s v))
-                 |None => (Done Fail, (Δ,(m, s)))
+                                ((Done (NextD n)),(f Δ' m s v))
+                 |None => (Done FailD, (Δ,(m, s)))
                end
-  |None => (Done Fail, (Δ, (m, s )))
+  |None => (Done FailD, (Δ, (m, s )))
   end.
 
 
@@ -994,5 +994,3 @@ Definition comb (w1 w2 : Word) : Word:=
   match w1 with
   | (W z _ _) => w_add_z w2 (Z.shiftl z 32)
   end.
-
-
