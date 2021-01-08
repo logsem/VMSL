@@ -403,6 +403,7 @@ Qed.
     | Single _ => True
     | _ => False
     end.
+
  (* ugly proofs... *)
  Lemma tick_updpc_atomic Δ m s n v :
    ∃ v' ϕ', (tick Δ m s n v updPC) = ((Done FailD), ϕ') ∨

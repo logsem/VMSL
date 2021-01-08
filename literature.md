@@ -29,7 +29,7 @@
 ## Hypervisor
 
 ### Verification
-- Ernie Cohen. Validating the Microsoft Hypervisor. (only found abstract) <https://link.springer.com/content/pdf/10.1007%2F11813040_6.pdf>
+- Ernie Cohen. Validating the Microsoft Hypervisor. (only abstract) <https://link.springer.com/content/pdf/10.1007%2F11813040_6.pdf>
 - Ernie Cohen, Wolfgang Paul, and Sabine Schmaltz. Theory of Multi Core Hypervisor Verification. <https://link.springer.com/content/pdf/10.1007%2F978-3-642-35843-2_1.pdf>
 
 ### sel4
@@ -48,3 +48,4 @@
 
 - Daniel Schoepe, et al. Explicit Secrecy: A Policy for Taint Tracking. <https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=7467344>
 - Hira Taqdees Syeda and Gerwin Klein. Formal Reasoning Under Cached Address Translation. <https://link.springer.com/content/pdf/10.1007/s10817-019-09539-7.pdf>
+- Youngju Song, et al. CompCertM: CompCert with C-Assembly Linking and Lightweight Modular Verification. <https://sf.snu.ac.kr/publications/compcertm.pdf>

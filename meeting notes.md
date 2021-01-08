@@ -21,3 +21,24 @@
 	- Literature on variations on NI
 		- see list from Dan Frumin<https://bitbucket.org/logsem/hypervisor-verification/src/master/literature.md>
 		- also need papers on declassification, delimited release, ... (weaker notions of NI)
+		
+## Jan. 8
+-------
+- comments the call/cc approach
+  - only verify a simplified implementation at beginning
+	- no formally connections with the real implementation
+  - writing the implementation in assembly language is tricky, prefer using a C-like language for the implementation
+	- then preferably the specification side(client programs running in VMs) should be also written in a C-like language
+	- a pure C-like language is insufficient
+		- require inline assmebly to manipulate hardware like system registers etc.(for both VMs and the hypervisor)
+	- how to handle the mix of C-like and inline assembly?
+		- how to define semantics?
+		- Alix: <https://sf.snu.ac.kr/compcertm/>
+- short term plans
+  - goal: verify client programs
+  - develop program logic for the operational semantics we have been working on
+	- read the iris ground up paper again to see how the weakest precondition was defined for Heaplang
+  - try to verify small interesting examples
+  - read more hypervisor papers
+  - next friday: discuss two papers by Ernie Cohen
+  - friday after next: skip(attend POPL)
