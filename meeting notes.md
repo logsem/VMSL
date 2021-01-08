@@ -24,7 +24,7 @@
 		
 ## Jan. 8
 -------
-- comments the call/cc approach
+- comments on the call/cc approach
   - only verify a simplified implementation at beginning
 	- no formally connections with the real implementation
   - writing the implementation in assembly language is tricky, prefer using a C-like language for the implementation
