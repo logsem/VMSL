@@ -273,8 +273,8 @@ Qed.
   | NextIV (v: VMID): val.
 
   Inductive expr: Type :=
-  | Single (m : ExecMode)
-  | Repeat (e : expr).
+  | RepeatV (v: val)
+  | RepeatE (v : VMID).
 
   Definition state : Type := ExecConf.
 
