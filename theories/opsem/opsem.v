@@ -267,33 +267,22 @@ Qed.
   (*TODO: step_invalid_pc_fail_inv, skip it for now*)
 
     (*val*)
- Inductive val: Type :=
-  | HaltedV: val
-  | FailedV: val
-  | NextIV (v: VMID): val.
+ Definition val: Type :=DoneState.
 
   Inductive expr: Type :=
-  | RepeatV (v: val)
-  | RepeatE (v : VMID).
+  | SingleV (v: val)
+  | SingleE (v : VMID)
+  | Repeat (e:expr).
 
   Definition state : Type := ExecConf.
 
   Definition of_val (v: val): expr :=
-    match v with
-    | HaltedV => (Single (Done HaltD))
-    | FailedV => (Single (Done FailD))
-    | NextIV n => (Single (Done (NextD n)))
-    end.
+    (SingleV v).
 
   Definition to_val (e: expr): option val :=
     match e with
-    | Single d=>
-      match d with
-      | Done HaltD => Some HaltedV
-      | Done FailD => Some FailedV
-      | Done (NextD n) => Some (NextIV n)
-      | ExecInstr _ => None
-      end
+    | SingleV d=> Some d
+    | SingleE _ => None
     | Repeat _ => None
     end.
 
@@ -302,9 +291,8 @@ Qed.
            of_val v = e.
   Proof.
     intros * HH.
-    destruct e;try (destruct m;simpl in HH;inv HH).
-    destruct d;simpl in H1;inv H1;simpl;done.
-    inv HH.
+    destruct e;try (simpl in HH;inv HH).
+    destruct v ;simpl; done.
   Qed.
 
   Lemma to_of_val:
@@ -326,10 +314,10 @@ Qed.
   (* TODO: remove Single *)
   Inductive prim_step: expr → state → list Empty_set → expr → state → list expr → Prop :=
   | PS_no_fork_single n σ e' σ' :
-      step ((ExecInstr n), σ) (e', σ') → prim_step (Single (ExecInstr n)) σ [] (Single e') σ' []
-  | PS_no_fork_next n σ : prim_step (Repeat (Single (Done (NextD n)))) σ [] (Repeat (Single (ExecInstr n))) σ []
-  | PS_no_fork_halt σ : prim_step (Repeat (Single (Done HaltD))) σ [] (Single (Done HaltD)) σ []
-  | PS_no_fork_fail σ : prim_step (Repeat (Single (Done FailD))) σ [] (Single (Done FailD)) σ [].
+      step ((ExecInstr n), σ) ((Done e'), σ') → prim_step ((SingleE n)) σ [] (SingleV e') σ' []
+  | PS_no_fork_next n σ : prim_step (Repeat (SingleV (NextD n))) σ [] (Repeat (SingleE n)) σ []
+  | PS_no_fork_halt σ : prim_step (Repeat (SingleV HaltD)) σ [] (SingleV HaltD) σ []
+  | PS_no_fork_fail σ : prim_step (Repeat (SingleV FailD)) σ [] (SingleV FailD) σ [].
 
   Lemma val_stuck:
     forall e σ o e' σ' efs,
@@ -338,21 +326,23 @@ Qed.
   Proof. intros * HH. by inversion HH. Qed.
 
   Lemma prim_step_exec_inv n σ1 l1 e2 σ2 efs :
-    prim_step (Single (ExecInstr n)) σ1 l1 e2 σ2 efs →
+    prim_step (SingleE n) σ1 l1 e2 σ2 efs →
     l1 = [] ∧ efs = [] ∧
-    exists (c: ExecMode),
-      e2 = (Single c)∧
-      step ((ExecInstr n ), σ1) (c, σ2).
+    exists (d: DoneState),
+      e2 = (SingleV d)∧
+      step ((ExecInstr n ), σ1) ((Done d), σ2).
   Proof. inversion 1; subst; split; eauto. Qed.
 
   Lemma prim_step_and_step_exec n σ1 e2 σ2 l1 e2' σ2' efs :
-    step ((ExecInstr n), σ1) (e2, σ2) →
-    prim_step (Single (ExecInstr n)) σ1 l1 e2' σ2' efs →
-    l1 = [] ∧ e2' = (Single e2) ∧ σ2' = σ2 ∧ efs = [].
+    step ((ExecInstr n), σ1) ((Done e2), σ2) →
+    prim_step (SingleE n) σ1 l1 e2' σ2' efs →
+    l1 = [] ∧ e2' = (SingleV e2) ∧ σ2' = σ2 ∧ efs = [].
   Proof.
     intros* Hstep Hpstep.
     inversion Hpstep as [? ? ? ? Hstep' | | |]; subst.
-    generalize (step_deterministic _ _ _ _ _ _ Hstep Hstep'). intros [-> ->].
+    generalize (step_deterministic _ _ _ _ _ _ Hstep Hstep'). intros.
+    destruct H0.
+    inv H0.
     auto.
   Qed.
 
@@ -400,7 +390,8 @@ Qed.
 
  Definition is_atomic (e : expr) : Prop :=
     match e with
-    | Single _ => True
+    | SingleE _ => True
+    | SingleV _ => True
     | _ => False
     end.
 
