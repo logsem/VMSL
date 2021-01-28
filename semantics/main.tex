@@ -467,8 +467,8 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
       \instr{halt}&\leftshift (\DN{\mathtt{Halt}}, (\Delta,m,s)) & & \multicolumn{2}{l|}{} \\\hline
       \instr{br} $r$&\leftshift \nextt(\Delta',m,s,\text{id},v,v)  & \Delta'[v].r[\mathtt{pc}]=\Delta[v].r[r] & \multicolumn{2}{l|}{$r \in \text{GenRegs}$} \\\hline
       \multirow{2}{*}{\instr{bne} $r$}&\multirow{2}{*}{$\leftshift \nextt(\Delta',m,s,\text{id},v,v)$}
-                               & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[r] & $\Delta[v].r[\mathtt{NZ}].z=1$& $r \in \text{GenRegs}$\\\cline{3-4}
-                               & & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[\mathtt{pc}]+1 &otherwise& \\\hline
+                               & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[\mathtt{pc}]+1 & $\Delta[v].r[\mathtt{NZ}]=1$& $r \in \text{GenRegs}$\\\cline{3-4}
+                               & & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[r] &otherwise& \\\hline
       \instr{mov} $r$ $w$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r]=w & \multicolumn{2}{l|}{$r \in \text{GenRegs}$} \\\hline
       \instr{ldr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & \Delta'[v].r[r_{1}]=m[a]  &
                                 \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a)=\valida(\Delta[v],r_{2},R)\end{array}$} \\\hline
@@ -528,7 +528,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                  & &\!\!\!\!\!\begin{array}{l}
                                               v_n=v\\
                                               \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGS}\\
-                                              \Delta'[v_n].r[\mathtt{R1}]=v_s\\
+                                              \Delta'[v_n].r[\mathtt{R1}]=\text{comb}(v_s,v)\\
                                               \Delta'[v_n].r[\mathtt{R3}]=w_s
                                               \end{array} & $b$&\\\cline{3-4}
                                  & &\!\!\!\!\!\begin{array}{l}
@@ -575,16 +575,16 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
     \updpc(\Delta,m,s,v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].r[\mathtt{pc}] = \Delta[v].r[\mathtt{pc}]+1\\
     \text{id}(\Delta,m,s,v)& = (\Delta,m,s)\\
     \nextt(\Delta,m,s,f,v,n)&= \left\{\!\!\!\!\begin{array}{lll}
-                                \DNXT{0}{f(\Delta',m,s,v)} &\text{where }&\Delta'[v].r[\mathtt{CNT\_VAL}] = \Delta[v].r[\mathtt{CNT\_VAL}] -1,\\
-                                & & \Delta'[0].r[\mathtt{CNT\_VAL}] = \Delta[0].r[\mathtt{CNT\_VAL}] -1,\\
+                                \DNXT{0}{f(\Delta',m,s,v)} &\text{where } %&\Delta'[v].r[\mathtt{CNT\_VAL}] = \Delta[v].r[\mathtt{CNT\_VAL}] -1,\\
+                                & \Delta'[0].r[\mathtt{CNT\_VAL}] = \Delta[0].r[\mathtt{CNT\_VAL}] -1,\\
                                 & &\Delta'[0].r[\mathtt{CNT\_CTL}] = 0,\\
                                 & &\Delta'[0].r[\mathtt{R0}]=\toword{INTERRUPT},\\
                                 & &\Delta'[0].r[\mathtt{R1}] = v\\
-                                & \text{if}&(\Delta[v].r[\mathtt{CNT\_VAL}] -1 \le 0 \land\Delta[v].r[\mathtt{CNT\_CTL}] = 1)\\
-                                & &\lor(\Delta[0].r[\mathtt{CNT\_VAL}] -1 \le 0\land\Delta[0].r[\mathtt{CNT\_CTL}] = 1)\\
+                                & \text{if}%&(\Delta[v].r[\mathtt{CNT\_VAL}] -1 \le 0 \land\Delta[v].r[\mathtt{CNT\_CTL}] = 1)\lor\\
+                                &\Delta[0].r[\mathtt{CNT\_VAL}] -1 \le 0\land\Delta[0].r[\mathtt{CNT\_CTL}] = 1\\
                                 \\
-                                \DNXT{n}{f(\Delta',m,s,v)} &\text{where}&\Delta'[v].r[\mathtt{CNT\_VAL}] = \Delta[v].r[\mathtt{CNT\_VAL}] -1\\
-                                & &\Delta'[0].r[\mathtt{CNT\_VAL}] = \Delta[0].r[\mathtt{CNT\_VAL}] -1\\
+                                \DNXT{n}{f(\Delta',m,s,v)} &\text{where}%&\Delta'[v].r[\mathtt{CNT\_VAL}] = \Delta[v].r[\mathtt{CNT\_VAL}] -1\\
+                                &\Delta'[0].r[\mathtt{CNT\_VAL}] = \Delta[0].r[\mathtt{CNT\_VAL}] -1\\
                                 & \text{otherwise}\\
                                               \end{array}  \right.\\
     \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+w_{2}
