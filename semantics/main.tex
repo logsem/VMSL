@@ -75,7 +75,8 @@
 \newcommand*{\valida}{\text{valida}}
 \newcommand*{\updpc}{\text{updpc}}
 \newcommand*{\pid}{\text{pid}}
-
+\newcommand*{\owned}{\text{owned}}
+\newcommand*{\addr}{\text{addr}}
 
 % reference
 \renewcommand{\DefTirName}[1]{\hypertarget{#1}{\TirName {#1}}}
@@ -84,6 +85,10 @@
 % SOME/NONE
 \newcommand{\SOME}{\mathtt{Some}}
 \newcommand{\NONE}{\mathtt{None}}
+
+% TRUE/FALSE
+\newcommand{\TRUE}{\mathtt{True}}
+\newcommand{\FALSE}{\mathtt{False}}
 
 \title{Operational Semantics % and Proof Rules
   for VMs in Hafnium} \date{\today}
@@ -376,6 +381,11 @@ and removing elements from a list respectively.
                                     \NONE & \text{otherwise}
                                   \end{array}
                                 \right. \\
+     \owned(\Delta,v,a) &=\left\{ \begin{array}{ll}
+                                      \TRUE & \text{if} \; \pid(a) \in \Delta[v].ps \\
+                                    \FALSE & \text{otherwise}
+                                  \end{array}
+                                \right. \\
       \pid(a) &= a >> \PPBITS
     \end{aligned}
   \end{mathpar}
@@ -481,21 +491,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                  & & \Delta'[v].r[\mathtt{NZ}]= 1 & $w = 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 2 & $w < 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 0 & otherwise &\\\hline
-      \multirow{34}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
-                                    &\!\!\!\!\! \begin{array}{l}
-                                               \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(a_p)\}  \\
-                                               v_r =  \Delta[v].r[\mathtt{R2}] \\
-                                               s' = s \append [(\pid(a_p), v , v_r)]\\
-                                               \Delta'[v].r[\mathtt{R2}]=\llen{s}\\
-                                               \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}
-                                             \end{array}
-                                    & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
-                                                    \Delta[v].r[\mathtt{R0}]=\toword{MEM\_DNT}\\
-                                                    \SOME(a_p)=\valida(\Delta[v],\mathtt{R1},V) \\
-                                                    v_r < \llen{\Delta}\\
-                                                    v \neq v_r
-                                                  \end{array}$}\\\cline{2-5}
-      &\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+      \multirow{34}{*}{\instr{hvc}} &\leftshift \nextt(\Delta', m, s',\updpc,v,v)
                            &\!\!\!\!\! \begin{array}{l}
                                          \Delta'[v].ps=\Delta[v].ps \append [p]\\
                                          s'= s \setminus \{(p,v_s,v)\}\\
@@ -568,10 +564,160 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
       \instr{mrs} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r_1]=\Delta[v].r[r_2] & \multicolumn{2}{l|}{$r_{2}\in \text{SysRegs}\land r_{1}\in \text{GenRegs}$} \\\hline
       \instr{msr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r_1]=\Delta[v].r[r_2] & \multicolumn{2}{l|}{$r_{1}\in \text{SysRegs}\land r_{2}\in \text{GenRegs}$} \\\hline
     \end{tabular}
+
   \end{adjustwidth}
+
   \caption{Instruction Semantics.}
 \end{figure}
 \todo{later: consider overflow}
+\begin{figure}[!h]
+  \begin{adjustwidth}{-1cm}{}
+    \begin{tabular}[t]{|l|L L|L|l|}
+      \hline
+      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+                                    & & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
+                                                                       \Delta[v].r[\mathtt{R0}]=\toword{MEM\_DONATE}\\
+                                                                       \Delta[v].r[\mathtt{R1}]=len\\
+                                                                       \Delta[v].\pi_{t}=\SOME(p_t) \\
+                                                                       m[\addr(p_{t},0)] = v_{s}\\
+                                                                       m[\addr(p_{t},1)] = flag \\
+                                                                       m[\addr(p_{t},2)] = h \\
+                                                                       m[\addr(p_{t},3)] = tag \\
+                                                                       m[\addr(p_{t},4)] = offset\\
+                                                                         m[\addr(p_{t},offset)] = v_{r}\\
+                                                                         m[\addr(p_{t},offset+1)]=addr
+                                                                     \end{array}$}\\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+          \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 l > \PPMAX
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 offset \ge len
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 v_s \neq v
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 !\owned(\Delta,v,addr)
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 (flag>>1)\neq 0
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 h \neq 0
+                                               \end{array} & \\\cline{3-4}
+                                   &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(addr)\}  \\
+                                       \!\!\!\!\begin{array}{ll}
+                                                 s'=& s \append [(v_s,flag,\llen{s},\\
+                                                 &tag,v_r,\pid(addr))]
+                                                 \end{array}\\
+                                               \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}\\
+                                               \Delta'[v].r[\mathtt{R2}]=\llen{s}\\
+                                             \end{array}
+                                    &\text{otherwise} & \\
+
+    \hline
+    \end{tabular}
+    \end{adjustwidth}
+  \end{figure}
+
+\begin{figure}[!h]
+  \begin{adjustwidth}{-1cm}{}
+    \begin{tabular}[t]{|l|L L|L|l|}
+      \hline
+      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+                                    & & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
+                                                                         \Delta[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_REQ}\\
+                                                                       \Delta[v].r[\mathtt{R1}]=len\\
+                                                                       \Delta[v].\pi_{t}=\SOME(p_t) \\
+                                                                       m[\addr(p_{t},0)] = v_{s}\\
+                                                                       m[\addr(p_{t},1)] = flag \\
+                                                                       m[\addr(p_{t},2)] = h \\
+                                                                       m[\addr(p_{t},3)] = tag \\
+                                                                       m[\addr(p_{t},4)] = offset\\
+                                                                         m[\addr(p_{t},offset)] = v_{r}\\
+                                                                         m[\addr(p_{t},offset+1)]=addr
+                                                                     \end{array}$}\\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+          \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 l > \PPMAX
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 offset \ge len
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 v_s \neq v
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 !\owned(\Delta,v,addr)
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 (flag>>1)\neq 0
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
+          s'=s
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 h \neq 0
+                                               \end{array} & \\\cline{3-4}
+                                   &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(addr)\}  \\
+                                       \!\!\!\!\begin{array}{ll}
+                                                 s'=& s \append [(v_s,flag,\llen{s},\\
+                                                 &tag,v_r,\pid(addr))]
+                                                 \end{array}\\
+                                               \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}\\
+                                               \Delta'[v].r[\mathtt{R2}]=\llen{s}\\
+                                             \end{array}
+                                    &\text{otherwise} & \\
+
+    \hline
+    \end{tabular}
+    \end{adjustwidth}
+  \end{figure}
+
 \begin{figure}[!h]
   \begin{align*}
     \updpc(\Delta,m,s,v)&=(\Delta',m,s)\ \; \text{where}\; \Delta'[v].r[\mathtt{pc}] = \Delta[v].r[\mathtt{pc}]+1\\
@@ -589,7 +735,8 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                 &\Delta'[0].r[\mathtt{CNT\_VAL}] = \Delta[0].r[\mathtt{CNT\_VAL}] -1\\
                                 & \text{otherwise}\\
                                               \end{array}  \right.\\
-    \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+w_{2}
+    \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+w_{2}\\
+    \text{addr}(p,o)&=p<<(\PPBITS/2)+o
   \end{align*}
   \caption{Instruction Semantics(Cont.).}
 \end{figure}
