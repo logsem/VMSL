@@ -183,7 +183,7 @@ machines plus some additional information for the FF-A framework.
     m & \in \MEM &\defined  &\ADDR \maps \WORD \\
     a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
-    s & \in \SSS &\defined  &list(\PID \times \VMID) \\
+    s & \in \SSS &\defined  &list(\PID \times \VMID \times \VMID) \\
     v & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
       & \;\;\;\; \text{SysRegs} &\derived & \mathtt{NV} | \mathtt{CNT\_VAL} | \mathtt{CNT\_CTL} | \dots \\
       & \;\;\;\; \text{GenRegs} &\derived & \mathtt{pc} | \mathtt {R0} | \mathtt{R1} | \dots
@@ -485,7 +485,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                     &\!\!\!\!\! \begin{array}{l}
                                                \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(a_p)\}  \\
                                                v_r =  \Delta[v].r[\mathtt{R2}] \\
-                                               s' = s \append [(\pid(a_p), v_r)]\\
+                                               s' = s \append [(\pid(a_p), v , v_r)]\\
                                                \Delta'[v].r[\mathtt{R2}]=\llen{s}\\
                                                \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}
                                              \end{array}
@@ -498,12 +498,14 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
       &\leftshift \nextt(\Delta', m, s',\updpc,v,v)
                            &\!\!\!\!\! \begin{array}{l}
                                          \Delta'[v].ps=\Delta[v].ps \append [p]\\
-                                         s'= s \setminus \{(p,v)\}\\
-                                         \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RTRVP}
+                                         s'= s \setminus \{(p,v_s,v)\}\\
+                                         \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RTRVP}\\
+                                         \Delta'[v].r[\mathtt{R1}]=p
                                        \end{array}
                  &\multicolumn{2}{l|}{$\leftshift\begin{array}{l}
                                                    \Delta[v].r[\mathtt{R0}]=\toword{MEM\_RTRVQ}\\
-                                                   s[\Delta[v].r[\mathtt{R1}]] = (p, v)\\
+                                                   \Delta[v].r[\mathtt{R2}] = v_s\\
+                                                   s[\Delta[v].r[\mathtt{R1}]] = (p, v_s , v)\\
                                                    p \notin \Delta[v].ps
                                  \end{array}$} \\\cline{2-5}
       & \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
