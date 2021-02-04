@@ -491,20 +491,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                  & & \Delta'[v].r[\mathtt{NZ}]= 1 & $w = 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 2 & $w < 0$ & \\\cline{3-4}
                                  & & \Delta'[v].r[\mathtt{NZ}]= 0 & otherwise &\\\hline
-      \multirow{34}{*}{\instr{hvc}} &\leftshift \nextt(\Delta', m, s',\updpc,v,v)
-                           &\!\!\!\!\! \begin{array}{l}
-                                         \Delta'[v].ps=\Delta[v].ps \append [p]\\
-                                         s'= s \setminus \{(p,v_s,v)\}\\
-                                         \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RTRVP}\\
-                                         \Delta'[v].r[\mathtt{R1}]=p
-                                       \end{array}
-                 &\multicolumn{2}{l|}{$\leftshift\begin{array}{l}
-                                                   \Delta[v].r[\mathtt{R0}]=\toword{MEM\_RTRVQ}\\
-                                                   \Delta[v].r[\mathtt{R2}] = v_s\\
-                                                   s[\Delta[v].r[\mathtt{R1}]] = (p, v_s , v)\\
-                                                   p \notin \Delta[v].ps
-                                 \end{array}$} \\\cline{2-5}
-      & \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
+      \multirow{34}{*}{\instr{hvc}} & \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
                                       & v_n=\Delta[v].r[\mathtt{R1}]
                                           & \multicolumn{2}{l|}{\multirow{2}{*}{$\leftshift \begin{array}{l}
                                                                                               \Delta[v].r[\mathtt{R0}]=\toword{RUN}\\
@@ -574,7 +561,7 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
   \begin{adjustwidth}{-1cm}{}
     \begin{tabular}[t]{|l|L L|L|l|}
       \hline
-      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m', s',\updpc,v,v)
                                     & & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
                                                                        \Delta[v].r[\mathtt{R0}]=\toword{MEM\_DONATE}\\
                                                                        \Delta[v].r[\mathtt{R1}]=len\\
@@ -588,54 +575,49 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                                                          m[\addr(p_{t},offset+1)]=addr
                                                                      \end{array}$}\\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-          \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+          \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  l > \PPMAX
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  offset \ge len
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  v_s \neq v
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  !\owned(\Delta,v,addr)
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  (flag>>1)\neq 0
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}\\
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  h \neq 0
                                                \end{array} & \\\cline{3-4}
-                                   &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(addr)\}  \\
+                                   &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(addr)\}\\
                                        \!\!\!\!\begin{array}{ll}
-                                                 s'=& s \append [(v_s,flag,\llen{s},\\
-                                                 &tag,v_r,\pid(addr))]
+                                                 s'=& s \append [(v_s,flag,tag,\\
+                                                 &v_r,\pid(addr))]
                                                  \end{array}\\
                                                \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}\\
-                                               \Delta'[v].r[\mathtt{R2}]=\llen{s}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\llen{s}+1\\
+                                       m'=\text{zero}(m,\pid(addr)) \text{ if }flag=1
                                              \end{array}
                                     &\text{otherwise} & \\
 
@@ -643,76 +625,81 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
     \end{tabular}
     \end{adjustwidth}
   \end{figure}
-
+\todo{TODO:a better way to generate handles}
 \begin{figure}[!h]
   \begin{adjustwidth}{-1cm}{}
     \begin{tabular}[t]{|l|L L|L|l|}
       \hline
-      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m, s',\updpc,v,v)
+      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m', s',\updpc,v,v)
                                     & & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
                                                                          \Delta[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_REQ}\\
                                                                        \Delta[v].r[\mathtt{R1}]=len\\
-                                                                       \Delta[v].\pi_{t}=\SOME(p_t) \\
+                                                                         \Delta[v].\pi_{t}=\SOME(p_t) \\
                                                                        m[\addr(p_{t},0)] = v_{s}\\
                                                                        m[\addr(p_{t},1)] = flag \\
                                                                        m[\addr(p_{t},2)] = h \\
                                                                        m[\addr(p_{t},3)] = tag \\
-                                                                       m[\addr(p_{t},4)] = offset\\
-                                                                         m[\addr(p_{t},offset)] = v_{r}\\
-                                                                         m[\addr(p_{t},offset+1)]=addr
+                                                                         m[\addr(p_{t},4)] = offset\\
+                                                                         s[h-1] = (v_s',flag', tag',v_r,p)\\
+                                                                         \Delta[v_r].\pi_r=\SOME(p_r,ready,-,-)
                                                                      \end{array}$}\\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-          \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+          \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  l > \PPMAX
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
-                                                 offset \ge len
+                                                 v_s' \neq v_s
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
-                                                 v_s \neq v
+                                                tag \neq tag'
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}\\
-          s'=s
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 !\owned(\Delta,v,addr)
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
                                                  (flag>>1)\neq 0
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INVAL\_PARA}\\
-          s'=s
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
-                                                 h \neq 0
+                                                 offset \neq 0
                                                \end{array} & \\\cline{3-4}
-                                   &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(addr)\}  \\
-                                       \!\!\!\!\begin{array}{ll}
-                                                 s'=& s \append [(v_s,flag,\llen{s},\\
-                                                 &tag,v_r,\pid(addr))]
-                                                 \end{array}\\
-                                               \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}\\
-                                               \Delta'[v].r[\mathtt{R2}]=\llen{s}\\
-                                             \end{array}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 v_r =v \land v_r < \llen{\Delta}
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{BUSY}
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                ready
+                                               \end{array} & \\\cline{3-4}
+      &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \append [p]  \\
+          s'= s \setminus \{(v_s',flag',tag',v_r,p)\}\\
+          \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_RESP}\\
+          \Delta'[v].r[\mathtt{R2}]=7\\
+          m'=\text{zero}(m,p) \text{ if }flag=1\\
+          m'[\addr(p_{r},0)] = v_{s}\\
+          m'[\addr(p_{r},1)] = flag\&flag' \\
+          m'[\addr(p_{r},2)] = 0 \\
+          m'[\addr(p_{r},3)] = tag \\
+          m'[\addr(p_{r},4)] = 5\\
+          m'[\addr(p_{r},5+0)] = v_r\\
+          m'[\addr(p_{r},5+1)] = \addr(p,0)\\
+          \Delta'[v_r].\pi_r=\SOME(p_r,\TRUE,7,-)
+        \end{array}
                                     &\text{otherwise} & \\
-
     \hline
     \end{tabular}
     \end{adjustwidth}
