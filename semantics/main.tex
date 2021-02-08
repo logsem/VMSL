@@ -30,6 +30,9 @@
 \newcommand*{\MEM}{\text{GlobalMem}}
 \newcommand*{\SSS}{\text{ShareStates}}
 \newcommand*{\PID}{\text{PID}}
+\newcommand*{\PT}{\text{PageTable}}
+\newcommand*{\AS}{\text{AccessState}}
+\newcommand*{\OS}{\text{OwnershipState}}
 \newcommand*{\REGS}{\text{Registers}}
 \newcommand*{\ADDR}{\text{Address}}
 \newcommand*{\WORD}{\text{Word}}
@@ -180,7 +183,8 @@ machines plus some additional information for the FF-A framework.
 \begin{figure}
   \begin{align*}
     \phi &\in \CONF &\defined &list(\STATE) \times \MEM \times \SSS \\
-    \delta &\in \STATE &\defined &list(\PID) \times \REGS \times \MB \\
+    \delta &\in \STATE &\defined &\PT \times \REGS \times \MB \\
+    t & \in \PT & \defined & \PID \maps (\OS \times \AS) \\
     \pi & \in \MB &\defined &option(\PID) \times option(\PID \times \text{Bool} \times \WORD \times \VMID) \\
     p & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     r & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
@@ -190,6 +194,8 @@ machines plus some additional information for the FF-A framework.
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
     s & \in \SSS &\defined  &list(\PID \times \VMID \times \VMID) \\
     v & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
+      & \;\;\;\; \OS & \derived & O | !O \\
+      & \;\;\;\; \AS & \derived & NA | EA | SA \\
       & \;\;\;\; \text{SysRegs} &\derived & \mathtt{NV} | \mathtt{CNT\_VAL} | \mathtt{CNT\_CTL} | \dots \\
       & \;\;\;\; \text{GenRegs} &\derived & \mathtt{pc} | \mathtt {R0} | \mathtt{R1} | \dots
   \end{align*}
@@ -373,17 +379,12 @@ and removing elements from a list respectively.
     }
     \and
     \begin{aligned}
-      \valida(\delta,r,P) &=\left\{ \begin{array}{ll}
-                                      \SOME(a_i) & \text{if} \; a_i = \delta.r[r] \\
-                                                 &\land \big( (P=V \land \pid(a_i) \in \delta.ps) \\
-                                                 &\lor (P=R \land (\pid(a_i)\in \delta.ps \lor \SOME(\pid(a_i),-,-,-)=\delta.\pi_r)) \\
-                                                 &\lor (P=W \land (\pid(a_i)\in \delta.ps \lor \SOME(\pid(a_i))=\delta.\pi_t))\big) \\
+      \valida(\Delta,v,r,P) &=\left\{ \begin{array}{ll}
+                                      \SOME(a_i) & \text{if} \; a_i = \Delta[v].r[r] \\
+                                                 &\land \big( (P=V \land \Delta[v].t[\pid(a_i)]\ne (-,NA)) \\
+                                                 &\lor (P=R \land (\Delta[v].t[\pid(a_i)] \ne(-,NA) \lor \SOME(\pid(a_i),-,-,-)=\Delta[v].\pi_r)) \\
+                                                 &\lor (P=W \land (\Delta[v].t[\pid(a_i)] \ne(-,NA)\lor \SOME(\pid(a_i))=\Delta[v].\pi_t))\big) \\
                                     \NONE & \text{otherwise}
-                                  \end{array}
-                                \right. \\
-     \owned(\Delta,v,a) &=\left\{ \begin{array}{ll}
-                                      \TRUE & \text{if} \; \pid(a) \in \Delta[v].ps \\
-                                    \FALSE & \text{otherwise}
                                   \end{array}
                                 \right. \\
       \pid(a) &= a >> \PPBITS
@@ -481,9 +482,9 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                & & \Delta'[v].r[\mathtt{pc}]= \Delta[v].r[r] &otherwise& \\\hline
       \instr{mov} $r$ $w$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r]=w & \multicolumn{2}{l|}{$r \in \text{GenRegs}$} \\\hline
       \instr{ldr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & \Delta'[v].r[r_{1}]=m[a]  &
-                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a)=\valida(\Delta[v],r_{2},R)\end{array}$} \\\hline
+                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a)=\valida(\Delta,v,r_{2},R)\end{array}$} \\\hline
       \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta, m', s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
-                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a) =\valida(\Delta[v],r_{1},W)\end{array}$} \\\hline
+                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a) =\valida(\Delta,v,r_{1},W)\end{array}$} \\\hline
       \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
       \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
       \multirow{4}{*}{\instr{cmp} $r_{1}$ $r_{2}$}&\multirow{4}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v,v)$}
@@ -592,11 +593,18 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                     &\leftshift\begin{array}{l}
                                                  v_s \neq v
                                                \end{array} & \\\cline{3-4}
+
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
                                        \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}
                                      \end{array}
                                     &\leftshift\begin{array}{l}
-                                                 !\owned(\Delta,v,addr)
+                                                 \Delta[v].t[\pid(addr)]=(O,EA)
+                                               \end{array} & \\\cline{3-4}
+           &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+                                     \end{array}
+                                    &\leftshift\begin{array}{l}
+                                                 v_r < \llen{\Delta}
                                                \end{array} & \\\cline{3-4}
       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
                                        \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
@@ -610,7 +618,8 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                     &\leftshift\begin{array}{l}
                                                  h \neq 0
                                                \end{array} & \\\cline{3-4}
-                                   &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \setminus \{\pid(addr)\}\\
+                                   &&\begin{array}{l} \Delta'[v].t=\Delta[v].t[\pid(addr) \mapsto (O,NA)]\\
+                                       \Delta'[v_r].t=\Delta[v_r].t[\pid(addr) \mapsto (!O,NA)]\\
                                        \!\!\!\!\begin{array}{ll}
                                                  s'=& s \append [(v_s,flag,tag,\\
                                                  &v_r,\pid(addr))]
@@ -685,7 +694,8 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
                                     &\leftshift\begin{array}{l}
                                                 ready
                                                \end{array} & \\\cline{3-4}
-      &&\begin{array}{l} \Delta'[v].ps=\Delta[v].ps \append [p]  \\
+                                   &&\begin{array}{l} \Delta'[v].t=\Delta[v].t[p\mapsto (O,EA)]  \\
+                                       \Delta'[v_s].t=\Delta[v_s].t[p \mapsto (!O,NA)]\\
           s'= s \setminus \{(v_s',flag',tag',v_r,p)\}\\
           \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_RESP}\\
           \Delta'[v].r[\mathtt{R2}]=7\\
