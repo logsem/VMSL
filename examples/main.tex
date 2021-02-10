@@ -1,0 +1,338 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{listings}
+\usepackage{bytefield}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage[newfloat]{minted}
+
+\definecolor{lightgray}{gray}{0.8}
+\newenvironment{code}{\captionsetup{type=listing}}{}
+\SetupFloatingEnvironment{listing}{name=Source Code}
+
+\begin{document}
+
+\section{Memory donation}
+
+\subsection{Scheduler $\rightarrow$ secondary VM}
+Assumptions:
+\begin{enumerate}
+ \item VM0 owns pages p1, p2 and have an exclusive access to them
+ \item TX\_0\_Hyp, and TX\_0\_1 are TX buffers that are shared between VM0/Hypervisor, and VM0/VM1 respectfully 
+ \item The following memory slice of the TX\_0\_Hyp buffer is valid: \\
+     \\
+     \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{32}
+         \bitheader[endianness=little]{0,2,3,4,8,16,24,28,32} \\
+         \begin{rightwordgroup}{n + 0x00}
+             \bitbox{2}{0x0}
+	         \bitbox{1}[bgcolor=lightgray]{}
+	         \bitbox{1}[bgcolor=lightgray]{}
+	         \bitbox{4}{0x0}
+	         \bitbox{8}{0x0}
+	         \bitbox{8}[bgcolor=lightgray]{}
+	         \bitbox{4}[bgcolor=lightgray]{}
+	         \bitbox{4}{0x1}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{n + 0x20}
+             \bitbox{2}{0x1}
+             \bitbox{1}[bgcolor=lightgray]{}
+             \bitbox{1}[bgcolor=lightgray]{}
+             \bitbox{4}{0x30}
+             \bitbox{8}[bgcolor=lightgray]{}
+             \bitbox{4}{0x2}
+             \bitbox{4}{0x2}
+             \bitbox{8}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{n + 0x40}
+             \bitbox{8}{addr(p1)}
+             \bitbox{4}{0x1}
+             \bitbox{4}[bgcolor=lightgray]{}
+             \bitbox{8}{addr(p2)}
+             \bitbox{4}{0x1}
+             \bitbox{4}[bgcolor=lightgray]{}
+         \end{rightwordgroup}
+     \end{bytefield}
+\end{enumerate}
+
+\begin{code}
+\captionof{listing}{VM 0}
+\begin{minted}{gas}
+# memory donation ffa call
+mov R0, 0x84000071 # function id (FFA_MEM_DONATE)
+mov R1, 0x30       # Total length of the memory transaction 
+                   # descriptor in bytes
+mov R2, 0x30       # Length in bytes of the memory transaction 
+                   # descriptor passed in this ABI invocation
+                   # (it's possible to split it in a number of fragments)
+mov R3, 0x0        # (base address of a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R4, 0x0        # (number of 4K pages in a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R5, 0x0        # mbz
+mov R6, 0x0        # mbz
+mov R7, 0x0        # mbz
+hvc
+
+# R3 is populated with the page handler at this point
+
+# we need to inform VM 1 of the handler by sending an indirect message
+mov R0, 0x8400006E # function id (FFA_MSG_SEND)
+
+# Bit[31:16]: Sender endpoint ID.
+# Bit[15:0]: Receiver endpoint ID.
+# In this case, it's redundant, however, it's kept as an example
+mov R1, 0x0
+mov R1, R1, LSL 16 # caller id
+add R1, 0x1        # callee id
+mov R4, addr(TX_0_1)
+str R2, [R4, 8]    # store the handler in TX_0_1 buffer of VM0
+str R3, [R4, 12]
+hvc
+\end{minted}
+\end{code}
+
+\begin{code}
+\captionof{listing}{VM 1}
+\begin{minted}{gas}
+# Copy RX to TX
+
+mov R0, 0x84000074 # function id (FFA_MEM_RETRIEVE_REQ)
+mov R1, 0x30       # Total length of the memory transaction 
+                   # descriptor in bytes
+mov R2, 0x30       # Length in bytes of the memory transaction 
+                   # descriptor passed in this ABI invocation
+                   # (it's possible to split it in a number of fragments)
+mov R3, 0x0        # (base address of a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R4, 0x0        # (number of 4K pages in a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R5, 0x0        # mbz
+mov R6, 0x0        # mbz
+mov R7, 0x0        # mbz
+hvc
+\end{minted}
+\end{code}
+
+\subsection{Secondary VM $\rightarrow$ secondary VM}
+
+Assumptions:
+\begin{enumerate}
+ \item VM1 owns pages p1, p2 and have an exclusive access to them
+ \item The following memory slice of the TX\_1\_Hyp buffer is valid: \\
+     \\
+     \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{32}
+         \bitheader[endianness=little]{0,2,3,4,8,16,24,28,32} \\
+         \begin{rightwordgroup}{n + 0x00}
+             \bitbox{2}{0x1}
+	         \bitbox{1}[bgcolor=lightgray]{}
+	         \bitbox{1}[bgcolor=lightgray]{}
+	         \bitbox{4}{0x0}
+	         \bitbox{8}{0x0}
+	         \bitbox{8}[bgcolor=lightgray]{}
+	         \bitbox{4}[bgcolor=lightgray]{}
+	         \bitbox{4}{0x1}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{n + 0x20}
+             \bitbox{2}{0x2}
+             \bitbox{1}[bgcolor=lightgray]{}
+             \bitbox{1}[bgcolor=lightgray]{}
+             \bitbox{4}{0x30}
+             \bitbox{8}[bgcolor=lightgray]{}
+             \bitbox{4}{0x2}
+             \bitbox{4}{0x2}
+             \bitbox{8}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{n + 0x40}
+             \bitbox{8}{addr(p1)}
+             \bitbox{4}{0x1}
+             \bitbox{4}[bgcolor=lightgray]{}
+             \bitbox{8}{addr(p2)}
+             \bitbox{4}{0x1}
+             \bitbox{4}[bgcolor=lightgray]{}
+         \end{rightwordgroup}
+     \end{bytefield}
+\end{enumerate}
+
+\begin{code}
+\captionof{listing}{VM 1}
+\begin{minted}{gas}
+# memory donation ffa call
+mov R0, 0x84000071 # function id (FFA_MEM_DONATE)
+mov R1, 0x30       # Total length of the memory transaction 
+                   # descriptor in bytes
+mov R2, 0x30       # Length in bytes of the memory transaction 
+                   # descriptor passed in this ABI invocation
+                   # (it's possible to split it in a number of fragments)
+mov R3, 0x0        # (base address of a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R4, 0x0        # (number of 4K pages in a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R5, 0x0        # mbz
+mov R6, 0x0        # mbz
+mov R7, 0x0        # mbz
+hvc
+
+# R3 is populated with the page handler at this point
+
+# we need to inform VM 1 of the handler by sending an indirect message
+mov R0, 0x8400006E # function id (FFA_MSG_SEND)
+
+# Bit[31:16]: Sender endpoint ID.
+# Bit[15:0]: Receiver endpoint ID.
+mov R1, 0x1
+mov R1, R1, LSL 16 # caller id
+add R1, 0x2        # callee id
+mov R4, addr(TX_0_1)
+str R2, [R4, 8]    # store the handler in TX_0_1 buffer of VM0
+str R3, [R4, 12]
+hvc
+\end{minted}
+\end{code}
+
+% TODO: scheduler
+\begin{code}
+\captionof{listing}{VM 0}
+\begin{minted}{gas}
+
+\end{minted}
+\end{code}
+
+\begin{code}
+\captionof{listing}{VM 2}
+\begin{minted}{gas}
+# Copy RX to TX
+
+mov R0, 0x84000074 # function id (FFA_MEM_RETRIEVE_REQ)
+mov R1, 0x30       # Total length of the memory transaction 
+                   # descriptor in bytes
+mov R2, 0x30       # Length in bytes of the memory transaction 
+                   # descriptor passed in this ABI invocation
+                   # (it's possible to split it in a number of fragments)
+mov R3, 0x0        # (base address of a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R4, 0x0        # (number of 4K pages in a buffer) used if 
+                   # transaction descriptor is sent in 
+                   # dynamically allocated buffers, mbz otherwise
+mov R5, 0x0        # mbz
+mov R6, 0x0        # mbz
+mov R7, 0x0        # mbz
+hvc
+\end{minted}
+\end{code}
+
+%\begin{lstlisting}
+% No need to wait if memory is being sent from a primary VM to a secondary VM
+%# keep switching to VM 1 until a message is available in the RX buffer
+%mov R0 encode(RUN) # function id
+%mov R4 encode(MSG_WAIT) # comparison pattern
+%mov R5 pc # we can loop until the condition is satisfied
+%hvc
+%cmp R0 R4
+%beq R5 # if R0 == MSG_WAIT we need to try again
+%mov R0 encode(RUN) # finally, we can return to VM 1 to retrieve the page
+%hvc
+%\end{lstlisting}
+\section*{Appendix}
+
+\subsection*{A. Memory transaction descriptor}
+
+\begin{bytefield}[bitwidth=1.4em]{32}
+	\bitheader[endianness=little]{0,2,3,4,8,16,24,28,32}\\
+	\bitbox{2}{\small ID$_s$}
+	\bitbox{1}{\tiny M \\ R \\ A}
+	\bitbox{1}[bgcolor=lightgray]{}
+	\bitbox{4}{Flag}
+	\bitbox{8}{Handle}
+	\bitbox{8}{Tag}
+	\bitbox{4}[bgcolor=lightgray]{}
+	\bitbox{4}{Length}
+\end{bytefield}
+
+MRA (memory region attributes) are used to specify:
+\begin{enumerate}
+    \item Memory type (different device types and normal)
+    \item Cacheability
+    \item Shareability 
+\end{enumerate}
+
+This field may be safely ignored for now.
+
+The first flag bit is used to request the Relayer to zero a memory region in FFA\_MEM\_DONATE or FFA\_MEM\_LEND. In an invocation of FFA\_MEM\_SHARE it must be zero'ed (else the Relayer must return INVALID\_PARAMETERS). If the Owner has Read-Only access to the memory region it also must be zero'ed (else the Relayer must return DENIED).
+
+The second flag bit is used to show the Relayer that it can use time slicing. If the Relayer does not support memory slicing then it must be zero'ed, else the Relayer must return INVALID\_PARAMETERS. It can safely be ignored for now.
+
+There's some complex behavior for these bits in FFA\_MEM\_RETRIEVE\_REQ ABI.
+
+In FFA\_MEM\_RETRIEVE\_RESP ABI the first flag shows if the memory region was retrieved with(out) zeroing its content. The 4th and 5th bits are used to show the transaction type (important!). 
+
+Tag specifies a value, which determines an implementation defined behavior so it can be ignored for now.
+
+Handle must be zero'ed in an invocation of FFA\_MEM\_DONATE, FFA\_MEM\_LEND, FFA\_MEM\_SHARE.
+
+Unused parts MBZ.
+
+Length specifies a count of endpoint memory access descriptors.
+
+The structure is followed by an array of endpoint memory access descriptors.
+
+\subsection*{B. Endpoint memory access descriptor}
+
+\begin{bytefield}[bitwidth=2.5em]{16}
+	\bitheader[endianness=little]{0,2,3,4,8,16}\\	
+	\bitbox{2}{\small ID$_r$}
+	\bitbox{1}{\tiny M \\ A \\ P}
+	\bitbox{1}{\small Flags}
+	\bitbox{4}{\tiny CM region descriptor \\ offset}
+	\bitbox{8}[bgcolor=lightgray]{}
+\end{bytefield}
+
+MAP (memory access permission) are used to specify instruction and access permissions for a memory region.
+
+Offset must be calculated from the base address of
+the data structure this descriptor is included in.
+
+An offset value of 0 indicates that the endpoint
+access permissions apply to a memory region
+description identified by the Handle parameter
+specified in the data structure that includes this
+one.
+
+\subsection*{C. Composite memory region descriptor}
+
+\begin{bytefield}[bitwidth=2.5em]{16}
+	\bitheader[endianness=little]{0,4,8,16}\\	
+	\bitbox{4}{Total page count}
+	\bitbox{4}{Address range count}
+	\bitbox{8}[bgcolor=lightgray]{}
+\end{bytefield}
+
+Total page count specifies the size of the memory region described as the count
+of 4K pages. It must be equal to the sum of page counts specified
+in each constituent memory region descriptor.
+
+Address range count indicates the count of address ranges specified using
+constituent memory region descriptors.
+
+The structure is followed by an array of constituent memory region descriptors.
+
+\subsection*{D. Constituent memory region descriptor}
+
+\begin{bytefield}[bitwidth=2.5em]{16}
+	\bitheader[endianness=little]{0,8,12,16}\\	
+	\bitbox{8}{Address}
+	\bitbox{4}{Page count}
+	\bitbox{4}[bgcolor=lightgray]{}
+\end{bytefield}
+
+The structure keeps information about base VA, PA or IPA of constituent memory region aligned to
+the page size 4K granularity, and number of 4K pages.
+
+\end{document}
