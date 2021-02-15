@@ -197,7 +197,7 @@ machines plus some additional information for the FF-A framework.
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
     sss & \in \SSS &\defined  &\text{list(ShareState)} \\
     ss & \in \text{ShareState} &\defined &\PID \times \VMID \times \VMID\\
-    vm & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
+    v,n & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
       & \;\;\;\; \OS & \derived & O | !O \\
       & \;\;\;\; \AS & \derived & NA | EA | SA \\
       & \;\;\;\; \text{SysRegs} &\derived & \mathtt{NV} | \mathtt{CNT\_VAL} | \mathtt{CNT\_CTL} | \dots \\
@@ -295,7 +295,11 @@ $\PVMMAX$ makes sure we only have finite number of VMs.
                                     \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
                                     \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r |
                                     \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r \\
-        & & & | \instrm{fail} | \instrm{halt} | \instrm{hvc} |\instrm{mrs} \; r\;r | \instrm{msr} \; r \; r
+        & & & | \instrm{fail} | \instrm{halt} | \instrm{hvc} |\instrm{mrs} \; r\;r | \instrm{msr} \; r \; r\\
+    fid & \in \text{FunctionID} &\derived & \tt{RUN} ~|~\tt{YIELD} ~|~\tt{MSG\_WAIT} ~|~\tt{MSG\_SEND}
+                                            ~|~\tt{MSG\_POLL}~|~\tt{MEM\_DONATE}\\
+    &&&|~\tt{MEM\_RETRIEVE\_REQ} ~|~ \tt{SUCC} ~|~\tt{ERROR}~|~\tt{MEM\_RETRIEVE\_RESP}\\
+    err & \in \text{ErrorCode} &\derived & \tt{INV\_PARA} ~|~\tt{DENIED} ~|~\tt{BUSY}~|~\tt{RETRY}
   \end{align*}
   \caption{Syntax and Machine Instructions}
 \end{figure}
@@ -466,70 +470,212 @@ parameter registers, which implies FF-A can have at maxinum six arguments. For
 return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
 
 \newcommand{\ta}[1]{\text{to\_addr}({#1})}
+\newcommand{\tw}[1]{\text{to\_word}({#1})}
 \begin{figure}[h!]
-  \begin{mathpar}
-    \begin{aligned}
+    \begin{align*}
       \delta_v&=\delta s[v] & \text{state of vm with id }v.\\
       a_i&=\delta_v.rs[\mathtt{pc}] & \text{address of instruction}. \\
       rs_v&=\delta_v.rs & \text{registers of vm }v.
-    \end{aligned}
-    \and
-    \begin{aligned}
+    \end{align*}
+    \\
+    \begin{align*}
       \text{AccessibleAddr}(\delta,a_i) &\defined \delta.pt[\pid(a_i)]\ne(-,NA) \\
       \text{ReadableAddr}(\delta,a_i) &\defined \delta.pt[\pid(a_i)]\ne(-,NA) \lor \delta.mb.rx=(\pid(a_i),-,-,-) \\
-      \text{DecodeInstr}(w_i,instr) &\defined \decode(w_i)=\SOME(instr)
-      \end{aligned}
-    \and
+      \text{WritableAddr}(\delta,a_i) &\defined \delta.pt[\pid(a_i)]\ne(-,NA) \lor \delta.mb.tx=\pid(a_i) \\
+      \text{DecodeInstr}(w_i,instr) &\defined \decode(w_i)=\SOME(instr)\\
+      \text{IsFFA}(\delta, fid) & \defined \text{decode\_fid}(\delta.rs[\reg{R0}])=\SOME(fid)\\
+      \text{ValidVMID}(\delta s,n) &\defined n<\text{len}(\delta s)
+      \end{align*}
+  \end{figure}
+
+\begin{figure}[h!]
+  \begin{mathpar}
     \inferrule[Fail-UnaccessibleInstr]
     {!\text{AccessibleAddr}(\delta_v,a_i)}
-    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\mathtt{Fail}} ,\, \Phi)}
+    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Fail}} ,\, \Phi)}
 
-    \inferrule[Fail-DecodingFails]
+     \inferrule[Fail-DecodingFails]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{decode}(\Phi.mm[a_i])=\NONE}
-    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\mathtt{Fail}} ,\, \Phi)}
+    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Fail}} ,\, \Phi)}
 
-    \and \inferrule[Exec-fail]
+    \inferrule[Exec-fail]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(\Phi.mm[a_i],\mathtt{fail})}
-    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\mathtt{Fail}} ,\, \Phi)}
+    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Fail}} ,\, \Phi)}
 
-    \and \inferrule[Exec-halt]
+    \inferrule[Exec-halt]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(\Phi.mm[a_i],\mathtt{halt})}
-    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\mathtt{Halt}} ,\, \Phi)}
+    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Halt}} ,\, \Phi)}
 
-    \and \inferrule[Exec-br]
+    \inferrule[Exec-br-Succ]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{br}~rn) \\ rn\in \text{GenRegs}}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ rs_v[\mathtt{pc}]=rs_v[rn]\},mm,sss))}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ [v].rs[\reg{pc}]=rs_v[rn]\},mm,sss))}
 
+    \and \inferrule[Exec-br-Fail]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{br}~rn) \\ rn\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\tt{Fail}} ,\, (\delta s,mm,sss))}
 
-    \and \inferrule[Exec-bne-Equal]
+    \inferrule[Exec-bne-Succ-Equal]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{bne}~rn) \\ rn\in \text{GenRegs} \\ rs_v[\mathtt{NZ}]=1}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ rs_v[\mathtt{pc}]=rs_v[pc]+1\},mm,sss))}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ [v].rs[\reg{pc}]=rs_v[pc]+1\},mm,sss))}
 
-    \and \inferrule[Exec-bne-NotEqual]
+    \and \inferrule[Exec-bne-Succ-NotEqual]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{bne}~rn) \\ rn\in \text{GenRegs} \\ rs_v[\mathtt{NZ}]\ne 1}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ rs_v[\mathtt{pc}]=rs_v[rn]\},mm,sss))}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ [v].rs[\reg{pc}]=rs_v[rn]\},mm,sss))}
 
-    \and \inferrule[Exec-mov]
+    \and \inferrule[Exec-bne-Fail-InvalidInstr]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{bne}~rn) \\ rn\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\tt{Fail}} ,\, (\delta s,mm,sss))}
+
+    \inferrule[Exec-mov-Succ]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{mov}~rn~w) \\ rn\in \text{GenRegs}}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ rs_v[rn]=w\},mm,sss))}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ [v].rs[rn]=w ; [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1\},mm,sss))}
 
-    \and \inferrule[Exec-mov]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{mov}~rn~w) \\ rn\in \text{GenRegs}}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\{ rs_v[rn]=w ; rs_v[\mathtt{pc}]=rs_v[\mathtt{pc}]+1\},mm,sss))}
+    \and \inferrule[Exec-mov-Fail-InvalidInstr]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{mov}~rn~w) \\ rn\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow(\DN{\tt{Fail}} ,\, (\delta s ,mm,sss))}
 
-    \and \inferrule[Exec-ldr-Succ]
+    \inferrule[Exec-ldr-Succ]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{ldr}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs} \\ \text{ReadableAddr}(\delta_v,\ta{rs_v[rn_2]})}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{rs_v[\mathtt{pc}]=rs_v[\mathtt{pc}]+1 ; rs_v[rn_1]=mm[\ta{rs_v[rn_2]}]\},mm,sss))}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{rs_v[\reg{pc}]=rs_v[\reg{pc}]+1 ; rs_v[rn_1]=mm[\ta{rs_v[rn_2]}]\},mm,sss))}
 
-    \and \inferrule[Exec-ldr-Fail]
+    \and \inferrule[Exec-ldr-Fail-InvalidInstr]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{ldr}~rn_1~rn_2) \\ rn_1~|~rn_2\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\tt{Fail}} ,\, (\delta s ,mm,sss))}
+
+    \and \inferrule[Exec-ldr-Fail-Unreadable]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{ldr}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs} \\ !\text{ReadableAddr}(\delta_v,\ta{rs_v[rn_2]})}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\mathtt{Fail}} ,\, (\delta s ,mm,sss))}
-
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\tt{Fail}} ,\, (\delta s ,mm,sss))}
 
 
   \end{mathpar}
 \end{figure}
 
+\begin{figure}[h!]
+  \begin{mathpar}
+    \inferrule[Exec-str-Succ]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{str}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs} \\a_s=\ta{rs_v[rn_1]}\\ \text{WritableAddr}(\delta_v,a_s)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1\},mm~\text{with}~\{[a_s]=rs_v[rn_2]\},sss))}
+
+    \and \inferrule[Exec-str-Fail-InvalidInstr]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{str}~rn_1~rn_2) \\ rn_1~|~rn_2\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\tt{Fail}} ,\, (\delta s ,mm,sss))}
+
+    \and \inferrule[Exec-str-Fail-Unwritable]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{str}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs} \\a_s=\ta{rs_v[rn_1]}\\ !\text{WritableAddr}(\delta_v,a_s)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\tt{Fail}} ,\, (\delta s ,mm,sss))}
+
+    \inferrule[Exec-add-Succ]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{add}~rn_1~rn_2~rn_3) \\ rn_1, rn_2, rn_3\in \text{GenRegs} }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}] = rs_v[\reg{pc}]+1;[v].rs[rn_1]=rs_v[rn_2]+rs_v[rn_3]\},mm,sss))}
+
+    \and \inferrule[Exec-add-Fail-InvalidInstr]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{add}~rn_1~rn_2~rn_3) \\ rn_1~|~rn_2~|~rn_3\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\mathtt{Fail}} ,\, (\delta s ,mm,sss))}
+
+    \inferrule[Exec-sub-Succ]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{sub}~rn_1~rn_2~rn_3) \\ rn_1, rn_2, rn_3\in \text{GenRegs} }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}] = rs_v[\reg{pc}]+1;[v].rs[rn_1]=rs_v[rn_2]-rs_v[rn_3]\},mm,sss))}
+
+    \and \inferrule[Exec-sub-Fail-InvalidInstr]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{sub}~rn_1~rn_2~rn_3) \\ rn_1~|~rn_2~|~rn_3\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\mathtt{Fail}} ,\, (\delta s ,mm,sss))}
+
+     \inferrule[Exec-cmp-Succ-Zero]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{cmp}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs}\\ rs_v[rn_1]-rs_v[rn_2]=0 }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}] = rs_v[\reg{pc}]+1;[v].rs[\reg{NZ}]=1\},mm,sss))}
+
+    \and \inferrule[Exec-cmp-Succ-Neg]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{cmp}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs}\\ rs_v[rn_1]-rs_v[rn_2]<0 }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}] = rs_v[\reg{pc}]+1;[v].rs[\reg{NZ}]=2\},mm,sss))}
+
+    \and \inferrule[Exec-cmp-Succ-Pos]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{cmp}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs}\\ rs_v[rn_1]-rs_v[rn_2]>0 }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}] = rs_v[\reg{pc}]+1;[v].rs[\reg{NZ}]=0\},mm,sss))}
+
+    \and \inferrule[Exec-cmp-Fail-InvalidInstr]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{cmp}~rn_1~rn_2) \\ rn_1~|~rn_2\notin \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\mathtt{Fail}} ,\, (\delta s ,mm,sss))}
+  \end{mathpar}
+\end{figure}
+
+
+\newcommand{\efid}[1]{\text{encode\_fid}(\texttt{#1})}
+\newcommand{\eec}[1]{\text{encode\_ec}(\texttt{#1})}
+
+\begin{figure}[h!]
+  \begin{mathpar}
+    \inferrule[Exec-hvc-Succ-Run-Succ]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\ n=\text{to\_vmid}(rs_v[\reg{R1}]) \\v=0\\ \text{ValidVMID}(\delta s,n)\\n\ne0\\ \delta_n.mb.rx=(-,\FALSE,-,- ) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{n} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-Run-MsgSend]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\ n=\text{to\_vmid}(rs_v[\reg{R1}]) \\v=0\\ \text{ValidVMID}(\delta s,n)\\n\ne0\\ \delta_n.mb.rx=(-,\TRUE,w_l,v_s) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{n} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [n].rs[\reg{R0}]=\efid{MSG\_SEND}; \\ \null [n].rs[\reg{R1}]=\text{comb}(v_s,n);\\\null [n].rs[\reg{R3}]=w_l\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-Run-Error-NotPrimary]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\ v\ne0}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [v].rs[\reg{R0}]=\efid{ERROR}; \\ \null [v].rs[\reg{R2}]=\eec{DENIED}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-Run-Error-SecondaryNotExist]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\v=0\\ !\text{ValidVMID}(\delta s,n)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [v].rs[\reg{R0}]=\efid{ERROR}; \\ \null [v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-Run-Error-NotSecondary]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\v=0\\ \text{ValidVMID}(\delta s,n) \\ n=0}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [v].rs[\reg{R0}]=\efid{ERROR}; \\ \null [v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \inferrule[Exec-hvc-Succ-Yield-FromPrimary]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{YIELD}) \\v=0 }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\EI{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;[v].rs[\reg{R0}]=\efid{SUCC}\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-Yield-FromSecondary]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{YIELD}) \\v\ne0 }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[0].rs[\reg{R0}]=\efid{YIELD};\\\null[0].rs[\reg{R1}]=\tw{v}\end{array}}\right\},mm,sss))}
+  \end{mathpar}
+\end{figure}
+\begin{figure}
+  \begin{mathpar}
+    \inferrule[Exec-hvc-Succ-MsgWait-Empty]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_WAIT})\\ \delta_v.mb.rx=(-,\FALSE,-,-)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[0].rs[\reg{R0}]=\efid{MSG\_WAIT};\\\null[0].rs[\reg{R1}]=\tw{v}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MsgWait-Ready]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_WAIT})\\ \delta_v.mb.rx=(-,\TRUE,w_l,v_s)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{MSG\_SEND};\\\null[v].rs[\reg{R1}]=\text{comb}(v_s,v);\\\null [v].rs[\reg{R3}]=w_l\end{array}}\right\},mm,sss))}
+
+    \inferrule[Exec-hvc-Succ-MsgSend-Succ-NotPrimary]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ \text{ValidVMID}(\delta s,n)\\w_l=rs_v[\reg{R2}]\\w_l\le\PPMAX \\ \delta_n.mb.rx=(pid_r,\FALSE,-,-)\\\delta_v.mb.tx=pid_t \\v\ne0}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\EI{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[n].mb.rx=(pid_r,\TRUE,w_l,v);\\\null[0].rs[\reg{R0}]=\efid{MSG\_SEND};\\\null[0].rs[\reg{R1}]=\text{comb}(v,n)\end{array}}\right\},\text{memcpy}(mm,pid_t,pid_r,w_l),sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MsgSend-Succ-Primary]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ \text{ValidVMID}(\delta s,n)\\w_l=rs_v[\reg{R2}]\\w_l\le\PPMAX \\ \delta_n.mb.rx=(pid_r,\FALSE,-,-)\\\delta_v.mb.tx=pid_t \\v=0}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\EI{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[n].mb.rx=(pid_r,\TRUE,w_l,v)\end{array}}\right\},\text{memcpy}(mm,pid_t,pid_r,w_l),sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-Full]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ \text{ValidVMID}(\delta s,n)\\ \delta_n.mb.rx=(-,\TRUE,-,-)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\EI{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{BUSY}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-TooLong]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\w_l=rs_v[\reg{R2}]\\w_l>\PPMAX }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\EI{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-ReceiverNotExist]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ !\text{ValidVMID}(\delta s,n) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\EI{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+  \end{mathpar}
+\end{figure}
+
+\begin{figure}
+  \begin{mathpar}
+    \inferrule[Exec-hvc-Succ-MsgPoll-Succ]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_RECV})\\ \delta_v.mb.rx=(pid_r,\TRUE,-,-)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[v].mb.rx=(pid_r,\FALSE,0,-)\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MsgPoll-Error-Empty]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(-,\FALSE,-,-)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\EI{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{RETRY}\end{array}}\right\},mm,sss))}
+  \end{mathpar}
+  \end{figure}
 
 \newcommand{\sema}[1]{\sem{ {#1} }(\Delta,m,s,v)}
 \newcommand{\llen}[1]{\text{len}( {#1})}
@@ -552,72 +698,72 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
 %      \instr{mov} $r$ $w$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r]=w & \multicolumn{2}{l|}{$r \in \text{GenRegs}$} \\\hline
 %      \instr{ldr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) & \Delta'[v].r[r_{1}]=m[a]  &
 %                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a)=\valida(\Delta,v,r_{2},R)\end{array}$} \\\hline
-      \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta, m', s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
-                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a) =\valida(\Delta,v,r_{1},W)\end{array}$} \\\hline
-      \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
-      \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
-      \multirow{4}{*}{\instr{cmp} $r_{1}$ $r_{2}$}&\multirow{4}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v,v)$}
-                                 & w = \Delta[v].r[r_{1}] - \Delta[v].r[r_{2}] & \multicolumn{2}{l|}{$r_{1},r_{2} \in \text{GenRegs}$} \\\cline{3-4}
-                                 & & \Delta'[v].r[\mathtt{NZ}]= 1 & $w = 0$ & \\\cline{3-4}
-                                 & & \Delta'[v].r[\mathtt{NZ}]= 2 & $w < 0$ & \\\cline{3-4}
-                                 & & \Delta'[v].r[\mathtt{NZ}]= 0 & otherwise &\\\hline
-      \multirow{34}{*}{\instr{hvc}} & \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
-                                      & v_n=\Delta[v].r[\mathtt{R1}]
-                                          & \multicolumn{2}{l|}{\multirow{2}{*}{$\leftshift \begin{array}{l}
-                                                                                              \Delta[v].r[\mathtt{R0}]=\toword{RUN}\\
-                                                                                              v=0 \land v_n < \llen{\Delta}
-                                                                                              \end{array}$}}\\
-                                 & &\SOME(p_r,b,w_s,v_s)=\Delta[v_n].\pi_r &\multicolumn{2}{l|}{\multirow{2}{*}{}}\\\cline{3-4}
-                                 & &\!\!\!\!\!\begin{array}{l}
-                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
-                                              \Delta'[v_n].r[\mathtt{R1}]=\text{comb}(v_s,v_n)\\
-                                              \Delta'[v_n].r[\mathtt{R3}]=w_s
-                                                        \end{array}& $b$ & \\\cline{2-5}
-      & \leftshift \nextt(\Delta', m, s,\updpc, v, 0)
-                                 &\!\!\!\!\! \begin{array}{l}
-                                               \Delta'[0].r[\mathtt{R0}]=\toword{\YIELD}\\
-                                               \Delta'[0].r[\mathtt{R1}]=v
-                                               \end{array}& \multicolumn{2}{l|}{$\Delta[v].r[\mathtt{R0}]=\toword{YIELD}$} \\\cline{2-5}
-      \multirow{8}{*}{}&\multirow{8}{*}{$\leftshift \nextt(\Delta', m, s,\updpc, v, v_n)$}
-                                 & \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi_r& \multicolumn{2}{l|}{$\Delta[v].r[\mathtt{R0}]=\toword{MSG\_WAIT}$} \\\cline{3-4}
-                                 & &\!\!\!\!\!\begin{array}{l}
-                                              v_n=v\\
-                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGS}\\
-                                              \Delta'[v_n].r[\mathtt{R1}]=\text{comb}(v_s,v)\\
-                                              \Delta'[v_n].r[\mathtt{R3}]=w_s
-                                              \end{array} & $b$&\\\cline{3-4}
-                                 & &\!\!\!\!\!\begin{array}{l}
-                                              v_n=0\\
-                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGW}\\
-                                              \Delta'[v_n].r[\mathtt{R1}]=v
-                                 \end{array}& $!b$& \\\cline{2-5}
-      \multirow{12}{*}{}& \multirow{12}{*}{$\leftshift \nextt(\Delta', m', s,\updpc,v,v_n)$}
-                            & v_r=\Delta[v].r[\mathtt{R1}]&\multicolumn{2}{l|}{\multirow{4}{*}{$\leftshift\begin{array}{l}
-                                                                                                   \Delta[v].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
-                                                                                                           \Delta[v].\pi_{t}=\SOME(p_t) \\
-                                                                                                           ws\le \PPMAX\\
-                                                                                                           vr < \llen{\Delta}
-                                                                                                   \end{array}$}} \\
-                            & & w_s=\Delta[v].r[\mathtt{R2}]& \multicolumn{2}{l|}{}\\
-                            & & \SOME(p_r,b,-,-)=\Delta[v_r].\pi& \multicolumn{2}{l|}{} \\
-                            & & & \multicolumn{2}{l|}{} \\\cline{3-4}
-                                 & & \!\!\!\!\!\begin{array}{l}
-                                                 v_n=0\\
-                                                 \Delta'[v_r].\pi=\SOME(p_r,\mathtt{true},w_s,v)\\
-                                                 m'=\text{memcpy}(m,p_t,p_r,w_s)\\
-                                                 \Delta'[v].r[\mathtt{R0}]=\toword{\SUCC}\\
-                                                 \Delta'[0].r[\mathtt{R0}]=\toword{\MSGS}\;\text{if}\;v\neq 0\\
-                                                 \Delta'[0].r[\mathtt{R1}]=\text{comb}(v,v_r)\;\text{if}\;v\neq 0
-                                               \end{array} & $!b$ &\\\cline{3-4}
-                                & &\!\!\!\!\!\begin{array}{l}
-                                               v_n=v\\
-                                               \Delta'[v].r[\mathtt{R0}]=\toword{\BUSY}
-                                             \end{array} & $b$&\\\cline{2-5}
-      & \leftshift  \nextt(\Delta', m, s,\updpc, v, v)& \Delta'[v].\pi_r = \SOME(p_r,\mathtt{false},-,-)
-                                          &\multicolumn{2}{l|}{$\leftshift \begin{array}{l}
-                                                                             \Delta[v].r[\mathtt{R0}]=\toword{MSG\_RCV}\\
-                                                                             \Delta[v].\pi_{r}=\SOME(p_r,\mathtt{true},-,-)
-                                                                           \end{array}$} \\\hline
+%      \instr{str} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta, m', s,\updpc,v,v) & m'[a]=\Delta[v].r[r_{2}]&
+%                                \multicolumn{2}{l|}{$\!\!\!\!\! \begin{array}{l}r_{1},r_{2}\in \text{GenRegs}\\\SOME(a) =\valida(\Delta,v,r_{1},W)\end{array}$} \\\hline
+%      \instr{add} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] + \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
+%      \instr{sub} $r_{1}$ $r_{2}$ $r_{3}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v) &\leftshift \begin{array}{l}\Delta'[v].r[r_{1}]= \Delta[v].r[r_{2}] - \Delta[v].r[r_{3}] \end{array} & \multicolumn{2}{l|}{$r_{1},r_{2},r_{3} \in \text{GenRegs}$} \\\hline
+%      \multirow{4}{*}{\instr{cmp} $r_{1}$ $r_{2}$}&\multirow{4}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v,v)$}
+%                                 & w = \Delta[v].r[r_{1}] - \Delta[v].r[r_{2}] & \multicolumn{2}{l|}{$r_{1},r_{2} \in \text{GenRegs}$} \\\cline{3-4}
+%                                 & & \Delta'[v].r[\mathtt{NZ}]= 1 & $w = 0$ & \\\cline{3-4}
+%                                 & & \Delta'[v].r[\mathtt{NZ}]= 2 & $w < 0$ & \\\cline{3-4}
+%                                 & & \Delta'[v].r[\mathtt{NZ}]= 0 & otherwise &\\\hline
+%      \multirow{34}{*}{\instr{hvc}}& \multirow{5}{*}{$\leftshift \nextt(\Delta', m, s,\updpc,v, v_n)$}
+%                                      & v_n=\Delta[v].r[\mathtt{R1}]
+%                                          & \multicolumn{2}{l|}{\multirow{2}{*}{$\leftshift \begin{array}{l}
+%                                                                                              \Delta[v].r[\mathtt{R0}]=\toword{RUN}\\
+%                                                                                              v=0 \land v_n < \llen{\Delta}
+%                                                                                              \end{array}$}}\\
+%                                & &\SOME(p_r,b,w_s,v_s)=\Delta[v_n].\pi_r &\multicolumn{2}{l|}{\multirow{2}{*}{}}\\\cline{3-4}
+%                                 & &\!\!\!\!\!\begin{array}{l}
+%                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
+%                                              \Delta'[v_n].r[\mathtt{R1}]=\text{comb}(v_s,v_n)\\
+%                                              \Delta'[v_n].r[\mathtt{R3}]=w_s
+%                                                        \end{array}& $b$ & \\\cline{2-5}
+%      & \leftshift \nextt(\Delta', m, s,\updpc, v, 0)
+%                                 &\!\!\!\!\! \begin{array}{l}
+%                                               \Delta'[0].r[\mathtt{R0}]=\toword{\YIELD}\\
+%                                               \Delta'[0].r[\mathtt{R1}]=v
+%                                               \end{array}& \multicolumn{2}{l|}{$\Delta[v].r[\mathtt{R0}]=\toword{YIELD}$} \\\cline{2-5}
+%      \multirow{8}{*}{}&\multirow{8}{*}{$\leftshift \nextt(\Delta', m, s,\updpc, v, v_n)$}
+%                                 & \SOME(p_r,b,w_s,v_s)=\Delta[v].\pi_r& \multicolumn{2}{l|}{$\Delta[v].r[\mathtt{R0}]=\toword{MSG\_WAIT}$} \\\cline{3-4}
+%                                 & &\!\!\!\!\!\begin{array}{l}
+%                                              v_n=v\\
+%                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGS}\\
+%                                              \Delta'[v_n].r[\mathtt{R1}]=\text{comb}(v_s,v)\\
+%                                              \Delta'[v_n].r[\mathtt{R3}]=w_s
+%                                              \end{array} & $b$&\\\cline{3-4}
+%                                 & &\!\!\!\!\!\begin{array}{l}
+%                                              v_n=0\\
+%                                              \Delta'[v_n].r[\mathtt{R0}]=\toword{\MSGW}\\
+%                                              \Delta'[v_n].r[\mathtt{R1}]=v
+%                                 \end{array}& $!b$& \\\cline{2-5}
+%      \multirow{12}{*}{}& \multirow{12}{*}{$\leftshift \nextt(\Delta', m', s,\updpc,v,v_n)$}
+%                            & v_r=\Delta[v].r[\mathtt{R1}]&\multicolumn{2}{l|}{\multirow{4}{*}{$\leftshift\begin{array}{l}
+%                                                                                                   \Delta[v].r[\mathtt{R0}]=\toword{MSG\_SEND}\\
+%                                                                                                           \Delta[v].\pi_{t}=\SOME(p_t) \\
+%                                                                                                           ws\le \PPMAX\\
+%                                                                                                           vr < \llen{\Delta}
+%                                                                                                   \end{array}$}} \\
+%                            & & w_s=\Delta[v].r[\mathtt{R2}]& \multicolumn{2}{l|}{}\\
+%                            & & \SOME(p_r,b,-,-)=\Delta[v_r].\pi& \multicolumn{2}{l|}{} \\
+%                            & & & \multicolumn{2}{l|}{} \\\cline{3-4}
+%                                 & & \!\!\!\!\!\begin{array}{l}
+%                                                 v_n=0\\
+%                                                 \Delta'[v_r].\pi=\SOME(p_r,\mathtt{true},w_s,v)\\
+%                                                 m'=\text{memcpy}(m,p_t,p_r,w_s)\\
+%                                                 \Delta'[v].r[\mathtt{R0}]=\toword{\SUCC}\\
+%                                                 \Delta'[0].r[\mathtt{R0}]=\toword{\MSGS}\;\text{if}\;v\neq 0\\
+%                                                 \Delta'[0].r[\mathtt{R1}]=\text{comb}(v,v_r)\;\text{if}\;v\neq 0
+%                                               \end{array} & $!b$ &\\\cline{3-4}
+%                                & &\!\!\!\!\!\begin{array}{l}
+%                                               v_n=v\\
+%                                               \Delta'[v].r[\mathtt{R0}]=\toword{\BUSY}
+%                                             \end{array} & $b$&\\\cline{2-5}
+%      & \leftshift  \nextt(\Delta', m, s,\updpc, v, v)& \Delta'[v].\pi_r = \SOME(p_r,\mathtt{false},-,-)
+%                                          &\multicolumn{2}{l|}{$\leftshift \begin{array}{l}
+%                                                                             \Delta[v].r[\mathtt{R0}]=\toword{MSG\_RCV}\\
+%                                                                             \Delta[v].\pi_{r}=\SOME(p_r,\mathtt{true},-,-)
+%                                                                           \end{array}$} \\\hline
       \instr{mrs} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r_1]=\Delta[v].r[r_2] & \multicolumn{2}{l|}{$r_{2}\in \text{SysRegs}\land r_{1}\in \text{GenRegs}$} \\\hline
       \instr{msr} $r_{1}$ $r_{2}$&\leftshift \nextt(\Delta', m, s,\updpc,v,v)  & \Delta'[v].r[r_1]=\Delta[v].r[r_2] & \multicolumn{2}{l|}{$r_{1}\in \text{SysRegs}\land r_{2}\in \text{GenRegs}$} \\\hline
     \end{tabular}
@@ -778,81 +924,6 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
           m'[\addr(p_{r},5+1)] = \addr(p,0)\\
           \Delta'[v_r].\pi_r=\SOME(p_r,\TRUE,7,-)
         \end{array}
-                                    &\text{otherwise} & \\
-    \hline
-    \end{tabular}
-    \end{adjustwidth}
-  \end{figure}
-
-\begin{figure}[!h]
-  \begin{adjustwidth}{-1cm}{}
-    \begin{tabular}[t]{|l|L L|L|l|}
-      \hline
-      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m', s',\updpc,v,v)
-                                    & & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
-                                                                       \Delta[v].r[\mathtt{R0}]=\toword{MEM\_SHARE}\\
-                                                                       \Delta[v].r[\mathtt{R1}]=len\\
-                                                                       \Delta[v].\pi_{t}=\SOME(p_t) \\
-                                                                       m[\addr(p_{t},0)] = v_{s}\\
-                                                                       m[\addr(p_{t},1)] = flag \\
-                                                                       m[\addr(p_{t},2)] = h \\
-                                                                       m[\addr(p_{t},3)] = tag \\
-                                                                       m[\addr(p_{t},4)] = offset\\
-                                                                         m[\addr(p_{t},offset)] = v_{r}\\
-                                                                         m[\addr(p_{t},offset+1)]=addr
-                                                                     \end{array}$}\\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-          \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 l > \PPMAX
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 offset \ge len
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 v_s \neq v
-                                               \end{array} & \\\cline{3-4}
-
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{DENIED}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 \Delta[v].t[\pid(addr)]=(O,EA)
-                                               \end{array} & \\\cline{3-4}
-           &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 v_r < \llen{\Delta}
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 flag\neq 1
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}\\
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 h \neq 0
-                                               \end{array} & \\\cline{3-4}
-                                   &&\begin{array}{l} \Delta'[v].t=\Delta[v].t[\pid(addr) \mapsto (O,SA)]\\
-                                       \Delta'[v_r].t=\Delta[v_r].t[\pid(addr) \mapsto (!O,NA)]\\
-                                       \!\!\!\!\begin{array}{ll}
-                                                 s'=& s \append [(v_s,flag,tag,\\
-                                                 &v_r,\pid(addr),\text{MEM\_SHARE})]
-                                                 \end{array}\\
-                                               \Delta'[v].r[\mathtt{R0}]=\toword{SUCCESS}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\llen{s}+1\\
-                                             \end{array}
                                     &\text{otherwise} & \\
     \hline
     \end{tabular}
