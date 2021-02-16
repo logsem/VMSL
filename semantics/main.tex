@@ -685,45 +685,98 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Error-InvalidOffset]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o\ge w_l}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o\ge w_l}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Error-NotSender]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]}}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]}}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{DENIED}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Error-NotSender]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v\ne \tv{mm[\addr(pid_t,0)]}}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v\ne \tv{mm[\addr(pid_t,0)]}}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{DENIED}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Error-NotOwendExcl]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ !\text{OwnedExclPage}(\delta_v,pid_d) }
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ !\text{OwnedExclPage}(\delta_v,pid_d) }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{DENIED}\end{array}}\right\},mm,sss))}
  \end{mathpar}
 \end{figure}
 \begin{figure}
   \begin{mathpar}
     \inferrule[Exec-hvc-Succ-MemDonate-Error-InvalidReceiver]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ !\text{ValidVMID}(\delta s,n) \lor n=v}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ !\text{ValidVMID}(\delta s,n) \lor n=v}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Error-InvalidFlag]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d)  \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f[63:1]\ne 0}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d)  \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f[63:1]\ne 0}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Error-InvalidHandle]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ a_p = \ta{mm[\addr(pid_t,w_o+1)]} \\ \text{OwnedExclAddr}(\delta_v,a_p) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f[63:1]=0 \\ mm[\addr(pid_t,2)] \ne 0}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ a_p = \ta{mm[\addr(pid_t,w_o+1)]} \\ \text{OwnedExclAddr}(\delta_v,a_p) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f[63:1]=0 \\ mm[\addr(pid_t,2)] \ne 0}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Succ-NotZeroed]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f=0 \\ mm[\addr(pid_t,2)] = 0 \\ w_h \notin \text{dom}(sss)}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f=0 \\ mm[\addr(pid_t,2)] = 0 \\ w_h \notin \text{dom}(sss)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[v].rs[\reg{R2}]=w_h;\\\null[v].pt[pid_d]=(O,NA);\\\null[n].pt[pid_d]=(!O,NA)\end{array}}\right\},mm,\\ sss~\text{with}~\{[w_h]=(v,w_f,mm[\addr(pid_t,3)],n,pid_d,\tt{MEM\_DONATE})\})}
 
     \and \inferrule[Exec-hvc-Succ-MemDonate-Succ-Zeroed]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l>\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f=1 \\ mm[\addr(pid_t,2)] = 0 \\ w_h \notin \text{dom}(sss)}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ w_l = rs_v[\reg{R1}]\\w_l\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_o=mm[\addr(pid_t,4)]\\w_o< w_l\\v=\tv{mm[\addr(pid_t,0)]} \\ pid_d = \pid(mm[\addr(pid_t,w_o+1)]) \\ \text{OwnedExclPage}(\delta_v,pid_d) \\ n=\tv{mm[\addr(pid_t,w_o)]} \\ \text{ValidVMID}(\delta s,n) \land n\ne v\\ w_f=mm[\addr(pid_t,1)] \\ w_f=1 \\ mm[\addr(pid_t,2)] = 0 \\ w_h \notin \text{dom}(sss)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[v].rs[\reg{R2}]=w_h;\\\null[v].pt[pid_d]=(O,NA);\\\null[n].pt[pid_d]=(!O,NA)\end{array}}\right\},\text{zero}(mm,pid_d),\\ sss~\text{with}~\{[w_h]=(v,w_f,mm[\addr(pid_t,3)],n,pid_d,\tt{MEM\_DONATE})\})}
   \end{mathpar}
   \end{figure}
+\begin{figure}
+  \begin{mathpar}
+  \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-MsgTooLong]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\  rs_v[\reg{R1}]>\PPMAX}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-InvalidHandle]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h=0 \lor w_h[63]=0 \lor w_h \notin \text{dom}(sss)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-NotSender]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(v_s',w_f',w_t',v_r,pid_d)=sss[w_h] \\ v_s' \ne \tv{mm[\addr(pid_t,0)]}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-InvalidTag]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(\tv{mm[\addr(pid_t,0)]},w_f',w_t',v_r,pid_d)=sss[w_h] \\ w_t'\ne mm[\addr(pid_t,3)] }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-InvalidFlag]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(\tv{mm[\addr(pid_t,0)]},w_f',mm[\addr(pid_t,3)], v_r,pid_d)=sss[w_h] \\ w_f'[63:1]\ne 0 }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-InvalidOffset]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(\tv{mm[\addr(pid_t,0)]},w_f',mm[\addr(pid_t,3)], v_r,pid_d)=sss[w_h] \\ w_f'[63:1]=0 \\ mm[\addr(pid_t,4)]\ne0 }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+ \end{mathpar}
+  \end{figure}
+\begin{figure}
+  \begin{mathpar}
+
+    \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-InvalidReceiver]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(\tv{mm[\addr(pid_t,0)]},w_f',mm[\addr(pid_t,3)], v_r,pid_d)=sss[w_h] \\ w_f'[63:1]=0 \\ mm[\addr(pid_t,4)]=0\\ vr\ne v}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-Full]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(\tv{mm[\addr(pid_t,0)]},w_f',mm[\addr(pid_t,3)], v ,pid_d)=sss[w_h] \\ w_f'[63:1]=0 \\ mm[\addr(pid_t,4)]=0\\ \delta_v.mb.rx=(-,\TRUE,-,-) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{BUSY}\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-NotZeroed]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(v_s,w_f',mm[\addr(pid_t,3)], v ,pid_d)=sss[w_h]\\v_s = \tv{mm[\addr(pid_t,0)]} \\ mm[\addr(pid_t,1)]=0 \\ mm[\addr(pid_t,4)]=0\\ \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\\null[v].rs[\reg{R2}]=7;\\\null[v].pt[pid_d]=(O,EA);\\\null[v_s].pt[pid_d]=(!O,NA);\\\null[v].mb.rx=(pid_r,\TRUE,7,-)\end{array}}\right\},\\mm~\text{with}~\left\{{\begin{array}{l}[\addr(pid_r,0)]=\tw{v_s};\\\null[\addr(pid_r,1)]=w_f';\\\null[\addr(pid_r,2)]=0;\\\null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\\null[\addr(pid_r,4)]=5;\\\null[\addr(pid_r,5+0)]=\tw{v};\\\null[\addr(pid_r,5+1)]=\addr(pid_d,0)\end{array}}\right\},\text{remove}(sss,w_h))}
+
+   \end{mathpar}
+  \end{figure}
+\begin{figure}
+  \begin{mathpar}
+     \and \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-Zeroed]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\rs_v[\reg{R1}]\le\PPMAX\\pid_t=\delta_v.mb.tx\\ w_h=mm[\addr(pid_t,2)]\\ w_h[63]=1 \land w_h \in \text{dom}(sss) \\(v_s,w_f',mm[\addr(pid_t,3)], v ,pid_d)=sss[w_h]\\v_s = \tv{mm[\addr(pid_t,0)]} \\ mm[\addr(pid_t,1)]=1 \\ mm[\addr(pid_t,4)]=0\\ \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\\null[v].rs[\reg{R2}]=7;\\\null[v].pt[pid_d]=(O,EA);\\\null[v_s].pt[pid_d]=(!O,NA);\\\null[v].mb.rx=(pid_r,\TRUE,7,-)\end{array}}\right\},\\\text{zero}(mm,pid_d)~\text{with}~\left\{{\begin{array}{l}[\addr(pid_r,0)]=\tw{v_s};\\\null[\addr(pid_r,1)]=1;\\\null[\addr(pid_r,2)]=0;\\\null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\\null[\addr(pid_r,4)]=5;\\\null[\addr(pid_r,5+0)]=\tw{v};\\\null[\addr(pid_r,5+1)]=\addr(pid_d,0)\end{array}}\right\},\text{remove}(sss,w_h))}
+  \end{mathpar}
+  \end{figure}
+
 
 \newcommand{\sema}[1]{\sem{ {#1} }(\Delta,m,s,v)}
 \newcommand{\llen}[1]{\text{len}( {#1})}
@@ -894,85 +947,85 @@ return value, \reg{W0}-\reg{W3} are used. Error Codes are returned in \reg{W0}.
 %   \end{adjustwidth}
 % \end{figure}
 %\todo{TODO:a better way to generate handles}
-\begin{figure}[!h]
-  \begin{adjustwidth}{-1cm}{}
-    \begin{tabular}[t]{|l|L L|L|l|}
-      \hline
-      \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m', s',\updpc,v,v)
-                                    & & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
-                                                                         \Delta[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_REQ}\\
-                                                                       \Delta[v].r[\mathtt{R1}]=len\\
-                                                                         \Delta[v].\pi_{t}=\SOME(p_t) \\
-                                                                       m[\addr(p_{t},0)] = v_{s}\\
-                                                                       m[\addr(p_{t},1)] = flag \\
-                                                                       m[\addr(p_{t},2)] = h \\
-                                                                       m[\addr(p_{t},3)] = tag \\
-                                                                         m[\addr(p_{t},4)] = offset\\
-                                                                         s[h-1] = (v_s',flag', tag',v_r,p)\\
-                                                                         \Delta[v_r].\pi_r=\SOME(p_r,ready,-,-)
-                                                                     \end{array}$}\\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-          \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 l > \PPMAX
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 v_s' \neq v_s
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                tag \neq tag'
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 (flag1)\neq 0
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 offset \neq 0
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                 v_r =v \land v_r < \llen{\Delta}
-                                               \end{array} & \\\cline{3-4}
-      &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
-                                       \Delta'[v].r[\mathtt{R2}]=\toword{BUSY}
-                                     \end{array}
-                                    &\leftshift\begin{array}{l}
-                                                ready
-                                               \end{array} & \\\cline{3-4}
-                                   &&\begin{array}{l} \Delta'[v].t=\Delta[v].t[p\mapsto (O,EA)]  \\
-                                       \Delta'[v_s].t=\Delta[v_s].t[p \mapsto (!O,NA)]\\
-          s'= s \setminus \{(v_s',flag',tag',v_r,p)\}\\
-          \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_RESP}\\
-          \Delta'[v].r[\mathtt{R2}]=7\\
-          m'=\text{zero}(m,p) \text{ if }flag=1\\
-          m'[\addr(p_{r},0)] = v_{s}\\
-          m'[\addr(p_{r},1)] = flag\&flag' \\
-          m'[\addr(p_{r},2)] = 0 \\
-          m'[\addr(p_{r},3)] = tag \\
-          m'[\addr(p_{r},4)] = 5\\
-          m'[\addr(p_{r},5+0)] = v_r\\
-          m'[\addr(p_{r},5+1)] = \addr(p,0)\\
-          \Delta'[v_r].\pi_r=\SOME(p_r,\TRUE,7,-)
-        \end{array}
-                                    &\text{otherwise} & \\
-    \hline
-    \end{tabular}
-    \end{adjustwidth}
-  \end{figure}
+% \begin{figure}[!h]
+%   \begin{adjustwidth}{-1cm}{}
+%     \begin{tabular}[t]{|l|L L|L|l|}
+%       \hline
+%       \multirow{25}{*}{\instr{hvc}}&\leftshift \nextt(\Delta', m', s',\updpc,v,v)
+%                                     & & \multicolumn{2}{l|}{$\leftshift\begin{array}{l}
+%                                                                          \Delta[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_REQ}\\
+%                                                                        \Delta[v].r[\mathtt{R1}]=len\\
+%                                                                          \Delta[v].\pi_{t}=\SOME(p_t) \\
+%                                                                        m[\addr(p_{t},0)] = v_{s}\\
+%                                                                        m[\addr(p_{t},1)] = flag \\
+%                                                                        m[\addr(p_{t},2)] = h \\
+%                                                                        m[\addr(p_{t},3)] = tag \\
+%                                                                          m[\addr(p_{t},4)] = offset\\
+%                                                                          s[h-1] = (v_s',flag', tag',v_r,p)\\
+%                                                                          \Delta[v_r].\pi_r=\SOME(p_r,ready,-,-)
+%                                                                      \end{array}$}\\\cline{3-4}
+%       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+%           \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+%                                      \end{array}
+%                                     &\leftshift\begin{array}{l}
+%                                                  l > \PPMAX
+%                                                \end{array} & \\\cline{3-4}
+%       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+%                                        \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+%                                      \end{array}
+%                                     &\leftshift\begin{array}{l}
+%                                                  v_s' \neq v_s
+%                                                \end{array} & \\\cline{3-4}
+%       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+%                                        \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+%                                      \end{array}
+%                                     &\leftshift\begin{array}{l}
+%                                                 tag \neq tag'
+%                                                \end{array} & \\\cline{3-4}
+%       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+%                                        \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+%                                      \end{array}
+%                                     &\leftshift\begin{array}{l}
+%                                                  (flag1)\neq 0
+%                                                \end{array} & \\\cline{3-4}
+%       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+%                                        \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+%                                      \end{array}
+%                                     &\leftshift\begin{array}{l}
+%                                                  offset \neq 0
+%                                                \end{array} & \\\cline{3-4}
+%       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+%                                        \Delta'[v].r[\mathtt{R2}]=\toword{INV\_PARA}
+%                                      \end{array}
+%                                     &\leftshift\begin{array}{l}
+%                                                  v_r =v \land v_r < \llen{\Delta}
+%                                                \end{array} & \\\cline{3-4}
+%       &&\begin{array}{l}\Delta'[v].r[\mathtt{R0}]=\toword{ERROR}\\
+%                                        \Delta'[v].r[\mathtt{R2}]=\toword{BUSY}
+%                                      \end{array}
+%                                     &\leftshift\begin{array}{l}
+%                                                 ready
+%                                                \end{array} & \\\cline{3-4}
+%                                    &&\begin{array}{l} \Delta'[v].t=\Delta[v].t[p\mapsto (O,EA)]  \\
+%                                        \Delta'[v_s].t=\Delta[v_s].t[p \mapsto (!O,NA)]\\
+%           s'= s \setminus \{(v_s',flag',tag',v_r,p)\}\\
+%           \Delta'[v].r[\mathtt{R0}]=\toword{MEM\_RETRIEVE\_RESP}\\
+%           \Delta'[v].r[\mathtt{R2}]=7\\
+%           m'=\text{zero}(m,p) \text{ if }flag=1\\
+%           m'[\addr(p_{r},0)] = v_{s}\\
+%           m'[\addr(p_{r},1)] = flag\&flag' \\
+%           m'[\addr(p_{r},2)] = 0 \\
+%           m'[\addr(p_{r},3)] = tag \\
+%           m'[\addr(p_{r},4)] = 5\\
+%           m'[\addr(p_{r},5+0)] = v_r\\
+%           m'[\addr(p_{r},5+1)] = \addr(p,0)\\
+%           \Delta'[v_r].\pi_r=\SOME(p_r,\TRUE,7,-)
+%         \end{array}
+%                                     &\text{otherwise} & \\
+%     \hline
+%     \end{tabular}
+%     \end{adjustwidth}
+%   \end{figure}
 
 \begin{figure}[!h]
   \begin{align*}
