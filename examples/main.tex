@@ -5,6 +5,8 @@
 \usepackage{bytefield}
 \usepackage{xcolor}
 \usepackage{caption}
+
+% deps: python-pygments
 \usepackage[newfloat]{minted}
 
 \definecolor{lightgray}{gray}{0.8}
@@ -16,21 +18,26 @@
 \section{Memory donation}
 
 \subsection{Scheduler $\rightarrow$ secondary VM}
+
+\subsubsection{Bare-bones version}
+
 Assumptions:
 \begin{enumerate}
  \item VM0 owns pages p1, p2 and have an exclusive access to them
  \item TX\_0\_Hyp, and TX\_0\_1 are TX buffers that are shared between VM0/Hypervisor, and VM0/VM1 respectfully 
  \item The following memory slice of the TX\_0\_Hyp buffer is valid: \\
      \\
-     \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{32}
-         \bitheader[endianness=little]{0,2,3,4,8,16,24,28,32} \\
-         \begin{rightwordgroup}{n + 0x00}
+     \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{16}
+         \bitheader[endianness=little]{0,2,3,4,8,16} \\
+         \begin{rightwordgroup}{n}
              \bitbox{2}{0x0}
 	         \bitbox{1}[bgcolor=lightgray]{}
 	         \bitbox{1}[bgcolor=lightgray]{}
 	         \bitbox{4}{0x0}
 	         \bitbox{8}{0x0}
-	         \bitbox{8}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{n + 0x10}
+             \bitbox{8}[bgcolor=lightgray]{}
 	         \bitbox{4}[bgcolor=lightgray]{}
 	         \bitbox{4}{0x1}
          \end{rightwordgroup} \\
@@ -38,16 +45,21 @@ Assumptions:
              \bitbox{2}{0x1}
              \bitbox{1}[bgcolor=lightgray]{}
              \bitbox{1}[bgcolor=lightgray]{}
-             \bitbox{4}{0x30}
+             \bitbox{4}{m - n}
              \bitbox{8}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \skippedwords \\
+         \begin{rightwordgroup}{m}
              \bitbox{4}{0x2}
              \bitbox{4}{0x2}
              \bitbox{8}[bgcolor=lightgray]{}
          \end{rightwordgroup} \\
-         \begin{rightwordgroup}{n + 0x40}
+         \begin{rightwordgroup}{m + 0x10}
              \bitbox{8}{addr(p1)}
              \bitbox{4}{0x1}
              \bitbox{4}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{m + 0x20}
              \bitbox{8}{addr(p2)}
              \bitbox{4}{0x1}
              \bitbox{4}[bgcolor=lightgray]{}
@@ -118,22 +130,129 @@ hvc
 \end{minted}
 \end{code}
 
+\subsubsection{OpSem version}
+
+\begin{code}
+\captionof{listing}{VM 0}
+\begin{minted}{gas}
+# save 42
+mov R0, addr(p, 0)              # p address
+mov R1, 42                      # payload
+str R0, R1                      # write payload to p
+
+# mem_donate
+# arguments
+mov R0, encode_fid(MEM_DONATE)  # function id (FFA_MEM_DONATE)
+mov R1, 6                       # Total length of the  
+                                # memory transaction descriptor
+# VMID of the Sender 
+mov R2, addr(tx, 0)             # TX buffer address                               
+mov R3, 0
+str R2, R3
+
+# flag
+mov R2, addr(tx, 1)             # TX buffer address (offset 1)                               
+mov R3, 0                       # not zeroed
+str R2, R3
+
+# handle (mbz)
+mov R2, addr(tx, 2)             # TX buffer address (offset 2)
+mov R3, 0
+str R2, R3
+
+# tag (extra information)
+mov R2, addr(tx, 3)             # TX buffer address (offset 3)
+mov R3, 0
+str R2, R3
+
+# access descriptor count (must be 1 for donation)
+mov R2, addr(tx, 4)             # TX buffer address (offset 4)
+mov R3, 1
+str R2, R3
+
+# VMID of the Receiver
+mov R2, addr(tx, 5)             # TX buffer address (offset 5)
+mov R3, 1
+str R2, R3
+
+# base address of the donated page
+mov R2, addr(tx, 6)             # TX buffer address (offset 6)
+mov R3, addr(p, 0)              # p address
+str R2, R3
+
+hvc            # [0].pt[p] = (O, NA)
+               # [1].pt[p] = (!O, NA)
+               # sss[handler] = (0, flag, tag, inl (1, p), MEM_DONATE)
+
+# R2 is populated with the transaction discriptor at this point
+# save it to the discriptor
+mov R3, addr(tx, 2)          # TX buffer address (offset 2)
+str R3, R2
+
+# msg_send
+mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
+mov R1, 1                       # VMID of the Receiver
+mov R2, 6                       # message length
+
+hvc
+\end{minted}
+\end{code}
+
+\begin{code}
+\captionof{listing}{VM 1}
+\begin{minted}{gas}
+# retrieve msg length
+mov R0, encode_fid(MSG_WAIT)   # function id (FFA_MSG_WAIT)
+hvc
+
+# R1 is populated with length of the message at this point
+
+# Copy RX to TX
+mov R0, 0             # value to compare with
+mov R2, =loop         # jump point
+mov R3, 1             # step
+mov R4, addr(rx, 0)   # RX buffer base address
+mov R5, addr(tx, 0)   # TX buffer base address
+loop:
+sub R1, R1, R3
+cmp R1, R0
+ldr R6, R4
+str R5, R6
+add R4, R4, R3
+bne R2
+
+mov R0, encode_fid(MEM_RETRIEVE_REQ) # function id (FFA_MEM_RETRIEVE_REQ)
+mov R1, 4                            # Total length of the  
+                                     # memory transaction descriptor in bytes
+# access descriptor count (must be 0 for mem_retrieve)
+mov R2, addr(tx, 4)                  # TX buffer address (offset 4)
+mov R3, 0
+str R2, R3                                    
+hvc            # [0].pt[p] = (!O, NA)
+               # [1].pt[p] = (O, EA)
+               # find(sss, handler) = False
+\end{minted}
+\end{code}
+
 \subsection{Secondary VM $\rightarrow$ secondary VM}
 
+\subsubsection{Bare-bones version}
 Assumptions:
 \begin{enumerate}
  \item VM1 owns pages p1, p2 and have an exclusive access to them
  \item The following memory slice of the TX\_1\_Hyp buffer is valid: \\
      \\
-     \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{32}
-         \bitheader[endianness=little]{0,2,3,4,8,16,24,28,32} \\
-         \begin{rightwordgroup}{n + 0x00}
+     \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{16}
+         \bitheader[endianness=little]{0,2,3,4,8,16} \\
+         \begin{rightwordgroup}{n}
              \bitbox{2}{0x1}
 	         \bitbox{1}[bgcolor=lightgray]{}
 	         \bitbox{1}[bgcolor=lightgray]{}
 	         \bitbox{4}{0x0}
 	         \bitbox{8}{0x0}
-	         \bitbox{8}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{n + 0x10}
+             \bitbox{8}[bgcolor=lightgray]{}
 	         \bitbox{4}[bgcolor=lightgray]{}
 	         \bitbox{4}{0x1}
          \end{rightwordgroup} \\
@@ -141,16 +260,21 @@ Assumptions:
              \bitbox{2}{0x2}
              \bitbox{1}[bgcolor=lightgray]{}
              \bitbox{1}[bgcolor=lightgray]{}
-             \bitbox{4}{0x30}
+             \bitbox{4}{m - n}
              \bitbox{8}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \skippedwords \\
+         \begin{rightwordgroup}{m}
              \bitbox{4}{0x2}
              \bitbox{4}{0x2}
              \bitbox{8}[bgcolor=lightgray]{}
          \end{rightwordgroup} \\
-         \begin{rightwordgroup}{n + 0x40}
+         \begin{rightwordgroup}{m + 0x10}
              \bitbox{8}{addr(p1)}
              \bitbox{4}{0x1}
              \bitbox{4}[bgcolor=lightgray]{}
+         \end{rightwordgroup} \\
+         \begin{rightwordgroup}{m + 0x20}
              \bitbox{8}{addr(p2)}
              \bitbox{4}{0x1}
              \bitbox{4}[bgcolor=lightgray]{}
@@ -196,11 +320,15 @@ hvc
 \end{minted}
 \end{code}
 
-% TODO: scheduler
 \begin{code}
 \captionof{listing}{VM 0}
 \begin{minted}{gas}
-
+mov R0, 0x8400006D # function id (FFA_RUN)
+# Bit[31:16]: Callee ID.
+# Bit[15:0]: Callee vCPU ID.
+mov R1, 0x1
+mov R1, R1, LSL 16 # caller id
+add R1, 0x1        # callee id
 \end{minted}
 \end{code}
 
@@ -228,18 +356,334 @@ hvc
 \end{minted}
 \end{code}
 
-%\begin{lstlisting}
-% No need to wait if memory is being sent from a primary VM to a secondary VM
-%# keep switching to VM 1 until a message is available in the RX buffer
-%mov R0 encode(RUN) # function id
-%mov R4 encode(MSG_WAIT) # comparison pattern
-%mov R5 pc # we can loop until the condition is satisfied
-%hvc
-%cmp R0 R4
-%beq R5 # if R0 == MSG_WAIT we need to try again
-%mov R0 encode(RUN) # finally, we can return to VM 1 to retrieve the page
-%hvc
-%\end{lstlisting}
+\subsubsection{OpSem version}
+
+\begin{code}
+\captionof{listing}{VM 1}
+\begin{minted}{gas}
+# save 42
+mov R0, addr(p, 0)              # p address
+mov R1, 42                      # payload
+str R0, R1                      # write payload to p
+
+# mem_donate
+# arguments
+mov R0, encode_fid(MEM_DONATE)  # function id (FFA_MEM_DONATE)
+mov R1, 6                       # Total length of the  
+                                # memory transaction descriptor
+# VMID of the Sender 
+mov R2, addr(tx, 1)             # TX buffer address                               
+mov R3, 0
+str R2, R3
+
+# flag
+mov R2, addr(tx, 1)             # TX buffer address (offset 1)                               
+mov R3, 0                       # not zeroed
+str R2, R3
+
+# handle (mbz)
+mov R2, addr(tx, 2)             # TX buffer address (offset 2)
+mov R3, 0
+str R2, R3
+
+# tag (extra information)
+mov R2, addr(tx, 3)             # TX buffer address (offset 3)
+mov R3, 0
+str R2, R3
+
+# access descriptor count (must be 1 for donation)
+mov R2, addr(tx, 4)             # TX buffer address (offset 4)
+mov R3, 1
+str R2, R3
+
+# VMID of the Receiver
+mov R2, addr(tx, 5)             # TX buffer address (offset 5)
+mov R3, 2
+str R2, R3
+
+# base address of the donated page
+mov R2, addr(tx, 6)             # TX buffer address (offset 6)
+mov R3, addr(p, 0)              # p address
+str R2, R3
+
+hvc            # [1].pt[p] = (O, NA)
+               # [2].pt[p] = (!O, NA)
+               # sss[handler] = (1, flag, tag, inl (2, p), MEM_DONATE)
+
+# R2 is populated with the transaction discriptor at this point
+# save it to the discriptor
+mov R3, addr(tx, 2)          # TX buffer address (offset 2)
+str R3, R2
+
+# msg_send
+mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
+mov R1, 2                       # VMID of the Receiver
+mov R2, 6                       # message length
+
+hvc
+\end{minted}
+\end{code}
+
+\begin{code}
+\captionof{listing}{VM 0}
+\begin{minted}{gas}
+# simple message transmitter
+mov R1, R1, LSL 16          # R1 = v << (WORD_BITS/2) + n
+mov R1, R1, LSR 16
+mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
+mov R1, 2                   # callee VMID
+hvc
+\end{minted}
+\end{code}
+
+\begin{code}
+\captionof{listing}{VM 2}
+\begin{minted}{gas}
+# retrieve msg length
+mov R0, encode_fid(MSG_WAIT)   # function id (FFA_MSG_WAIT)
+hvc
+
+# R1 is populated with length of the message at this point
+
+# Copy RX to TX
+mov R0, 0             # value to compare with
+mov R2, =loop         # jump point
+mov R3, 1             # step
+mov R4, addr(rx, 0)   # RX buffer base address
+mov R5, addr(tx, 0)   # TX buffer base address
+loop:
+sub R1, R1, R3
+cmp R1, R0
+ldr R6, R4
+str R5, R6
+add R4, R4, R3
+bne R2
+
+mov R0, encode_fid(MEM_RETRIEVE_REQ) # function id (FFA_MEM_RETRIEVE_REQ)
+mov R1, 4                            # Total length of the  
+                                     # memory transaction descriptor in bytes
+# access descriptor count (must be 0 for mem_retrieve)
+mov R2, addr(tx, 4)                  # TX buffer address (offset 4)
+mov R3, 0
+str R2, R3                                    
+hvc            # [1].pt[p] = (!O, NA)
+               # [2].pt[p] = (O, EA)
+               # find(sss, handler) = False
+\end{minted}
+\end{code}
+
+\section{Memory lending}
+
+\subsection{Scheduler $\rightarrow$ secondary VMs}
+
+\begin{code}
+\captionof{listing}{VM 0}
+\begin{minted}{gas}
+# save 42
+mov R0, addr(p, 0)              # p address
+mov R1, 42                      # payload
+str R0, R1                      # write payload to p
+
+# mem_lend
+# arguments
+mov R0, encode_fid(MEM_LEND)    # function id (FFA_MEM_LEND)
+mov R1, 8                       # Total length of the  
+                                # memory transaction descriptor
+# VMID of the Sender 
+mov R2, addr(tx, 0)             # TX buffer address                               
+mov R3, 0
+str R2, R3
+
+# flag
+mov R2, addr(tx, 1)             # TX buffer address (offset 1)                               
+mov R3, 0                       # not zeroed
+str R2, R3
+
+# handle (mbz)
+mov R2, addr(tx, 2)             # TX buffer address (offset 2)
+mov R3, 0
+str R2, R3
+
+# tag (extra information)
+mov R2, addr(tx, 3)             # TX buffer address (offset 3)
+mov R3, 0
+str R2, R3
+
+# access descriptor count
+mov R2, addr(tx, 4)             # TX buffer address (offset 4)
+mov R3, 2
+str R2, R3
+
+# VMID of the first Receiver
+mov R2, addr(tx, 5)             # TX buffer address (offset 5)
+mov R3, 1
+str R2, R3
+
+# base address of the donated page
+mov R2, addr(tx, 6)             # TX buffer address (offset 6)
+mov R3, addr(p, 0)              # p address
+str R2, R3
+
+# VMID of the second Receiver
+mov R2, addr(tx, 7)             # TX buffer address (offset 5)
+mov R3, 2
+str R2, R3
+
+# base address of the donated page
+mov R2, addr(tx, 8)             # TX buffer address (offset 6)
+mov R3, addr(p, 0)              # p address
+str R2, R3
+
+hvc            # [0].pt[p] = (O, NA)
+               # [1].pt[p] = (!O, NA)
+               # [2].pt[p] = (!O, NA)
+               # sss[handler] = (0, flag, tag, inr (0, [(1, p), (2, p)]), MEM_LEND)
+
+# R2 is populated with the transaction handler at this point
+# save it to the discriptor
+mov R3, addr(tx, 2)          # TX buffer address (offset 2)
+str R3, R2
+
+mov R4, R2                   # save the handler for later
+
+# msg_send
+mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
+mov R1, 1                       # VMID of the Receiver
+mov R2, 8                       # message length
+hvc 
+
+mov R1, 2                       # VMID of the Receiver
+mov R2, 8                       # message length
+hvc
+
+# reclaim
+mov R0, encode_id(MEM_RECLAIM)
+mov R2, R4                       # handler
+mov R3, 0                        # flag
+hvc            # [0].pt[p] = (O, EA)
+               # [1].pt[p] = (!O, NA)
+               # [2].pt[p] = (!O, NA)
+               # find(sss, handler) = False       
+\end{minted}
+\end{code}
+
+\begin{code}
+\captionof{listing}{VM 1}
+\begin{minted}{gas}
+# retrieve msg length
+mov R0, encode_fid(MSG_WAIT)   # function id (FFA_MSG_WAIT)
+hvc
+
+# R1 is populated with length of the message at this point
+
+# Copy RX to TX
+mov R0, 0             # value to compare with
+mov R2, =loop         # jump point
+mov R3, 1             # step
+mov R4, addr(rx, 0)   # RX buffer base address
+mov R5, addr(tx, 0)   # TX buffer base address
+loop:
+sub R1, R1, R3
+cmp R1, R0
+ldr R6, R4
+str R5, R6
+add R4, R4, R3
+bne R2
+
+mov R0, encode_fid(MEM_RETRIEVE_REQ) # function id (FFA_MEM_RETRIEVE_REQ)
+mov R1, 4                            # Total length of the  
+                                     # memory transaction descriptor in bytes
+# access descriptor count (must be 0 for mem_retrieve)
+mov R2, addr(tx, 4)                  # TX buffer address (offset 4)
+mov R3, 0
+str R2, R3                                    
+hvc            # [0].pt[p] = (O, NA)
+               # [1].pt[p] = (!O, SA)
+               # [2].pt[p] = (!O, NA)
+               # sss[handler] = (0, flag, tag, inr (1, [(1, p), (2, p)]), MEM_LEND)
+
+# save 24
+mov R0, addr(p, 0)              # p address
+mov R1, 24                      # payload
+str R0, R1                      # write payload to p
+
+# handler for relinquishing
+mov R0, encode_fid(MEM_RELINQUISH)
+mov R1, addr(tx, 2)
+ldr R2, R1                      # save the old handler
+mov R1, addr(tx, 1)
+ldr R3, R1                      # save the old flag
+mov R1, addr(tx, 0)             # TX buffer address
+str R1, R2                      # handler for a new descriptor
+mov R1, addr(tx, 1)
+str R1, R3                      # flag for a new descriptor
+hvc            # [0].pt[p] = (O, NA)
+               # [1].pt[p] = (!O, NA)
+               # [2].pt[p] = (!O, NA)
+               # sss[handler] = (0, flag, tag, inr (0, [(1, p), (2, p)]), MEM_LEND)
+
+# yield
+mov R0, encode_fid(YIELD)     # function id (FFA_YIELD)
+hvc
+\end{minted}
+\end{code}
+
+\begin{code}
+\captionof{listing}{VM 2}
+\begin{minted}{gas}
+# retrieve msg length
+mov R0, encode_fid(MSG_WAIT)   # function id (FFA_MSG_WAIT)
+hvc
+
+# R1 is populated with length of the message at this point
+
+# Copy RX to TX
+mov R0, 0             # value to compare with
+mov R2, =loop         # jump point
+mov R3, 1             # step
+mov R4, addr(rx, 0)   # RX buffer base address
+mov R5, addr(tx, 0)   # TX buffer base address
+loop:
+sub R1, R1, R3
+cmp R1, R0
+ldr R6, R4
+str R5, R6
+add R4, R4, R3
+bne R2
+
+mov R0, encode_fid(MEM_RETRIEVE_REQ) # function id (FFA_MEM_RETRIEVE_REQ)
+mov R1, 4                            # Total length of the  
+                                     # memory transaction descriptor in bytes
+# access descriptor count (must be 0 for mem_retrieve)
+mov R2, addr(tx, 4)                  # TX buffer address (offset 4)
+mov R3, 0
+str R2, R3                                    
+hvc            # [0].pt[p] = (O, NA)
+               # [1].pt[p] = (!O, NA)
+               # [2].pt[p] = (!O, SA)
+               # sss[handler] = (0, flag, tag, inr (1, [(1, p), (2, p)]), MEM_LEND)
+
+# handler for relinquishing
+mov R0, encode_fid(MEM_RELINQUISH)
+mov R1, addr(tx, 2)
+ldr R2, R1                      # save the old handler
+mov R1, addr(tx, 1)
+ldr R3, R1                      # save the old flag
+mov R1, addr(tx, 0)             # TX buffer address
+str R1, R2                      # handler for a new descriptor
+mov R1, addr(tx, 1)
+str R1, R3                      # flag for a new descriptor
+hvc            # [0].pt[p] = (O, NA)
+               # [1].pt[p] = (!O, NA)
+               # [2].pt[p] = (!O, NA)
+               # sss[handler] = (0, flag, tag, inr (0, [(1, p), (2, p)]), MEM_LEND)
+
+# yield
+mov R0, encode_fid(YIELD)     # function id (FFA_YIELD)
+hvc
+\end{minted}
+\end{code}
+
 \section*{Appendix}
 
 \subsection*{A. Memory transaction descriptor}
