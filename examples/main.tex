@@ -179,7 +179,11 @@ str R3, R2
 mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
 mov R1, 1                       # VMID of the Receiver
 mov R2, 6                       # message length
+hvc
 
+# run
+mov R0, encode_fid(FFA_RUN)
+mov R1, 1
 hvc
 \end{lstlisting}
 
@@ -509,14 +513,25 @@ str R3, R2
 
 mov R4, R2                   # save the handler for later
 
-# msg_send
+# msg_send to 1
 mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
 mov R1, 1                       # VMID of the Receiver
 mov R2, 8                       # message length
-hvc 
+hvc
 
+# run 1
+mov R0, encode_fid(FFA_RUN)
+mov R1, 1
+hvc
+
+# msg_send to 2
 mov R1, 2                       # VMID of the Receiver
 mov R2, 8                       # message length
+hvc
+
+# run 2
+mov R0, encode_fid(FFA_RUN)
+mov R1, 2
 hvc
 
 # reclaim
