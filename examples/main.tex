@@ -12,14 +12,17 @@
 \section{Memory donation}
 
 \subsection{Scheduler $\rightarrow$ secondary VM}
+Initially, VM 0 has both ownership and exclusive access to pages $p_1$, $p_2$. After a complete donation transaction it loses ownership and access to these pages, and passes it to VM 1.
+
+More precisely, VM 0 initiates a memory donation transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_DONATE, R1 is populated with a length of a memory descriptor. FFA\_MEM\_DONATE returns a handle for this transaction. At this point, VM 0 still owns the pages, however, it loses access to it. After the transaction initiation, VM 0 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and transfers control to VM 1. VM 1 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. After that, VM 1 has both ownership and exclusive access to the pages.
 
 \subsubsection{Bare-bones version}
 
 Assumptions:
 \begin{enumerate}
- \item VM0 owns pages p1, p2 and have an exclusive access to them
- \item TX\_0\_Hyp, and TX\_0\_1 are TX buffers that are shared between VM0/Hypervisor, and VM0/VM1 respectfully 
- \item The following memory slice of the TX\_0\_Hyp buffer is valid: \\
+ \item VM 0 owns pages $p_1$, $p_2$ and has an exclusive access to them.
+ \item VM 0 owns its TX buffer, RX buffer of VM 1 is empty.
+ \item The following memory slice of the scheduler's TX buffer is valid: \\
      \\
      \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{16}
          \bitheader[endianness=little]{0,2,3,4,8,16} \\
@@ -89,11 +92,19 @@ mov R0, 0x8400006E # function id (FFA_MSG_SEND)
 # Bit[15:0]: Receiver endpoint ID.
 # In this case, it's redundant, however, it's kept as an example
 mov R1, 0x0
-mov R1, R1, LSL 16 # caller id
+mov R1, R1, LSL 16
 add R1, 0x1        # callee id
-mov R4, addr(TX_0_1)
+mov R4, addr(TX)
 str R2, [R4, 8]    # store the handler in TX_0_1 buffer of VM0
 str R3, [R4, 12]
+hvc
+
+mov R0, 0x8400006D # function id (FFA_RUN)
+# Bit[31:16]: Callee ID.
+# Bit[15:0]: Callee vCPU ID.
+mov R1, 0x1        # callee id
+mov R1, R1, LSL 16
+add R1, 0x0        # vCPU id
 hvc
 \end{lstlisting}
 
@@ -131,7 +142,7 @@ str R0, R1                      # write payload to p
 mov R0, encode_fid(MEM_DONATE)  # function id (FFA_MEM_DONATE)
 mov R1, 6                       # Total length of the  
                                 # memory transaction descriptor
-# VMID of the Sender 
+# VMID of the sender 
 mov R2, addr(tx, 0)             # TX buffer address                               
 mov R3, 0
 str R2, R3
@@ -156,7 +167,7 @@ mov R2, addr(tx, 4)             # TX buffer address (offset 4)
 mov R3, 1
 str R2, R3
 
-# VMID of the Receiver
+# VMID of the receiver
 mov R2, addr(tx, 5)             # TX buffer address (offset 5)
 mov R3, 1
 str R2, R3
@@ -221,12 +232,16 @@ hvc               # [0].pt[p] = (!O, NA)
 \end{lstlisting}
 
 \subsection{Secondary VM $\rightarrow$ secondary VM}
+Initially, VM 1 has both ownership and exclusive access to pages $p_1$, $p_2$. After a complete donation transaction it loses ownership and access to these pages, and passes it to VM 2.
+
+More precisely, VM 0 (scheduler) gives control to VM 1. VM 1 initiates a memory donation transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_DONATE, R1 is populated with a length of a memory descriptor. FFA\_MEM\_DONATE returns a handle for this transaction. At this point, VM 1 loses access to the pages, however, it still owns the pages. After the transaction initiation, VM 1 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and consequently yields control to VM 0. VM 0 simply gives control to VM 2. After that, VM 2 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Both ownership and exclusive access now belongs to VM 2.
 
 \subsubsection{Bare-bones version}
 Assumptions:
 \begin{enumerate}
- \item VM1 owns pages p1, p2 and have an exclusive access to them
- \item The following memory slice of the TX\_1\_Hyp buffer is valid: \\
+ \item VM 1 owns pages $p_1$, $p_2$ and have an exclusive access to them
+ \item VM 1 owns its TX buffer, RX buffer of VM 2 is empty.
+ \item The following memory slice of the TX buffer is valid: \\
      \\
      \begin{bytefield}[rightcurly=., rightcurlyspace=0pt, bitwidth=1.2em]{16}
          \bitheader[endianness=little]{0,2,3,4,8,16} \\
@@ -268,6 +283,22 @@ Assumptions:
      \end{bytefield}
 \end{enumerate}
 
+\begin{lstlisting}[caption={VM 0}]
+# run 1
+mov R0, 0x8400006D # function id (FFA_RUN)
+# Bit[31:16]: Callee ID.
+# Bit[15:0]: Callee vCPU ID.
+mov R1, 0x1        # callee id
+mov R1, R1, LSL 16
+add R1, 0x0        # vCPU id
+
+# run 2
+mov R0, 0x8400006D # function id (FFA_RUN)
+mov R1, 0x2
+mov R1, R1, LSL 16
+add R1, 0x0
+\end{lstlisting}
+
 \begin{lstlisting}[caption={VM 1}]
 # memory donation ffa call
 mov R0, 0x84000071 # function id (FFA_MEM_DONATE)
@@ -297,19 +328,10 @@ mov R0, 0x8400006E # function id (FFA_MSG_SEND)
 mov R1, 0x1
 mov R1, R1, LSL 16 # caller id
 add R1, 0x2        # callee id
-mov R4, addr(TX_0_1)
-str R2, [R4, 8]    # store the handler in TX_0_1 buffer of VM0
+mov R4, addr(TX)
+str R2, [R4, 8]    # store the handler in TX buffer of VM 0
 str R3, [R4, 12]
 hvc
-\end{lstlisting}
-
-\begin{lstlisting}[caption={VM 0}]
-mov R0, 0x8400006D # function id (FFA_RUN)
-# Bit[31:16]: Callee ID.
-# Bit[15:0]: Callee vCPU ID.
-mov R1, 0x1
-mov R1, R1, LSL 16 # caller id
-add R1, 0x1        # callee id
 \end{lstlisting}
 
 \begin{lstlisting}[caption={VM 2}]
@@ -335,6 +357,17 @@ hvc
 
 \subsubsection{OpSem version}
 
+\begin{lstlisting}[caption={VM 0}]
+# run 1
+mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
+mov R1, 1                   # callee VMID
+
+# run 2
+mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
+mov R1, 2                   # callee VMID
+hvc
+\end{lstlisting}
+
 \begin{lstlisting}[caption={VM 1}]
 # save 42
 mov R0, addr(p, 0)              # p address
@@ -346,7 +379,7 @@ str R0, R1                      # write payload to p
 mov R0, encode_fid(MEM_DONATE)  # function id (FFA_MEM_DONATE)
 mov R1, 6                       # Total length of the  
                                 # memory transaction descriptor
-# VMID of the Sender 
+# VMID of the sender 
 mov R2, addr(tx, 1)             # TX buffer address                               
 mov R3, 0
 str R2, R3
@@ -371,7 +404,7 @@ mov R2, addr(tx, 4)             # TX buffer address (offset 4)
 mov R3, 1
 str R2, R3
 
-# VMID of the Receiver
+# VMID of the receiver
 mov R2, addr(tx, 5)             # TX buffer address (offset 5)
 mov R3, 2
 str R2, R3
@@ -381,7 +414,8 @@ mov R2, addr(tx, 6)             # TX buffer address (offset 6)
 mov R3, addr(p, 0)              # p address
 str R2, R3
 
-hvc               # [1].pt[p] = (O, NA)
+hvc               # [0].pt[p] = (!O, NA)
+                  # [1].pt[p] = (O, NA)
                   # [2].pt[p] = (!O, NA)
                   # sss[handler] = (1, flag, tag, inl (2, p), MEM_DONATE)
 
@@ -395,15 +429,6 @@ mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
 mov R1, 2                       # VMID of the Receiver
 mov R2, 6                       # message length
 
-hvc
-\end{lstlisting}
-
-\begin{lstlisting}[caption={VM 0}]
-# simple message transmitter
-mov R1, R1, LSL 16          # R1 = v << (WORD_BITS/2) + n
-mov R1, R1, LSR 16
-mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
-mov R1, 2                   # callee VMID
 hvc
 \end{lstlisting}
 
@@ -435,7 +460,8 @@ mov R1, 4                            # Total length of the
 mov R2, addr(tx, 4)             # TX buffer address (offset 4)
 mov R3, 0
 str R2, R3                                    
-hvc               # [1].pt[p] = (!O, NA)
+hvc               # [0].pt[p] = (!O, NA)            
+                  # [1].pt[p] = (!O, NA)
                   # [2].pt[p] = (O, EA)
                   # find(sss, handler) = False
 \end{lstlisting}
@@ -443,6 +469,10 @@ hvc               # [1].pt[p] = (!O, NA)
 \section{Memory lending}
 
 \subsection{Scheduler $\rightarrow$ secondary VMs}
+
+Initially, VM 0 has both ownership and exclusive access to page $p$. After a complete lending transaction it loses an access to this page, and passes shared access to VM 1 and VM 2. In case, it would transfer access only to a single VM, it'll give it exclusive access. After that, the initial owner reclaims access.
+
+More precisely, VM 0 initiates a memory lending transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_LEND, R1 is populated with a length of a memory descriptor. FFA\_MEM\_LEND returns a handle for this transaction. At this point, VM 0 owns the page but loses access to it. After the transaction initiation, VM 0 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and transfers control to VM 1. VM 1 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Now, VM 1 has shared access to the page. After that, VM 1 manipulate its newly acquired memory, relinquishes its access to it, and yields control back to VM 0. VM 0 transfers control to VM 2, which does the same sequence of operations as VM 1 did. Now, VM 0 can reclaim access to the page.
 
 \begin{lstlisting}[caption={VM 0}]
 # save 42
@@ -661,35 +691,32 @@ hvc
 
 \subsection{Secondary VM $\rightarrow$ secondary VMs}
 
+Initially, VM 1 has both ownership and exclusive access to page $p$. After a complete lending transaction it loses an access to this page, and passes shared access to VM 2 and VM 3. In case, it would transfer access only to a single VM, it'll give it exclusive access. After that, the initial owner reclaims access.
+
+More precisely, VM 0 gives control to VM 1, which in turn initiates a memory lending transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_LEND, R1 is populated with a length of a memory descriptor. FFA\_MEM\_LEND returns a handle for this transaction. At this point, VM 1 owns the page but loses access to it. After the transaction initiation, VM 1 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and yields control to VM 0. VM 0 transfers control to VM 2. VM 2 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Now, VM 2 has shared access to the page. After that, VM 2 manipulate its newly acquired memory, relinquishes its access to it, and yields control back to VM 0. VM 0 transfers control to VM 3, which does the same sequence of operations as VM 2 did. Now, VM 0 can transfer control to VM 1, which reclaims access to the page.
+
 \begin{lstlisting}[caption={VM 0}]
 # run 1 (to lend)
-mov R1, 1                   # R1 = vCPU:VMID
-mov R1, R1, LSL 16          # R1 = v << (WORD_BITS/2) + n
-mov R1, R1, LSR 16
 mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
-mov R1, 2                   # callee VMID
+mov R1, 1                   # callee VMID
 hvc
 
 # run 2 (to retrieve and relinquish)
-mov R1, 1                   # R1 = vCPU:VMID
-mov R1, R1, LSL 16          # R1 = v << (WORD_BITS/2) + n
-mov R1, R1, LSR 16
 mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
 mov R1, 3                   # callee VMID
 hvc
 
+# run 1 (to send a message to VM 3)
+mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
+mov R1, 1                   # callee VMID
+hvc
+
 # run 3 (to retrieve and relinquish)
-mov R1, 1                   # R1 = vCPU:VMID
-mov R1, R1, LSL 16          # R1 = v << (WORD_BITS/2) + n
-mov R1, R1, LSR 16
 mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
 mov R1, 3                   # callee VMID
 hvc
 
 # run 1 (to reclaim)
-mov R1, 1                   # R1 = vCPU:VMID
-mov R1, R1, LSL 16          # R1 = v << (WORD_BITS/2) + n
-mov R1, R1, LSR 16
 mov R0, encode_fid(FFA_RUN) # function id (FFA_RUN)
 mov R1, 1                   # callee VMID
 hvc
@@ -706,7 +733,7 @@ str R0, R1                      # write payload to p
 mov R0, encode_fid(MEM_LEND)    # function id (FFA_MEM_LEND)
 mov R1, 8                       # Total length of the  
                                 # memory transaction descriptor
-# VMID of the Sender 
+# VMID of the sender 
 mov R2, addr(tx, 0)             # TX buffer address                               
 mov R3, 1
 str R2, R3

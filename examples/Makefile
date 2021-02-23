@@ -1,4 +1,4 @@
-TEX = pdflatex --shell-escape -synctex=1 -interaction=nonstopmode
+TEX = pdflatex -synctex=1 -interaction=nonstopmode
 
 .PHONY: all clean
 
