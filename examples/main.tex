@@ -12,15 +12,15 @@
 \section{Memory donation}
 
 \subsection{Scheduler $\rightarrow$ secondary VM}
-Initially, VM 0 has both ownership and exclusive access to pages $p_1$, $p_2$. After a complete donation transaction it loses ownership and access to these pages, and passes it to VM 1.
+Initially, VM 0 has both ownership and exclusive access to pages $p_1$, $p_2$. After a complete donation transaction, it loses ownership and access to these pages and passes it to VM 1.
 
-More precisely, VM 0 initiates a memory donation transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_DONATE, R1 is populated with a length of a memory descriptor. FFA\_MEM\_DONATE returns a handle for this transaction. At this point, VM 0 still owns the pages, however, it loses access to it. After the transaction initiation, VM 0 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and transfers control to VM 1. VM 1 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. After that, VM 1 has both ownership and exclusive access to the pages.
+More precisely, VM 0 initiates a memory donation transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_DONATE, R1 is populated with a length of a memory descriptor. FFA\_MEM\_DONATE returns a handle for this transaction. At this point, VM 0 still owns the pages, however, it loses access to it. After the transaction initiation, VM 0 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without its endpoint array), and transfers control to VM 1. VM 1 copies the memory transaction descriptor from its RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. After that, VM 1 has both ownership and exclusive access to the pages.
 
 \subsubsection{Bare-bones version}
 
 Assumptions:
 \begin{enumerate}
- \item VM 0 owns pages $p_1$, $p_2$ and has an exclusive access to them.
+ \item VM 0 owns pages $p_1$, $p_2$ and has exclusive access to it.
  \item VM 0 owns its TX buffer, RX buffer of VM 1 is empty.
  \item The following memory slice of the scheduler's TX buffer is valid: \\
      \\
@@ -188,7 +188,7 @@ str R3, R2
 
 # msg_send
 mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
-mov R1, 1                       # VMID of the Receiver
+mov R1, 1                       # VMID of the receiver
 mov R2, 6                       # message length
 hvc
 
@@ -232,14 +232,14 @@ hvc               # [0].pt[p] = (!O, NA)
 \end{lstlisting}
 
 \subsection{Secondary VM $\rightarrow$ secondary VM}
-Initially, VM 1 has both ownership and exclusive access to pages $p_1$, $p_2$. After a complete donation transaction it loses ownership and access to these pages, and passes it to VM 2.
+Initially, VM 1 has both ownership and exclusive access to pages $p_1$, $p_2$. After a complete donation transaction, it loses ownership and access to these pages and passes it to VM 2.
 
-More precisely, VM 0 (scheduler) gives control to VM 1. VM 1 initiates a memory donation transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_DONATE, R1 is populated with a length of a memory descriptor. FFA\_MEM\_DONATE returns a handle for this transaction. At this point, VM 1 loses access to the pages, however, it still owns the pages. After the transaction initiation, VM 1 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and consequently yields control to VM 0. VM 0 simply gives control to VM 2. After that, VM 2 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Both ownership and exclusive access now belongs to VM 2.
+More precisely, VM 0 (scheduler) gives control to VM 1. VM 1 initiates a memory donation transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_DONATE, R1 is populated with a length of a memory descriptor. FFA\_MEM\_DONATE returns a handle for this transaction. At this point, VM 1 loses access to the pages, however, it still owns the pages. After the transaction initiation, VM 1 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and consequently yields control to VM 0. VM 0 simply gives control to VM 2. After that, VM 2 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Both ownership and exclusive access over $p_1$ and $p_2$ now belong to VM 2.
 
 \subsubsection{Bare-bones version}
 Assumptions:
 \begin{enumerate}
- \item VM 1 owns pages $p_1$, $p_2$ and have an exclusive access to them
+ \item VM 1 owns pages $p_1$, $p_2$ and have exclusive access to it.
  \item VM 1 owns its TX buffer, RX buffer of VM 2 is empty.
  \item The following memory slice of the TX buffer is valid: \\
      \\
@@ -472,7 +472,7 @@ hvc               # [0].pt[p] = (!O, NA)
 
 Initially, VM 0 has both ownership and exclusive access to page $p$. After a complete lending transaction it loses an access to this page, and passes shared access to VM 1 and VM 2. In case, it would transfer access only to a single VM, it'll give it exclusive access. After that, the initial owner reclaims access.
 
-More precisely, VM 0 initiates a memory lending transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_LEND, R1 is populated with a length of a memory descriptor. FFA\_MEM\_LEND returns a handle for this transaction. At this point, VM 0 owns the page but loses access to it. After the transaction initiation, VM 0 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and transfers control to VM 1. VM 1 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Now, VM 1 has shared access to the page. After that, VM 1 manipulate its newly acquired memory, relinquishes its access to it, and yields control back to VM 0. VM 0 transfers control to VM 2, which does the same sequence of operations as VM 1 did. Now, VM 0 can reclaim access to the page.
+More precisely, VM 0 initiates a memory lending transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_LEND, R1 is populated with a length of a memory descriptor. FFA\_MEM\_LEND returns a handle for this transaction. At this point, VM 0 owns the page but loses access to it. After the transaction initiation, VM 0 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and transfers control to VM 1. VM 1 copies the memory transaction descriptor from its RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Now, VM 1 has shared access to the page. After that, VM 1 manipulate its newly acquired memory, relinquishes its access to it, and yields control back to VM 0. VM 0 transfers control to VM 2, which does the same sequence of operations as VM 1 did. Now, VM 0 can reclaim access to the page.
 
 \begin{lstlisting}[caption={VM 0}]
 # save 42
@@ -691,9 +691,9 @@ hvc
 
 \subsection{Secondary VM $\rightarrow$ secondary VMs}
 
-Initially, VM 1 has both ownership and exclusive access to page $p$. After a complete lending transaction it loses an access to this page, and passes shared access to VM 2 and VM 3. In case, it would transfer access only to a single VM, it'll give it exclusive access. After that, the initial owner reclaims access.
+Initially, VM 1 has both ownership and exclusive access to page $p$. After a complete lending transaction it loses an access to this page, and passes shared access to VM 2 and VM 3. In case, it would transfer access only to a single VM, it'll grant this VM with exclusive access. After that, the initial owner reclaims access.
 
-More precisely, VM 0 gives control to VM 1, which in turn initiates a memory lending transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_LEND, R1 is populated with a length of a memory descriptor. FFA\_MEM\_LEND returns a handle for this transaction. At this point, VM 1 owns the page but loses access to it. After the transaction initiation, VM 1 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and yields control to VM 0. VM 0 transfers control to VM 2. VM 2 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Now, VM 2 has shared access to the page. After that, VM 2 manipulate its newly acquired memory, relinquishes its access to it, and yields control back to VM 0. VM 0 transfers control to VM 3, which does the same sequence of operations as VM 2 did. Now, VM 0 can transfer control to VM 1, which reclaims access to the page.
+More precisely, VM 0 gives control to VM 1, which in turn initiates a memory lending transaction by populating a memory transaction descriptor (within its TX buffer) with receivers' IDs, PIDs, and some auxiliary information. R0 is populated with a function id of FFA\_MEM\_LEND, R1 is populated with a length of a memory descriptor. FFA\_MEM\_LEND returns a handle for this transaction. At this point, VM 1 owns the page but loses access to it. After the transaction initiation, VM 1 populates the memory transaction descriptor with the handle, and sends it via FFA\_MSG\_SEND (perhaps, without endpoint array), and yields control to VM 0. VM 0 transfers control to VM 2. VM 2 copies the memory transaction descriptor from RX to TX buffer, and finishes the transaction by calling FFA\_MEM\_RETRIEVE. Now, VM 2 has shared access to the page. After that, VM 2 manipulates its newly acquired memory, relinquishes its access to it, and yields control back to VM 0. VM 0 transfers control to VM 3, which does the same sequence of operations as VM 2 did. Now, VM 0 can transfer control to VM 1, which reclaims access to the page.
 
 \begin{lstlisting}[caption={VM 0}]
 # run 1 (to lend)
