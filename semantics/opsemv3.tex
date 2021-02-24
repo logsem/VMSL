@@ -304,25 +304,26 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\ n=\text{to\_vmid}(rs_v[\reg{R1}]) \\v=0\\ \text{ValidVMID}(\delta s,n)\\n\ne0\\ \delta_n.mb.rx=(-,\TRUE,w_l,v_s) }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{n} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [n].rs[\reg{R0}]=\efid{MSG\_SEND}; \\ \null [n].rs[\reg{R1}]=\text{comb}(v_s,n);\\\null [n].rs[\reg{R3}]=w_l\end{array}}\right\},mm,sss))}
 
-    \and \inferrule[Exec-hvc-Succ-Run-Error-NotPrimary]
+    \and \inferrule[Exec-hvc-Succ-Run-Error-Denied]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\ v\ne0}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [v].rs[\reg{R0}]=\efid{ERROR}; \\ \null [v].rs[\reg{R2}]=\eec{DENIED}\end{array}}\right\},mm,sss))}
 
-    \and \inferrule[Exec-hvc-Succ-Run-Error-SecondaryNotExist]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\v=0\\ !\text{ValidVMID}(\delta s,n)}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [v].rs[\reg{R0}]=\efid{ERROR}; \\ \null [v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
-
-    \and \inferrule[Exec-hvc-Succ-Run-Error-NotSecondary]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RUN}) \\v=0\\ \text{ValidVMID}(\delta s,n) \\ n=0}
+    \and \inferrule[Exec-hvc-Succ-Run-Error-InvalidParams]
+    {\text{AccessibleAddr}(\delta_v,a_i)\\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc})\\
+    \text{IsFFA}(\delta_v,\tt{RUN})\\
+    v=0\\
+    (!\text{ValidVMID}(\delta s,n) \lor n = 0)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with}\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\ \null [v].rs[\reg{R0}]=\efid{ERROR}; \\ \null [v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-Yield-FromPrimary]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{YIELD}) \\v=0 }
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\DNNXT{v} ,\, (\delta s \text{ with }\{[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;[v].rs[\reg{R0}]=\efid{SUCC}\},mm,sss))}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1; \\\null [v].rs[\reg{R0}]=\efid{SUCC}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-Yield-FromSecondary]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{YIELD}) \\v\ne0 }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[0].rs[\reg{R0}]=\efid{YIELD};\\\null[0].rs[\reg{R1}]=\tw{v}\end{array}}\right\},mm,sss))}
+    
   \end{mathpar}
 \end{figure}
 
@@ -352,23 +353,20 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ \text{ValidVMID}(\delta s,n)\\w_l=rs_v[\reg{R2}]\\w_l\le\PPMAX \\ \delta_n.mb.rx=(pid_r,\FALSE,-,-)\\\delta_v.mb.tx=pid_t \\v=0}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[n].mb.rx=(pid_r,\TRUE,w_l,v)\end{array}}\right\},\text{memcpy}(mm,pid_t,pid_r,w_l),sss))}
 
-    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-Full]
+    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-Busy]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ \text{ValidVMID}(\delta s,n)\\ \delta_n.mb.rx=(-,\TRUE,-,-)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{BUSY}\end{array}}\right\},mm,sss))}
 
-    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-TooLong]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\w_l=rs_v[\reg{R2}]\\w_l>\PPMAX }
+    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-InvalidParams]
+    {\text{AccessibleAddr}(\delta_v,a_i)\\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc})\\
+    \text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\
+    w_l=rs_v[\reg{R2}]\\
+    n = \text{to\_vmid}(rs_v[\reg{R1}])\\
+    (!\text{ValidVMID}(\delta s,n) \lor w_l>\PPMAX) }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
-    \and \inferrule[Exec-hvc-Succ-MsgSend-Error-ReceiverNotExist]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ !\text{ValidVMID}(\delta s,n) }
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
-  \end{mathpar}
-\end{figure}
-
-\begin{figure}
-  \begin{mathpar}
-    \inferrule[Exec-hvc-Succ-MsgPoll-Succ]
+    \and \inferrule[Exec-hvc-Succ-MsgPoll-Succ]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(pid_r,\TRUE,-,-)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[v].mb.rx=(pid_r,\FALSE,0,-)\end{array}}\right\},mm,sss))}
 
