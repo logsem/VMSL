@@ -2,8 +2,10 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage{tikz}
+\usepackage{bytefield}
+\usepackage{pgf-umlsd}
 
-\usetikzlibrary{arrows,positioning,fit,shapes}
+\usetikzlibrary{arrows,positioning,fit,shapes,automata}
 
 
 
@@ -120,7 +122,7 @@
       \begin{itemize}
         \item FFA\_RUN - can only be invoked by the primary VM
         \item FFA\_YIELD - can be invoked by secondary VMs
-        \item FFA\_MSG\_WAIT - TODO
+        \item FFA\_MSG\_WAIT - block the caller until a message comes
       \end{itemize}
 
   \end{itemize}
@@ -129,14 +131,15 @@
 
 \begin{frame}
   \frametitle{FF-A framework}
-  Message passing(indirect messaging)
+  Message passing(indirect messaging, Hafnium is involved)
   \begin{itemize}
-    \item RX page and TX page
-    \item FFA\_MSG\_SEND - TODO
-    \item FFA\_MSG\_POLL - TODO
+    \item RX page/TX page - read-only/write-only, states are monitored by Hafnium
+    \item FFA\_MSG\_SEND - copy, notify the scheduler and the receiver
+    \item FFA\_MSG\_POLL - return error if a message is not ready in RX
   \end{itemize}
-        \begin{figure}
-        \caption{TODO - hypervisor copy...}
+  \begin{figure}
+    \input{rxtx.tikz}
+        \caption{Indirect messaging with RX/TX}
       \end{figure}
 \end{frame}
 
@@ -145,28 +148,81 @@
   Memory management
   \begin{itemize}
     \item All about ownership and access...
-    \item Donation
-    \item Sharing
-      \item Lending
+    \item Donation - sender loses ownership and access
+    \item Sharing - sender keeps ownership and access
+    \item Lending - sender loses access but keeps ownership
+    \item FFA\_MEM\_RELINQUISH - receiver gives up access
+    \item FFA\_MEM\_RECLAIM - sender regains exclusive access
+    \item FFA\_MEM\_RETRIEVE\_REQUEST - receiver gets access/ownership
   \end{itemize}
   \begin{figure}
-        \caption{TODO:ownership and access}
+    \input{ownership-access.tikz}
+        \caption{ownership and access}
       \end{figure}
     \end{frame}
 
 \begin{frame}
   \frametitle{FF-A framework}
+\begin{columns}[T] % align columns
+\begin{column}{.58\textwidth}
   Memory management
   \begin{itemize}
     \item Three steps for one completed transaction
     \item Transaction descriptor, transfered via RX\&TX
   \end{itemize}
   \begin{figure}
-        \caption{TODO:layout of descriptor}
+    \begin{sequencediagram}
+      \tikzstyle{inststyle}=[]
+     \newinst{Hyp}{\small{Hypervisor}}
+     \newinst[1]{VM0}{\small{VM 0}}
+     \newinst[1]{VM1}{\small{VM 1}}
+
+\addtocounter{seqlevel}{-1}
+     \begin{messcall}{VM0}{\tiny{donate page $p$ to 1}}{Hyp}
+
+     \end{messcall}
+     \addtocounter{seqlevel}{-1}
+     \begin{messcall}{VM0}{\tiny{donated page $p$ to you}}{VM1}
+     \end{messcall}
+     \addtocounter{seqlevel}{-1}
+     \begin{messcall}{VM1}{\tiny{retrieve the page $p$ that 0 donated to me}}{Hyp}
+     \end{messcall}
+     \addtocounter{seqlevel}{-1}
+
+ \end{sequencediagram}
+        \caption{Three steps for donation}
       \end{figure}
-       \begin{figure}
-        \caption{TODO:three steps}
+\end{column}%
+\hfill%
+\begin{column}{.38\textwidth}
+ \begin{figure}
+    \vspace{0pt}
+\begin{minipage}{\textwidth}
+      \begin{bytefield}[rightcurlyspace=0pt,bitheight=2.5ex]{8}
+        \wordbox{1}{Sndr VMID}\\
+        \wordbox{1}{Flag}\\
+        \wordbox{1}{Handle}\\
+     %   \wordbox{1}{Tag}\\
+        \wordbox{1}{$v$}\\
+        \begin{rightwordgroup}{$v$}
+        \wordbox{1}{Rcvr VMID 1}\\
+        \wordbox{1}{Offset 1}\\
+        \skippedwords
+        \end{rightwordgroup}\\
+        \begin{rightwordgroup}{Offset 1}
+          \wordbox{1}{$n^1$}
+        \end{rightwordgroup}\\
+        \begin{rightwordgroup}{$n_{1}$}
+            \wordbox{1}{PID $1_1$}\\
+            \skippedwords
+            \end{rightwordgroup}\\
+\end{bytefield}
+\end{minipage}%
+        \caption{Layout of the (simplified) descriptor}
       \end{figure}
+\end{column}%
+\end{columns}
+
 \end{frame}
 
 \begin{frame}
