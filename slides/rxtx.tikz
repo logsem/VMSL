@@ -14,10 +14,10 @@ VM/.style = { rectangle, draw=black!80, thick,minimum width=2cm,minimum height=1
       \node [above,yshift=-0.5cm] at (VM1.north) {VM1};
       \node [above,yshift=-0.5cm] at (VM2.north) {VM2};
     \end{pgfonlayer}
-     \node [page] (RX1)[fill = blue!50,] at (-2,0.42) {RX$_1$};
-     \node [page] (TX1)[fill = red!50] at (-1,0.42) {TX$_{1}$};
-      \node [page] (RX2)[fill = blue!50] at (1,0.42) {RX$_2$};
-     \node [page] (TX2)[fill = red!50] at (2,0.42) {TX$_{2}$};
+     \node [page] (RX1)[fill = blue!50,] at (-2,0.42) {TX$_1$};
+     \node [page] (TX1)[fill = red!50] at (-1,0.42) {RX$_{1}$};
+      \node [page] (RX2)[fill = blue!50] at (1,0.42) {TX$_2$};
+     \node [page] (TX2)[fill = red!50] at (2,0.42) {RX$_{2}$};
 
      \node [Hypervisor] (Hyp)[fill = black!30,minimum height = 1cm] at (0,-0.7) {};
      \node [below,yshift=0.5cm] at (Hyp.south) {Hafnium};
