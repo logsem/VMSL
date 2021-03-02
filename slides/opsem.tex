@@ -1,0 +1,304 @@
+\documentclass{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{tikz}
+\usepackage{bytefield}
+\usepackage{pgf-umlsd}
+
+\usetikzlibrary{arrows,positioning,fit,shapes,automata}
+
+
+
+\usetheme{Verona}
+
+\title{Operational Semantics for VMs in Hafnium}
+\institute{Aarhus University}
+\date{\today}
+\author[Liu, Stepanenko, Trieu, Birkedal]
+{\underline{Z.~Liu}, S.~Stepanenko, A.~Trieu, L.~Birkedal}
+
+\institute[Aarhus]
+{
+  Department of Computer Science\\
+  Aarhus University
+}
+
+% notations
+\newcommand*{\defined}{\triangleq}
+\newcommand*{\maps}{\rightarrow}
+\newcommand*{\derived}{::=}
+
+% definitions
+\newcommand*{\CONF}{\text{ExecConf}}
+\newcommand*{\STATE}{\text{State}}
+\newcommand*{\MEM}{\text{GlobalMem}}
+\newcommand*{\SSS}{\text{ShareStates}}
+\newcommand*{\PID}{\text{PID}}
+\newcommand*{\PT}{\text{PageTable}}
+\newcommand*{\AS}{\text{AccessState}}
+\newcommand*{\OS}{\text{OwnershipState}}
+\newcommand*{\REGS}{\text{Registers}}
+\newcommand*{\ADDR}{\text{Address}}
+\newcommand*{\WORD}{\text{Word}}
+\newcommand*{\VMID}{\text{VMID}}
+\newcommand*{\REGNAMES}{\text{RegisterName}}
+\newcommand*{\MODE}{\text{ExecMode}}
+\newcommand*{\DONE}{\text{DoneState}}
+\newcommand*{\INSTR}{\text{Instruction}}
+\newcommand*{\MB}{\text{MailBox}}
+
+% parameters
+\newcommand*{\PABITS}{\text{ADDR\_BITS}}
+\newcommand*{\PPBITS}{\text{PAGE\_BITS}}
+\newcommand*{\PPIDBITS}{\text{PID\_BITS}}
+\newcommand*{\PAMAX}{\text{ADDR\_MAX}}
+\newcommand*{\PPMAX}{\text{PAGE\_MAX}}
+\newcommand*{\PPIDMAX}{\text{PID\_MAX}}
+\newcommand*{\PWBITS}{\text{WORD\_BITS}}
+\newcommand*{\PWMAX}{\text{WORD\_MAX}}
+\newcommand*{\PVMMAX}{\text{VM\_MAX}}
+
+
+% instructions
+\newcommand*{\instrm}[1]{\mathtt{#1}}
+\newcommand*{\instr}[1]{\texttt{#1}}
+
+% expressions
+\newcommand*{\EI}[1]{\mathtt{ExecInstr} \; {#1}}
+\newcommand*{\RP}[1]{\mathtt{Repeat} \; {#1}}
+\newcommand*{\DN}[1]{\mathtt{Done} \; {#1}}
+\newcommand*{\NXT}[1]{\mathtt{Next} \; {#1}}
+
+% functions
+\newcommand*{\decode}{\text{decode}}
+\newcommand*{\pid}{\text{pid}}
+\newcommand*{\addr}{\text{addr}}
+
+% SOME/NONE
+\newcommand{\SOME}{\mathtt{Some}}
+\newcommand{\NONE}{\mathtt{None}}
+
+% TRUE/FALSE
+\newcommand{\TRUE}{\mathtt{True}}
+\newcommand{\FALSE}{\mathtt{False}}
+
+
+\begin{document}
+
+\frame{\titlepage}
+
+
+
+\begin{frame}
+  \frametitle{Settings of Hafnium}
+  \begin{figure}
+\input{mem-trans.tikz}
+\caption{Stage-2 Memory Translation}
+\end{figure}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Settings of Hafnium}
+  \begin{itemize}
+    \item Simple translation regime, 1-to-1 mapping at stage 2
+    \item Fixed number of VMs, loaded at boot time
+    \item One primary+mutiple secondary, the scheduler resides in the primary
+    \item Sequential world, only one physical CPU
+    \item FF-A framework is deployed for intercommunication between VMs
+    \item TLB, cache, I/O etc. are ommited
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{FF-A framework}
+  \begin{itemize}
+    \item Implemented as synchronous exceptions by Hafnium (at EL2)
+    \item \texttt{hvc} calling conventions
+      \begin{itemize}
+        \item parameter registers: \texttt{W0}-\texttt{W7}
+          \item return registers: \texttt{W0}-\texttt{W3}
+          \end{itemize}
+    \item CPU cycle management
+      \begin{itemize}
+        \item FFA\_RUN - can only be invoked by the primary VM
+        \item FFA\_YIELD - can be invoked by secondary VMs
+        \item FFA\_MSG\_WAIT - block the caller until a message comes
+      \end{itemize}
+
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{FF-A framework}
+  Message passing(indirect messaging, Hafnium is involved)
+  \begin{itemize}
+    \item RX page/TX page - read-only/write-only, states are monitored by Hafnium
+    \item FFA\_MSG\_SEND - copy, notify the scheduler and the receiver
+    \item FFA\_MSG\_POLL - return error if a message is not ready in RX
+  \end{itemize}
+  \begin{figure}
+    \input{rxtx.tikz}
+        \caption{Indirect messaging with RX/TX}
+      \end{figure}
+\end{frame}
+
+\begin{frame}
+  \frametitle{FF-A framework}
+  Memory management
+  \begin{itemize}
+    \item All about ownership and access...
+    \item Donation - sender loses ownership and access
+    \item Sharing - sender keeps ownership and access
+    \item Lending - sender loses access but keeps ownership
+    \item FFA\_MEM\_RELINQUISH - receiver gives up access
+    \item FFA\_MEM\_RECLAIM - sender regains exclusive access
+    \item FFA\_MEM\_RETRIEVE\_REQUEST - receiver gets access/ownership
+  \end{itemize}
+  \begin{figure}
+    \input{ownership-access.tikz}
+        \caption{ownership and access}
+      \end{figure}
+    \end{frame}
+
+\begin{frame}
+  \frametitle{FF-A framework}
+\begin{columns}[T] % align columns
+\begin{column}{.58\textwidth}
+  Memory management
+  \begin{itemize}
+    \item Three steps for one completed transaction
+    \item Transaction descriptor, transfered via RX\&TX
+  \end{itemize}
+  \begin{figure}
+    \begin{sequencediagram}
+      \tikzstyle{inststyle}=[]
+     \newinst{Hyp}{\small{Hypervisor}}
+     \newinst[1]{VM0}{\small{VM 0}}
+     \newinst[1]{VM1}{\small{VM 1}}
+
+\addtocounter{seqlevel}{-1}
+     \begin{messcall}{VM0}{\tiny{donate page $p$ to 1}}{Hyp}
+
+     \end{messcall}
+     \addtocounter{seqlevel}{-1}
+     \begin{messcall}{VM0}{\tiny{donated page $p$ to you}}{VM1}
+     \end{messcall}
+     \addtocounter{seqlevel}{-1}
+     \begin{messcall}{VM1}{\tiny{retrieve the page $p$ that 0 donated to me}}{Hyp}
+     \end{messcall}
+     \addtocounter{seqlevel}{-1}
+
+ \end{sequencediagram}
+        \caption{Three steps for donation}
+      \end{figure}
+\end{column}%
+\hfill%
+\begin{column}{.38\textwidth}
+ \begin{figure}
+    \vspace{0pt}
+\begin{minipage}{\textwidth}
+      \begin{bytefield}[rightcurlyspace=0pt,bitheight=2.5ex]{8}
+        \wordbox{1}{Sndr VMID}\\
+        \wordbox{1}{Flag}\\
+        \wordbox{1}{Handle}\\
+     %   \wordbox{1}{Tag}\\
+        \wordbox{1}{$v$}\\
+        \begin{rightwordgroup}{$v$}
+        \wordbox{1}{Rcvr VMID 1}\\
+        \wordbox{1}{Offset 1}\\
+        \skippedwords
+        \end{rightwordgroup}\\
+        \begin{rightwordgroup}{Offset 1}
+          \wordbox{1}{$n^1$}
+        \end{rightwordgroup}\\
+        \begin{rightwordgroup}{$n_{1}$}
+            \wordbox{1}{PID $1_1$}\\
+            \skippedwords
+            \end{rightwordgroup}\\
+\end{bytefield}
+\end{minipage}%
+        \caption{Layout of the (simplified) descriptor}
+      \end{figure}
+\end{column}%
+\end{columns}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Execution Configuration}
+\begin{figure}
+  \begin{align*}
+    \Phi &\in \CONF &\defined &\text{States} \times \MEM \times \SSS \\
+    \delta s &\in \text{States} &\defined &\text{list(States)} \\
+    \delta &\in \STATE &\defined &\PT \times \REGS \times \MB \\
+    pt & \in \PT & \defined & \PID \maps (\OS \times \AS) \\
+    mb & \in \MB &\defined &\text{TXPage} \times  \text{RXPage}\\
+    tx & \in \text{TXPage} &\defined &\PID\\
+    rx & \in \text{RXPage} &\defined &\PID \times \text{Bool} \times \WORD \times \VMID \\
+    pid & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
+     v,n & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
+      & \;\;\;\; \OS & \derived & O | !O  ~~~~~~~  \AS  \derived  NA | EA | SA
+  \end{align*}
+  \caption{Execution Configuration: VM States.}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Execution Configuration}
+\begin{figure}
+  \begin{align*}
+      rs & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
+    rn & \in \REGNAMES &\defined &\text{SysRegs} \cup \text{GenRegs}\\
+    mm & \in \MEM &\defined  &\ADDR \maps \WORD \\
+    a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
+    w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
+    sss & \in \SSS &\defined  &\WORD \maps \text{ShareState} \\
+    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times (\VMID \times \PID +\\
+                                           &&&\mathbb{N} \times \text{list}(\VMID \times \PID)) \times \text{FunctionID}\\
+      & \;\;\;\; \text{SysRegs} &\derived & \mathtt{NV} | \mathtt{CNT\_VAL} | \mathtt{CNT\_CTL} | \dots \\
+         & \;\;\;\; \text{GenRegs} &\derived & \mathtt{pc} | \mathtt {R0} | \mathtt{R1} | \dots
+  \end{align*}
+  \caption{Execution Configuration: Global Memory and Share States.}
+\end{figure}
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Syntax and Instructions}
+\begin{figure}
+  \begin{align*}
+    \mu &\in \MODE &\derived & \mathtt{ExecInstr} \; v | \mathtt{Repeat} \; \mu | \mathtt{Done} \; \theta \\
+    \theta &\in \DONE &\derived & \NXT{v} | \mathtt{Halt} | \mathtt{Fail}\\
+    \\
+    instr & \in  \INSTR &\derived & \instrm{br} \; r |\instrm{bne} \; r \; r |
+                                    \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
+                                    \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r \\
+        & & & | \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r | \instrm{fail} | \instrm{halt} | \instrm{hvc} |\instrm{mrs} \; r\;r | \instrm{msr} \; r \; r\\
+    fid & \in \text{FunctionID} &\derived & \tt{RUN} ~|~\tt{YIELD} ~|~\tt{MSG\_WAIT} ~|~\tt{MSG\_SEND}
+                                            ~|~\tt{MSG\_POLL}~ \\
+        &&&|~\tt{MEM\_DONATE}~|~\tt{MEM\_RETRIEVE\_REQ} ~|~ \tt{SUCC} ~|~\tt{ERROR}\\
+        &&&|~\tt{MEM\_RETRIEVE\_RESP}~|~\tt{MEM\_SHARE} ~|~ \tt{MEM\_LEND}\\
+        &&&|~\tt{MEM\_RECLAIM}~|~\tt{MEM\_RELINQUISH}\\
+    err & \in \text{ErrorCode} &\derived & \tt{INV\_PARA} ~|~\tt{DENIED} ~|~\tt{BUSY}~|~\tt{RETRY}
+  \end{align*}
+  \caption{Syntax and Machine Instructions}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{Rules(Selected)}
+ TODO
+\end{frame}
+
+\begin{frame}
+  \frametitle{Rules(Selected)}
+ TODO
+\end{frame}
+
+
+
+\end{document}
