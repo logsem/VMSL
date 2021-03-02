@@ -17,6 +17,37 @@
          every state/.style={thick, fill=gray!10},
          initial text=$ $,
          }
+         
+\newenvironment*{returnanother}[6][1]{
+  \stepcounter{seqlevel}
+  \stepcounter{callevel} % push
+  \path
+  (#2)+(0,-\theseqlevel*\unitfactor-0.7*\unitfactor) node (cf\thecallevel) {}
+  (#4.\threadbias)+(0,-\theseqlevel*\unitfactor-0.7*\unitfactor) node (ct\thecallevel) {};
+  \draw[->,>=triangle 60] ({cf\thecallevel}) -- (ct\thecallevel)
+  node[midway, above] {#3};
+  \def\l\thecallevel{#1}
+  \def\f\thecallevel{#6}
+  \def\t\thecallevel{#4}
+  \def\returnvalue{#5}
+  \tikzstyle{threadstyle}+=[instcolor#2]
+    \addtocounter{seqlevel}{1}
+  \path
+  (\f\thecallevel)+(0,-\theseqlevel*\unitfactor-0.7*\unitfactor) node (rf\thecallevel) {}
+  (\t\thecallevel.\threadbias)+(0,-\theseqlevel*\unitfactor-0.7*\unitfactor) node (rt\thecallevel) {};
+  \draw[dashed,->,>=angle 60] ({rt\thecallevel}) -- (rf\thecallevel)
+  node[midway, above]{\returnvalue};
+  \drawthread{ct\thecallevel}{rt\thecallevel}
+}
+{
+\addtocounter{seqlevel}{\thecallevel}
+%   \path
+%   (\f\thecallevel.\threadbias)+(0,-\theseqlevel*\unitfactor+\unitfactor+\l\thecallevel*\unitfactor-0.7*\unitfactor) node (rrf\thecallevel) {}
+%   (\f\thecallevel.\threadbias)+(0,-\theseqlevel*\unitfactor-0.7*\unitfactor) node (rff\thecallevel) {};
+%  \drawthread{rrf\thecallevel}{rff\thecallevel}
+  \addtocounter{callevel}{-1} % pop
+  \addtocounter{seqlevel}{-1}
+}
 
 \begin{document}
 
@@ -165,13 +196,21 @@ hvc
     \begin{call}{VM0}{MSG\_SEND (1)}{Hyp}{SUCCESS}
     \end{call}
     
-    \begin{call}{VM0}{RUN (1)}{VM1}{YIELD}    
+    \begin{returnanother}{VM0}{RUN (1)}{Hyp}{}{VM1}    
         \begin{call}{VM1}{MSG\_WAIT}{Hyp}{MSG\_SEND}
         \end{call}
         
         \begin{call}{VM1}{MEM\_RETRIEVE\_REQ}{Hyp}{MEM\_RETRIEVE\_RESP}
         \end{call}
-    \end{call}
+    \end{returnanother}
+    
+    \begin{returnanother}{VM1}{YIELD}{Hyp}{}{VM0}
+    \end{returnanother}
+    
+%    \begin{returnanother}{VM0}{MEM\_DONATE (1)}{Hyp}{SUCCESS}{VM1}
+%      \begin{call}{VM1}{MEM\_DONATE (1)}{Hyp}{SUCCESS}
+%      \end{call}
+%    \end{returnanother}
         
 \end{sequencediagram}
 \end{figure}
