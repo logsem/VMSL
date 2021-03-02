@@ -401,17 +401,18 @@
     v_s = mm[\addr(pid_t,0)] \\ 
     w_f = mm[\addr(pid_t,1)] \\ 
     w_h=mm[\addr(pid_t,2)] \\ 
+    w_t = mm[\addr(pid_t,3)] \\ 
     w_c = mm[\addr(pid_t,4)] \\
     (\addr(pid_t,0) + w_l > \PPMAX \\
-    \lor w_h=0 \lor w_h[63]=0 \\
+    \lor w_h=0 \\
     \lor w_h \notin \text{dom}(sss) \\
-    ((v_s',w_f',w_t',entry,fid)=sss[w_h] \rightarrow
-    (\lor v_s' \ne \tv{mm[\addr(pid_t,0)]} \\
-    \lor w_t'\ne mm[\addr(pid_t,3)] \\
+    \lor ((v_s',w_f',w_t',entry,fid)=sss[w_h] \rightarrow
+    (v_s' \ne \tv{v_s} \\
+    \lor w_t'\ne w_t \\
     \lor w_f'[63:1]\ne 0 \\
     \lor w_c \ne 0 \\
     \lor (inr\ ls=entry \land forall (v_r, pid_d). (v_r, pid_d) \in ls \rightarrow v_r\ne v) \\
-    \lor (inl\ (v_r, pid_d) = entry \land v_r \ne v))))}
+    \lor (inl\ (v_r, pid_d) = entry \land v_r \ne v)))}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{ERROR};\\
