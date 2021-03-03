@@ -455,9 +455,12 @@
   \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
   w_l = rs_v[\reg{R1}]\\
   \pid_t = \delta_v.mb.tx\\
+  v_s = \tv{mm[\addr(pid_t,0)]} \\ 
+  w_f = mm[\addr(pid_t,1)] \\ 
+  w_h=mm[\addr(pid_t,2)] \\ 
+  w_t = mm[\addr(pid_t,3)] \\ 
+  w_c = mm[\addr(pid_t,4)] \\
   n = \tv{mm[\addr(\pid_t, 5)]}\\ 
-  w_f = mm[\addr(\pid_t, 1)]\\
-  w_h = mm[\addr(\pid_t, 2)]\\
   (w_l > len(\pid_t) \lor w_c \neq 1 \lor w_l \neq 6 \lor !\text{ValidVMID}(\delta s, n) \lor n = v \lor w_f[63:1] \ne 0 \lor w_h \ne 0)}
   {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
   [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -469,14 +472,9 @@
   {\text{AccessibleAddr}(\delta_v,a_i) \\
   \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
   \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
-  w_l = rs_v[\reg{R1}]\\ 
-  \pid_t=\delta_v.mb.tx\\ 
-  w_c=mm[\addr(\pid_t,4)]\\
-  w_l \le len(\pid_t) \\
-  w_c = 1\\
-  w_l = 6\\
+  v_s = \tv{mm[\addr(pid_t,0)]} \\
   \pid_d = \pid(mm[\addr(\pid_t, 6)])\\ 
-  (v \ne \tv{mm[\addr(\pid_t,0)]} \lor  !\text{OwnedExclPage}(\delta_v, \pid_d))}
+  (v \ne v_s \lor  !\text{OwnedExclPage}(\delta_v, \pid_d))}
   {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
   [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
   \null[v].rs[\reg{R0}]=\efid{ERROR};\\
@@ -487,20 +485,22 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
-    w_l = rs_v[\reg{R1}]\\ 
-    \pid_t=\delta_v.mb.tx\\ 
-    w_c=mm[\addr(pid_t,4)] \\
+    w_l = rs_v[\reg{R1}]\\
+    \pid_t = \delta_v.mb.tx\\
+    v_s = \tv{mm[\addr(pid_t,0)]} \\ 
+    w_f = mm[\addr(pid_t,1)] \\ 
+    w_h=mm[\addr(pid_t,2)] \\ 
+    w_t = mm[\addr(pid_t,3)] \\ 
+    w_c = mm[\addr(pid_t,4)] \\
+    n = \tv{mm[\addr(\pid_t, 5)]}\\ 
+    pid_d = \pid(mm[\addr(pid_t,6)]) \\ 
     \addr(pid_t,0) + w_l\le\PPMAX\\
     w_c = 1\\
     w_l = 6\\
-    v = \tv{mm[\addr(pid_t,0)]} \\
-    pid_d = \pid(mm[\addr(pid_t,6)]) \\ 
-    \text{OwnedExclPage}(\delta_v,pid_d) \\ 
-    n=\tv{mm[\addr(pid_t,w_o)]} \\
+    \text{OwnedExclPage}(\delta_v,pid_d) \\
     \text{ValidVMID}(\delta s,n) \\ 
-    n \ne v\\ 
-    w_f=mm[\addr(pid_t,1)] \\ 
-    mm[\addr(pid_t,2)] = 0 \\ 
+    n \ne v_s\\ 
+    w_h = 0 \\ 
     w_h \notin \text{dom}(sss)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -509,7 +509,7 @@
     \null[v].pt[pid_d]=(O,NA);\\
     \null[n].pt[pid_d]=(!O,NA)
     \end{array}}\right\},mm,\\ 
-    sss~\text{with}~\{[w_h]=(v,w_f,mm[\addr(pid_t,3)],inl\ (n,pid_d),\tt{MEM\_DONATE})\})}
+    sss~\text{with}~\{[w_h]=(v,w_f,w_t,inl\ (n,pid_d),\tt{MEM\_DONATE})\})}
     
     \end{mathpar}
 \end{figure}
@@ -545,9 +545,9 @@
     \null[\addr(pid_r,1)]=w_f';\\
     \null[\addr(pid_r,2)]=0;\\
     \null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\
-    \null[\addr(pid_r,4)]=5;\\
+    \null[\addr(pid_r,4)]=1;\\
     \null[\addr(pid_r,5)]=\tw{v};\\
-    \null[\addr(pid_r,6)]=\addr(pid_d,0)
+    \null[\addr(pid_r,6)]=\pid_d
     \end{array}}\right\},\text{remove}(sss,w_h))}
     
     \and \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-Zeroed]
@@ -578,9 +578,9 @@
     \null[\addr(pid_r,1)]=1;\\
     \null[\addr(pid_r,2)]=0;\\
     \null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\
-    \null[\addr(pid_r,4)]=5;\\
+    \null[\addr(pid_r,4)]=1;\\
     \null[\addr(pid_r,5)]=\tw{v};\\
-    \null[\addr(pid_r,6)]=\addr(pid_d,0)
+    \null[\addr(pid_r,6)]=\pid_d
     \end{array}}\right\},\text{remove}(sss,w_h))}
     
  \end{mathpar}
