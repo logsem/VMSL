@@ -4,6 +4,7 @@
 \usepackage{tikz}
 \usepackage{bytefield}
 \usepackage{pgf-umlsd}
+\usepackage{mathpartir}
 
 \usetikzlibrary{arrows,positioning,fit,shapes,automata}
 
@@ -82,6 +83,11 @@
 \newcommand{\TRUE}{\mathtt{True}}
 \newcommand{\FALSE}{\mathtt{False}}
 
+\newcommand{\reg}[1]{\texttt{{#1}}}
+\newcommand{\ta}[1]{\text{to\_addr}({#1})}
+\newcommand{\tw}[1]{\text{to\_word}({#1})}
+\newcommand{\tv}[1]{\text{to\_vmid}({#1})}
+\newcommand{\DNNXT}[1]{\DN{\NXT{ {#1} }}}
 
 \begin{document}
 
@@ -89,13 +95,13 @@
 
 
 
-\begin{frame}
-  \frametitle{Settings of Hafnium}
-  \begin{figure}
-\input{mem-trans.tikz}
-\caption{Stage-2 Memory Translation}
-\end{figure}
-\end{frame}
+% \begin{frame}
+%   \frametitle{Settings of Hafnium}
+%   \begin{figure}
+% \input{mem-trans.tikz}
+% \caption{Stage-2 Memory Translation}
+% \end{figure}
+% \end{frame}
 
 \begin{frame}
   \frametitle{Settings of Hafnium}
@@ -203,14 +209,14 @@
         \wordbox{1}{Flag}\\
         \wordbox{1}{Handle}\\
      %   \wordbox{1}{Tag}\\
-        \wordbox{1}{$v$}\\
-        \begin{rightwordgroup}{$v$}
+        \wordbox{1}{Counter $c$}\\
+        \begin{rightwordgroup}{$c$}
         \wordbox{1}{Rcvr VMID 1}\\
         \wordbox{1}{Offset 1}\\
         \skippedwords
         \end{rightwordgroup}\\
         \begin{rightwordgroup}{Offset 1}
-          \wordbox{1}{$n^1$}
+          \wordbox{1}{Counter $n_{1}$}
         \end{rightwordgroup}\\
         \begin{rightwordgroup}{$n_{1}$}
             \wordbox{1}{PID $1_1$}\\
@@ -284,19 +290,53 @@
         &&&|~\tt{MEM\_RECLAIM}~|~\tt{MEM\_RELINQUISH}\\
     err & \in \text{ErrorCode} &\derived & \tt{INV\_PARA} ~|~\tt{DENIED} ~|~\tt{BUSY}~|~\tt{RETRY}
   \end{align*}
-  \caption{Syntax and Machine Instructions}
+  \caption{Syntax and machine instructions}
 \end{figure}
 
 \end{frame}
 
 \begin{frame}
   \frametitle{Rules(Selected)}
- TODO
+\begin{figure}[!htb]
+  \begin{mathpar}
+    \inferrule[RepeatExec] {(\EI{v},\, \phi) \rightarrow (\DN{\theta} ,\,
+      \phi')} {(\RP{\EI{v}} ,\, \phi) \rightarrow (\RP{\DN{\theta}} ,\, \phi')}
+    \and \inferrule[RepeatHalt/Fail] {\theta = \mathtt{Halt} \lor \theta =
+      \mathtt{Fail}} {(\RP{\DN{\theta}} ,\, \phi) \rightarrow (\DN{\theta} ,\,
+      \phi)}
+    \and \inferrule[RepeatNext]{} {(\RP{\DN{\NXT{v}}} ,\, \phi)
+      \rightarrow (\RP{\EI{v}} ,\, \phi)}
+  \end{mathpar}
+  \caption{Reduction steps}
+\end{figure}
 \end{frame}
 
 \begin{frame}
   \frametitle{Rules(Selected)}
- TODO
+  \begin{figure}
+  \begin{mathpar}
+    \inferrule[Fail-UnaccessibleInstr]
+    {!\text{AccessibleAddr}(\delta_v,a_i)}
+    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Fail}} ,\, \Phi)}
+
+    \inferrule[Exec-halt]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(\Phi.mm[a_i],\mathtt{halt})}
+    {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Halt}} ,\, \Phi)}
+
+    \inferrule[Exec-mov-Succ]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{mov}~rn~w) \\ rn\in \text{GenRegs}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\DNNXT{v} ,\, (\delta s \text{ with }\{ [v].rs[rn]=w ; [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1\},mm,sss))}
+  \end{mathpar}
+  \caption{Rules for basic instructions}
+  \end{figure}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Rules(Selected)}
+  \begin{figure}
+
+  \caption{TODO}
+  \end{figure}
 \end{frame}
 
 
