@@ -710,49 +710,52 @@
     \null \forall pid. pid\in ps \land \big(\exists v_r,ps'. v_r \ne v \land (v_r,ps')\in pgs \rightarrow pid\in ps'\big) \rightarrow [v].pt[pid]=(!O,SA);\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(!O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,??,-)
+    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
     \end{array}}\right\},\\
     mm~\text{with}~\left\{{\begin{array}{l}
     pid_r[0]=\tw{v_s};\\
-    \null pid_r[1]=w_f';\\
+    \null pid_r[1]=w_f \& 0\text{x}10;\\
     \null pid_r[2]=0;\\
     \null pid_r[3]=w_t;\\
-    \null pid_r[4]=??;\\
-    \null pid_r[5]=??;\\
-    \null pid_r[6]=??
+    \null pid_r[4]=1;\\
+    \null pid_r[5]=\tw{v};\\
+    \null pid_r[6]=7;\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
     \end{array}}\right\},sss with\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
 
     \and \inferrule[Exec-hvc-Succ-MemLend-MemRetrieveResp-Zeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
-    rs_v[\reg{R1}]\le\PPMAX\\
-    pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(pid_t,2)]\\ 
-    w_h[63]=1 \land w_h \in \text{dom}(sss) \\
-    (v_s,w_f',mm[\addr(pid_t,3)], inl\ (v_r, pid_d),\tt{MEM\_LEND})=sss[w_h]\\
-    v_s = \tv{mm[\addr(pid_t,0)]} \\ 
-    mm[\addr(pid_t,1)]=1 \\ 
-    mm[\addr(pid_t,4)]=0\\ 
-    v_r = v \\ 
+    w_l=rs_v[\reg{R1}]\\
+    pid_t=\delta_v.mb.tx\\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,1,w_h,w_t,mm)\\
+    w_h \in \text{dom}(sss) \\
+    (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_LEND})=sss[w_h]\\
+    %\text{len}(pgs)=1 \\
+    (v,ps) \in pgs \\
+    v\notin vrs
     \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
     \null[v].rs[\reg{R2}]=7;\\
-    \null[v].pt[pid_d]=(!O,EA);\\
-    \null[v_s].pt[pid_d]=(O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7,-)\end{array}}\right\},\\
-    \text{zero}(mm,pid_d)~\text{with}~\left\{{\begin{array}{l}
-    [\addr(pid_r,0)]=\tw{v_s};\\
-    \null[\addr(pid_r,1)]=1;\\
-    \null[\addr(pid_r,2)]=0;\\
-    \null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\
-    \null[\addr(pid_r,4)]=5;\\
-    \null[\addr(pid_r,5)]=\tw{v};\\
-    \null[\addr(pid_r,6)]=\addr(pid_d,0)
-    \end{array}}\right\},sss)}
+    \null \forall pid. pid\in ps \land \big(\exists v_r,ps'. v_r \ne v \land (v_r,ps')\in pgs \rightarrow pid\in ps'\big) \rightarrow [v].pt[pid]=(!O,SA);\\
+    \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(!O,EA);\\
+    \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,NA);\\
+    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \end{array}}\right\},\\
+    \text{zero}(mm,ps)~\text{with}~\left\{{\begin{array}{l}
+    pid_r[0]=\tw{v_s};\\
+    \null pid_r[1]=0\text{x}11;\\
+    \null pid_r[2]=0;\\
+    \null pid_r[3]=w_t;\\
+    \null pid_r[4]=1;\\
+    \null pid_r[5]=\tw{v};\\
+    \null pid_r[6]=7;\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \end{array}}\right\},sss with\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
 
   \end{mathpar}
 \end{figure}
