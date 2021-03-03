@@ -159,6 +159,7 @@
       \delta_v&=\delta s[v] & \text{state of vm with id }v.\\
       a_i&=\delta_v.rs[\mathtt{pc}] & \text{address of instruction}. \\
       rs_v&=\delta_v.rs & \text{registers of vm }v.\\
+      pt_{v}&=\delta_v.pt & \text{pagetable of vm }v.\\
       pid[o] &=\text{addr}(pid,o) & \text{address at offset }o \text{ in page }pid.
     \end{align*}
     \\
@@ -637,16 +638,17 @@
 \begin{figure}
   \begin{mathpar}
 
-    \inferrule[Exec-hvc-Succ-MemLend-Succ]
+    \inferrule[Exec-hvc-Succ-MemLend-Succ-NotZeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_LEND})\\ 
     w_l = rs_v[\reg{R1}]\\
     w_l\le\PPMAX\\
     pid_t=\delta_v.mb.tx\\ 
-    \text{ValidLendDescriptor}(pid_t,w_l,v,w_f,0,w_t,w_c,pgs,mm,\delta s)\\
+    \text{ValidLendDescriptor}(pid_t,w_l,v,0,0,w_t,w_c,pgs,mm,\delta s)\\
     w_h \notin \text{dom}(sss) \\
-    w_h[63]=1}
+    w_h[63]=1\\
+    }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
@@ -654,7 +656,27 @@
     \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v].pt[pid]=(O,NA);\\
     \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v_r].pt[pid]=(!O,NA)
     \end{array}}\right\},mm,\\ 
-    sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,\tt{MEM\_LEND})\}))}
+    sss~\text{with}~\{[w_h]=(v,0,w_t,[],pgs,\tt{MEM\_LEND})\}))}
+
+    \and \inferrule[Exec-hvc-Succ-MemLend-Succ-Zeroed]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
+    \text{IsFFA}(\delta_v,\tt{MEM\_LEND})\\
+    w_l = rs_v[\reg{R1}]\\
+    w_l\le\PPMAX\\
+    pid_t=\delta_v.mb.tx\\
+    \text{ValidLendDescriptor}(pid_t,w_l,v,1,0,w_t,w_c,pgs,mm,\delta s)\\
+    w_h \notin \text{dom}(sss) \\
+    w_h[63]=1
+    }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
+    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
+    \null[v].rs[\reg{R0}]=\efid{SUCC};\\
+    \null[v].rs[\reg{R2}]=w_h;\\
+    \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v].pt[pid]=(O,NA);\\
+    \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v_r].pt[pid]=(!O,NA)\end{array}}\right\},
+    \text{zero}(mm,[pid| \exists v_r. pid\in pgs[v_r]]),\\
+    sss~\text{with}~\{[w_h]=(v,1,w_t,[],pgs,\tt{MEM\_LEND})\}))}
  
     % \and \inferrule[Exec-hvc-Succ-MemLend-Succ-Multiple-Borrowers]
     % {\text{AccessibleAddr}(\delta_v,a_i) \\
@@ -708,7 +730,7 @@
     (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_LEND})=sss[w_h]\\
     %\text{len}(pgs)=1 \\
     (v,ps) \in pgs \\
-    v\notin vrs
+    v\notin vrs\\
     \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
@@ -729,7 +751,7 @@
     \null pid_r[5]=\tw{v};\\
     \null pid_r[6]=7;\\
     \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
-    \end{array}}\right\},sss with\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
+    \end{array}}\right\},sss~\text{with}\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
 
     \and \inferrule[Exec-hvc-Succ-MemLend-MemRetrieveResp-Zeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
@@ -763,7 +785,7 @@
     \null pid_r[5]=\tw{v};\\
     \null pid_r[6]=7;\\
     \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
-    \end{array}}\right\},sss with\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
+    \end{array}}\right\},sss ~\text{with}\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
 
   \end{mathpar}
 \end{figure}
@@ -870,7 +892,7 @@
     \text{ValidRelinquishDescriptor}(pid_t,w_h,w_f,mm)\\
     w_h \in \text{dom}(sss)\\
     (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
-    v \notin vrs \lor (\exists pid. pid\in pgs[v] \rightarrow [v].pt[pid] \notin \{(!O, EA),(!O,SA)\})}
+    v \notin vrs \lor (\exists pid. pid\in pgs[v] \rightarrow pt_v[pid] \notin \{(!O, EA),(!O,SA)\})}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -888,14 +910,14 @@
     w_h \in \text{dom}(sss)\\
     (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
     v \in vrs \\
-    \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid] \in \{(!O, EA),(!O,SA)\}}
+    \forall pid. pid\in pgs[v] \rightarrow pt_v[pid] \in \{(!O, EA),(!O,SA)\}}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
     \null \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid]=(!O,NA);\\
     \end{array}}\right\},\\
-    mm, sss \text{with}\{ [w_h] = (v_s,w_f,w_t,vrs\backslash \{v\}, pgs,f)\})}
+    mm, sss~\text{with}\{ [w_h] = (v_s,w_f,w_t,vrs\backslash \{v\}, pgs,f)\})}
 
 
     \and \inferrule[Exec-hvc-MemRelinquish-Succ-Zeroed]
@@ -907,14 +929,14 @@
     w_h \in \text{dom}(sss)\\
     (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
     v \in vrs \\
-    \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid] \in \{(!O, EA),(!O,SA)\}}
+    \forall pid. pid\in pgs[v] \rightarrow pt_v[pid] \in \{(!O, EA),(!O,SA)\}}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
     \null \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid]=(!O,NA);\\
     \end{array}}\right\},\\
-    \text{zero}(mm,pgs[v]), sss \text{with}\{ [w_h] = (v_s,w_f,w_t,vrs\backslash \{v\}, pgs,f)\})}
+    \text{zero}(mm,pgs[v]), sss~\text{with}\{ [w_h] = (v_s,w_f,w_t,vrs\backslash \{v\}, pgs,f)\})}
   
     % \and \inferrule[Exec-hvc-MemRelinquish-Succ-Multiple-Borrowers]
     % {\text{AccessibleAddr}(\delta_v,a_i) \\
@@ -950,8 +972,9 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RECLAIM})\\
-    w_h=comb([v].rs[\reg{R1}], [v].rs[\reg{R2}])\\ 
-    w_h \not \in \text{dom}(sss)}
+    w_h=comb(rs_v[\reg{R1}], rs_v[\reg{R2}])\\
+    w_f=rs_v[\reg{R3}]\\
+    w_h \not \in \text{dom}(sss) \lor w_f[63:1] \ne 0}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -960,13 +983,17 @@
     \end{array}}\right\},\\
     mm, sss)}
     
-    \inferrule[Exec-hvc-Reclaim-Error-Denied-TODO]
+    \inferrule[Exec-hvc-Reclaim-Error-Denied]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RECLAIM})\\
-    w_h=comb([v].rs[\reg{R1}], [v].rs[\reg{R2}])\\ 
-    (((v,w_f',w_t', inl\ (v_r, \pid_d), fid)=sss[w_h] \rightarrow [v].pt[\pid_d] \ne (O, NA)) \lor \\
-    (v,w_f',w_t', inr\ (0, ls), fid)=sss[w_h] \rightarrow [v].pt[\pid_d] \ne (O, SA)))}
+    w_h=comb(rs_v[\reg{R1}], rs_v[\reg{R2}])\\
+    w_f=rs_v[\reg{R3}]\\
+    w_h \in \text{dom}(sss)\\
+    w_f[63:1] = 0\\
+    (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h]\\
+    %\big(\exists pid, v_r. pid \in pgs[v_r] \rightarrow pt_{v_r}[pid] \ne (!O, NA)\big) \lor
+    vrs \ne []}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -979,17 +1006,20 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RECLAIM})\\
-    w_h=comb([v].rs[\reg{R1}], [v].rs[\reg{R2}])\\ 
-    w_f=[v].rs[\reg{R3}]\\
-    w_f = 0\\
+    w_h=comb(rs_v[\reg{R1}], rs_v[\reg{R2}])\\
+    w_f=rs_v[\reg{R3}]\\
     w_h \in \text{dom}(sss) \\
-    (((v,w_f',w_t', inl\ (v_r, pid_d), fid)=sss[w_h] \land [v].pt[pid_d] = (O, NA)) \lor \\
-    (v,w_f',w_t', inr\ (0, ls), fid)=sss[w_h] \land [v].pt[pid_d] = (O, SA)))}
+    w_f = 0\\
+    (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h]\\
+    % \big(\forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow pt_{v_r}[pid] = (!O, NA)\big)\\
+    % perhaps vrs = [] is enough?
+    vrs = []\\
+   }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
-    \null[v].pt[pid_d]=(O,EA);\\
+    \null \forall pid. \exist v_r. pid\in pgs[v_r] \rightarrow [v].pt[pid]=(O,EA);\\
     \end{array}}\right\},\\
     mm, remove(sss, w_h))}
     
@@ -997,19 +1027,22 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RECLAIM})\\
-    w_h=comb([v].rs[\reg{R1}], [v].rs[\reg{R2}])\\
-    w_f=[v].rs[\reg{R3}]\\
-    w_f = 1\\
+    w_h=comb(rs_v[\reg{R1}], rs_v[\reg{R2}])\\
+    w_f=rs_v[\reg{R3}]\\
     w_h \in \text{dom}(sss) \\
-    (((v,w_f',w_t', inl\ (v_r, pid_d), fid)=sss[w_h] \land [v].pt[pid_d] = (O, NA)) \lor \\
-    (v,w_f',w_t', inr\ (0, ls), fid)=sss[w_h] \land [v].pt[pid_d] = (O, SA)))}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
+    w_f = 1\\
+    (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h]\\
+    % \big(\forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow pt_{v_r}[pid] = (!O, NA)\big)\\
+    % perhaps vrs = [] is enough?
+    vrs = []\\
+   }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
-    \null[v].pt[pid_d]=(O,EA);\\
+    \null \forall pid. \exist v_r. pid\in pgs[v_r] \rightarrow [v].pt[pid]=(O,EA);\\
     \end{array}}\right\},\\
-    \text{zero}(mm,pid_d)~, remove(sss, w_h))}
+    zero(mm,[pid|\exists v_r. pid\in pgs[v_r]]), \text{remove}(sss, w_h))}
 
   \end{mathpar}
 \end{figure}
