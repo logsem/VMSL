@@ -833,7 +833,10 @@
 % \end{figure}
 
 \subsubsection{Relinquish}
-
+  \begin{align*}
+  \text{ValidRelinquishDescriptor}(p,w_l,w_h,w_f,mm)\defined &~~\\
+  w_{h}=mm[p[0]] \land w_{f}=mm[p[1]] &~~//\text{main fields}
+  \end{align*}
 \begin{figure}[hbt!]
   \begin{mathpar}
   
@@ -842,7 +845,7 @@
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc})\\
     \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
     \pid_t=\delta_v.mb.tx\\ 
-    !\text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,mm)\lor w_h \notin \text{dom}(sss)}
+    !\text{ValidRelinquishDescriptor}(pid_t,w_h,w_f,mm)\lor w_h \notin \text{dom}(sss)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -856,7 +859,7 @@
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc})\\
     \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
     \pid_t=\delta_v.mb.tx\\ 
-    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,mm)\\
+    \text{ValidRelinquishDescriptor}(pid_t,w_h,w_f,mm)\\
     w_h \in \text{dom}(sss)\\
     (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
     v \notin vrs \lor (\exists pid. pid\in pgs[v] \rightarrow [v].pt[pid] \notin \{(!O, EA),(!O,SA)\})}
@@ -868,12 +871,12 @@
     \end{array}}\right\},\\
     mm, sss)}
   
-    \and \inferrule[Exec-hvc-MemRelinquish-Succ]
+    \and \inferrule[Exec-hvc-MemRelinquish-Succ-NotZeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
     pid_t=\delta_v.mb.tx\\ 
-    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,mm)\\
+    \text{ValidRelinquishDescriptor}(pid_t,w_h,0,mm)\\
     w_h \in \text{dom}(sss)\\
     (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
     v \in vrs \\
@@ -885,6 +888,25 @@
     \null \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid]=(!O,NA);\\
     \end{array}}\right\},\\
     mm, sss \text{with}\{ [w_h] = (v_s,w_f,w_t,vrs\backslash \{v\}, pgs,f)\})}
+
+
+    \and \inferrule[Exec-hvc-MemRelinquish-Succ-Zeroed]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
+    \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
+    pid_t=\delta_v.mb.tx\\
+    \text{ValidRelinquishDescriptor}(pid_t,w_h,1,mm)\\
+    w_h \in \text{dom}(sss)\\
+    (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
+    v \in vrs \\
+    \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid] \in \{(!O, EA),(!O,SA)\}}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\
+    (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
+    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
+    \null[v].rs[\reg{R0}]=\efid{SUCC};\\
+    \null \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid]=(!O,NA);\\
+    \end{array}}\right\},\\
+    \text{zero}(mm,pgs[v]), sss \text{with}\{ [w_h] = (v_s,w_f,w_t,vrs\backslash \{v\}, pgs,f)\})}
   
     % \and \inferrule[Exec-hvc-MemRelinquish-Succ-Multiple-Borrowers]
     % {\text{AccessibleAddr}(\delta_v,a_i) \\
@@ -930,7 +952,7 @@
     \end{array}}\right\},\\
     mm, sss)}
     
-    \inferrule[Exec-hvc-Reclaim-Error-Denied]
+    \inferrule[Exec-hvc-Reclaim-Error-Denied-TODO]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RECLAIM})\\
