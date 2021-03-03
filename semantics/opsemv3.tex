@@ -89,6 +89,10 @@
 \begin{document}
 %\maketitle
 
+\tableofcontents
+
+\section{VM definitions}
+
 \begin{figure}[!htb]
   \begin{align*}
     \Phi &\in \CONF &\defined &\text{States} \times \MEM \times \SSS \\
@@ -105,7 +109,7 @@
     a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
     sss & \in \SSS &\defined  &\WORD \maps \text{ShareState} \\
-    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times (\VMID \times \PID + (\mathbb{N} \times [\VMID \times \PID])) \times \text{FunctionID}\\
+    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times ((\VMID \times \PID) + (\mathbb{N} \times [\VMID \times \PID])) \times \text{FunctionID}\\
     v,n & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
       & \;\;\;\; \OS & \derived & O | !O \\
       & \;\;\;\; \AS & \derived & NA | EA | SA \\
@@ -176,6 +180,8 @@
       \text{ValidVMID}(\delta s,n) &\defined n<\text{len}(\delta s)
       \end{align*}
   \end{figure}
+
+\section{Assembly instructions}
 
 \begin{figure}
   \begin{mathpar}
@@ -351,7 +357,7 @@
 
     \and \inferrule[Exec-hvc-Succ-MsgSend-Succ-Primary]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ \text{ValidVMID}(\delta s,n)\\w_l=rs_v[\reg{R2}]\\w_l\le\PPMAX \\ \delta_n.mb.rx=(pid_r,\FALSE,-,-)\\\delta_v.mb.tx=pid_t \\v=0}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[n].mb.rx=(pid_r,\TRUE,w_l,v)\end{array}}\right\},\text{memcpy}(mm,pid_t,pid_r,w_l),sss))}
+    {(\EI{0} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[0].rs[\reg{pc}]=rs_0[\reg{pc}]+1;\\\null[0].rs[\reg{R0}]=\efid{SUCC};\\\null[n].mb.rx=(pid_r,\TRUE,w_l,0)\end{array}}\right\},\text{memcpy}(mm,pid_t,pid_r,w_l),sss))}
 
     \and \inferrule[Exec-hvc-Succ-MsgSend-Error-Busy]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_SEND})\\n = \text{to\_vmid}(rs_v[\reg{R1}])\\ \text{ValidVMID}(\delta s,n)\\ \delta_n.mb.rx=(-,\TRUE,-,-)}
@@ -395,17 +401,18 @@
     v_s = mm[\addr(pid_t,0)] \\ 
     w_f = mm[\addr(pid_t,1)] \\ 
     w_h=mm[\addr(pid_t,2)] \\ 
+    w_t = mm[\addr(pid_t,3)] \\ 
     w_c = mm[\addr(pid_t,4)] \\
     (\addr(pid_t,0) + w_l > \PPMAX \\
-    \lor w_h=0 \lor w_h[63]=0 \\
+    \lor w_h=0 \\
     \lor w_h \notin \text{dom}(sss) \\
-    ((v_s',w_f',w_t',entry,fid)=sss[w_h] \rightarrow
-    (\lor v_s' \ne \tv{mm[\addr(pid_t,0)]} \\
-    \lor w_t'\ne mm[\addr(pid_t,3)] \\
+    \lor ((v_s',w_f',w_t',entry,fid)=sss[w_h] \rightarrow
+    (v_s' \ne \tv{v_s} \\
+    \lor w_t'\ne w_t \\
     \lor w_f'[63:1]\ne 0 \\
     \lor w_c \ne 0 \\
     \lor (inr\ ls=entry \land forall (v_r, pid_d). (v_r, pid_d) \in ls \rightarrow v_r\ne v) \\
-    \lor (inl\ (v_r, pid_d) = entry \land v_r \ne v))))}
+    \lor (inl\ (v_r, pid_d) = entry \land v_r \ne v)))}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{ERROR};\\
@@ -448,9 +455,12 @@
   \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
   w_l = rs_v[\reg{R1}]\\
   \pid_t = \delta_v.mb.tx\\
+  v_s = \tv{mm[\addr(pid_t,0)]} \\ 
+  w_f = mm[\addr(pid_t,1)] \\ 
+  w_h=mm[\addr(pid_t,2)] \\ 
+  w_t = mm[\addr(pid_t,3)] \\ 
+  w_c = mm[\addr(pid_t,4)] \\
   n = \tv{mm[\addr(\pid_t, 5)]}\\ 
-  w_f = mm[\addr(\pid_t, 1)]\\
-  w_h = mm[\addr(\pid_t, 2)]\\
   (w_l > len(\pid_t) \lor w_c \neq 1 \lor w_l \neq 6 \lor !\text{ValidVMID}(\delta s, n) \lor n = v \lor w_f[63:1] \ne 0 \lor w_h \ne 0)}
   {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
   [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -462,14 +472,9 @@
   {\text{AccessibleAddr}(\delta_v,a_i) \\
   \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
   \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
-  w_l = rs_v[\reg{R1}]\\ 
-  \pid_t=\delta_v.mb.tx\\ 
-  w_c=mm[\addr(\pid_t,4)]\\
-  w_l \le len(\pid_t) \\
-  w_c = 1\\
-  w_l = 6\\
+  v_s = \tv{mm[\addr(pid_t,0)]} \\
   \pid_d = \pid(mm[\addr(\pid_t, 6)])\\ 
-  (v \ne \tv{mm[\addr(\pid_t,0)]} \lor  !\text{OwnedExclPage}(\delta_v, \pid_d))}
+  (v \ne v_s \lor  !\text{OwnedExclPage}(\delta_v, \pid_d))}
   {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
   [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
   \null[v].rs[\reg{R0}]=\efid{ERROR};\\
@@ -480,20 +485,22 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
-    w_l = rs_v[\reg{R1}]\\ 
-    \pid_t=\delta_v.mb.tx\\ 
-    w_c=mm[\addr(pid_t,4)] \\
+    w_l = rs_v[\reg{R1}]\\
+    \pid_t = \delta_v.mb.tx\\
+    v_s = \tv{mm[\addr(pid_t,0)]} \\ 
+    w_f = mm[\addr(pid_t,1)] \\ 
+    w_h=mm[\addr(pid_t,2)] \\ 
+    w_t = mm[\addr(pid_t,3)] \\ 
+    w_c = mm[\addr(pid_t,4)] \\
+    n = \tv{mm[\addr(\pid_t, 5)]}\\ 
+    pid_d = \pid(mm[\addr(pid_t,6)]) \\ 
     \addr(pid_t,0) + w_l\le\PPMAX\\
     w_c = 1\\
     w_l = 6\\
-    v = \tv{mm[\addr(pid_t,0)]} \\
-    pid_d = \pid(mm[\addr(pid_t,6)]) \\ 
-    \text{OwnedExclPage}(\delta_v,pid_d) \\ 
-    n=\tv{mm[\addr(pid_t,w_o)]} \\
+    \text{OwnedExclPage}(\delta_v,pid_d) \\
     \text{ValidVMID}(\delta s,n) \\ 
-    n \ne v\\ 
-    w_f=mm[\addr(pid_t,1)] \\ 
-    mm[\addr(pid_t,2)] = 0 \\ 
+    n \ne v_s\\ 
+    w_h = 0 \\ 
     w_h \notin \text{dom}(sss)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -502,7 +509,7 @@
     \null[v].pt[pid_d]=(O,NA);\\
     \null[n].pt[pid_d]=(!O,NA)
     \end{array}}\right\},mm,\\ 
-    sss~\text{with}~\{[w_h]=(v,w_f,mm[\addr(pid_t,3)],inl\ (n,pid_d),\tt{MEM\_DONATE})\})}
+    sss~\text{with}~\{[w_h]=(v,w_f,w_t,inl\ (n,pid_d),\tt{MEM\_DONATE})\})}
     
     \end{mathpar}
 \end{figure}
@@ -538,9 +545,9 @@
     \null[\addr(pid_r,1)]=w_f';\\
     \null[\addr(pid_r,2)]=0;\\
     \null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\
-    \null[\addr(pid_r,4)]=5;\\
+    \null[\addr(pid_r,4)]=1;\\
     \null[\addr(pid_r,5)]=\tw{v};\\
-    \null[\addr(pid_r,6)]=\addr(pid_d,0)
+    \null[\addr(pid_r,6)]=\pid_d
     \end{array}}\right\},\text{remove}(sss,w_h))}
     
     \and \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-Zeroed]
@@ -571,9 +578,9 @@
     \null[\addr(pid_r,1)]=1;\\
     \null[\addr(pid_r,2)]=0;\\
     \null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\
-    \null[\addr(pid_r,4)]=5;\\
+    \null[\addr(pid_r,4)]=1;\\
     \null[\addr(pid_r,5)]=\tw{v};\\
-    \null[\addr(pid_r,6)]=\addr(pid_d,0)
+    \null[\addr(pid_r,6)]=\pid_d
     \end{array}}\right\},\text{remove}(sss,w_h))}
     
  \end{mathpar}
