@@ -842,9 +842,7 @@
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc})\\
     \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
     \pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(\pid_t,0)]\\ 
-    w_f=mm[\addr(\pid_t,1)]\\
-    w_h \not \in \text{dom}(sss)}
+    !\text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,mm)\lor w_h \notin \text{dom}(sss)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -858,10 +856,10 @@
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc})\\
     \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
     \pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(\pid_t,0)]\\ 
-    w_f=mm[\addr(\pid_t,1)]\\
-    (((v_s,w_f',w_t', inl\ (v_r, \pid_d), fid)=sss[w_h] \rightarrow (v_r \ne v \lor [v_r].pt[\pid_d] \ne (!O, EA))) \\\lor
-    ((v_s,w_f',w_t', inr\ (S n, ls), fid)=sss[w_h] \land \exists i. i \in ls, i = (v_r, \pid_d) \rightarrow (v_r \ne v \lor [v_r].pt[\pid_d] \ne (!O, SA))))}
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,mm)\\
+    w_h \in \text{dom}(sss)\\
+    (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
+    v \notin vrs \lor (\exists pid. pid\in pgs[v] \rightarrow [v].pt[pid] \notin \{(!O, EA),(!O,SA)\})}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -870,43 +868,43 @@
     \end{array}}\right\},\\
     mm, sss)}
   
-    \and \inferrule[Exec-hvc-MemRelinquish-Succ-One-Borrower]
+    \and \inferrule[Exec-hvc-MemRelinquish-Succ]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
     pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(pid_t,0)]\\ 
-    w_f=mm[\addr(pid_t,1)]\\
-    w_h \in \text{dom}(sss) \\
-    (v_s,w_f',w_t', inl\ (v_r, pid_d), fid)=sss[w_h]\\
-    [v_r].pt[pid_d] = (!O, EA)}
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,mm)\\
+    w_h \in \text{dom}(sss)\\
+    (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h] \\
+    v \in vrs \\
+    \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid] \in \{(!O, EA),(!O,SA)\}}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
-    \null[v].pt[pid_d]=(!O,NA);\\
+    \null \forall pid. pid\in pgs[v] \rightarrow [v].pt[pid]=(!O,NA);\\
     \end{array}}\right\},\\
-    mm, sss)}
+    mm, sss \text{with}\{ [w_h] = (v_s,w_f,w_t,vrs\backslash \{v\}, pgs,f)\})}
   
-    \and \inferrule[Exec-hvc-MemRelinquish-Succ-Multiple-Borrowers]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\
-    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
-    \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
-    pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(pid_t,0)]\\ 
-    w_f=mm[\addr(pid_t,1)]\\
-    w_h \in \text{dom}(sss) \\
-    (v_s,w_f',w_t', inr\ (S n, ls), fid)=sss[w_h]\\
-    \exists i. i \in ls, i = (v_r, pid_d)\\
-    v_r = v\\
-    [v_r].pt[pid_d] = (!O, SA)}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
-    (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
-    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
-    \null[v].rs[\reg{R0}]=\efid{SUCC};\\
-    \null[v].pt[pid_d]=(!O,NA);\\
-    \end{array}}\right\},\\
-    mm, sss[w_h]=(v_s,w_f',w_t', inr\ (n, ls), fid))}
+    % \and \inferrule[Exec-hvc-MemRelinquish-Succ-Multiple-Borrowers]
+    % {\text{AccessibleAddr}(\delta_v,a_i) \\
+    % \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
+    % \text{IsFFA}(\delta_v,\tt{MEM\_RELINQUISH})\\
+    % pid_t=\delta_v.mb.tx\\
+    % w_h=mm[\addr(pid_t,0)]\\
+    % w_f=mm[\addr(pid_t,1)]\\
+    % w_h \in \text{dom}(sss) \\
+    % (v_s,w_f',w_t', inr\ (S n, ls), fid)=sss[w_h]\\
+    % \exists i. i \in ls, i = (v_r, pid_d)\\
+    % v_r = v\\
+    % [v_r].pt[pid_d] = (!O, SA)}
+    % {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\
+    % (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
+    % [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
+    % \null[v].rs[\reg{R0}]=\efid{SUCC};\\
+    % \null[v].pt[pid_d]=(!O,NA);\\
+    % \end{array}}\right\},\\
+    % mm, sss[w_h]=(v_s,w_f',w_t', inr\ (n, ls), fid))}
     
   \end{mathpar}
 \end{figure}
