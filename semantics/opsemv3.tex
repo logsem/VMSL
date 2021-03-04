@@ -388,6 +388,20 @@
 
 \subsubsection{Retrieve}
 
+\begin{align*}
+  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s)\defined &~~//pgs \in \VMID \mapsto \text{list}(\PID)\\
+  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
+   w_{t} = mm[p[3]] \land w_{c} = mm[p[4]] \land &~~ \\
+  w_l \le \PPMAX \land w_{l} = 5+3*w_{c} + \Sigma_{(\_,v)\in pgs} \text{len}(v) \land \text{len}(pgs)=w_{c} \land &~~//\text{validate length} \\
+  \forall i. i < w_{c}\rightarrow \big(v_{r}^{i}=\tv{mm[p[5+2*i]]} \land w_{o}^{i} = mm[p[5+2*i+1]] \land &~~//\text{get all receivers $v_{r}^{i}$ and offsets to pids $w_{o}^{i}$ }\\
+  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
+  \text{len}(pgs[v_{r}^{i}])=w_{n}^{i}\land v_{r}^{i}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r}^{i})\big) &~~//\text{receivers are valid}
+  \\
+  \text{ValidReceiveDescriptor}(pid_t,w_l,v_{s},w_f,0,_,w_c,pgs,mm,\delta s) \defined & \\
+  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s) \land w_f[63:4] = 0 \land& \\
+   \forall pid. \exists (v_{r}). pid \in pgs[v_{r}] \land v_{r} = v)
+  \end{align*}
+
 \begin{figure}[hbt!]
   \begin{mathpar}
   
@@ -397,21 +411,7 @@
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\ 
     pid_t=\delta_v.mb.tx \\ 
     w_l = rs_v[\reg{R1}] \\ 
-    v_s = mm[\addr(pid_t,0)] \\ 
-    w_f = mm[\addr(pid_t,1)] \\ 
-    w_h=mm[\addr(pid_t,2)] \\ 
-    w_t = mm[\addr(pid_t,3)] \\ 
-    w_c = mm[\addr(pid_t,4)] \\
-    (\addr(pid_t,0) + w_l > \PPMAX \\
-    \lor w_h=0 \\
-    \lor w_h \notin \text{dom}(sss) \\
-    \lor ((v_s',w_f',w_t',entry,fid)=sss[w_h] \rightarrow
-    (v_s' \ne \tv{v_s} \\
-    \lor w_t'\ne w_t \\
-    \lor w_f'[63:1]\ne 0 \\
-    \lor w_c \ne 0 \\
-    \lor (inr\ ls=entry \land forall (v_r, pid_d). (v_r, pid_d) \in ls \rightarrow v_r\ne v) \\
-    \lor (inl\ (v_r, pid_d) = entry \land v_r \ne v)))}
+    !ValidReceiveDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{ERROR};\\
@@ -423,14 +423,8 @@
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
     rs_v[\reg{R1}]\le\PPMAX\\
-    pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(pid_t,2)]\\ 
-    w_h[63]=1 \land w_h \in \text{dom}(sss) \\ 
-    w_f'[63:1]=0 \\
-    (v_s',w_f',w_t',entry,fid)=sss[w_h]\\
-    mm[\addr(pid_t,4)]=0\\ 
-    inr\ (n, ls) =entry \rightarrow exists (v_r, pid_d). (v_r, pid_d) \in ls \land v_r= v\\ 
-    inl\ (v_r, pid_d) = entry \rightarrow v_r = v \\ 
+    \pid_t=\delta_v.mb.tx\\ 
+    ValidReceiveDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s) 
     \delta_v.mb.rx=(-,\TRUE,-,-) }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
@@ -443,7 +437,19 @@
     
 \clearpage    
     
-\subsubsection{Donate}    
+\subsubsection{Donate}   
+
+\begin{align*}
+  \text{ValidDonateDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s)\defined &~~//pgs \in \VMID \mapsto \text{list}(\PID)\\
+  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
+   w_{t} = mm[p[3]] \land w_{c} = mm[p[4]] \land &~~ \\
+   w_c = 1 \land w_l \le \PPMAX \land w_{l} = 8 + \Sigma_{(\_,v)\in pgs} \text{len}(v) \land \text{len}(pgs)=1 \land &~~//\text{validate length} \\
+   w_f[63:1] = 0 \land &~~//\text{flag is valid} \\
+   w_h = 0 \land&~~//\text{handle is zero'ed} \\
+  \big(v_{r}=\tv{mm[p[7]]} \land w_{o} = mm[p[8]] \land &~~//\text{get receiver $v_{r}$ and offset to pid $w_{o}$ }\\
+  w_{n}=mm[p[5+w_{o}]] \land (\forall j. j < w_{n}\rightarrow \text{pid}(mm[p[5+w_{o}+j]])\in pgs[v_{r}]) \land&~~//\text{all pids are in $pgs$} \\
+  \text{len}(pgs[v_{r}])=w_{n}\land v_{r}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r})\big) &~~//\text{receivers are valid}
+\end{align*}
     
 \begin{figure}[hbt!]
   \begin{mathpar}
@@ -454,13 +460,8 @@
   \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
   w_l = rs_v[\reg{R1}]\\
   \pid_t = \delta_v.mb.tx\\
-  v_s = \tv{mm[\addr(pid_t,0)]} \\ 
-  w_f = mm[\addr(pid_t,1)] \\ 
-  w_h=mm[\addr(pid_t,2)] \\ 
-  w_t = mm[\addr(pid_t,3)] \\ 
-  w_c = mm[\addr(pid_t,4)] \\
-  n = \tv{mm[\addr(\pid_t, 5)]}\\ 
-  (w_l > len(\pid_t) \lor w_c \neq 1 \lor w_l \neq 6 \lor !\text{ValidVMID}(\delta s, n) \lor n = v \lor w_f[63:1] \ne 0 \lor w_h \ne 0)}
+  !ValidDonateDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s)
+  }
   {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
   [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
   \null[v].rs[\reg{R0}]=\efid{ERROR};\\
@@ -470,10 +471,11 @@
   \and \inferrule[Exec-hvc-Succ-MemDonate-Error-Denied]
   {\text{AccessibleAddr}(\delta_v,a_i) \\
   \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
-  \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
-  v_s = \tv{mm[\addr(pid_t,0)]} \\
-  \pid_d = \pid(mm[\addr(\pid_t, 6)])\\ 
-  (v \ne v_s \lor  !\text{OwnedExclPage}(\delta_v, \pid_d))}
+  \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\
+  w_l = rs_v[\reg{R1}]\\
+  \pid_t = \delta_v.mb.tx\\
+  ValidDonateDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s)
+  (v \ne v_s \lor \exists pid, v_r. pid\in pgs[v_r] \land !\text{OwnedExclPage}(\delta_v, pid))}
   {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
   [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
   \null[v].rs[\reg{R0}]=\efid{ERROR};\\
@@ -486,103 +488,98 @@
     \text{IsFFA}(\delta_v,\tt{MEM\_DONATE})\\ 
     w_l = rs_v[\reg{R1}]\\
     \pid_t = \delta_v.mb.tx\\
-    v_s = \tv{mm[\addr(pid_t,0)]} \\ 
-    w_f = mm[\addr(pid_t,1)] \\ 
-    w_h=mm[\addr(pid_t,2)] \\ 
-    w_t = mm[\addr(pid_t,3)] \\ 
-    w_c = mm[\addr(pid_t,4)] \\
-    n = \tv{mm[\addr(\pid_t, 5)]}\\ 
-    pid_d = \pid(mm[\addr(pid_t,6)]) \\ 
-    \addr(pid_t,0) + w_l\le\PPMAX\\
-    w_c = 1\\
-    w_l = 6\\
-    \text{OwnedExclPage}(\delta_v,pid_d) \\
-    \text{ValidVMID}(\delta s,n) \\ 
-    n \ne v_s\\ 
-    w_h = 0 \\ 
+    ValidDonateDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s)
+    (v = v_s \lor \forall pid. \exists v_r. pid\in pgs[v_r] \land \text{OwnedExclPage}(\delta_v, pid))
     w_h \notin \text{dom}(sss)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
     \null[v].rs[\reg{R2}]=w_h;\\
-    \null[v].pt[pid_d]=(O,NA);\\
-    \null[n].pt[pid_d]=(!O,NA)
+    \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v].pt[pid]=(O,NA);\\
+    \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v_r].pt[pid]=(!O,NA)
     \end{array}}\right\},mm,\\ 
-    sss~\text{with}~\{[w_h]=(v,w_f,w_t,inl\ (n,pid_d),\tt{MEM\_DONATE})\})}
+    sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,\tt{MEM\_DONATE})\})}
     
     \end{mathpar}
 \end{figure}
 
+\begin{align*}
+  \text{ValidRetrieveDescriptor}(p,w_l,v_s,w_f,w_h,w_t,mm)\defined &~~\\
+  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
+   w_{t} = mm[p[3]] \land mm[p[4]]=0 \land &~~ \\
+  w_l \le \PPMAX \land w_{l} = 5  &~~//\text{validate length}
+\end{align*}
+
 \begin{figure}
-  \begin{mathpar}    
+  \begin{mathpar} 
     
-   \and \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-NotZeroed]
+    \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-NotZeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
-    rs_v[\reg{R1}]\le\PPMAX\\
+    w_l=rs_v[\reg{R1}]\\
     pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(pid_t,2)]\\ 
-    w_h[63]=1 \land w_h \in \text{dom}(sss) \\
-    (v_s,w_f',mm[\addr(pid_t,3)], inl\ (v ,pid_d),\tt{MEM\_DONATE})=sss[w_h]\\
-    v_s = \tv{mm[\addr(pid_t,0)]} \\ 
-    mm[\addr(pid_t,1)]=0 \\ 
-    mm[\addr(pid_t,4)]=0\\ 
-    inl\ (v_r, pid_d) = sss[w_h] \\ 
-    v_r = v \\ 
-    \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
-    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
-    \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
-    \null[v].rs[\reg{R2}]=7;\\
-    \null[v].pt[pid_d]=(O,EA);\\
-    \null[v_s].pt[pid_d]=(!O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7,-)
-    \end{array}}\right\},\\
-    mm~\text{with}~\left\{{\begin{array}{l}
-    [\addr(pid_r,0)]=\tw{v_s};\\
-    \null[\addr(pid_r,1)]=w_f';\\
-    \null[\addr(pid_r,2)]=0;\\
-    \null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\
-    \null[\addr(pid_r,4)]=1;\\
-    \null[\addr(pid_r,5)]=\tw{v};\\
-    \null[\addr(pid_r,6)]=\pid_d
-    \end{array}}\right\},\text{remove}(sss,w_h))}
-    
-    \and \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-Zeroed]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\
-    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
-    \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
-    rs_v[\reg{R1}]\le\PPMAX\\
-    pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(pid_t,2)]\\ 
-    w_h[63]=1 \land w_h \in \text{dom}(sss) \\
-    (v_s,w_f',mm[\addr(pid_t,3)], inl\ (v, pid_d),\tt{MEM\_DONATE})=sss[w_h]\\
-    v_s = \tv{mm[\addr(pid_t,0)]} \\ 
-    mm[\addr(pid_t,1)]=1 \\ 
-    mm[\addr(pid_t,4)]=0\\ 
-    inl\ (v_r, pid_d) = sss[w_h] \\ 
-    v_r = v \\ 
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,0,w_h,w_t,mm)\\
+    w_h \in \text{dom}(sss) \\
+    (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_DONATE})=sss[w_h]\\
+    %\text{len}(pgs)=1 \\
+    (v,ps) \in pgs \\
+    v\notin vrs
     \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
     \null[v].rs[\reg{R2}]=7;\\
-    \null[v].pt[pid_d]=(O,EA);\\
-    \null[v_s].pt[pid_d]=(!O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7,-)\end{array}}\right\},\\
-    \text{zero}(mm,pid_d)~\text{with}~\left\{{\begin{array}{l}
-    [\addr(pid_r,0)]=\tw{v_s};\\
-    \null[\addr(pid_r,1)]=1;\\
-    \null[\addr(pid_r,2)]=0;\\
-    \null[\addr(pid_r,3)]=mm[\addr(pid_t,3)];\\
-    \null[\addr(pid_r,4)]=1;\\
-    \null[\addr(pid_r,5)]=\tw{v};\\
-    \null[\addr(pid_r,6)]=\pid_d
-    \end{array}}\right\},\text{remove}(sss,w_h))}
-    
- \end{mathpar}
+    \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(O,EA);\\
+    \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(!O,NA);\\
+    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \end{array}}\right\},\\
+    mm~\text{with}~\left\{{\begin{array}{l}
+    pid_r[0]=\tw{v_s};\\
+    \null pid_r[1]=w_f \& 0\text{x}10;\\
+    \null pid_r[2]=0;\\
+    \null pid_r[3]=w_t;\\
+    \null pid_r[4]=1;\\
+    \null pid_r[5]=\tw{v};\\
+    \null pid_r[6]=7;\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \end{array}}\right\},sss with\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_DONATE})\})}
+
+    \and \inferrule[Exec-hvc-Succ-MemDonate-MemRetrieveResp-Zeroed]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
+    \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
+    w_l=rs_v[\reg{R1}]\\
+    pid_t=\delta_v.mb.tx\\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,1,w_h,w_t,mm)\\
+    w_h \in \text{dom}(sss) \\
+    (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_DONATE})=sss[w_h]\\
+    %\text{len}(pgs)=1 \\
+    (v,ps) \in pgs \\
+    v\notin vrs
+    \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\
+    (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
+    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
+    \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
+    \null[v].rs[\reg{R2}]=7;\\
+    \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(O,EA);\\
+    \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(!O,NA);\\
+    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \end{array}}\right\},\\
+    \text{zero}(mm,ps)~\text{with}~\left\{{\begin{array}{l}
+    pid_r[0]=\tw{v_s};\\
+    \null pid_r[1]=0\text{x}11;\\
+    \null pid_r[2]=0;\\
+    \null pid_r[3]=w_t;\\
+    \null pid_r[4]=1;\\
+    \null pid_r[5]=\tw{v};\\
+    \null pid_r[6]=7;\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \end{array}}\right\},sss with\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_DONATE})\})}
+
+  \end{mathpar}
 \end{figure}
 
 
