@@ -141,7 +141,7 @@
   \begin{itemize}
     \item RX page/TX page - read-only/write-only, states are monitored by Hafnium
     \item FFA\_MSG\_SEND - copy, notify the scheduler and the receiver
-    \item FFA\_MSG\_POLL - return error if a message is not ready in RX
+    \item FFA\_MSG\_POLL - return error if no message is ready in RX
   \end{itemize}
   \begin{figure}
     \input{rxtx.tikz}
@@ -261,8 +261,8 @@
     a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
     sss & \in \SSS &\defined  &\WORD \maps \text{ShareState} \\
-    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times (\VMID \times \PID +\\
-                                           &&&\mathbb{N} \times \text{list}(\VMID \times \PID)) \times \text{FunctionID}\\
+    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times\\
+                                        &&&   [\VMID] \times (\VMID \maps [\PID]) \times \text{FunctionID}\\
       & \;\;\;\; \text{SysRegs} &\derived & \mathtt{NV} | \mathtt{CNT\_VAL} | \mathtt{CNT\_CTL} | \dots \\
          & \;\;\;\; \text{GenRegs} &\derived & \mathtt{pc} | \mathtt {R0} | \mathtt{R1} | \dots
   \end{align*}
@@ -334,10 +334,40 @@
 \begin{frame}
   \frametitle{Rules(Selected)}
   \begin{figure}
+\begin{mathpar}
 
-  \caption{TODO}
+    \inferrule[Exec-hvc-Succ-MemMng-Succ-NotZeroed]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
+    \text{IsFFA}(\delta_v,f)\\
+    f \in \{\tt{MEM\_SHARE}, \tt{MEM\_LEND}\} \\
+    w_l = rs_v[\reg{R1}]\\
+    pid_t=\delta_v.mb.tx\\
+    \text{ValidTransactionDescriptor}(pid_t,w_l,v,0,0,w_t,w_c,pgs,mm,\delta s)\\
+    w_h \notin \text{dom}(sss) \\
+    w_h[63]=1\\
+    }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\,\\ (\delta s \text{ with }\left\{{\begin{array}{l}
+    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
+    \null[v].rs[\reg{R0}]=\efid{SUCC};\\
+    \null[v].rs[\reg{R2}]=w_h;\\
+    \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v].pt[pid]=(O,NA);\\
+    \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v_r].pt[pid]=(!O,NA)
+    \end{array}}\right\},\\mm, sss~\text{with}~\{[w_h]=(v,0,w_t,[],pgs,f)\}))}
+\end{mathpar}
+  \caption{Rule for Memory Management}
   \end{figure}
 \end{frame}
+
+\begin{frame}
+  \frametitle{Next Steps...}
+  \begin{itemize}
+    \item Include interrupts - crucial for scheduling
+    \item Develope a program logic - to reason about client programs
+    \item Investigate in security - confidentiality, isolation etc.
+  \end{itemize}
+\end{frame}
+
 
 
 
