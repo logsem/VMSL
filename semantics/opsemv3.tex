@@ -977,7 +977,7 @@
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
-    \null \forall pid. \exist v_r. pid\in pgs[v_r] \rightarrow [v].pt[pid]=(O,EA);\\
+    \null \forall pid. \exists v_r. pid\in pgs[v_r] \rightarrow [v].pt[pid]=(O,EA);\\
     \end{array}}\right\},\\
     mm, remove(sss, w_h))}
     
@@ -998,7 +998,7 @@
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
-    \null \forall pid. \exist v_r. pid\in pgs[v_r] \rightarrow [v].pt[pid]=(O,EA);\\
+    \null \forall pid. \exists v_r. pid\in pgs[v_r] \rightarrow [v].pt[pid]=(O,EA);\\
     \end{array}}\right\},\\
     zero(mm,[pid|\exists v_r. pid\in pgs[v_r]]), \text{remove}(sss, w_h))}
 
