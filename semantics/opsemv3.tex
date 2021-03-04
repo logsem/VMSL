@@ -387,6 +387,20 @@
 
 \subsubsection{Retrieve}
 
+\begin{align*}
+  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s)\defined &~~//pgs \in \VMID \mapsto \text{list}(\PID)\\
+  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
+   w_{t} = mm[p[3]] \land w_{c} = mm[p[4]] \land &~~ \\
+  w_l \le \PPMAX \land w_{l} = 5+3*w_{c} + \Sigma_{(\_,v)\in pgs} \text{len}(v) \land \text{len}(pgs)=w_{c} \land &~~//\text{validate length} \\
+  \forall i. i < w_{c}\rightarrow \big(v_{r}^{i}=\tv{mm[p[5+2*i]]} \land w_{o}^{i} = mm[p[5+2*i+1]] \land &~~//\text{get all receivers $v_{r}^{i}$ and offsets to pids $w_{o}^{i}$ }\\
+  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
+  \text{len}(pgs[v_{r}^{i}])=w_{n}^{i}\land v_{r}^{i}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r}^{i})\big) &~~//\text{receivers are valid}
+  \\
+  \text{ValidReceiveDescriptor}(pid_t,w_l,v_{s},w_f,0,_,w_c,pgs,mm,\delta s) \defined & \\
+  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s) \land w_f[63:4] = 0 \land& \\
+   \forall pid. \exists (v_{r}). pid \in pgs[v_{r}] \land v_{r} = v)
+  \end{align*}
+
 \begin{figure}[hbt!]
   \begin{mathpar}
   
@@ -396,21 +410,7 @@
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\ 
     pid_t=\delta_v.mb.tx \\ 
     w_l = rs_v[\reg{R1}] \\ 
-    v_s = mm[\addr(pid_t,0)] \\ 
-    w_f = mm[\addr(pid_t,1)] \\ 
-    w_h=mm[\addr(pid_t,2)] \\ 
-    w_t = mm[\addr(pid_t,3)] \\ 
-    w_c = mm[\addr(pid_t,4)] \\
-    (\addr(pid_t,0) + w_l > \PPMAX \\
-    \lor w_h=0 \\
-    \lor w_h \notin \text{dom}(sss) \\
-    \lor ((v_s',w_f',w_t',entry,fid)=sss[w_h] \rightarrow
-    (v_s' \ne \tv{v_s} \\
-    \lor w_t'\ne w_t \\
-    \lor w_f'[63:1]\ne 0 \\
-    \lor w_c \ne 0 \\
-    \lor (inr\ ls=entry \land forall (v_r, pid_d). (v_r, pid_d) \in ls \rightarrow v_r\ne v) \\
-    \lor (inl\ (v_r, pid_d) = entry \land v_r \ne v)))}
+    !ValidReceiveDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s)}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{ERROR};\\
@@ -422,14 +422,8 @@
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
     rs_v[\reg{R1}]\le\PPMAX\\
-    pid_t=\delta_v.mb.tx\\ 
-    w_h=mm[\addr(pid_t,2)]\\ 
-    w_h[63]=1 \land w_h \in \text{dom}(sss) \\ 
-    w_f'[63:1]=0 \\
-    (v_s',w_f',w_t',entry,fid)=sss[w_h]\\
-    mm[\addr(pid_t,4)]=0\\ 
-    inr\ (n, ls) =entry \rightarrow exists (v_r, pid_d). (v_r, pid_d) \in ls \land v_r= v\\ 
-    inl\ (v_r, pid_d) = entry \rightarrow v_r = v \\ 
+    \pid_t=\delta_v.mb.tx\\ 
+    ValidReceiveDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s) 
     \delta_v.mb.rx=(-,\TRUE,-,-) }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
