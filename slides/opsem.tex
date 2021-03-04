@@ -128,7 +128,7 @@
     \item CPU cycle management
       \begin{itemize}
         \item FFA\_RUN - can only be invoked by the primary VM
-        \item FFA\_YIELD - can be invoked by secondary VMs
+        \item FFA\_YIELD - switch to the primary VM
         \item FFA\_MSG\_WAIT - block the caller until a message comes
       \end{itemize}
 
@@ -150,23 +150,6 @@
       \end{figure}
 \end{frame}
 
-\begin{frame}
-  \frametitle{FF-A framework}
-  Memory management
-  \begin{itemize}
-    \item All about ownership and access...
-    \item Donation - sender loses ownership and access
-    \item Sharing - sender keeps ownership and access
-    \item Lending - sender loses access but keeps ownership
-    \item FFA\_MEM\_RELINQUISH - receiver gives up access
-    \item FFA\_MEM\_RECLAIM - sender regains exclusive access
-    \item FFA\_MEM\_RETRIEVE\_REQUEST - receiver gets access/ownership
-  \end{itemize}
-  \begin{figure}
-    \input{ownership-access.tikz}
-        \caption{ownership and access}
-      \end{figure}
-    \end{frame}
 
 \begin{frame}
   \frametitle{FF-A framework}
@@ -189,10 +172,10 @@
 
      \end{messcall}
      \addtocounter{seqlevel}{-1}
-     \begin{messcall}{VM0}{\tiny{donated page $p$ to you}}{VM1}
+     \begin{messcall}{VM0}{\tiny{"donated page $p$ to you"}}{VM1}
      \end{messcall}
-     \addtocounter{seqlevel}{-1}
-     \begin{messcall}{VM1}{\tiny{retrieve the page $p$ that 0 donated to me}}{Hyp}
+      \addtocounter{seqlevel}{-1}
+     \begin{messcall}{VM1}{\tiny{retrieve the page $p$ from 0}}{Hyp}
      \end{messcall}
      \addtocounter{seqlevel}{-1}
 
@@ -231,7 +214,23 @@
 \end{columns}
 
 \end{frame}
-
+\begin{frame}
+  \frametitle{FF-A framework}
+  Memory management
+  \begin{itemize}
+    \item All about ownership and access...
+    \item Donation - sender loses ownership and access
+    \item Sharing - sender keeps ownership and access
+    \item Lending - sender loses access but keeps ownership
+    \item FFA\_MEM\_RELINQUISH - receiver gives up access
+    \item FFA\_MEM\_RECLAIM - sender regains exclusive access
+    \item FFA\_MEM\_RETRIEVE\_REQUEST - receiver gets access/ownership
+  \end{itemize}
+  \begin{figure}
+    \input{ownership-access.tikz}
+        \caption{ownership and access}
+      \end{figure}
+    \end{frame}
 \begin{frame}
   \frametitle{Execution Configuration}
 \begin{figure}
@@ -257,8 +256,8 @@
       rs & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
     mm & \in \MEM &\defined  &\ADDR \maps \WORD \\
     sss & \in \SSS &\defined  &\WORD \maps \text{ShareState} \\
-    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times\\
-         &&&   [\VMID] \times (\VMID \maps [\PID]) \times \text{FunctionID}\\
+    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times [\VMID] \times\\
+    &&&(\VMID \maps [\PID]) \times \text{FunctionID}\\
     ...
   \end{align*}
   \caption{Global Memory and Share States}
@@ -313,7 +312,7 @@
     % {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Fail}} ,\, \Phi)}
 
     \inferrule[Exec-halt]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(\Phi.mm[a_i],\mathtt{halt})}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{halt})}
     {(\EI{v} ,\, \Phi) \rightarrow (\DN{\tt{Halt}} ,\, \Phi)}
 
     \inferrule[Exec-mov-Succ]
@@ -361,7 +360,7 @@
     f \in \{\tt{MEM\_SHARE}, \tt{MEM\_LEND}, \tt{MEM\_DONATE}\} \\
     w_l = rs_v[\reg{R1}]\\
     \pid_t = \delta_v.mb.tx\\
-    \text{ValidTransactionDescriptor}(pid_t,w_l,v_s,0,0,w_t,w_c,pgs,mm,\delta s,f)\\
+    \text{ValidTransactionDescriptor}(pid_t,w_l,v_s,0,w_f,w_c,pgs,mm,\delta s,f)\\
     w_h \notin \text{dom}(sss)\\
     w_h[63]=1}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\,\\ (\delta s \text{ with }\left\{{\begin{array}{l}
@@ -370,7 +369,7 @@
     \null[v].rs[\reg{R2}]=w_h;\\
     \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v].pt[pid]=(O,NA);\\
     \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v_r].pt[pid]=(!O,NA)
-    \end{array}}\right\},\\mm, sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
+    \end{array}}\right\},\\mm, sss~\text{with}~\{[w_h]=(v,w_f,[],pgs,f)\})}
 \end{mathpar}
   \end{figure}
 \end{frame}
@@ -381,8 +380,8 @@
 \begin{mathpar}
   \inferrule[Exec-hvc-Succ-MemRetrieve-MemDonate]
     {...\\
-    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,0,w_h,w_t,v,mm)\\
-    (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_DONATE})=sss[w_h]\\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f',w_h,v,mm)\\
+    (v_s,w_f,vrs, pgs,\tt{MEM\_DONATE})=sss[w_h]\\
     (v,ps) \in pgs \\
     v\notin vrs\\
     \delta_v.mb.rx=(pid_r,\FALSE,-,-) }
@@ -395,13 +394,11 @@
     \null \forall pid. pid\in ps \rightarrow [v].pt[pid]=(O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(!O,NA);\\
     \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
-    \end{array}}\right\},\\
-    mm~\text{with}~\left\{{\begin{array}{l}
-    pid_r[0]=\tw{v_s};~~ \null pid_r[1]=w_f \& 0\text{x}18;\\
+    \end{array}}\right\},
+    mm~\text{with}~\\\left\{{\begin{array}{l}
+    pid_r[0]=\tw{v_s}; ~~\null pid_r[1]=(w_f|w_f') \& 0\text{x}18;\\
     \null pid_r[2]=0;~~
-    \null pid_r[3]=w_t;~~
-    \null pid_r[4]=1;\\
-    \null pid_r[5]=\tw{v};~~ \null pid_r[6]=7;\\
+    \null pid_r[3]=1;~~ \null pid_r[4]=\tw{v};\\ \null pid_r[5]=6;pid_r[6]=\text{len}(ps);\\
     \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
     \end{array}}\right\},\text{rm}(sss,w_h)))}
 \end{mathpar}
@@ -412,11 +409,11 @@
 \begin{frame}
   \frametitle{Next Steps...}
   \begin{itemize}
-    \item Include interrupts - crucial for scheduling\\
-    \item Extend FFA with permissions\\
-    \item Develope a program logic - to reason about client programs\\
+    \item Include interrupts - crucial for scheduling
+    \item Extend FFA with permissions
+    \item Develop a program logic - to reason about client programs\\
       (Ownership in Iris is different from ownership in FFA...More like accessibility!)
-    \item Investigate in security - confidentiality, isolation etc.
+    \item Investigate in security properties - memory isolation etc.
   \end{itemize}
 \end{frame}
 
