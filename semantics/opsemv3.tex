@@ -177,7 +177,29 @@
       \text{OwnedExclPage}(\delta,p) & \defined \delta.pt[p]=(O,EA)\\
       \text{IsFFA}(\delta, fid) & \defined \text{decode\_fid}(\delta.rs[\reg{R0}])=\SOME(fid)\\
       \text{ValidVMID}(\delta s,n) &\defined n<\text{len}(\delta s)
-      \end{align*}
+    \end{align*}
+
+    \begin{align*}
+  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s)\defined &~~//pgs \in \VMID \mapsto \text{list}(\PID)\\
+  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
+   w_{t} = mm[p[3]] \land w_{c} = mm[p[4]] \land &~~ \\
+      w_l \le \PPMAX \land w_{l} = 5+3*w_{c} + \Sigma_{(\_,v)\in pgs} \text{len}(v) \land w_{c}>0 \land &~~//\text{validate length} \\
+       \text{len}(pgs)=w_{c} \land&\\
+  \forall i. i < w_{c}\rightarrow \big(v_{r}^{i}=\tv{mm[p[5+2*i]]} \land w_{o}^{i} = mm[p[5+2*i+1]] \land &~~//\text{get all receivers $v_{r}^{i}$ and offsets to pids $w_{o}^{i}$ }\\
+  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
+      \text{len}(pgs[v_{r}^{i}])=w_{n}^{i}\land v_{r}^{i}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r}^{i})\big) &~~//\text{receivers are valid}\\
+      \\
+  \text{ValidTransactionDescriptor}(pid_t,w_l,v_{s},w_f,w_{h},_,w_c,pgs,mm,\delta s) \defined & \\
+  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s) \land w_f[63:1] = 0 \land& \\
+      \forall pid. \exists (v_{r}). pid \in pgs[v_{r}] \rightarrow \text{OwnedExclPage}(\delta_v, pid))\\
+      \\
+      \text{ValidRetrieveDescriptor}(p,w_l,v_s,w_f,w_h,w_t,v_{r},mm,sss)\defined &~~\\
+  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
+      w_{t} = mm[p[3]] \land w_{c}=mm[p[4]] \land &\\
+      v_{r} = \tv{mm[p[4+1]]}\land w_{o} = mm[p[4+2]]\land w_{c}= 1 \land w_{o}=0\land &~~\text{//only one receiver} \\
+      w_l \le \PPMAX \land w_{l} = 7 \land  &~~//\text{validate length}\\
+     w_h \in \text{dom}(sss)\land (v_s,\_, \_,\_, \_,\_)=sss[w_h] &~~//\text{validate handle}
+  \end{align*}
   \end{figure}
 
 \section{Assembly instructions}
@@ -386,57 +408,6 @@
 
 \subsection{Memory management interfaces}
 
-\subsubsection{Retrieve}
-
-\begin{align*}
-  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s)\defined &~~//pgs \in \VMID \mapsto \text{list}(\PID)\\
-  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
-   w_{t} = mm[p[3]] \land w_{c} = mm[p[4]] \land &~~ \\
-  w_l \le \PPMAX \land w_{l} = 5+3*w_{c} + \Sigma_{(\_,v)\in pgs} \text{len}(v) \land \text{len}(pgs)=w_{c} \land &~~//\text{validate length} \\
-  \forall i. i < w_{c}\rightarrow \big(v_{r}^{i}=\tv{mm[p[5+2*i]]} \land w_{o}^{i} = mm[p[5+2*i+1]] \land &~~//\text{get all receivers $v_{r}^{i}$ and offsets to pids $w_{o}^{i}$ }\\
-  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
-  \text{len}(pgs[v_{r}^{i}])=w_{n}^{i}\land v_{r}^{i}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r}^{i})\big) &~~//\text{receivers are valid}
-  \\
-  \text{ValidReceiveDescriptor}(pid_t,w_l,v_{s},w_f,0,_,w_c,pgs,mm,\delta s) \defined & \\
-  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s) \land w_f[63:4] = 0 \land& \\
-   \forall pid. \exists (v_{r}). pid \in pgs[v_{r}] \land v_{r} = v)
-  \end{align*}
-
-\begin{figure}[hbt!]
-  \begin{mathpar}
-  
-  \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-InvalidParams]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\
-    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
-    \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\ 
-    pid_t=\delta_v.mb.tx \\ 
-    w_l = rs_v[\reg{R1}] \\ 
-    !ValidReceiveDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s)}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
-    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
-    \null[v].rs[\reg{R0}]=\efid{ERROR};\\
-    \null[v].rs[\reg{R2}]=\eec{INV\_PARA}
-    \end{array}}\right\},mm,sss))}
-    
-    \and \inferrule[Exec-hvc-Succ-MemRetrieveReq-Error-Busy]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\
-    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
-    \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
-    rs_v[\reg{R1}]\le\PPMAX\\
-    \pid_t=\delta_v.mb.tx\\ 
-    ValidReceiveDescriptor(pid_t,w_l,v_s,w_f,0,_,w_c,pgs,mm,\delta s) 
-    \delta_v.mb.rx=(-,\TRUE,-,-) }
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
-    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
-    \null[v].rs[\reg{R0}]=\efid{ERROR};\\
-    \null[v].rs[\reg{R2}]=\eec{BUSY}
-    \end{array}}\right\},mm,sss))}
-  
-  \end{mathpar}
-\end{figure}
-    
-\clearpage    
-    
 \subsubsection{Donate}   
 
 \begin{align*}
@@ -503,12 +474,6 @@
     \end{mathpar}
 \end{figure}
 
-\begin{align*}
-  \text{ValidRetrieveDescriptor}(p,w_l,v_s,w_f,w_h,w_t,mm)\defined &~~\\
-  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
-   w_{t} = mm[p[3]] \land mm[p[4]]=0 \land &~~ \\
-  w_l \le \PPMAX \land w_{l} = 5  &~~//\text{validate length}
-\end{align*}
 
 \begin{figure}
   \begin{mathpar} 
@@ -582,28 +547,12 @@
   \end{mathpar}
 \end{figure}
 
-
 \clearpage
 
-\begin{align*}
-  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s)\defined &~~//pgs \in \VMID \mapsto \text{list}(\PID)\\
-  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
-   w_{t} = mm[p[3]] \land w_{c} = mm[p[4]] \land &~~ \\
-  w_l \le \PPMAX \land w_{l} = 5+3*w_{c} + \Sigma_{(\_,v)\in pgs} \text{len}(v) \land \text{len}(pgs)=w_{c} \land &~~//\text{validate length} \\
-  \forall i. i < w_{c}\rightarrow \big(v_{r}^{i}=\tv{mm[p[5+2*i]]} \land w_{o}^{i} = mm[p[5+2*i+1]] \land &~~//\text{get all receivers $v_{r}^{i}$ and offsets to pids $w_{o}^{i}$ }\\
-  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
-  \text{len}(pgs[v_{r}^{i}])=w_{n}^{i}\land v_{r}^{i}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r}^{i})\big) &~~//\text{receivers are valid}
-  \\
-  \text{ValidTransactionDescriptor}(pid_t,w_l,v_{s},w_f,0,_,w_c,pgs,mm,\delta s) \defined & \\
-  \text{ValidDescriptor}(p,w_l,v_s,w_f,w_h,w_t,w_c,pgs,mm,\delta s) \land w_f[63:1] = 0 \land& \\
-   \forall pid. \exists (v_{r}). pid \in pgs[v_{r}] \rightarrow \text{OwnedExclPage}(\delta_v, pid))
-  \end{align*}
-
+\subsubsection{Lend \& Share}
 \begin{figure}[hbt!]
   \begin{mathpar}
-  
-
-      \inferrule[Exec-hvc-Succ-MemMng-Error-InvalidParams]
+      \inferrule[Exec-hvc-Succ-MemLend/Share-Error-InvalidParams]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,f)\\
@@ -617,7 +566,7 @@
     \null[v].rs[\reg{R2}]=\eec{INV\_PARA}
     \end{array}}\right\},mm,sss))}
 
-    \and \inferrule[Exec-hvc-Succ-MemMng-Error-Denied]
+    \and \inferrule[Exec-hvc-Succ-MemLend/Share-Error-Denied]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,f)\\
@@ -633,16 +582,7 @@
     \null[v].rs[\reg{R2}]=\eec{DENIED}
     \end{array}}\right\},mm,sss))}
 
- \end{mathpar}
-\end{figure}
-
-\clearpage
-
-\subsubsection{Lend \& Share}
-\begin{figure}
-  \begin{mathpar}
-
-    \inferrule[Exec-hvc-Succ-MemMng-Succ-NotZeroed]
+    \and \inferrule[Exec-hvc-Succ-MemLend/Share-Succ-NotZeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,f)\\
@@ -662,7 +602,7 @@
     \end{array}}\right\},mm,\\ 
     sss~\text{with}~\{[w_h]=(v,0,w_t,[],pgs,f)\}))}
 
-    \and \inferrule[Exec-hvc-Succ-MemMng-Succ-Zeroed]
+    \and \inferrule[Exec-hvc-Succ-MemLend/Share-Succ-Zeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,f)\\
@@ -687,12 +627,38 @@
 
 \clearpage
 \subsubsection{Retrieve}
-  \begin{align*}
-  \text{ValidRetrieveDescriptor}(p,w_l,v_s,w_f,w_h,w_t,mm)\defined &~~\\
-  v_{s}=\tv{mm[p[0]]} \land w_{f}=mm[p[1]] \land w_{h}=mm[p[2]] \land &~~//\text{main fields}\\
-   w_{t} = mm[p[3]] \land mm[p[4]]=0 \land &~~ \\
-  w_l \le \PPMAX \land w_{l} = 5  &~~//\text{validate length}
-  \end{align*}
+\begin{figure}[hbt!]
+  \begin{mathpar}
+
+  \inferrule[Exec-hvc-Succ-MemRetrieve-Error-InvalidParams]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
+    \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
+    pid_t=\delta_v.mb.tx \\
+    w_l = rs_v[\reg{R1}] \\
+    !\text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,v,mm,sss)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
+    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
+    \null[v].rs[\reg{R0}]=\efid{ERROR};\\
+    \null[v].rs[\reg{R2}]=\eec{INV\_PARA}
+    \end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-MemRetrieve-Error-Busy]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\
+    \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
+    \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
+    w_l = rs_v[\reg{R1}]\\
+    \pid_t=\delta_v.mb.tx\\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,w_f,w_h,w_t,v,mm,sss)\\
+    \delta_v.mb.rx=(-,\TRUE,-,-) }
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
+    [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
+    \null[v].rs[\reg{R0}]=\efid{ERROR};\\
+    \null[v].rs[\reg{R2}]=\eec{BUSY}
+    \end{array}}\right\},mm,sss))}
+
+  \end{mathpar}
+\end{figure}
 
 \begin{figure}
   \begin{mathpar}
@@ -703,8 +669,7 @@
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
     w_l=rs_v[\reg{R1}]\\
     pid_t=\delta_v.mb.tx\\
-    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,0,w_h,w_t,mm)\\
-    w_h \in \text{dom}(sss) \\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,0,w_h,w_t,v,mm,sss)\\
     (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_LEND})=sss[w_h]\\
     (v,ps) \in pgs \\
     v\notin vrs\\
@@ -736,8 +701,7 @@
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
     w_l=rs_v[\reg{R1}]\\
     pid_t=\delta_v.mb.tx\\
-    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,1,w_h,w_t,mm)\\
-    w_h \in \text{dom}(sss) \\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,1,w_h,w_t,v,mm,sss)\\
     (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_LEND})=sss[w_h]\\
     (v,ps) \in pgs \\
     v\notin vrs
@@ -769,14 +733,13 @@
 \begin{figure}
   \begin{mathpar}
 
-     \inferrule[Exec-hvc-Succ-MemRetrieve-MemShare-otZeroed]
+     \inferrule[Exec-hvc-Succ-MemRetrieve-MemShare-NotZeroed]
     {\text{AccessibleAddr}(\delta_v,a_i) \\
     \text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
     w_l=rs_v[\reg{R1}]\\
     pid_t=\delta_v.mb.tx\\
-    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,0,w_h,w_t,mm)\\
-    w_h \in \text{dom}(sss) \\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,0,w_h,w_t,v,mm,sss)\\
     (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_SHARE})=sss[w_h]\\
     (v,ps) \in pgs \\
     v\notin vrs\\
@@ -807,8 +770,7 @@
     \text{IsFFA}(\delta_v,\tt{MEM\_RETRIEVE\_REQ})\\
     w_l=rs_v[\reg{R1}]\\
     pid_t=\delta_v.mb.tx\\
-    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,1,w_h,w_t,mm)\\
-    w_h \in \text{dom}(sss) \\
+    \text{ValidRetrieveDescriptor}(pid_t,w_l,v_s,1,w_h,w_t,v,mm,sss)\\
     (v_s,w_f,w_t,vrs, pgs,\tt{MEM\_LEND})=sss[w_h]\\
     (v,ps) \in pgs \\
     v\notin vrs
