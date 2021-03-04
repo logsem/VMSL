@@ -267,27 +267,27 @@
 \end{frame}
 
 
-\begin{frame}
-  \frametitle{Syntax and Instructions}
-\begin{figure}
-  \begin{align*}
-    \mu &\in \MODE &\derived & \mathtt{ExecInstr} \; v | \mathtt{Repeat} \; \mu | \mathtt{Done} \; \theta \\
-    \theta &\in \DONE &\derived & \NXT{v} | \mathtt{Halt} | \mathtt{Fail}\\
-    \\
-    instr & \in  \INSTR &\derived & \instrm{br} \; r |\instrm{bne} \; r \; r |
-                                    \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
-                                    \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r \\
-        & & & | \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r | \instrm{fail} | \instrm{halt} | \instrm{hvc} |\instrm{mrs} \; r\;r | \instrm{msr} \; r \; r\\
-    fid & \in \text{FunctionID} &\derived & \tt{RUN} ~|~\tt{YIELD} ~|~\tt{MSG\_WAIT} ~|~\tt{MSG\_SEND}
-                                            ~|~\tt{MSG\_POLL}~ \\
-        &&&|~\tt{MEM\_DONATE}~|~\tt{MEM\_RETRIEVE\_REQ} ~|~ \tt{SUCC} ~|~\tt{ERROR}\\
-        &&&|~\tt{MEM\_RETRIEVE\_RESP}~|~\tt{MEM\_SHARE} ~|~ \tt{MEM\_LEND}\\
-        &&&|~\tt{MEM\_RECLAIM}~|~\tt{MEM\_RELINQUISH}\\
-    err & \in \text{ErrorCode} &\derived & \tt{INV\_PARA} ~|~\tt{DENIED} ~|~\tt{BUSY}~|~\tt{RETRY}
-  \end{align*}
-\end{figure}
+% \begin{frame}
+%   \frametitle{Syntax and Instructions}
+% \begin{figure}
+%   \begin{align*}
+%     \mu &\in \MODE &\derived & \mathtt{ExecInstr} \; v | \mathtt{Repeat} \; \mu | \mathtt{Done} \; \theta \\
+%     \theta &\in \DONE &\derived & \NXT{v} | \mathtt{Halt} | \mathtt{Fail}\\
+%     \\
+%     instr & \in  \INSTR &\derived & \instrm{br} \; r |\instrm{bne} \; r \; r |
+%                                     \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
+%                                     \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r \\
+%         & & & | \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r | \instrm{fail} | \instrm{halt} | \instrm{hvc} |\instrm{mrs} \; r\;r | \instrm{msr} \; r \; r\\
+%     fid & \in \text{FunctionID} &\derived & \tt{RUN} ~|~\tt{YIELD} ~|~\tt{MSG\_WAIT} ~|~\tt{MSG\_SEND}
+%                                             ~|~\tt{MSG\_POLL}~ \\
+%         &&&|~\tt{MEM\_DONATE}~|~\tt{MEM\_RETRIEVE\_REQ} ~|~ \tt{SUCC} ~|~\tt{ERROR}\\
+%         &&&|~\tt{MEM\_RETRIEVE\_RESP}~|~\tt{MEM\_SHARE} ~|~ \tt{MEM\_LEND}\\
+%         &&&|~\tt{MEM\_RECLAIM}~|~\tt{MEM\_RELINQUISH}\\
+%     err & \in \text{ErrorCode} &\derived & \tt{INV\_PARA} ~|~\tt{DENIED} ~|~\tt{BUSY}~|~\tt{RETRY}
+%   \end{align*}
+% \end{figure}
 
-\end{frame}
+% \end{frame}
 
 \begin{frame}
   \frametitle{Selected Rules}
