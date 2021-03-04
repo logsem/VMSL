@@ -245,7 +245,7 @@
     rx & \in \text{RXPage} &\defined &\PID \times \text{Bool} \times \WORD \times \VMID \\
       & \;\;\;\; \OS & \derived & O | !O  ~~~~~~~  \AS  \derived  NA | EA | SA
   \end{align*}
-  \caption{Execution Configuration: VM States.}
+  \caption{VM States}
 \end{figure}
 
 \end{frame}
@@ -261,7 +261,7 @@
          &&&   [\VMID] \times (\VMID \maps [\PID]) \times \text{FunctionID}\\
     ...
   \end{align*}
-  \caption{Execution Configuration: Global Memory and Share States.}
+  \caption{Global Memory and Share States}
 \end{figure}
 
 \end{frame}
@@ -285,13 +285,12 @@
         &&&|~\tt{MEM\_RECLAIM}~|~\tt{MEM\_RELINQUISH}\\
     err & \in \text{ErrorCode} &\derived & \tt{INV\_PARA} ~|~\tt{DENIED} ~|~\tt{BUSY}~|~\tt{RETRY}
   \end{align*}
-  \caption{Syntax and machine instructions}
 \end{figure}
 
 \end{frame}
 
 \begin{frame}
-  \frametitle{Rules(Selected)}
+  \frametitle{Selected Rules}
 \begin{figure}[!htb]
   \begin{mathpar}
     \inferrule[RepeatExec] {(\EI{v},\, \phi) \rightarrow (\DN{\theta} ,\,
@@ -302,12 +301,11 @@
     \and \inferrule[RepeatNext]{} {(\RP{\DN{\NXT{v}}} ,\, \phi)
       \rightarrow (\RP{\EI{v}} ,\, \phi)}
   \end{mathpar}
-  \caption{Reduction steps}
 \end{figure}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Rules(Selected)}
+  \frametitle{Selected Rules}
   \begin{figure}
   \begin{mathpar}
     % \inferrule[Fail-UnaccessibleInstr]
@@ -322,12 +320,11 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{mov}~rn~w) \\ rn\in \text{GenRegs}}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow \\ (\DNNXT{v} ,\, (\delta s \text{ with }\{ [v].rs[rn]=w ; [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1\},mm,sss))}
   \end{mathpar}
-  \caption{Rules for basic instructions}
   \end{figure}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Rules(Selected)}
+  \frametitle{Selected Rules}
   \begin{figure}
 \begin{mathpar}
     \inferrule[Exec-hvc-Succ-Run-Succ]
@@ -337,14 +334,12 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{YIELD}) \\v\ne0 }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[0].rs[\reg{R0}]=\efid{YIELD};\\\null[0].rs[\reg{R1}]=\tw{v}\end{array}}\right\},mm,sss))}
 
-
 \end{mathpar}
-  \caption{Rule for CPU cycle management}
   \end{figure}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Rules(Selected)}
+  \frametitle{Selected Rules}
   \begin{figure}
 \begin{mathpar}
    \inferrule[Exec-hvc-Succ-MsgSend-Succ-NotPrimary]
@@ -352,12 +347,11 @@
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{0} ,\,\\ (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[n].mb.rx=(pid_r,\TRUE,w_l,v);\\\null[0].rs[\reg{R0}]=\efid{MSG\_SEND};\\\null[0].rs[\reg{R1}]=\text{comb}(v,n)\end{array}}\right\},\\\text{memcpy}(mm,pid_t,pid_r,w_l),sss))}
 
 \end{mathpar}
-  \caption{Rule for Message Passing}
   \end{figure}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Rules(Selected)}
+  \frametitle{Selected Rules}
   \begin{figure}
 \begin{mathpar}
    \inferrule[Exec-hvc-Succ-MemMng-Succ]
@@ -378,12 +372,11 @@
     \null \forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow [v_r].pt[pid]=(!O,NA)
     \end{array}}\right\},\\mm, sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
 \end{mathpar}
-  \caption{Rule for Memory Management}
   \end{figure}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Rules(Selected)}
+  \frametitle{Selected Rules}
   \begin{figure}
 \begin{mathpar}
   \inferrule[Exec-hvc-Succ-MemRetrieve-MemDonate]
@@ -412,7 +405,6 @@
     \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
     \end{array}}\right\},\text{rm}(sss,w_h)))}
 \end{mathpar}
-  \caption{Rule for Memory Management}
   \end{figure}
 \end{frame}
 
