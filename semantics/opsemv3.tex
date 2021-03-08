@@ -206,7 +206,7 @@
 
 \section{Assembly instructions}
 
-\begin{figure}
+\begin{figure}[hbt!]
   \begin{mathpar}
     \inferrule[Fail-UnaccessibleInstr]
     {!\text{AccessibleAddr}(\delta_v,a_i)}
@@ -264,9 +264,9 @@
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{ldr}~rn_1~rn_2) \\ rn_1, rn_2\in \text{GenRegs} \\ !\text{ReadableAddr}(\delta_v,\ta{rs_v[rn_2]})}
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DN{\tt{Fail}} ,\, (\delta s ,mm,sss))}
 
-
   \end{mathpar}
 \end{figure}
+
 
 \begin{figure}
   \begin{mathpar}
@@ -321,7 +321,7 @@
 \newcommand{\efid}[1]{\text{encode\_fid}(\texttt{#1})}
 \newcommand{\eec}[1]{\text{encode\_ec}(\texttt{#1})}
 
-\subsection{Cycle management interfaces-TODO}
+\subsection{Cycle management interfaces}
 
 \begin{figure}[hbt!]
   \begin{mathpar}
@@ -370,7 +370,7 @@
 
 \clearpage
     
-\subsection{Messaging interfaces-TODO}
+\subsection{Messaging interfaces}
 
 \begin{figure}[hbt!]
   \begin{mathpar}
@@ -621,7 +621,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null[v].rs[\reg{R2}]=7;\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(!O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
     \end{array}}\right\},\\
     mm~\text{with}~\left\{{\begin{array}{l}
     pid_r[0]=\tw{v_s};\\
@@ -631,7 +631,8 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null pid_r[4]=1;\\
     \null pid_r[5]=\tw{v};\\
     \null pid_r[6]=7;\\
-    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \null pid_r[7]=\text{len}(ps);\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[8+i]=ps[i][0]
     \end{array}}\right\},\text{remove}(sss,w_h)))}
 
     \and \inferrule[Exec-hvc-Succ-MemRetrieve-MemDonate-Zeroed]
@@ -653,7 +654,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null[v].rs[\reg{R2}]=7;\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(!O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
     \end{array}}\right\},\\
     \text{zero}(mm,ps)~\text{with}~\left\{{\begin{array}{l}
     pid_r[0]=\tw{v_s};\\
@@ -663,7 +664,8 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null pid_r[4]=1;\\
     \null pid_r[5]=\tw{v};\\
     \null pid_r[6]=7;\\
-    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \null pid_r[7]=\text{len}(ps);\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[8+i]=ps[i][0]
     \end{array}}\right\},\text{remove}(sss,w_h))}
 
   \end{mathpar}
@@ -691,7 +693,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null \forall pid. pid\in ps \land \big(\exists v_r,ps'. v_r \ne v \land (v_r,ps')\in pgs \rightarrow pid\in ps'\big) \rightarrow [v].pt[pid]=(!O,SA);\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(!O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
     \end{array}}\right\},\\
     mm~\text{with}~\left\{{\begin{array}{l}
     pid_r[0]=\tw{v_s};\\
@@ -701,7 +703,8 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null pid_r[4]=1;\\
     \null pid_r[5]=\tw{v};\\
     \null pid_r[6]=7;\\
-    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \null pid_r[7]=\text{len}(ps);\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[8+i]=ps[i][0]
     \end{array}}\right\},sss~\text{with}\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
 
     \and \inferrule[Exec-hvc-Succ-MemRetrieve-MemLend-Zeroed]
@@ -723,17 +726,18 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null \forall pid. pid\in ps \land \big(\exists v_r,ps'. v_r \ne v \land (v_r,ps')\in pgs \rightarrow pid\in ps'\big) \rightarrow [v].pt[pid]=(!O,SA);\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(!O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,NA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
     \end{array}}\right\},\\
     \text{zero}(mm,ps)~\text{with}~\left\{{\begin{array}{l}
     pid_r[0]=\tw{v_s};\\
-    \null pid_r[1]=0\text{x}11;\\
+    \null pid_r[1]=1\&0\text{x}10;\\
     \null pid_r[2]=0;\\
     \null pid_r[3]=w_t;\\
     \null pid_r[4]=1;\\
     \null pid_r[5]=\tw{v};\\
     \null pid_r[6]=7;\\
-    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \null pid_r[7]=\text{len}(ps);\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[8+i]=ps[i][0]
     \end{array}}\right\},sss ~\text{with}\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_LEND})\})}
 
   \end{mathpar}
@@ -760,7 +764,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null[v].rs[\reg{R2}]=7+\text{len}(ps);\\
     \null \forall pid. pid\in ps \rightarrow [v].pt[pid]=(!O,SA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,SA);\\
-    \null[v].mb.rx=(pid_r,\TRUE,7+\text{len}(ps),-)
+    \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
     \end{array}}\right\},\\
     mm~\text{with}~\left\{{\begin{array}{l}
     pid_r[0]=\tw{v_s};\\
@@ -770,7 +774,8 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null pid_r[4]=1;\\
     \null pid_r[5]=\tw{v};\\
     \null pid_r[6]=7;\\
-    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[7+i]=ps[i][0]
+    \null pid_r[7]=\text{len}(ps);\\
+    \null \forall i. i < \text{len}(ps) \rightarrow pid_r[8+i]=ps[i][0]
     \end{array}}\right\},sss~\text{with}\{[w_h]=(v_s,w_f,w_t,v::vrs, pgs,\tt{MEM\_SHARE})\})}
 
   \end{mathpar}
@@ -875,7 +880,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{ERROR};\\
     \null[v].rs[\reg{R2}]=\eec{INV\_PARA};
-    \end{array}}\right\},\\
+    \end{array}}\right\},
     mm, sss)}
     
     \inferrule[Exec-hvc-Reclaim-Error-Denied]
@@ -894,7 +899,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{ERROR};\\
     \null[v].rs[\reg{R2}]=\eec{DENIED};
-    \end{array}}\right\},\\
+    \end{array}}\right\},
     mm, sss)}
   
     \and \inferrule[Exec-hvc-Succ-MemReclaim-NotZeroed]
@@ -908,7 +913,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h]\\
     % \big(\forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow pt_{v_r}[pid] = (!O, NA)\big)\\
     % perhaps vrs = [] is enough?
-    vrs = []\\
+    vrs = []
    }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ 
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
@@ -929,7 +934,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     (v_s,w_f,w_t,vrs, pgs,f)=sss[w_h]\\
     % \big(\forall pid. \exists v_r. pid \in pgs[v_r] \rightarrow pt_{v_r}[pid] = (!O, NA)\big)\\
     % perhaps vrs = [] is enough?
-    vrs = []\\
+    vrs = []
    }
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
@@ -937,7 +942,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     \null[v].rs[\reg{R0}]=\efid{SUCC};\\
     \null \forall pid. \exists v_r. pid\in pgs[v_r] \rightarrow [v].pt[pid]=(O,EA);\\
     \end{array}}\right\},\\
-    zero(mm,[pid|\exists v_r. pid\in pgs[v_r]]), \text{remove}(sss, w_h))}
+    \text{zero}(mm,[pid|\exists v_r. pid\in pgs[v_r]]), \text{remove}(sss, w_h))}
 
   \end{mathpar}
 \end{figure}
