@@ -123,8 +123,8 @@
 					* ((-(E|S))(\text{pid}(x)))_0 * x \mapsto instr 
 					* \VM(0)[\REG{R0}] = y
 					* \VMTOK{z} * \text{?!ON for every page in transaction?} 
-					* \T (z, [(h1, \text{DONATE}, \text{list of receivers with pages})])}
-					* \R (h1, [])$}
+					* \T (z, [(h1, \text{DONATE}, \text{list of receivers with pages})])
+					* \R (h1, [])}$}
 \end{prooftree}
 
 \begin{prooftree}
@@ -140,6 +140,19 @@
 					* \VM(0)[\REG{R0}] = y
 					* \VMTOK{z} * \text{?OE for every page in transaction?} 
 					* \R (h1, \text{list of pages})}$}
+\end{prooftree}
+\end{figure}
+
+\begin{figure}[hbt!]
+\begin{prooftree}
+\AxiomC{$\hoareV{P}{\textsf{ExecInstr i}}{Q}$}
+\UnaryInfC{$\hoareV{P}{\textsf{Repeat Done Next i}}{Q}$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$\hoareV{P}{e}{Q}$}
+\AxiomC{$\forall v. \hoareV{Q}{\textsf{Repeat v}}{R}$}
+\BinaryInfC{$\hoareV{P}{\textsf{Repeat e}}{R}$}
 \end{prooftree}
 \end{figure}
 
