@@ -17,9 +17,9 @@
 \newcolumntype{L}{>{$}l<{$}}
 
 % notations
-\newcommand*{\defined}{\triangleq}
+\newcommand*{\defined}{\triangleq\ }
 \newcommand*{\maps}{\rightarrow}
-\newcommand*{\derived}{::=}
+\newcommand*{\derived}{\Coloneqq\ }
 \newcommand*{\sem}[1]{\llbracket {#1} \rrbracket}
 \newcommand*{\append}{\scalebox{0.8}{+\kern-0.4ex+}}
 
@@ -183,7 +183,7 @@ machines plus some additional information for the FF-A framework.
 \begin{figure}
   \begin{align*}
     \Phi &\in \CONF &\defined &\text{States} \times \MEM \times \SSS \\
-    \delta s &\in \text{States} &\defined &\text{list(States)} \\
+    \delta s &\in \text{States} &\defined &\text{list(State)} \\
     \delta &\in \STATE &\defined &\PT \times \REGS \times \MB \\
     pt & \in \PT & \defined & \PID \maps (\OS \times \AS) \\
     mb & \in \MB &\defined &\text{TXPage} \times  \text{RXPage}\\
@@ -1165,8 +1165,46 @@ setting $b=\mathtt{false}$) so that the $\MB$ can receive a new message.
 
 %\section{Proof Rules}
 
+\newpage
 
+\section{Another Semantics}
 
+\todo[inline]{Alix: Another semantics with ``thread local'' and ``thread pool'' reductions.}
 
+Thread local reduction steps are of the following form:
+
+\begin{displaymath}
+  \inferrule{
+    \text{side conditions}
+  }{
+    (\mu, \phi) \rightarrow (\mu', \phi', \beta)
+  }
+\end{displaymath}
+
+where
+
+\begin{align*}
+\mu \in \MODE \Coloneqq &\ \mathsf{ExecInstr} \mid \mathsf{Repeat}~\mu \mid \mathsf{Done}~\theta \\
+\theta \in \DONE \Coloneqq &\ \mathsf{NextInstr} \mid \mathsf{Halt} \mid \mathsf{Fail}\\
+\beta \in \mathsf{Mode} \Coloneqq &\ \mathsf{Yield}~n \mid \mathsf{Normal}
+\end{align*}
+
+Thread pool reductions are the following:
+
+\begin{displaymath}
+  \inferrule[Yield]{
+    (\mu_i, \phi) \rightarrow (\mu_i', \phi', \mathsf{Yield}~j)
+  }{
+    (\mu_1;\cdots;\mu_i;\cdots;\mu_n, \phi, i) \rightarrow (\mu_1;\cdots;\mu_i';\cdots;\mu_n, \phi', j)
+  }
+\end{displaymath}
+
+\begin{displaymath}
+  \inferrule[Normal]{
+    (\mu_i, \phi) \rightarrow (\mu_i', \phi', \mathsf{Normal})
+  }{
+    (\mu_1;\cdots;\mu_i;\cdots;\mu_n, \phi, i) \rightarrow (\mu_1;\cdots;\mu_i';\cdots;\mu_n, \phi', i)
+  }
+\end{displaymath}
 
 \end{document}
