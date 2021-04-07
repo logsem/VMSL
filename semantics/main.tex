@@ -1167,6 +1167,9 @@ setting $b=\mathtt{false}$) so that the $\MB$ can receive a new message.
 
 \newpage
 
+\newcommand*{\tlr}{\rightarrow^{\mathtt{t}}}
+\newcommand*{\tpr}{\rightarrow^{\mathtt{tp}}}
+
 \section{Another Semantics}
 
 \todo[inline]{Alix: Another semantics with ``thread local'' and ``thread pool'' reductions.}
@@ -1177,7 +1180,7 @@ Thread local reduction steps are of the following form:
   \inferrule{
     \text{side conditions}
   }{
-    (\mu, \phi) \rightarrow (\mu', \phi', \beta)
+    (\mu_{i}, \phi) \tlr (\mu'_{i}, \phi', \beta)
   }
 \end{displaymath}
 
@@ -1189,22 +1192,52 @@ where
 \beta \in \mathsf{Mode} \Coloneqq &\ \mathsf{Yield}~n \mid \mathsf{Normal}
 \end{align*}
 
-Thread pool reductions are the following:
+We need the index(VM ID) $i$ in the execution configuration to 1. distinguish
+between primary and secondary VMs; 2. provide the VM ID of the current running
+VM to some FFA hypercalls so that we are able to validate descriptors and update
+ShareStates.
+
+
+There are two approaches to construct ``thread pool'' if we consider VMs as
+threads. The first approach follows from the fact that the number of VMs in the
+system is fixed. Therefore, we just need a fixed size thread pool by removing
+the capability to create new threads(e.g. the \texttt{fork} expression in
+HeapLang). Thread pool reductions are the following:
 
 \begin{displaymath}
   \inferrule[Yield]{
-    (\mu_i, \phi) \rightarrow (\mu_i', \phi', \mathsf{Yield}~j)
+    (\mu_i, \phi) \tlr (\mu_i', \phi', \mathsf{Yield}~j)
   }{
-    (\mu_1;\cdots;\mu_i;\cdots;\mu_n, \phi, i) \rightarrow (\mu_1;\cdots;\mu_i';\cdots;\mu_n, \phi', j)
+    (\mu_1;\cdots;\mu_i;\cdots;\mu_n, \phi, i) \tpr (\mu_1;\cdots;\mu_i';\cdots;\mu_n, \phi', j)
   }
 \end{displaymath}
 
 \begin{displaymath}
   \inferrule[Normal]{
-    (\mu_i, \phi) \rightarrow (\mu_i', \phi', \mathsf{Normal})
+    (\mu_i, \phi) \tlr (\mu_i', \phi', \mathsf{Normal})
   }{
-    (\mu_1;\cdots;\mu_i;\cdots;\mu_n, \phi, i) \rightarrow (\mu_1;\cdots;\mu_i';\cdots;\mu_n, \phi', i)
+    (\mu_1;\cdots;\mu_i;\cdots;\mu_n, \phi, i) \tpr (\mu_1;\cdots;\mu_i';\cdots;\mu_n, \phi', i)
   }
 \end{displaymath}
+
+The consequence of removing folking ability from the operational semantics is
+that, in the execution configuration of thread local reductions, we lose the
+$\vec{e_{f}}$(newly forked off threads) comparing to HeapLang. Thus, if we adapt
+the definition of weakestpre according to our semantics, we will lose the
+iterated separated conjunction(the ``big star'') that describing the safey of
+forked off threads. One may think it is fine losing the big star, while it is
+the key to ``compose'' proofs of threads together, which means even if we could
+still achieve so called vm local reasoning, we can only reason about VMs
+seperately! There would be no way to transfer/share resources/invariants between
+VMs.
+One possible solution that we have discussed was adding a
+trivial weakestpre for the next vm to run. For instance, if $\beta$ is
+$\mathsf{Yield}~j$, then we need to show
+$\mathsf{wp}~ \mu_{j}~ \{\mathsf{True}\}$. In this way, we can at least link VM
+$j$ and the VM we are reasoning about(let's say it is VM $i$) together. Namely,
+we can use VM $i$'s resourses(and invariants) to prove $j$'s weakestpre.
+\todo[inline]{Zongyuan: But for
+me, what is sopposed to be the $\mu_{j}$ is still unclear. I personally don't
+think it can simply be $\mathsf{ExeInstr}_{j}$.}
 
 \end{document}
