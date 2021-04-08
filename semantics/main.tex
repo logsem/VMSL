@@ -11,6 +11,7 @@
 \usepackage{changepage}
 \usepackage[T1]{fontenc}
 \usepackage{tikz}
+\usepackage{../iris}
 
 \usetikzlibrary{arrows,positioning,fit,shapes}
 
@@ -89,9 +90,6 @@
 \newcommand{\SOME}{\mathtt{Some}}
 \newcommand{\NONE}{\mathtt{None}}
 
-% TRUE/FALSE
-\newcommand{\TRUE}{\mathtt{True}}
-\newcommand{\FALSE}{\mathtt{False}}
 
 \title{Operational Semantics % and Proof Rules
   for VMs in Hafnium} \date{\today}
@@ -1192,16 +1190,15 @@ where
 \beta \in \mathsf{Mode} \Coloneqq &\ \mathsf{Yield}~n \mid \mathsf{Normal}
 \end{align*}
 
-We need the index(VM ID) $i$ in the execution configuration to 1. distinguish
+We need the index (VM ID) $i$ in the execution configuration to 1. distinguish
 between primary and secondary VMs; 2. provide the VM ID of the current running
 VM to some FFA hypercalls so that we are able to validate descriptors and update
 ShareStates.
 
 
 There are two approaches to construct ``thread pool'' if we consider VMs as
-threads. The first approach follows from the fact that the number of VMs in the
-system is fixed. Therefore, we just need a fixed size thread pool by removing
-the capability to create new threads(e.g. the \texttt{fork} expression in
+threads(we will use these two words interchangably). The first approach follows from the fact that the number of VMs in the
+system is fixed. We just need a fixed size thread pool, which can be implemented by removing the capability to create new threads(e.g., the \texttt{fork} expression in
 HeapLang). Thread pool reductions are the following:
 
 \begin{displaymath}
@@ -1220,24 +1217,91 @@ HeapLang). Thread pool reductions are the following:
   }
 \end{displaymath}
 
-The consequence of removing folking ability from the operational semantics is
+The consequence of removing forking from the operational semantics is
 that, in the execution configuration of thread local reductions, we lose the
 $\vec{e_{f}}$(newly forked off threads) comparing to HeapLang. Thus, if we adapt
 the definition of weakestpre according to our semantics, we will lose the
-iterated separated conjunction(the ``big star'') that describing the safey of
-forked off threads. One may think it is fine losing the big star, while it is
-the key to ``compose'' proofs of threads together, which means even if we could
-still achieve so called vm local reasoning, we can only reason about VMs
-seperately! There would be no way to transfer/share resources/invariants between
-VMs.
-One possible solution that we have discussed was adding a
+iterated separated conjunction (the ``big star'') that describes the safety of
+forked off threads. One may think it is fine to lose the big star, while it is
+the key to ``compose'' proofs of individual threads together, which means even if we could
+still achieve so called vm-local reasoning, we can only reason about VMs
+separately! There would be no way to transfer/share resources/invariants between
+them.
+
+One possible solution that we have discussed is adding a
 trivial weakestpre for the next vm to run. For instance, if $\beta$ is
-$\mathsf{Yield}~j$, then we need to show
+$\mathsf{Yield}~j$ after a reduction step, then we need to show
 $\mathsf{wp}~ \mu_{j}~ \{\mathsf{True}\}$. In this way, we can at least link VM
 $j$ and the VM we are reasoning about(let's say it is VM $i$) together. Namely,
 we can use VM $i$'s resourses(and invariants) to prove $j$'s weakestpre.
 \todo[inline]{Zongyuan: But for
 me, what is sopposed to be the $\mu_{j}$ is still unclear. I personally don't
 think it can simply be $\mathsf{ExeInstr}_{j}$.}
+
+Another variant of the operational semantics is keeping the capability to fork, but making it exclusive to only a special VM(we call it VM $-1$ for now). The idea is, VM $-1$ can only run at the very beginning of the execution, and the only two things it can do are creating other VMs with its forking capability and immediately giving the control to the primary VM.(In Hafnium, most of these works are done by the hypervisor.) VM $-1$ won't run again, so the number of VMs is still fixed after initialization. A similar design has been seen in the Aneris paper, where only the so-called system node is capable of adding new nodes. The thread local reduction steps need to be slightly changed as follows:
+
+\begin{displaymath}
+  \inferrule{
+    \text{side conditions}
+  }{
+    (\mu,i, \phi) \tlr (\mu',i, \vec{\mu_{f}}, \phi', \beta)
+  }
+\end{displaymath}
+
+
+We have to change the thread pool reduction accordingly as well. In fact, this variant is closer to the counterpart of HeapLang.
+
+\begin{displaymath}
+  \inferrule[Yield]{
+     (\mu,i, \phi) \tlr (\mu',i,\vec{\mu_{f}} ,\phi', \mathsf{Yield}~j)
+  }{
+    (V_{1};(\mu,i);V_{2}, \phi, i) \tpr (V_{1};(\mu',i);V_{2};\vec{\mu_{f}}, \phi', j)
+  }
+\end{displaymath}
+
+\begin{displaymath}
+  \inferrule[Normal]{
+    (\mu,i, \phi) \tlr (\mu',i,\vec{\mu_{f}} ,\phi', \mathsf{Normal})
+  }{
+    (V_{1};(\mu,i);V_{2}, \phi, i) \tpr (V_{1};(\mu',i);V_{2};\vec{\mu_{f}}, \phi', i)
+  }
+\end{displaymath}
+
+The definition of weakestpre for this variant would be of the following form:
+
+\begin{align*}
+  \wpre{\mu~|~i}{v.\Phi(v)} \defined & (\mu \in \DONE \land \upd \Phi(\mu)) \lor \\
+  &\Big(\mu \notin \DONE \land \forall \phi. \mathcal{S}(\phi) \wand \\
+                                     &\upd \Big(\text{red}(\mu,i,\phi) \land \later \forall \mu', \phi', \vec{\mu_{f}},\beta. \big((\mu,i,\phi) \tlr (\mu',i,\vec{\mu_{f}},\phi',\beta) \wand \\
+  &~~~~~\upd (\mathcal{S}(\phi') \asts \wpre{\mu'~|~i}{v.\Phi(v)} \asts \Sep_{(\mu'',j) \in \vec{\mu_{f}}} \wpre{\mu''~|~j}{v.\TRUE} )\big) \Big) \Big)
+\end{align*}
+
+The last missing piece is an expression for VM $-1$ to start new VMs. Thus, we provide a new execution mode $\mathsf{Start}~l$, where $l$ is a list of VMIDs. The corresponding thread local reduction rule and weakestpre rule are the following:
+
+\begin{displaymath}
+  \inferrule[Start]{
+    i=-1 \land \text{other side conditions}
+  }{
+    (\mathsf{Start} ~ l,i, \phi) \tlr (\mathsf{Done~Halt},i, [(\mathsf{Repeat~ExecInstr},j)|j\in l], \phi, \mathsf{Yield~0})
+  }
+\end{displaymath}
+
+\begin{displaymath}
+  \inferrule[wp-start]{}{
+   \later \Phi(\mathsf{Done~Halt}) \asts \Sep_{j\in l} \wpre{\mathsf{Repeat~ExecInstr}~|~j}{v.\TRUE} \vdash \wpre{\mathsf{Start} ~ l~|~i}{v.\Phi(v)}
+  }
+\end{displaymath}
+
+If we are not interested in the $\DONE$s of VMs, the following par rule could be derived by \textsc{wp-start} and \textsc{wp-wand}:
+
+\begin{displaymath}
+  \inferrule[ht-par-two]{
+    \hoare{P_{i}}{\mathsf{Repeat~ExecInstr}~|~i}{\_.Q_{i}} \\
+    \hoare{P_{j}}{\mathsf{Repeat~ExecInstr}~|~j}{\_.Q_{j}}
+  }{
+    \hoare{P_{i}\asts P_{j}}{\mathsf{Start} ~ [i,j] ~|~-1}{v.v=\mathsf{Done~Halt}\asts Q_{i}\asts Q_{j}}
+  }
+  \end{displaymath}
+
 
 \end{document}
