@@ -187,7 +187,7 @@
        \text{len}(pgs)=w_{c} \land (f={\tt{MEM\_DONATE}} \rightarrow w_{c}=1) \land&\\
       w_f[63:1] = 0 \land (f={\tt{MEM\_SHARE}} \rightarrow w_{f}[0]=0)\land&~~\text{validate flag}\\
   \forall i. i < w_{c}\rightarrow \big(v_{r}^{i}=\tv{mm[p[5+2*i]]} \land w_{o}^{i} = mm[p[5+2*i+1]] \land &~~//\text{get all receivers $v_{r}^{i}$ and offsets to pids $w_{o}^{i}$ }\\
-  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
+  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+1+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
       \text{len}(pgs[v_{r}^{i}])=w_{n}^{i}\land v_{r}^{i}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r}^{i})\big) &~~//\text{receivers are valid}\\
       \\
   \text{ValidTransactionDescriptor}(pid_t,w_l,v_{s},w_f,w_{h},_,w_c,pgs,mm,\delta s,f) \defined & \\
