@@ -1270,11 +1270,11 @@ We have to change the thread pool reduction accordingly as well. In fact, this v
 The definition of weakestpre for this variant would be of the following form:
 
 \begin{align*}
-  \wpre{\mu~|~i}{v.\Phi(v)} \defined & (\mu \in \DONE \land \pvs \Phi(\mu)) \lor \\
+  \wpre{\mu}[i]{v.\Phi(v)} \defined & (\mu \in \DONE \land \pvs \Phi(\mu)) \lor \\
   &\Big(\mu \notin \DONE \land \forall \phi. \mathcal{S}(\phi) \wand \\
      &\upd \Big(\text{red}(\mu,i,\phi) \land \later \forall \mu', \phi', \vec{\mu_{f}},\beta. \big((\mu,i,\phi) \tlr (\mu',i,\vec{\mu_{f}},\phi',\beta) \wand \\
-   &~~~~~\pvs (\mathcal{S}(\phi') \asts \wpre{\mu'~|~i}{v.\Phi(v)}  \asts \\
-  &~~~~~~~~~~~~\Sep_{(\mu'',j) \in \vec{\mu_{f}}} \wpre{\mu''~|~j}{v.\TRUE} )\big) \Big) \Big)
+   &~~~~~\pvs (\mathcal{S}(\phi') \asts \wpre{\mu'}[i]{v.\Phi(v)}  \asts \\
+  &~~~~~~~~~~~~\Sep_{(\mu'',j) \in \vec{\mu_{f}}} \wpre{\mu''}[j]{v.\TRUE} )\big) \Big) \Big)
 \end{align*}
 % \todo[inline]{Zongyuan: It seems to be problematic to have the big star. The main issue is it is not possible that all VMs go to the terminatal states. In fact, if we think globally, one VM's halting will stop the whole system. At that point, all other VMs are supposed to have mode \textsf{Repeat Done NextInstr}, which is apperently not a $\DONE$.}
 
@@ -1293,7 +1293,7 @@ The last missing piece of the operational semantics is an expression for VM $-1$
 
 \begin{displaymath}
   \inferrule[wp-start]{}{
-   \later \Phi(\mathsf{Done~Halt}) \asts \later \Sep_{j\in l} \wpre{\mathsf{Repeat~ExecInstr}~|~j}{v.\TRUE} \vdash \wpre{\mathsf{Start} ~ l~|~i}{v.\Phi(v)}
+   \later \Phi(\mathsf{Done~Halt}) \asts \later \Sep_{j\in l} \wpre{\mathsf{Repeat~ExecInstr}}[j]{v.\TRUE} \vdash \wpre{\mathsf{Start} ~ l}[i]{v.\Phi(v)}
   }
 \end{displaymath}
 
@@ -1301,10 +1301,10 @@ If we are not interested in the $\DONE$s of VMs, the following par rule could be
 
 \begin{displaymath}
   \inferrule[ht-par-two]{
-    \hoare{P_{i}}{\mathsf{Repeat~ExecInstr}~|~i}{\_.Q_{i}} \\
-    \hoare{P_{j}}{\mathsf{Repeat~ExecInstr}~|~j}{\_.Q_{j}}
+    \hoare{P_{i}}{\mathsf{Repeat~ExecInstr}}{\_.Q_{i}}[i] \\
+    \hoare{P_{j}}{\mathsf{Repeat~ExecInstr}}{\_.Q_{j}}[j]
   }{
-    \hoare{P_{i}\asts P_{j}}{\mathsf{Start} ~ [i,j] ~|~-1}{v.v=\mathsf{Done~Halt}\asts Q_{i}\asts Q_{j}}
+    \hoare{P_{i}\asts P_{j}}{\mathsf{Start} ~ [i,j]}{v.v=\mathsf{Done~Halt}\asts Q_{i}\asts Q_{j}}[-1]
   }
   \end{displaymath}
 
@@ -1313,7 +1313,7 @@ If we are not interested in the $\DONE$s of VMs, the following par rule could be
   \begin{mathpar}
 
   \inferrule[wp-wand]{}{
-   (\forall v. \Phi(v) \wand \Psi(v)) \asts \wpre{\mu~|~i}{v.\Phi(v)} \vdash \wpre{\mu~|~i}{v.\Psi(v)}
+   (\forall v. \Phi(v) \wand \Psi(v)) \asts \wpre{\mu}[i]{v.\Phi(v)} \vdash \wpre{\mu}[i]{v.\Psi(v)}
  }\\
 
  %  \inferrule[wp-done]{}{
@@ -1321,19 +1321,19 @@ If we are not interested in the $\DONE$s of VMs, the following par rule could be
  % }\\
 
   \inferrule[wp-repeat-exec]{}{
-    \wpre{\mathsf{ExecInstr}~|~i}{\mu.\wpre{\mathsf{Repeat~}\mu~|~i}{v.\Phi(v)}}   \vdash \wpre{\mathsf{Repeat~ExecInstr}~|~i}{v.\Phi(v)}
+    \wpre{\mathsf{ExecInstr}}[i]{\mu.\wpre{\mathsf{Repeat~}\mu}[i]{v.\Phi(v)}}   \vdash \wpre{\mathsf{Repeat~ExecInstr}}[i]{v.\Phi(v)}
   }
 
   \inferrule[wp-repeat-next]{}{
-    \wpre{\mathsf{Repeat~ExecInstr}~|~i}{v.\Phi(v)}   \vdash \wpre{\mathsf{Repeat~Done~NextInstr}~|~i}{v.\Phi(v)}
+    \wpre{\mathsf{Repeat~ExecInstr}}[i]{v.\Phi(v)}   \vdash \wpre{\mathsf{Repeat~Done~NextInstr}}[i]{v.\Phi(v)}
   }
 
   \inferrule[wp-repeat-halt]{}{
-    \Phi(\mathsf{Done~Halt})   \vdash \wpre{\mathsf{Repeat~Done~Halt}~|~i}{v.\Phi(v)}
+    \Phi(\mathsf{Done~Halt})   \vdash \wpre{\mathsf{Repeat~Done~Halt}}[i]{v.\Phi(v)}
   }
 
   \inferrule[wp-repeat-fail]{}{
-    \Phi(\mathsf{Done~Fail})   \vdash \wpre{\mathsf{Repeat~Done~Fail}~|~i}{v.\Phi(v)}
+    \Phi(\mathsf{Done~Fail})   \vdash \wpre{\mathsf{Repeat~Done~Fail}}[i]{v.\Phi(v)}
   }
 
 
