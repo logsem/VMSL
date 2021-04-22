@@ -389,6 +389,9 @@ str R3, R2
 
 mov R9, R2                   # save the handler for later
 
+# IMPORTANT: we also need resolve prophecy variable
+# a ghost instruction like res p R2?
+
 send:
 # msg_send to 1
 mov R0, encode_fid(MSG_SEND)    # function id (FFA_MSG_SEND)
@@ -429,7 +432,7 @@ hvc            # [0].pt[p] = (O, EA)
 # halt if failed
 mov R8, encode_fid(SUCC)
 cmp R0 R8
-mov R8 fail
+mov R8 err
 bne R8
 
 halt
@@ -543,54 +546,53 @@ fail
 \begin{align*}
  & \hoareV{\begin{array}{l}
             \reg{PC}{0}{a_{i}^{0}} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts \\
-             \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
+            \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
             \reg{PC}{1}{a_{i}^{1}} \asts \prog{a_{i}^{1}}{prog_{1}} \asts \reg{NZ}{0}{-} \asts\\
             \reg{R0}{1}{-} \asts  \reg{R1}{1}{-} \asts  \reg{R2}{1}{-}\asts  \reg{R3}{1}{-}\asts  \reg{R8}{1}{-}\asts  \reg{R9}{1}{-}\asts\\
             \own{1}{\pid(a_{i}^{1})}\asts \access{1}{\pid(a_{i}^{1})} \asts \excl{1}{\pid(a_{i}^{1})} \asts\\
-           \knowInv{\gamma_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \knowInv{\gamma_{2}}{I(p,a_{rx})}
+           \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \knowInv{\gamma i_{2}}{I(p,a_{rx},\gamma_{0},\gamma_{1},\gamma_{2},\gamma_{w})}\asts \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2} \asts \exists v. \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \always \#2
   \end{array}}
   {\textsf{Start~}[0,1]}
   {\begin{array}{l}v.v=\textsf{Done~Halt} \asts \reg{PC}{0}{-} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-}\asts \\
-             \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
-            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
-           \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{-} \asts \\
-            \reg{PC}{1}{-} \asts \prog{a_{i}^{1}}{prog_{1}} \asts \reg{NZ}{0}{-} \asts\\
+            \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts (\access{0}{\pid(a_{i}^{0}), p} \asts \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2}\lor \access{0}{\pid(a_{i}^{0})}\asts \ownGhost{\gamma_{1}}{1}) \asts\\ \excl{0}{\pid(a_{i}^{0}), p} \asts  \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{-} \asts \\
+            \reg{PC}{1}{-} \asts \prog{a_{i}^{1}}{prog_{1}} \asts \reg{NZ}{0}{-}\asts\\
             \reg{R0}{1}{-} \asts  \reg{R1}{1}{-} \asts  \reg{R2}{1}{-}\asts  \reg{R3}{1}{-}\asts  \reg{R8}{1}{-}\asts  \reg{R9}{1}{-}\asts\\
      \own{1}{\pid(a_{i}^{1})}\asts \access{1}{\pid(a_{i}^{1})} \asts \excl{1}{\pid(a_{i}^{1})}
      \end{array}}[-1] \\
  & \text{where}\\
-  & I(p,a_{rx}) = \begin{array}{l}
-                    \left(\begin{array}{l}\reg{R0}{0}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGGhost{1} \asts\\
-                        \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-}
+  & I(p,a_{rx},\gamma_{0},\gamma_{1},\gamma_{2}, \gamma_{w}) = \begin{array}{l}
+                    \left(\begin{array}{l}\reg{R0}{0}{-} \asts \reg{R1}{0}{-}\asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGhost{\gamma_{1}}{1} \asts\\
+                        \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \exists w_{h}. \ownGhost{\gamma_{w}}{w_{h}}
                       \end{array}\right) \lor \\
-                    \left(\begin{array}{ll}\exists w_{h}.& \reg{R0}{0}{\efid{RUN}} \asts \rxpage{1}{a_{rx},\TRUE,9,0} \asts \\
+                    \left(\begin{array}{ll}\exists w_{h}.& \reg{R0}{0}{\efid{RUN}} \asts \reg{R1}{0}{1}\asts \rxpage{1}{a_{rx},\TRUE,9,0} \asts \\
                          &\reg{R0}{1}{\efid{MSG\_SEND}} \asts \reg{R1}{1}{\comb{0,1}} \asts \reg{R3}{1}{9}\\
-                    &\adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,p,0,...]} \asts \\ & \sss{[w_{h}\leftarrow (0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0}\end{array}\right)\lor\\
-           \left(\begin{array}{l}\reg{R0}{0}{\efid{YIELD}} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \\ \sss{[w_{h}\leftarrow (0,0,0,[],[p],\efid{MEM\_LEND})]}\asts \ownGGhost{0}\end{array}\right)
+                    &\adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,p,0,...]} \asts \\ & \sss{[w_{h}\leftarrow (0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGhost{\gamma_{w}}{w_{h}} \asts \ownGhost{\gamma_{0}}{0} \end{array}\right)\lor\\
+           \left(\exists w_{h}. \begin{array}{l}\reg{R0}{0}{\efid{YIELD}} \asts \reg{R1}{0}{1}\asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \\ \sss{[w_{h}\leftarrow (0,0,0,[],[p],\efid{MEM\_LEND})]}\asts \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2}\asts \ownGhost{\gamma_{w}}{w_{h}}\end{array}\right)
           \end{array}
 \end{align*}
 
 
 
 \section{Proof Sketch}
-First of all, we apply the \textsc{ht-par-two} rule to reason above two VMs seperately and locally. For VM 0, we are to show the following specification.
+First of all, we apply the \textsc{ht-par-two} rule to reason about two VMs locally. For VM 0, we are to show the following specification.
 
 \begin{align*}
  & \hoareV{\begin{array}{l}
             \reg{PC}{0}{a_{i}^{0}} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
-             \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
+            \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
-           \ownGGhost{0} \asts \knowInv{\gamma_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \knowInv{\gamma_{2}}{I(p,a_{rx})}
+           \ownGhost{\gamma_{0}}{0} \asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \knowInv{\gamma i_{2}}{I(p,a_{rx},\gamma_{0},\gamma_{1},\gamma_{2},\gamma_{w}) } \asts \#2
   \end{array}}
   {\textsf{Repeat~ExecInstr}}
   {\begin{array}{l}\_.\reg{PC}{0}{-} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
-             \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
-            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
-           \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{-} \asts \\
-            \ownGGhost{1}
+            \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts  (\access{0}{\pid(a_{i}^{0}), p} \asts \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2}\lor \access{0}{\pid(a_{i}^{0})}\asts \ownGhost{\gamma_{1}}{1})  \asts \\
+            \excl{0}{\pid(a_{i}^{0}), p} \asts \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{-} \asts \\
+            \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2}
      \end{array}}[0]
 \end{align*}
 By unfolding the definition of hoare triple, it suffices to show the weakestpro of the form:
@@ -599,20 +601,20 @@ By unfolding the definition of hoare triple, it suffices to show the weakestpro 
   & \wpre
   {\textsf{Repeat~ExecInstr}}[0]
   {\begin{array}{l}\_.\reg{PC}{0}{-} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
-             \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
-            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
-           \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{-} \asts \\
-            \ownGGhost{1}
+            \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts  (\access{0}{\pid(a_{i}^{0}), p} \asts \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2}\lor \access{0}{\pid(a_{i}^{0})}\asts \ownGhost{\gamma_{1}}{1})  \asts \\
+            \excl{0}{\pid(a_{i}^{0}), p} \asts \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{-} \asts \\
+            \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2}
      \end{array}}
 \end{align*}
 with resources
 \begin{align*}
   &\begin{array}{l}
-            \reg{PC}{0}{a_{i}^{0}} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
-             \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
-            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+           \reg{PC}{0}{a_{i}^{0}} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
+           \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
+           \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
-           \ownGGhost{0} \asts \knowInv{\gamma_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \knowInv{\gamma_{2}}{I(p,a_{rx})}
+           \ownGhost{\gamma_{0}}{0} \asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \knowInv{\gamma i_{2}}{I(p,a_{rx},\gamma_{0},\gamma_{1},\gamma_{2},\gamma_{w}) } \asts \#2
   \end{array}
 \end{align*}.
 
@@ -622,20 +624,22 @@ Now, let's walk through instructions of $prog_{0}$.
 \begin{align*}
   \oneinstr{
 \begin{array}{l}
-            \knowInv{\gamma_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
             \reg{R0}{0}{-} \asts \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-}\asts\\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \# 2
   \end{array}
   }{mov R0, addr(p, 0)}
  \oneinstr{
   \begin{array}{l}
-            \knowInv{\gamma_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}+1} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}+1} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{-} \asts\\
             \reg{R0}{0}{\addr(p, 0)} \asts \reg{R1}{0}{-} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-}\asts\\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \# 2
   \end{array}
   }{mov R1, 42}
 \oneinstr{
@@ -644,7 +648,8 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\addr(p, 0)} \asts \reg{R1}{0}{42} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-}\asts \\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \# 2
   \end{array}
   }{str R0, R1}
 \oneinstr{
@@ -653,7 +658,8 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\addr(p, 0)} \asts \reg{R1}{0}{42} \asts  \reg{R2}{0}{-}\asts  \reg{R3}{0}{-}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-}\asts \\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \# 2
   \end{array}
   }{mov R0, encode\_fid(MEM\_LEND)}
 \oneinstr{
@@ -674,18 +680,19 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{MEM\_LEND}} \asts \reg{R1}{0}{9} \asts  \reg{R2}{0}{a_{tx}}\asts  \reg{R3}{0}{0}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-}\asts \\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \# 2
   \end{array}
   }{mov R2, addr(tx, 1)}
-    \end{align*}
-\clearpage
-\begin{align*}
 \oneinstr{
   ...
   }{mov R3, 0}
 \oneinstr{
   ...
   }{str R2, R3}
+      \end{align*}
+\clearpage
+\begin{align*}
 \oneinstr{
   ...
   }{mov R2, addr(tx, 3)}
@@ -746,7 +753,8 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{MEM\_LEND}} \asts \reg{R1}{0}{9} \asts  \reg{R2}{0}{a_{tx}+8}\asts  \reg{R3}{0}{\addr(p,0)}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}), p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,0,0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-}\asts \\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \textsf{Proph}(p,v) \asts \ownGhost{\gamma_{w}}{v} \asts \# 2
   \end{array}
   }{hvc}
   \end{align*}
@@ -758,7 +766,8 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{SUCC}} \asts \reg{R1}{0}{9} \asts  \reg{R2}{0}{w_{h}}\asts  \reg{R3}{0}{\addr(p,0)}\asts  \reg{R8}{0}{-}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,0,0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts\\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
   \end{array}
   }{mov R8, encode\_fid(SUCC)}
   \oneinstr{
@@ -770,7 +779,8 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{SUCC}} \asts \reg{R1}{0}{9} \asts  \reg{R2}{0}{w_{h}}\asts  \reg{R3}{0}{\addr(p,0)}\asts  \reg{R8}{0}{\efid{SUCC}}\asts  \reg{R9}{0}{-}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,0,0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts\rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts\\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
   \end{array}
   }{mov R8 err}
   \oneinstr{
@@ -791,7 +801,8 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{SUCC}} \asts \reg{R1}{0}{9} \asts  \reg{R2}{0}{w_{h}}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0} \asts\ownGGhost{1}
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts\rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts\\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
   \end{array}
   }{send: mov R0, encode\_fid(MSG\_SEND)}
   \oneinstr{
@@ -806,8 +817,9 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{MSG\_SEND}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0} \asts\ownGGhost{1} \asts \#2
-  \end{array} %TODO : add #2 to everywhere above
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts\rxpage{1}{a_{rx},\FALSE, -,-} \asts \adr{\pid(a_{rx})}{-} \asts\\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+  \end{array}
   }{hvc}
   \oneinstr{
   \begin{array}{l}
@@ -815,19 +827,19 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{SUCC}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0} \asts\ownGGhost{1} \asts \#2
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts\rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
   \end{array}
-  }{mov R8, encode\_fid(SUCC)}
+    }{mov R8, encode\_fid(SUCC)}
+      \end{align*}
+  \clearpage
+  \begin{align*}
   \oneinstr{
   ...
   }{cmp R0 R8}
   \oneinstr{
   ...
     }{mov R8 send}
-  \end{align*}
-  \clearpage
-  \begin{align*}
   \oneinstr{
   ...
     }{bne R8}
@@ -843,34 +855,115 @@ Now, let's walk through instructions of $prog_{0}$.
             \reg{R0}{0}{\efid{RUN}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(send)}\asts  \reg{R9}{0}{w_{h}}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-}\\
-            \rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0} \asts\ownGGhost{1} \asts \#2
-  \end{array} %TODO add R0_{1}, R1_{1}, and R3_{1} to everywhere above
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-} \asts\rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+  \end{array}
     }{hvc}
-    \oneinstr{
-      \begin{array}{l}
+&\begin{array}{l}
             \adr{p}{[42,...]}\asts \isEven{ws} \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
             \reg{R0}{0}{\efid{RUN}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(send)}\asts  \reg{R9}{0}{w_{h}}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
             \reg{R0}{1}{\efid{MSG\_SEND}} \asts \reg{R1}{1}{\comb{0,1}} \asts \reg{R3}{1}{9}\\
             \rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts \ownGGhost{0} \asts\ownGGhost{1} \asts \#2\\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2\\
             \\
-    % \text{close all invariants}\\
+    \text{close all invariants}\\
             \\
-            \knowInv{\gamma_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
-            \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(send)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(send)}\asts  \reg{R9}{0}{w_{h}}\asts\\
             \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
             \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
-            \knowInv{\gamma_{2}}{I(p,a_{rx})} \asts\ownGGhost{1} \asts \#2
-  \end{array}%TODO: open the invariant again, two issues: 1. remember the sss 2. only resaon about the third disjunction
+            \knowInv{\gamma i_{2}}{I(p,a_{rx},\gamma_{0},\gamma_{1},\gamma_{2},\gamma_{w})} \asts\ownGhost{\gamma_{1}}{1} \ast \ownGhost{\gamma_{w}}{w_{h}} \asts \#2
+  \end{array}
+  \end{align*}
+  When we open the invairant $\gamma i_{2}$ again, we have to reason about the second and the third disjunction.
+
+  For the second disjunction:
+  \begin{align*}
+ \oneinstr{
+    \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}  \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R0}{0}{\efid{RUN}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(send)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{\efid{MSG\_SEND}} \asts \reg{R1}{1}{\comb{0,1}} \asts \reg{R3}{1}{9}\\
+            \rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+       \end{array}
     }{mov R8, encode\_fid(YIELD)}
-  \oneinstr{
+    \oneinstr{
+    ...
     }{cmp R0 R8}
   \oneinstr{
-  ...
+  \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}+48} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{2} \asts\\
+            \reg{R0}{0}{\efid{RUN}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\efid{YIELD}}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{\efid{MSG\_SEND}} \asts \reg{R1}{1}{\comb{0,1}} \asts \reg{R3}{1}{9}\\
+            \rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+       \end{array}
+    }{mov R8 err}
+  \oneinstr{
+  \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}\asts \reg{PC}{0}{a_{i}^{0}+49} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{2} \asts\\
+            \reg{R0}{0}{\efid{RUN}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{\efid{MSG\_SEND}} \asts \reg{R1}{1}{\comb{0,1}} \asts \reg{R3}{1}{9}\\
+            \rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+       \end{array}
+    }{bne R8}
+    \oneinstr{
+ \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}} \asts \reg{PC}{0}{a_{i}^{0}+59} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{2} \asts\\
+            \reg{R0}{0}{\efid{RUN}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{\efid{MSG\_SEND}} \asts \reg{R1}{1}{\comb{0,1}} \asts \reg{R3}{1}{9}\\
+            \rxpage{1}{a_{rx},\TRUE,9,0} \asts \adr{\pid(a_{rx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+       \end{array}
+    }{err: fail}
+&\begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}\asts \reg{PC}{0}{a_{i}^{0}+59} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{2} \asts\\
+            \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \knowInv{\gamma i_{2}}{I(p,a_{rx},\gamma_{0},\gamma_{1},\gamma_{2},\gamma_{w})} \asts  \ownGhost{\gamma_{1}}{1} \asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+       \end{array}
+    \end{align*}
+\clearpage
+  For the third disjunction:
+
+  \begin{align*}
+  \oneinstr{
+    \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}  \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R0}{0}{\efid{YIELD}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\addr(send)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-}\\
+            \rxpage{1}{a_{rx},\FALSE,-,-} \asts \adr{\pid(a_{rx})}{-} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{2}}{2}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+       \end{array}
+    }{mov R8, encode\_fid(YIELD)}
+    \oneinstr{
+    ...
+    }{cmp R0 R8}
+  \oneinstr{
+  \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}  \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R0}{0}{\efid{YIELD}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{9}\asts  \reg{R3}{0}{a_{tx}+2}\asts  \reg{R8}{0}{\efid{YIELD}}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-}\\
+            \rxpage{1}{a_{rx},\FALSE,-,-} \asts \adr{\pid(a_{rx})}{-} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{2}}{2}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+       \end{array}
     }{mov R8 err}
   \oneinstr{
   ...
@@ -884,27 +977,57 @@ Now, let's walk through instructions of $prog_{0}$.
   \oneinstr{
   ...
     }{mov R3, 0}
-  \oneinstr{
-  ...
+    \oneinstr{
+    \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}  \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R0}{0}{\efid{MEM\_RECLAIM}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{w_{h}}\asts  \reg{R3}{0}{0}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0})} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-}
+            \rxpage{1}{a_{rx},\FALSE,-,-} \asts \adr{\pid(a_{rx})}{-} \asts \\
+            \sss{[w_{h}\leftarrow(0,0,0,[],[p],\efid{MEM\_LEND})]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{2}}{2}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+    \end{array}
     }{hvc}
   \oneinstr{
-  ...
+  \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}  \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R0}{0}{\efid{SUCC}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{w_{h}}\asts  \reg{R3}{0}{0}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}),p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-}
+            \rxpage{1}{a_{rx},\FALSE,-,-} \asts \adr{\pid(a_{rx})}{-} \asts \\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{2}}{2}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+    \end{array}
     }{mov R8, encode\_fid(SUCC)}
   \oneinstr{
   ...
     }{cmp R0 R8}
   \oneinstr{
   ...
-    }{mov R8 fail}
+    }{mov R8 err}
+  \end{align*}
+  \begin{align*}
   \oneinstr{
   ...
     }{bne R8}
   \oneinstr{
-  ...
+   \begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}  \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R0}{0}{\efid{SUCC}} \asts \reg{R1}{0}{1} \asts  \reg{R2}{0}{w_{h}}\asts  \reg{R3}{0}{0}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}),p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \reg{R0}{1}{-} \asts \reg{R1}{1}{-} \asts \reg{R3}{1}{-}
+            \rxpage{1}{a_{rx},\FALSE,-,-} \asts \adr{\pid(a_{rx})}{-} \asts \\
+            \sss{[]} \asts  \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{1}}{1}\asts \ownGhost{\gamma_{2}}{2}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+    \end{array}
     }{halt}
-  \oneinstr{
-  ...
-    }{err: fail}
+    &\begin{array}{l}
+            \knowInv{\gamma i_{1}}{\exists ws. \adr{p}{ws}\asts \isEven{ws}}  \asts \reg{PC}{0}{a_{i}^{0}+47} \asts \prog{a_{i}^{0}}{prog_{0}} \asts \reg{NZ}{0}{1} \asts\\
+            \reg{R2}{0}{w_{h}}\asts  \reg{R3}{0}{0}\asts  \reg{R8}{0}{\addr(err)}\asts  \reg{R9}{0}{w_{h}}\asts\\
+            \own{0}{\pid(a_{i}^{0}), p}\asts \access{0}{\pid(a_{i}^{0}),p} \asts \excl{0}{\pid(a_{i}^{0}), p} \asts\\
+            \txpage{0}{a_{tx}} \asts \adr{\pid(a_{tx})}{[0,0,w_{h},0,1,1,2,1,\addr(p,0),...]} \asts \\
+            \knowInv{\gamma i_{2}}{I(p,a_{rx},\gamma_{0},\gamma_{1},\gamma_{2},\gamma_{w})} \asts \ownGhost{\gamma_{0}}{0} \asts \ownGhost{\gamma_{2}}{2}\asts \ownGhost{\gamma_{w}}{w_{h}} \asts \# 2
+    \end{array}
 \end{align*}
 
 
