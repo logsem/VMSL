@@ -396,8 +396,8 @@
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MsgPoll-Succ]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(pid_r,\TRUE,-,-)}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[v].mb.rx=(pid_r,\FALSE,0,-)\end{array}}\right\},mm,sss))}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(pid_r,\TRUE,w_l,v_s)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{MSG\_SEND};\\\null[v].rs[\reg{R1}]=\text{comb}(v_s,n);\\\null [n].rs[\reg{R3}]=w_l;\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MsgPoll-Error-Empty]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(-,\FALSE,-,-)}
@@ -405,6 +405,9 @@
 
   \end{mathpar}
 \end{figure}
+
+\clearpage
+TODO: RX\_RELEASE
 
 \clearpage
 
