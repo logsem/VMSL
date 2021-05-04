@@ -1,0 +1,37 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage[a4paper,tmargin=0.75in,bmargin=1in,showframe=false]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{mathpartir}
+\usepackage{todonotes}
+\usepackage{graphicx}
+\usepackage{kpfonts}
+\usepackage{array}
+\usepackage[T1]{fontenc}
+\usepackage{../iris}
+
+
+\begin{document}
+
+\begin{align*}
+  \langkws{let}~ \mathtt{example} = \ & \Let l_{w} = \Ref(0) in \\
+                                      & \Let l = \Ref(0) in \\
+                                      & \langghost{let}\spac \textlang{\color{red} p\spac=} \spac \NewProph \textlang{\color{red}\spac in}\\
+                                      & \mathtt{thread1}(l,l_{w}) || \mathtt{thread2}(l,l_{w})\\
+  \langkws{let}~ \mathtt{thread1}~ l~ l_w~ \textlang{\color{red} p} = \ & \Let l' = \Ref(42) in \\
+                                      & \Resolve \textlang{\color{red} p}To{\textlang{\color{red} l'}}\\
+                                      & l \gets l' \\
+                                      & l_{w} \gets 1 \\
+                                      & \mathtt{wait}(l_{w},2) \\
+                                      & !l' \\
+  \langkws{let}~ \mathtt{thread2}~ l ~ l_{w} = \  & \mathtt{wait}(l_{w},1)\\
+                                      & \langkws{FFA}(!l,2) \\
+                                      & l_{w} \gets 2 \\
+  \langkws{let}~ \mathtt{wait} ~ l ~ v = \ & \If !l \neq v then \mathtt{wait}(l,v) \Else ()
+\end{align*}
+
+\end{document}

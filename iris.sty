@@ -446,9 +446,11 @@
 % this and textls is an ugly hack to make the letter spacing in listings and
 % math the same....
 %\usepackage[letterspace=0]{microtype}
-\newcommand{\textlang}[1]{\textls{\fontsize{8}{10}\texttt{#1}}}
-\newcommand{\langkw}[1]{\textlang{\color{blue}#1}}
-\newcommand{\langkws}[1]{\textlang{\color{green!60!black}#1}}
+\newcommand{\textlang}[1]{\textsf{#1}}
+%newcommand{\langkw}[1]{\textlang{\color{blue} #1}}
+%\newcommand{\langkws}[1]{\textlang{\color{green!60!black}#1}}
+\newcommand{\langkws}[1]{\textlang{\color{blue}#1}}
+\newcommand{\langghost}[1]{\textlang{\color{red}#1}}
 \newcommand{\lvar}[1]{\textit{#1}} % Yes, this makes language-level variables look like logic-level variables. but we still distinguish locally bound variables from global definitions.
 \newcommand{\lvarA}{\lvar{\var}}
 \newcommand{\lvarB}{\lvar{\varB}}
@@ -495,6 +497,9 @@
 \def\throw#1to#2{\langkw{throw}\spac#1\spac\langkw{to}\spac#2}
 \newcommand{\callccop}{\langkw{call/cc}}
 \newcommand{\throwop}{\langkw{throw}}
+\def\NewProph{\langghost{NewProph()}}
+\def\Resolve#1To#2{\langghost{Resolve} \spac #1 \spac \langghost{to} \spac #2}
+
 %\newcommand{\empctx}{\circledcirc}
 \newcommand{\empctx}{[]}
 
