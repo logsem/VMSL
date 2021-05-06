@@ -274,8 +274,11 @@ Definition CurrentVM := VMID.
 Definition VMState : Type :=
   gmap VMID (RegFile * MailBox * PageTable).
 
+Definition Flag : Type :=
+  bool.
+
 Definition Transaction : Type :=
-  Addr * TransactionType * listset_nodup VMID * listset_nodup VMID.
+  Addr * TransactionType * gmap VMID Flag.
 
 Definition Handle := Word.
 
@@ -500,7 +503,7 @@ Definition newTransaction (st : State) (v : VMID)
     match freshHandle (transactions st) with
     | None => None
     | Some h' =>
-      ret (insertTransaction st h' (addr, tt, receivers, listset_nodup_empty))
+      ret (insertTransaction st h' (addr, tt, set_to_map (fun x => (x, false)) receivers))
     end
   else None.
 
@@ -770,34 +773,44 @@ Definition DonateHelper (s : State) (r : RegName) (receiver : RegName) : Conf * 
   in 
   (simpleOptionStateUnpack s comp, NormalM).
 
-(* TODO *)
-Definition commitTransaction (s : State) (addr : Addr)
+Definition toggleTransactionEntry (s : State) (h : Handle) (v : VMID) : State :=
+  (vmStates s, currentVM s, mem s,
+   alter (fun x => match x with
+                   | (a, t, m) => (a, t, alter (fun y => negb y) v m)
+                   end) h (transactions s)).
+
+Definition retrieveTransaction (s : State)
+           (handle : Handle)
+           (addr : Addr)
            (type : TransactionType)
-           (receivers : listset_nodup VMID)
-           (received : listset_nodup VMID) : option State :=
+           (receiversMap : gmap VMID Flag) : option State :=
   match type with
-  | Sharing => None
-  | Lending => None
-  | Donation => None
+  | Sharing =>
+    let m := toggleTransactionEntry s handle (currentVM s)
+    in updatePageTable m (currentVM m) addr (NotOwned, SharedAccess)
+  | Lending =>
+    let m := toggleTransactionEntry s handle (currentVM s)
+    in if decide (1 < size receiversMap)
+       then updatePageTable m (currentVM m) addr (NotOwned, SharedAccess)
+       else updatePageTable m (currentVM m) addr (NotOwned, ExclusiveAccess)
+  | Donation =>
+    let m := toggleTransactionEntry s handle (currentVM s)
+    in updatePageTable m (currentVM m) addr (Owned, ExclusiveAccess)
   end.
 
-(* TODO *)
-Definition revertTransaction (s : State) (addr : Addr)
-           (type : TransactionType)
-           (receivers : listset_nodup VMID)
-           (received : listset_nodup VMID) : option State :=
-  match type with
-  | Sharing => None
-  | Lending => None 
-  | Donation => None
-  end.
+Definition relinquishTransaction (s : State)
+           (handle : Handle)
+           (addr : Addr) : option State :=
+  let m := toggleTransactionEntry s handle (currentVM s)
+  in updatePageTable m (currentVM m) addr (NotOwned, NoAccess).
 
 Definition RetrieveHelper (s : State) (r : RegName) : Conf * ControlMode :=
   let comp :=
       handle <- getReg s (currentVM s) r ;;;
       trn <- getTransaction s handle ;;;
       m <- match trn with
-           | (addr, type, receivers, received) => commitTransaction s addr type receivers received
+           | (addr, type, receiversMap) =>
+             retrieveTransaction s handle addr type receiversMap
            end ;;;
       updateIncrPC m
   in
@@ -808,21 +821,25 @@ Definition RelinquishHelper (s : State) (r : RegName) : Conf * ControlMode :=
       handle <- getReg s (currentVM s) r ;;;
       trn <- getTransaction s handle ;;;
       m <- match trn with
-           | (addr, type, receivers, received) => revertTransaction s addr type receivers received
+           | (addr, type, receiversMap) =>
+             relinquishTransaction s handle addr
            end ;;;
       updateIncrPC m
   in
   (simpleOptionStateUnpack s comp, NormalM).
-  
+
 Definition ReclaimHelper (s : State) (r : RegName) : Conf * ControlMode :=
   let comp :=
       handle <- getReg s (currentVM s) r ;;;
       trn <- getTransaction s handle ;;;
       m <- match trn with
-           | (addr, _, receivers, ListsetNoDup [] _) =>
-             m' <- ret (removeTransaction s handle) ;;;
-             updatePageTable m' (currentVM m') addr (Owned, ExclusiveAccess)
-           | _ => None
+           | (addr, _, receiversMap) =>
+             if map_fold (fun _ v acc => orb v acc) false receiversMap
+             then
+               m' <- ret (removeTransaction s handle) ;;;
+               updatePageTable m' (currentVM m') addr (Owned, ExclusiveAccess)
+             else
+               None
            end ;;;
       updateIncrPC m
   in
