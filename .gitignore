@@ -57,6 +57,7 @@ Thumbs.db
 *.out
 semantics/.auctex-auto/
 slides/.auctex-auto/
+examples/.auctex-auto/
 *.snm
 *.toc
 *.nav

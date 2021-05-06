@@ -187,7 +187,7 @@
        \text{len}(pgs)=w_{c} \land (f={\tt{MEM\_DONATE}} \rightarrow w_{c}=1) \land&\\
       w_f[63:1] = 0 \land (f={\tt{MEM\_SHARE}} \rightarrow w_{f}[0]=0)\land&~~\text{validate flag}\\
   \forall i. i < w_{c}\rightarrow \big(v_{r}^{i}=\tv{mm[p[5+2*i]]} \land w_{o}^{i} = mm[p[5+2*i+1]] \land &~~//\text{get all receivers $v_{r}^{i}$ and offsets to pids $w_{o}^{i}$ }\\
-  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
+  w_{n}^{i}=mm[p[5+w_{o}^{i}]] \land (\forall j. j < w_{n}^{i}\rightarrow \text{pid}(mm[p[5+w_{o}^{i}+1+j]])\in pgs[v_{r}^{i}]) \land&~~//\text{all pids are in $pgs$}\\
       \text{len}(pgs[v_{r}^{i}])=w_{n}^{i}\land v_{r}^{i}\ne v_{s} \land \text{ValidVMID}(\delta s,v_{r}^{i})\big) &~~//\text{receivers are valid}\\
       \\
   \text{ValidTransactionDescriptor}(pid_t,w_l,v_{s},w_f,w_{h},_,w_c,pgs,mm,\delta s,f) \defined & \\
@@ -396,8 +396,8 @@
     {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{INV\_PARA}\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MsgPoll-Succ]
-    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(pid_r,\TRUE,-,-)}
-    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[v].mb.rx=(pid_r,\FALSE,0,-)\end{array}}\right\},mm,sss))}
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(pid_r,\TRUE,w_l,v_s)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{MSG\_SEND};\\\null[v].rs[\reg{R1}]=\text{comb}(v_s,n);\\\null [n].rs[\reg{R3}]=w_l;\end{array}}\right\},mm,sss))}
 
     \and \inferrule[Exec-hvc-Succ-MsgPoll-Error-Empty]
     {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{MSG\_POLL})\\ \delta_v.mb.rx=(-,\FALSE,-,-)}
@@ -406,6 +406,18 @@
   \end{mathpar}
 \end{figure}
 
+\clearpage
+\begin{figure}[hbt!]
+  \begin{mathpar}
+    \inferrule[Exec-hvc-Succ-RXRelease-Succ]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RX\_RELEASE})\\ \delta_v.mb.rx=(pid_r,\TRUE,-,-)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow\\ (\DNNXT{0} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{SUCC};\\\null[v].mb.rx=(pid_r,\FALSE,-,-);\end{array}}\right\},mm,sss))}
+
+    \and \inferrule[Exec-hvc-Succ-RXRelease-Error-Denied]
+    {\text{AccessibleAddr}(\delta_v,a_i) \\\text{DecodeInstr}(mm[a_i],\mathtt{hvc}) \\\text{IsFFA}(\delta_v,\tt{RX\_RELEASE})\\ \delta_v.mb.rx=(pid_r,\FALSE,-,-)}
+    {(\EI{v} ,\,(\delta s,mm,sss)) \rightarrow (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}[v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\\null[v].rs[\reg{R0}]=\efid{ERROR};\\\null[v].rs[\reg{R2}]=\eec{DENIED}\end{array}}\right\},mm,sss))}
+      \end{mathpar}
+\end{figure}
 \clearpage
 
 \subsection{Memory management interfaces}
@@ -618,7 +630,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
-    \null[v].rs[\reg{R2}]=7;\\
+    \null[v].rs[\reg{R1}]=8+\text{len}(ps);\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(!O,NA);\\
     \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
@@ -651,7 +663,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
-    \null[v].rs[\reg{R2}]=7;\\
+    \null[v].rs[\reg{R1}]=8+\text{len}(ps);\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(!O,NA);\\
     \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
@@ -689,7 +701,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
-    \null[v].rs[\reg{R2}]=7+\text{len}(ps);\\
+    \null[v].rs[\reg{R2}]=8+\text{len}(ps);\\
     \null \forall pid. pid\in ps \land \big(\exists v_r,ps'. v_r \ne v \land (v_r,ps')\in pgs \rightarrow pid\in ps'\big) \rightarrow [v].pt[pid]=(!O,SA);\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(!O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,NA);\\
@@ -722,7 +734,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
-    \null[v].rs[\reg{R2}]=7+\text{len}(ps);\\
+    \null[v].rs[\reg{R2}]=8+\text{len}(ps);\\
     \null \forall pid. pid\in ps \land \big(\exists v_r,ps'. v_r \ne v \land (v_r,ps')\in pgs \rightarrow pid\in ps'\big) \rightarrow [v].pt[pid]=(!O,SA);\\
     \null \forall pid. pid\in ps \land \big(\forall v_r,ps'. v_r \ne v \land  (v_r,ps')\in pgs \rightarrow pid \notin ps'\big) \rightarrow [v].pt[pid]=(!O,EA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,NA);\\
@@ -761,7 +773,7 @@ sss~\text{with}~\{[w_h]=(v,w_f,w_t,[],pgs,f)\})}
     (\DNNXT{v} ,\, (\delta s \text{ with }\left\{{\begin{array}{l}
     [v].rs[\reg{pc}]=rs_v[\reg{pc}]+1;\\
     \null[v].rs[\reg{R0}]=\efid{MEM\_RETRIEVE\_RESP};\\
-    \null[v].rs[\reg{R2}]=7+\text{len}(ps);\\
+    \null[v].rs[\reg{R2}]=8+\text{len}(ps);\\
     \null \forall pid. pid\in ps \rightarrow [v].pt[pid]=(!O,SA);\\
     \null \forall pid. pid\in ps \rightarrow [v_s].pt[pid]=(O,SA);\\
     \null[v].mb.rx=(pid_r,\TRUE,8+\text{len}(ps),-)
