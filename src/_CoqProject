@@ -1,0 +1,6 @@
+-R theories/ hypvis
+
+-arg -w
+-arg -all
+
+theories/lang.v
