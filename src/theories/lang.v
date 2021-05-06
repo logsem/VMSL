@@ -971,3 +971,23 @@ Proof.
            | HH : to_val (of_val _) = None |- _ => by rewrite to_of_val in HH
            end; auto.
 Qed.
+
+Inductive step : Conf -> Conf * ControlMode -> Prop :=
+| step_exec_fail:
+    forall st,
+      not (isValidPC st = Some true) ->
+      step (ExecI, st) (FailI, st, NormalM)
+| step_exec_instr:
+    forall st a w i c,
+      isValidPC st = Some true ->
+      getMem st a = Some w ->
+      DecodeInstr w = Some i ->
+      exec i st = c ->
+      step (ExecI, st) c.
+
+Inductive prim_step : expr -> State -> list Empty_set -> expr -> State -> list Empty_set -> ControlMode -> Prop :=
+| PS_no_fork_instr st e' st' m :
+    step (ExecI, st) (e', st', m) -> prim_step (Instr ExecI) st [] (Instr e') st' [] m
+| PS_no_fork_seq st : prim_step (Seq (Instr NextI)) st [] (Seq (Instr ExecI)) st [] NormalM
+| PS_no_fork_halt st : prim_step (Seq (Instr HaltI)) st [] (Instr HaltI) st [] NormalM
+| PS_no_fork_fail st : prim_step (Seq (Instr FailI)) st [] (Instr FailI) st [] NormalM.
