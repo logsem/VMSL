@@ -283,19 +283,19 @@ Definition Transactions : Type :=
   gmap Handle Transaction.
 
 Definition State : Type :=
-  VMState * (CurrentVM * (Mem * Transactions)).
+  VMState * CurrentVM * Mem * Transactions.
 
 Definition vmStates (st : State) : VMState :=
-  fst st.
+  fst (fst (fst st)).
 
 Definition currentVM (st : State) : CurrentVM :=
-  fst (snd st).
+  snd (fst (fst st)).
 
 Definition mem (st : State) : Mem :=
-  fst (snd (snd st)).
+  snd (fst st).
 
 Definition transactions (st : State) : Transactions :=
-  snd (snd (snd st)).
+  snd st.
 
 Definition vmState (st : State) (v : VMID) : option (RegFile * MailBox * PageTable) :=
   (vmStates st) !! v.
@@ -359,8 +359,8 @@ Definition updateReg (st : State) (v : VMID) (r : RegName) (w : Word) : option S
     | None => None
     | Some (rf, mb, pt) =>
       Some (<[(currentVM st):=(<[r:=w]>rf, mb, pt)]>(vmStates st),
-            (currentVM st,
-             (mem st, transactions st)))
+            currentVM st,
+            mem st, transactions st)
     end
   end.
 
@@ -371,8 +371,8 @@ Definition updateSysReg (st : State) (v : VMID) (r : RegName) (w : Word) : optio
          | None => None
          | Some (rf, mb, pt) =>
            Some (<[(currentVM st):=(<[r:=w]>rf, mb, pt)]>(vmStates st),
-                 (currentVM st,
-                  (mem st, transactions st)))
+                 currentVM st,
+                 mem st, transactions st)
          end
   end.
 
@@ -387,8 +387,8 @@ Definition updatePageTable (st : State) (v : VMID) (addr : Addr) (p : Perm) : op
   | None => None
   | Some (rf, mb, pt) =>
     Some (<[(currentVM st):=(rf, mb, <[addr:=p]>pt)]>(vmStates st),
-          (currentVM st,
-           (mem st, transactions st)))
+          currentVM st,
+          mem st, transactions st)
   end.
 
 Definition getPageTable (st : State) (v : VMID) (addr : Addr) : option Perm :=
@@ -398,7 +398,7 @@ Definition getPageTable (st : State) (v : VMID) (addr : Addr) : option Perm :=
   end.
                 
 Definition updateMem (st : State) (a : Addr) (w : Word) : State :=
-  ((vmStates st), (currentVM st, ((<[a:=w]>(mem st), transactions st)))).
+  (vmStates st, currentVM st, <[a:=w]>(mem st), transactions st).
 
 Definition updateMemWithPerm (st : State) (a : Addr) (w : Word) : option State :=
   if checkAccess st (currentVM st) a
@@ -441,8 +441,8 @@ Definition emptyRX (st : State) (v : VMID) : option State :=
   match vmState st v with
   | Some (rf, (txAddr, (rxAddr, Some v)), pt) =>
     Some (<[(currentVM st):=(rf, (txAddr, (rxAddr, None)), pt)]>(vmStates st),
-          (currentVM st,
-           (mem st, transactions st)))
+          currentVM st,
+          mem st, transactions st)
   | _ => None
   end.
 
@@ -455,8 +455,8 @@ Definition transferMsg (st : State) (v : VMID) (r : VMID) : option State :=
         | Some val =>
           let st' := updateMem st rxAddr val
           in Some (<[(currentVM st):=(rf, (txAddr', (rxAddr, Some v)), pt)]>(vmStates st),
-                   (currentVM st,
-                    (mem st, transactions st)))
+                   currentVM st,
+                   mem st, transactions st)
         | _ => None
       end
     | _ => None
@@ -472,11 +472,9 @@ Definition tryIncrWord (n : Word) : option Word :=
 
 Lemma finMax {n : nat} (x y : fin n) : fin n.
 Proof.
-  destruct (Fin.to_nat x).
-  destruct (Fin.to_nat y).
-  destruct (x <? y).
-  - apply y.
-  - apply x.
+  destruct (Fin.to_nat x);
+    destruct (Fin.to_nat y);
+    destruct (x <? y); auto.
 Qed.
 
 Definition freshHandleHelper (val : Handle) (acc : option Handle) : option Handle :=
@@ -492,7 +490,7 @@ Definition freshHandle (m : gmap Handle Transaction) : option Handle :=
   set_fold freshHandleHelper None (@dom (gmap Handle Transaction) (gset Handle) gset_dom m).
 
 Definition insertTransaction (st : State) (h : Handle) (t : Transaction) : State :=
-  ((vmStates st), (currentVM st, ((mem st, <[h:=t]>(transactions st))))).
+  (vmStates st, currentVM st, mem st, <[h:=t]>(transactions st)).
 
 Definition newTransaction (st : State) (v : VMID)
            (addr : Addr) (tt : TransactionType)
@@ -510,7 +508,7 @@ Definition getTransaction (st : State) (h : Handle) : option Transaction :=
   (transactions st) !! h.
 
 Definition removeTransaction (s : State) (handle : Handle) : State :=
-  (vmStates s, (currentVM s, (mem s, delete handle (transactions s)))).
+  (vmStates s, currentVM s, mem s, delete handle (transactions s)).
 
 Definition updateOffsetPC (st : State) (dir : bool) (offset : nat) : option State :=
   bind
@@ -536,7 +534,7 @@ Definition updateIncrPC (st : State) : option State :=
   updateOffsetPC st true 1.
 
 Definition updateCurrentVMID (st : State) (v : VMID) : State :=
-  (vmStates st, (v, (mem st, transactions st))).
+  (vmStates st, v, mem st, transactions st).
 
 Definition isPrimary (st : State) : bool :=
   (currentVM st) =? 0.
