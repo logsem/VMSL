@@ -5,213 +5,15 @@ From iris.algebra Require Import ofe.
 From iris.program_logic Require Import language ectx_language ectxi_language.
 From ExtLib Require Import Structures.Monads.
 Require Import monad_aux.
+Require Import machine_base.
 
-Fixpoint listFromSome {A : Type} (l : list (option A)) : list A :=
-  match l with
-  | nil => nil
-  | cons x xs =>
-    match x with
-    | None => listFromSome xs
-    | Some x' => cons x' (listFromSome xs)
-    end
-  end.
-
-Definition WordUpperBound := 65536.
-
-Definition Word : Type :=
-  fin WordUpperBound.
-
-Instance eqDecisionWord : EqDecision Word.
-Proof.
-  solve_decision.
-Qed.
-
-Instance countableWord : Countable Word.
-Proof.
-  refine {| encode := _;
-            decode := _;
-            decode_encode := _ |}.
-  apply fin_countable.
-Qed.
-
-Class ArchitectureParameters := {
-  RegCount : nat;
-                               }.
-
-Context `(ArchParams : ArchitectureParameters).
-
-Inductive RegName : Type :=
-| PC
-| NZ
-| R (n : nat) (fin : n <=? RegCount = true).
-
-Instance eqDecisionRegName : EqDecision RegName.
-Proof.
-  intros x y. destruct x as [| | n fin], y as [| | n' fin']; try (by left); try (by right).
-  destruct (nat_eq_dec n n').
-  - subst n'. left.
-    assert (forall (b: bool) (n m: nat) (P1 P2: n <=? m = b), P1 = P2).
-    { intros. apply eq_proofs_unicity.
-      intros; destruct x; destruct y; auto. }
-    rewrite (H _ _ _ fin fin'); reflexivity.
-  - right. congruence.
-Qed.
-
-Program Definition n_to_regname (n : nat) : option RegName :=
-  if (nat_le_dec n RegCount) then Some (R n _) else None.
-Next Obligation.
-  intros. eapply Nat.leb_le; eauto.
-Defined.
-
-Instance countableRegName : Countable RegName.
-Proof.
-  refine {| encode r := encode match r with
-                               | PC => inl false
-                               | NZ => inl true
-                               | R n fin => inr n
-                               end;
-            decode n := match (decode n) with
-                        | Some (inl false) => Some PC
-                        | Some (inl true) => Some NZ
-                        | Some (inr n) => n_to_regname n
-                        | None => None
-                        end;
-            decode_encode := _ |}.
-  intro r. destruct r; auto.
-  rewrite decode_encode.
-  unfold n_to_regname.
-  destruct (nat_le_dec n RegCount).
-  - do 2 f_equal. apply eq_proofs_unicity. decide equality.
-  - exfalso. by apply (Nat.leb_le n RegCount) in fin.
-Qed.
-
-Inductive Ownership : Type :=
-| Owned
-| NotOwned.
-
-Instance eqDecisionOwnership : EqDecision Ownership.
-Proof.
-  solve_decision.
-Qed.
-
-Inductive Access : Type :=
-| NoAccess
-| SharedAccess
-| ExclusiveAccess.
-
-Instance eqDecisionAccess : EqDecision Access.
-Proof.
-  solve_decision.
-Qed.
-
-Definition Perm : Type :=
-  (Ownership * Access).
-
-Definition isAccessible (p : Perm) : bool :=
-  match p with
-  | (_, SharedAccess) => true
-  | (_, ExclusiveAccess) => true
-  | _ => false
-  end.
-
-Definition isOwned (p : Perm) : bool :=
-  match p with
-  | (Owned, _) => true
-  | _ => false
-  end.
-
-Instance eqDecisionPerm : EqDecision Perm.
-Proof.
-  solve_decision.
-Qed.
-
-Inductive TransactionType : Type :=
-| Donation
-| Sharing
-| Lending.
-
-Instance eqDecisionTransactionType : EqDecision TransactionType.
-Proof.
-  solve_decision.
-Qed.
-
-Inductive Instruction : Type :=
-| Mov (dst : RegName) (src : Word + RegName)
-| Ldr (dst : RegName) (src : RegName)
-| Str (src : RegName) (dst : RegName)
-| Cmp (arg1 : RegName) (arg2 : Word + RegName)
-| Jnz (arg : RegName)
-| Jmp (arg : RegName)
-| Halt
-| Fail
-| Run (arg : RegName)
-| Yield
-| Share (addr : RegName) (receivers : list RegName)
-| Lend (addr : RegName) (receivers : list RegName)
-| Donate (addr : RegName) (receiver : RegName)
-| Retrieve (handle : RegName)
-| Relinquish (handle : RegName)
-| Reclaim (handle : RegName)
-| Send (receiver : RegName)
-| Receive (dst1 : RegName) (dst2 : RegName)
-| Wait.
-
-Instance eqDecisionInstruction : EqDecision Instruction.
-Proof.
-  solve_decision.
-Qed.
-
-Class MachineParameters := {
-  AddressSize : nat;
-  DecodeInstr : Word -> option Instruction;
-  EncodeInstr : Instruction -> Word;
-  DecodeEncodeInstr : forall (i : Instruction), DecodeInstr (EncodeInstr i) = Some i;
-                          }.
-
-Context `(MachineParams : MachineParameters).
-
-Instance countableInstruction : Countable Instruction.
-Proof.
-  refine {| encode := fun i => encode (EncodeInstr i);
-            decode := fun p => match decode p with
-                               | None => None
-                               | Some p' => DecodeInstr p'
-                               end;
-            decode_encode := _ |}.
-  intros x.
-  rewrite decode_encode.
-  apply DecodeEncodeInstr.
-Qed.
-
-Definition Addr : Type :=
-  fin AddressSize.
-
-Instance eqDecisionAddr : EqDecision Addr.
-Proof.
-  solve_decision.
-Qed.
-
-Instance countableAddr : Countable Addr.
-Proof.
-  refine {| encode := _;
-            decode := _;
-            decode_encode := _ |}.
-  apply fin_countable.
-Qed.
+Context `(HypervisorParams : HypervisorParameters).
 
 Definition Mem : Type :=
   gmap Addr Word.
 
 Definition RegFile : Type :=
   gmap RegName Word.
-
-Class HypervisorParameters := {
-  VMCount : nat;
-  VMCountStrictlyPositive : 0 < VMCount;
-  VMUpperBound : VMCount < WordUpperBound;
-                             }.
-
-Context `(HypervisorParams : HypervisorParameters).
 
 Definition VMID : Type :=
   fin VMCount.
@@ -451,6 +253,10 @@ Definition freshHandleHelper (val : Handle) (acc : option Handle) : option Handl
 Definition freshHandle (m : gmap Handle Transaction) : option Handle := 
   set_fold freshHandleHelper None (@dom (gmap Handle Transaction) (gset Handle) gset_dom m).
 
+Definition TransactionDescriptor : Type :=
+  Word (* Length *) * VMID (* Sender *) * option Handle (* Handle *) * Word (* Tag *)
+  * Word (* Flag *) * list VMID (* Receivers *).
+
 Definition insertTransaction (st : State) (h : Handle) (t : Transaction) : State :=
   (vmStates st, currentVM st, mem st, <[h:=t]>(transactions st)).
 
@@ -504,23 +310,9 @@ Definition isPrimary (st : State) : bool :=
 Definition isSecondary (st : State) : bool :=
   negb (isPrimary st).
 
-Definition wordToVMID (w : Word) : option VMID :=
-  let w' := fin_to_nat w in
-  match (nat_lt_dec w' VMCount) with
-  | left l => Some (nat_to_fin l)
-  | _ => None
-  end.
-
-Lemma vmidToWord (v : VMID) : Word.
-Proof.
-  destruct (Fin.to_nat v) as [x l].
-  apply (@Fin.of_nat_lt x WordUpperBound
-                        (Nat.lt_trans x VMCount WordUpperBound l VMUpperBound)).
- Defined.
-
 Definition wordToAddr (w : Word) : option Addr :=
   let w' := fin_to_nat w in
-  match (nat_lt_dec w' AddressSize) with
+  match (nat_lt_dec w' AddressSpaceSize) with
   | left l => Some (nat_to_fin l)
   | _ => None
   end.
@@ -636,10 +428,17 @@ Definition JmpHelper (s : State) (arg : RegName) : Conf * ControlMode :=
   in
   (simpleOptionStateUnpack s comp, NormalM).
 
+Definition FailHelper (s : State) : Conf * ControlMode :=
+  (FailI, s, NormalM).
+
+Definition HaltHelper (s : State) : Conf * ControlMode :=
+  (HaltI, s, NormalM).
+
+(*
 Definition RunHelper (s : State) (arg : RegName) : Conf * ControlMode :=
   let comp :=
       arg' <- getReg s (currentVM s) arg ;;;
-      id <- wordToVMID arg' ;;;
+      id <- DecodeVMID arg' ;;;
       m <- updateIncrPC s ;;;
       ret (m, id)
   in
@@ -652,12 +451,6 @@ Definition RunHelper (s : State) (arg : RegName) : Conf * ControlMode :=
     end
   end.
 
-Definition FailHelper (s : State) : Conf * ControlMode :=
-  (FailI, s, NormalM).
-
-Definition HaltHelper (s : State) : Conf * ControlMode :=
-  (HaltI, s, NormalM).
-
 Definition YieldHelper (s : State) : Conf * ControlMode :=
   let comp := updateIncrPC s
   in
@@ -666,16 +459,11 @@ Definition YieldHelper (s : State) : Conf * ControlMode :=
   | Some st =>
     match fin_to_nat (currentVM st) with
     | 0 => (FailI, s, NormalM)
-    | _ => (NextI, st, YieldM (@nat_to_fin 0 _ VMCountStrictlyPositive))
+    | _ => (NextI, st, YieldM (@nat_to_fin 0 _ VMCountPos))
     end
   end.
 
-Definition parseVMIDs (s : State) (l : list RegName) : list VMID :=
-  listFromSome (map (fun x => bind (getReg s (currentVM s) x) wordToVMID) l).
-
 Definition ShareHelper (s : State) (r : RegName) (receivers : list RegName) : Conf * ControlMode :=
-  let receivers := parseVMIDs s receivers
-  in
   let comp :=
       r' <- getReg s (currentVM s) r ;;;
       addr <- wordToAddr r' ;;;
@@ -836,6 +624,84 @@ Definition WaitHelper (s : State) : Conf * ControlMode :=
     then (NextI, s', NormalM)
     else (NextI, s', YieldM (@nat_to_fin 0 _ VMCountStrictlyPositive))
   end.
+ *)
+
+Program Definition RunHelper (s : State) : Conf * ControlMode :=
+  match getReg s (currentVM s) (R 1 _) with
+  | None => (FailI, s, NormalM)
+  | Some id =>
+    match updateIncrPC s with
+    | None => (FailI, s, NormalM)
+    | Some s' =>
+      match DecodeVMID id with
+      | None => (FailI, s, NormalM)
+      | Some id' => (NextI, s', YieldM id')
+      end
+    end
+  end.
+Next Obligation.
+  pose proof (Nat.ltb_spec0 1 RegCountUpperBound) as H;
+    remember (1 <? RegCountUpperBound);
+    subst; inversion H; auto.
+Qed.
+
+Definition YieldHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition ShareHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition LendHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition DonateHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition RetrieveHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition RelinquishHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition ReclaimHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition SendHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition ReceiveHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Definition WaitHelper (s : State) : Conf * ControlMode :=
+  FailHelper s.
+
+Program Definition HvcHelper (s : State) : Conf * ControlMode :=
+  match getReg s (currentVM s) (R 0 _) with
+  | None => FailHelper s
+  | Some r0 =>
+    match DecodeHvcFunc r0 with
+    | None => FailHelper s
+    | Some func =>
+      match func with
+      | Run => RunHelper s
+      | Yield => YieldHelper s
+      | Share => ShareHelper s
+      | Lend => LendHelper s
+      | Donate => DonateHelper s
+      | Retrieve => RetrieveHelper s
+      | Relinquish => RelinquishHelper s
+      | Reclaim => ReclaimHelper s
+      | Send => SendHelper s
+      | Receive => ReceiveHelper s
+      | Wait => WaitHelper s
+      end
+    end
+  end.
+Next Obligation.
+  pose proof (Nat.ltb_spec0 0 RegCountUpperBound) as H;
+    remember (1 <? WordUpperBound);
+    subst; inversion H; auto.
+Qed.
 
 Definition exec (i : Instruction) (s : State) : Conf * ControlMode :=
   match i with
@@ -849,17 +715,7 @@ Definition exec (i : Instruction) (s : State) : Conf * ControlMode :=
   | Jmp arg => JmpHelper s arg
   | Fail => FailHelper s
   | Halt => HaltHelper s
-  | Run arg => RunHelper s arg
-  | Yield => YieldHelper s
-  | Share addr receivers => ShareHelper s addr receivers
-  | Lend addr receivers => LendHelper s addr receivers
-  | Donate addr receiver => DonateHelper s addr receiver
-  | Retrieve handle => RetrieveHelper s handle
-  | Relinquish handle => RelinquishHelper s handle
-  | Reclaim handle => ReclaimHelper s handle
-  | Send receiver => SendHelper s receiver
-  | Receive dst1 dst2 => ReceiveHelper s dst1 dst2
-  | Wait => WaitHelper s
+  | Hvc => HvcHelper s
   end.
 
 Inductive val : Type :=
@@ -894,7 +750,7 @@ Lemma of_to_val:
   forall e v, to_val e = Some v ->
               of_val v = e.
 Proof.
-  intros * HH. destruct e; try destruct c; simpl in HH; inversion HH; auto.
+  intros * HH; destruct e; try destruct c; simpl in HH; inversion HH; auto.
 Qed.
 
 Lemma to_of_val:
@@ -910,6 +766,29 @@ Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   | SeqCtx => Seq e
   end.
 
+Inductive step : Conf -> Conf * ControlMode -> Prop :=
+| step_exec_fail:
+    forall st,
+      not (isValidPC st = Some true) ->
+      step (ExecI, st) (FailI, st, NormalM)
+| step_exec_instr:
+    forall st a w i c,
+      isValidPC st = Some true ->
+      getMem st a = Some w ->
+      DecodeInstr w = Some i ->
+      exec i st = c ->
+      step (ExecI, st) c.
+
+Inductive prim_step : expr -> State -> list Empty_set -> expr -> State -> list Empty_set -> ControlMode -> Prop :=
+| PS_instr_normal st e' st' :
+    step (ExecI, st) (e', st', NormalM) -> prim_step (Instr ExecI) st [] (Instr e') st' [] NormalM
+| PS_instr_yield st e' st' i :
+    step (ExecI, st) (e', st', YieldM i) -> prim_step (Instr ExecI) st [] (Instr e') (updateCurrentVMID st' i) [] NormalM
+| PS_seq st : prim_step (Seq (Instr NextI)) st [] (Seq (Instr ExecI)) st [] NormalM
+| PS_halt st : prim_step (Seq (Instr HaltI)) st [] (Instr HaltI) st [] NormalM
+| PS__fail st : prim_step (Seq (Instr FailI)) st [] (Instr FailI) st [] NormalM.
+
+(*
 Lemma fill_item_val Ki e :
     is_Some (to_val (fill_item Ki e)) → is_Some (to_val e).
 Proof.
@@ -930,23 +809,4 @@ Proof.
            | HH : to_val (of_val _) = None |- _ => by rewrite to_of_val in HH
            end; auto.
 Qed.
-
-Inductive step : Conf -> Conf * ControlMode -> Prop :=
-| step_exec_fail:
-    forall st,
-      not (isValidPC st = Some true) ->
-      step (ExecI, st) (FailI, st, NormalM)
-| step_exec_instr:
-    forall st a w i c,
-      isValidPC st = Some true ->
-      getMem st a = Some w ->
-      DecodeInstr w = Some i ->
-      exec i st = c ->
-      step (ExecI, st) c.
-
-Inductive prim_step : expr -> State -> list Empty_set -> expr -> State -> list Empty_set -> ControlMode -> Prop :=
-| PS_no_fork_instr st e' st' m :
-    step (ExecI, st) (e', st', m) -> prim_step (Instr ExecI) st [] (Instr e') st' [] m
-| PS_no_fork_seq st : prim_step (Seq (Instr NextI)) st [] (Seq (Instr ExecI)) st [] NormalM
-| PS_no_fork_halt st : prim_step (Seq (Instr HaltI)) st [] (Instr HaltI) st [] NormalM
-| PS_no_fork_fail st : prim_step (Seq (Instr FailI)) st [] (Instr FailI) st [] NormalM.
+*)

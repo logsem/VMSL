@@ -4,4 +4,5 @@
 -arg -all
 
 theories/monad_aux.v
+theories/machine_base.v
 theories/lang.v

@@ -9,6 +9,16 @@ Module monad_option.
            |}.
   Qed.
 
+  Fixpoint listFromSome {A : Type} (l : list (option A)) : list A :=
+  match l with
+  | nil => nil
+  | cons x xs =>
+    match x with
+    | None => listFromSome xs
+    | Some x' => cons x' (listFromSome xs)
+    end
+  end.
+
 End monad_option.
 
 Module monad_base_notation.
