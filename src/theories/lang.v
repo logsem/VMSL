@@ -1,51 +1,10 @@
 From Coq Require Import ssreflect Bool Eqdep_dec.
-From ExtLib Require Import Structures.Monads.
 From stdpp Require Import gmap fin_maps list binders strings countable fin mapset fin_map_dom listset_nodup.
 From iris.prelude Require Import options.
 From iris.algebra Require Import ofe.
 From iris.program_logic Require Import language ectx_language ectxi_language.
-
-Instance MonadOption : Monad option.
-Proof.
-  refine {| ret t x := Some x;
-            bind t u mt f := match mt with | None => None | Some t => f t end;
-         |}.
-Qed.
-
-Module MonadBaseNotation.
-  
-  Delimit Scope monad_scope with monad.
-  
-  Notation "c >>= f" := (@bind _ _ _ _ c f) (at level 58, left associativity) : monad_scope.
-  Notation "f =<< c" := (@bind _ _ _ _ c f) (at level 62, right associativity) : monad_scope.
-  Notation "f >=> g" := (@mcompose _ _ _ _ _ f g) (at level 62, right associativity) : monad_scope.
-  
-  Notation "e1 ;;; e2" := (@bind _ _ _ _ e1%monad (fun _ => e2%monad))%monad
-                                                                     (at level 62, right associativity) : monad_scope.
-  
-End MonadBaseNotation.
-
-Module MonadNotation.
-  
-  Export MonadBaseNotation.
-  
-  Notation "x <- c1 ;;; c2" := (@bind _ _ _ _ c1 (fun x => c2))
-                                (at level 62, c1 at next level, right associativity) : monad_scope.
-  
-  Notation "' pat <- c1 ;;; c2" :=
-    (@bind _ _ _ _ c1 (fun x => match x with pat => c2 end))
-      (at level 62, pat pattern, c1 at next level, right associativity) : monad_scope.
-  
-End MonadNotation.
-
-Module MonadLetNotation.
-  
-  Export MonadBaseNotation.
-  
-  Notation "'let*' p ':=' c1 'in' c2" := (@bind _ _ _ _ c1 (fun p => c2))
-                                           (at level 62, p as pattern, c1 at next level, right associativity) : monad_scope.
-  
-End MonadLetNotation.
+From ExtLib Require Import Structures.Monads.
+Require Import monad_aux.
 
 Fixpoint listFromSome {A : Type} (l : list (option A)) : list A :=
   match l with
@@ -566,7 +525,7 @@ Definition wordToAddr (w : Word) : option Addr :=
   | _ => None
   end.
 
-Export MonadNotation.
+Export monad_notation.
 Open Scope monad_scope.
 
 Definition isValidPC (st : State) : option bool :=

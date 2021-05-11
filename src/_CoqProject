@@ -3,4 +3,5 @@
 -arg -w
 -arg -all
 
+theories/monad_aux.v
 theories/lang.v
