@@ -274,8 +274,11 @@ Definition CurrentVM := VMID.
 Definition VMState : Type :=
   gmap VMID (RegFile * MailBox * PageTable).
 
+Definition Flag : Type :=
+  bool.
+
 Definition Transaction : Type :=
-  Addr * TransactionType * listset_nodup VMID * listset_nodup VMID.
+  Addr * TransactionType * gmap VMID Flag.
 
 Definition Handle := Word.
 
@@ -283,19 +286,19 @@ Definition Transactions : Type :=
   gmap Handle Transaction.
 
 Definition State : Type :=
-  VMState * (CurrentVM * (Mem * Transactions)).
+  VMState * CurrentVM * Mem * Transactions.
 
 Definition vmStates (st : State) : VMState :=
-  fst st.
+  fst (fst (fst st)).
 
 Definition currentVM (st : State) : CurrentVM :=
-  fst (snd st).
+  snd (fst (fst st)).
 
 Definition mem (st : State) : Mem :=
-  fst (snd (snd st)).
+  snd (fst st).
 
 Definition transactions (st : State) : Transactions :=
-  snd (snd (snd st)).
+  snd st.
 
 Definition vmState (st : State) (v : VMID) : option (RegFile * MailBox * PageTable) :=
   (vmStates st) !! v.
@@ -359,8 +362,8 @@ Definition updateReg (st : State) (v : VMID) (r : RegName) (w : Word) : option S
     | None => None
     | Some (rf, mb, pt) =>
       Some (<[(currentVM st):=(<[r:=w]>rf, mb, pt)]>(vmStates st),
-            (currentVM st,
-             (mem st, transactions st)))
+            currentVM st,
+            mem st, transactions st)
     end
   end.
 
@@ -371,8 +374,8 @@ Definition updateSysReg (st : State) (v : VMID) (r : RegName) (w : Word) : optio
          | None => None
          | Some (rf, mb, pt) =>
            Some (<[(currentVM st):=(<[r:=w]>rf, mb, pt)]>(vmStates st),
-                 (currentVM st,
-                  (mem st, transactions st)))
+                 currentVM st,
+                 mem st, transactions st)
          end
   end.
 
@@ -387,8 +390,8 @@ Definition updatePageTable (st : State) (v : VMID) (addr : Addr) (p : Perm) : op
   | None => None
   | Some (rf, mb, pt) =>
     Some (<[(currentVM st):=(rf, mb, <[addr:=p]>pt)]>(vmStates st),
-          (currentVM st,
-           (mem st, transactions st)))
+          currentVM st,
+          mem st, transactions st)
   end.
 
 Definition getPageTable (st : State) (v : VMID) (addr : Addr) : option Perm :=
@@ -398,7 +401,7 @@ Definition getPageTable (st : State) (v : VMID) (addr : Addr) : option Perm :=
   end.
                 
 Definition updateMem (st : State) (a : Addr) (w : Word) : State :=
-  ((vmStates st), (currentVM st, ((<[a:=w]>(mem st), transactions st)))).
+  (vmStates st, currentVM st, <[a:=w]>(mem st), transactions st).
 
 Definition updateMemWithPerm (st : State) (a : Addr) (w : Word) : option State :=
   if checkAccess st (currentVM st) a
@@ -441,8 +444,8 @@ Definition emptyRX (st : State) (v : VMID) : option State :=
   match vmState st v with
   | Some (rf, (txAddr, (rxAddr, Some v)), pt) =>
     Some (<[(currentVM st):=(rf, (txAddr, (rxAddr, None)), pt)]>(vmStates st),
-          (currentVM st,
-           (mem st, transactions st)))
+          currentVM st,
+          mem st, transactions st)
   | _ => None
   end.
 
@@ -455,8 +458,8 @@ Definition transferMsg (st : State) (v : VMID) (r : VMID) : option State :=
         | Some val =>
           let st' := updateMem st rxAddr val
           in Some (<[(currentVM st):=(rf, (txAddr', (rxAddr, Some v)), pt)]>(vmStates st),
-                   (currentVM st,
-                    (mem st, transactions st)))
+                   currentVM st,
+                   mem st, transactions st)
         | _ => None
       end
     | _ => None
@@ -472,11 +475,9 @@ Definition tryIncrWord (n : Word) : option Word :=
 
 Lemma finMax {n : nat} (x y : fin n) : fin n.
 Proof.
-  destruct (Fin.to_nat x).
-  destruct (Fin.to_nat y).
-  destruct (x <? y).
-  - apply y.
-  - apply x.
+  destruct (Fin.to_nat x);
+    destruct (Fin.to_nat y);
+    destruct (x <? y); auto.
 Qed.
 
 Definition freshHandleHelper (val : Handle) (acc : option Handle) : option Handle :=
@@ -492,7 +493,7 @@ Definition freshHandle (m : gmap Handle Transaction) : option Handle :=
   set_fold freshHandleHelper None (@dom (gmap Handle Transaction) (gset Handle) gset_dom m).
 
 Definition insertTransaction (st : State) (h : Handle) (t : Transaction) : State :=
-  ((vmStates st), (currentVM st, ((mem st, <[h:=t]>(transactions st))))).
+  (vmStates st, currentVM st, mem st, <[h:=t]>(transactions st)).
 
 Definition newTransaction (st : State) (v : VMID)
            (addr : Addr) (tt : TransactionType)
@@ -502,7 +503,7 @@ Definition newTransaction (st : State) (v : VMID)
     match freshHandle (transactions st) with
     | None => None
     | Some h' =>
-      ret (insertTransaction st h' (addr, tt, receivers, listset_nodup_empty))
+      ret (insertTransaction st h' (addr, tt, set_to_map (fun x => (x, false)) receivers))
     end
   else None.
 
@@ -510,7 +511,7 @@ Definition getTransaction (st : State) (h : Handle) : option Transaction :=
   (transactions st) !! h.
 
 Definition removeTransaction (s : State) (handle : Handle) : State :=
-  (vmStates s, (currentVM s, (mem s, delete handle (transactions s)))).
+  (vmStates s, currentVM s, mem s, delete handle (transactions s)).
 
 Definition updateOffsetPC (st : State) (dir : bool) (offset : nat) : option State :=
   bind
@@ -536,7 +537,7 @@ Definition updateIncrPC (st : State) : option State :=
   updateOffsetPC st true 1.
 
 Definition updateCurrentVMID (st : State) (v : VMID) : State :=
-  (vmStates st, (v, (mem st, transactions st))).
+  (vmStates st, v, mem st, transactions st).
 
 Definition isPrimary (st : State) : bool :=
   (currentVM st) =? 0.
@@ -772,34 +773,44 @@ Definition DonateHelper (s : State) (r : RegName) (receiver : RegName) : Conf * 
   in 
   (simpleOptionStateUnpack s comp, NormalM).
 
-(* TODO *)
-Definition commitTransaction (s : State) (addr : Addr)
+Definition toggleTransactionEntry (s : State) (h : Handle) (v : VMID) : State :=
+  (vmStates s, currentVM s, mem s,
+   alter (fun x => match x with
+                   | (a, t, m) => (a, t, alter (fun y => negb y) v m)
+                   end) h (transactions s)).
+
+Definition retrieveTransaction (s : State)
+           (handle : Handle)
+           (addr : Addr)
            (type : TransactionType)
-           (receivers : listset_nodup VMID)
-           (received : listset_nodup VMID) : option State :=
+           (receiversMap : gmap VMID Flag) : option State :=
   match type with
-  | Sharing => None
-  | Lending => None
-  | Donation => None
+  | Sharing =>
+    let m := toggleTransactionEntry s handle (currentVM s)
+    in updatePageTable m (currentVM m) addr (NotOwned, SharedAccess)
+  | Lending =>
+    let m := toggleTransactionEntry s handle (currentVM s)
+    in if decide (1 < size receiversMap)
+       then updatePageTable m (currentVM m) addr (NotOwned, SharedAccess)
+       else updatePageTable m (currentVM m) addr (NotOwned, ExclusiveAccess)
+  | Donation =>
+    let m := toggleTransactionEntry s handle (currentVM s)
+    in updatePageTable m (currentVM m) addr (Owned, ExclusiveAccess)
   end.
 
-(* TODO *)
-Definition revertTransaction (s : State) (addr : Addr)
-           (type : TransactionType)
-           (receivers : listset_nodup VMID)
-           (received : listset_nodup VMID) : option State :=
-  match type with
-  | Sharing => None
-  | Lending => None 
-  | Donation => None
-  end.
+Definition relinquishTransaction (s : State)
+           (handle : Handle)
+           (addr : Addr) : option State :=
+  let m := toggleTransactionEntry s handle (currentVM s)
+  in updatePageTable m (currentVM m) addr (NotOwned, NoAccess).
 
 Definition RetrieveHelper (s : State) (r : RegName) : Conf * ControlMode :=
   let comp :=
       handle <- getReg s (currentVM s) r ;;;
       trn <- getTransaction s handle ;;;
       m <- match trn with
-           | (addr, type, receivers, received) => commitTransaction s addr type receivers received
+           | (addr, type, receiversMap) =>
+             retrieveTransaction s handle addr type receiversMap
            end ;;;
       updateIncrPC m
   in
@@ -810,21 +821,25 @@ Definition RelinquishHelper (s : State) (r : RegName) : Conf * ControlMode :=
       handle <- getReg s (currentVM s) r ;;;
       trn <- getTransaction s handle ;;;
       m <- match trn with
-           | (addr, type, receivers, received) => revertTransaction s addr type receivers received
+           | (addr, type, receiversMap) =>
+             relinquishTransaction s handle addr
            end ;;;
       updateIncrPC m
   in
   (simpleOptionStateUnpack s comp, NormalM).
-  
+
 Definition ReclaimHelper (s : State) (r : RegName) : Conf * ControlMode :=
   let comp :=
       handle <- getReg s (currentVM s) r ;;;
       trn <- getTransaction s handle ;;;
       m <- match trn with
-           | (addr, _, receivers, ListsetNoDup [] _) =>
-             m' <- ret (removeTransaction s handle) ;;;
-             updatePageTable m' (currentVM m') addr (Owned, ExclusiveAccess)
-           | _ => None
+           | (addr, _, receiversMap) =>
+             if map_fold (fun _ v acc => orb v acc) false receiversMap
+             then
+               m' <- ret (removeTransaction s handle) ;;;
+               updatePageTable m' (currentVM m') addr (Owned, ExclusiveAccess)
+             else
+               None
            end ;;;
       updateIncrPC m
   in
@@ -956,3 +971,23 @@ Proof.
            | HH : to_val (of_val _) = None |- _ => by rewrite to_of_val in HH
            end; auto.
 Qed.
+
+Inductive step : Conf -> Conf * ControlMode -> Prop :=
+| step_exec_fail:
+    forall st,
+      not (isValidPC st = Some true) ->
+      step (ExecI, st) (FailI, st, NormalM)
+| step_exec_instr:
+    forall st a w i c,
+      isValidPC st = Some true ->
+      getMem st a = Some w ->
+      DecodeInstr w = Some i ->
+      exec i st = c ->
+      step (ExecI, st) c.
+
+Inductive prim_step : expr -> State -> list Empty_set -> expr -> State -> list Empty_set -> ControlMode -> Prop :=
+| PS_no_fork_instr st e' st' m :
+    step (ExecI, st) (e', st', m) -> prim_step (Instr ExecI) st [] (Instr e') st' [] m
+| PS_no_fork_seq st : prim_step (Seq (Instr NextI)) st [] (Seq (Instr ExecI)) st [] NormalM
+| PS_no_fork_halt st : prim_step (Seq (Instr HaltI)) st [] (Instr HaltI) st [] NormalM
+| PS_no_fork_fail st : prim_step (Seq (Instr FailI)) st [] (Instr FailI) st [] NormalM.
