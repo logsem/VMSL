@@ -1348,7 +1348,7 @@ If we are not interested in the $\DONE$s of VMs, the following par rule could be
 \newcommand\regmap[1]{\stackrel{\mathclap{\mbox{\textsf{\footnotesize {#1}}}}}{\Ra}}
 \newcommand\bool{\mathbb{B}}
 
-Resources and RAs
+\subsection{Resources and RAs}
 
 \textbf{The number of VMs.} Since the number of VMs is fixed after initialization, the corresponding ghost variable is persistent and duplicable in our logic. We use the construction $\AG{\nat}$.
 \begin{align*}
@@ -1356,49 +1356,91 @@ Resources and RAs
 \SI &\eqdef \ownGhost{\gname_{\#}}{\mathsf{ag}(|\Phi.\delta s|)}
 \end{align*}
 
+Derivable rules:
+\begin{mathpar}
+\inferrule[Number-Duplicate]{}{\ownGGhost{\#~n} \wand \ownGGhost{\#~n} \asts \ownGGhost{\#~n}}
+
+\inferrule[Number-Agree]{}{\ownGGhost{\#~n} \asts \ownGGhost{\#~m} \ra m=n}
+\end{mathpar}
+
 \textbf{Memory Locations.} Like the regular point-to construction, we model memory locations as $\text{Auth}(\ADDR \finmap (\text{Frac} \times \AG{\WORD}))$. The point-to predicates and the state interpretation of $\Phi.mm$ are defined using fragamental view and authoritative view respectively.
 \begin{align*}
-a \gmapsto w& \eqdef \ownGhost{\gname_{MM}}{\circ [a \mapsfrom (1,\mathsf{ag}(w)]}\\
+a \gmapsto_{q} w& \eqdef \ownGhost{\gname_{MM}}{\circ [a \mapsfrom (q,\mathsf{ag}(w)]}\\
 \SI &\eqdef \ownGhost{\gname_{MM}}{\bullet \{[a\mapsfrom (1,\mathsf{ag}(w))] ~|~ [a \mapsfrom w] \in \Phi.mm \}}
 \end{align*}
+Derivable rules:
+\begin{mathpar}
+\inferrule[Mem-Split]{}{a \gmapsto_{p+q} w \wand a \gmapsto_{p} w \asts a \gmapsto_{q} w }
+
+\inferrule[Mem-Combine]{p+q \le 1\\ w=v}{a \gmapsto_{p} w \asts a \gmapsto_{q} v \wand a \gmapsto_{p+q} w}
+
+\end{mathpar}
 
 \textbf{Registers.} Except for the $\REGNAMES$, we also need a $\VMID$ to identify a register in $\Phi.\delta s$, as sometimes we could own two registers from different VMs with the same name. The construction is therefore $\text{Auth}((\REGNAMES \times \VMID) \finmap (\text{Frac} \times \AG{\WORD}))$.
 \begin{align*}
-r \regmap{i} w& \eqdef \ownGhost{\gname_{REG}}{\circ [(r,i) \mapsfrom (1,\mathsf{ag}(w)]}\\
+r \regmap{i}_{q} w& \eqdef \ownGhost{\gname_{REG}}{\circ [(r,i) \mapsfrom (q,\mathsf{ag}(w)]}\\
 \SI &\eqdef \ownGhost{\gname_{REG}}{\bullet \{[(r,j) \mapsfrom (1,\mathsf{ag}(w))] ~|~ j \in [0,|\Phi.\delta s|)\cap \nat,  [r \mapsfrom w] \in \Phi.\delta s[j].rs \}}
 \end{align*}
+Derivable rules:
+\begin{mathpar}
+\inferrule[Reg-Split]{}{r \regmap{i}_{p+q} w \wand r \regmap{i}_{p} w \asts r \regmap{i}_{q}w }
+
+\inferrule[Reg-Combine]{p+q \le 1\\ w=v}{r \regmap{i}_{p} w \asts r \regmap{i}_{q} v \wand  r \regmap{i}_{p+q} w}
+
+\end{mathpar}
+
+
 
 \textbf{Mailboxs.} The $\PID$s of RX and TX pages are unchangable, i.e. persistent in the program logic. We again use Agreement construction to model them. While for the RX page, its state could be updated by message passing hypercalls.
-The construction for TX page is $\text{Auth}(\VMID) \finmap \AG{\PID})$, for RX page is $\text{Auth}(\VMID \finmap (\AG{\PID}\times (\text{Frac} \times \AG{\bool \times \nat \times \VMID})^{?}))$.
+The construction for TX page is $\text{Auth}(\VMID \finmap \AG{\PID})$, for RX page is $\text{Auth}(\VMID \finmap (\AG{\PID}\times (\text{Frac} \times \AG{\bool \times \nat \times \VMID})^{?}))$.
 \begin{align*}
-\text{TX}_{i}(p) &\eqdef \ownGhost{\gname_{TX}}{\circ [i \mapsfrom \mathsf{ag}(p)]}\\
+\text{TX}^{i}(p) &\eqdef \ownGhost{\gname_{TX}}{\circ [i \mapsfrom \mathsf{ag}(p)]}\\
 \SI & \eqdef \ownGhost{\gname_{TX}}{\bullet \{[j \mapsfrom \mathsf{ag}(\Phi.\delta s[j].mb.tx)] ~|~ j \in [0,|\Phi.\delta s|)\cap \nat  \}}\\
-\text{RX}_{i}(p,b,n,v) &\eqdef \ownGhost{\gname_{RX}}{\circ [i \mapsfrom (\mathsf{ag}(p),(1,\mathsf{ag}(b,n,v))^{?}))]}\\
+\text{RX}^{i}(p) &\eqdef \ownGhost{\gname_{RX}}{\circ [i \mapsfrom (\mathsf{ag}(p), \bot)]}\\
+\text{RX}^{i}_{q}(p,b,n,v) &\eqdef \ownGhost{\gname_{RX}}{\circ [i \mapsfrom (\mathsf{ag}(p),(q,\mathsf{ag}(b,n,v))^{?}))]}\\
 \SI & \eqdef \ownGhost{\gname_{RX}}{\bullet \{[j \mapsfrom (\mathsf{ag}(rx.1), (1, \mathsf{ag}(rx.2, rx.3, rx.4))^{?})] ~|~ j \in [0,|\Phi.\delta s|)\cap \nat, rx = \Phi.\delta s[j].mb.rx  \}}
 \end{align*}
+\begin{mathpar}
+\inferrule[Tx-Duplicate]{}{\text{TX}^{i}(p) \wand \text{TX}^{i}(p) \asts \text{TX}^{i}(p)  }
 
-\textbf{Page tables.} The page table of a VM can be regarded as two collections of $\PID$s. One records the ownership of pages, the other one records the accessibility. The first one can be simply modeled as $\text{Auth}(\mathcal{P}(\VMID))$ with disjoint union as the composition operation.
+\inferrule[Rx-Duplicate]{}{\text{RX}^{i}(p) \wand \text{RX}^{i}(p) \asts \text{RX}^{i}(p)  }
+
+\inferrule[Rx-Split1]{}{\text{RX}^{i}_{q1+q2}(p,b,n,v) \wand \text{RX}^{i}_{q1}(p,b,n,v) \asts \text{RX}^{i}_{q2}(p,b,n,v)  }
+
+\inferrule[Rx-Split2]{}{\text{RX}^{i}_{q}(p,b,n,v) \wand \text{RX}^{i}_{q}(p,b,n,v) \asts \text{RX}^{i}(p)  }
+
+\end{mathpar}
+\textbf{Page tables.} The page table of a VM can be regarded as two collections of $\PID$s. One records the ownership of pages, the other one records the accessibility. The first one can be simply encoded as $\text{Auth}(\mathcal{P}(\VMID))$ with disjoint union as the composition operation.
 \begin{align*}
-\text{Owned}(p) &\eqdef \ownGhost{\gname_{OWN}}{\circ \{ p \}} \\
+\text{Owned}(s) &\eqdef \ownGhost{\gname_{OWN}}{\circ s} \\
 \SI & \eqdef \ownGhost{\gname_{OWN}}{\bullet \{p ~|~ [p \mapsfrom (\text{O}, -)] \in \Phi.\delta s[i].pt \}}
 \end{align*}
-The second one needs a Frac to keep track of shared access: $\text{Auth}(\PID \finmap (\text{Frac}, \AG{} +\text{Ex}())$.
+\begin{mathpar}
+\inferrule[Owned-Split]{}{\text{Owned}(s1 \uplus s2) \wand \text{Owned}(s1) \asts \text{Owned}(s2)  }
+
+\end{mathpar}
+
+The second one needs a Frac to keep track of shared access to every pages: $\text{Auth}(\PID \finmap (\text{Frac}, \AG{} +\text{Ex}())$.
 \begin{align*}
 \text{Accessible}_{q}(p,a) &\eqdef \ownGhost{\gname_{ACC}}{\circ [p \mapsfrom (q, \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}()))]} \\
 \SI & \eqdef \ownGhost{\gname_{ACC}}{\bullet \{[p \mapsfrom (1, \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}()))] ~|~ [p \mapsfrom (-,a)] \in \Phi.\delta s[i].pt\}}
 \end{align*}
+\begin{mathpar}
+\inferrule[Access-Shared-Split]{}{\text{Accessible}_{q1+q2}(p,SA)\wand \text{Accessible}_{q1}(p,SA) \asts \text{Accessible}_{q2}(p,SA)}
+\end{mathpar}
 
 \textbf{Transactions.}
-Transactions are indexed by the handle in $\SSS$. Thus, the basic construction is a partial finite map. We then divide transactions into two parts. The first is the ``constant'' part modeled by $\text{Auth}(\WORD \finmap (\text{Frac} \times \AG{\VMID \times \WORD \times \WORD \times (\VMID \finmap [\PID]) \times \FID)}))$. This part won't be changed during the transaction, so that we can simply apply the agreement construction. In order to make freeing handles possible, we additionally add a Frac to the construction. The second part is $\Auth(\WORD \finmap \mathcal{P}(\VMID))$ with pointwise disjoint union as the composition operation.  A element $v$ in the set can be considered as a token for the VM $v$ to retrieve.
+Transactions are indexed by the handles in $\SSS$. Thus, the basic construction is a partial finite map. We then divide transactions into two parts. The first is the ``constant'' part modeled by $\text{Auth}(\WORD \finmap (\text{Frac} \times \AG{\VMID \times \WORD \times \WORD \times (\VMID \finmap [\PID]) \times \FID)}))$. This part won't be changed during the transaction, so that we can simply apply the agreement construction. In order to make freeing handles possible, we additionally added a Frac to the construction. The second part is $\Auth(\WORD \finmap \mathcal{P}(\VMID))$ with pointwise disjoint union as the composition operation.  An element $v$ in the set can be considered as a token for the VM $v$ to retrieve.
 \begin{align*}
-\text{Transaction}_{q}(v,w_{f},w_{t},w_{h},pgs,fid) &\eqdef \ownGhost{\gname_{TRANS}}{\circ [w_{h}\mapsfrom (q,\textsf{ag}(v,w_{f},w_{t},pgs, fid))]} \\
+\text{Transaction}_{q}(w_{h},v,w_{f},w_{t},pgs,fid) &\eqdef \ownGhost{\gname_{TRANS}}{\circ [w_{h}\mapsfrom (q,\textsf{ag}(v,w_{f},w_{t},pgs, fid))]} \\
 \SI &\eqdef \ownGhost{\gname_{TRANS}}{\bullet \{[w_{h}\mapsfrom (1,\textsf{ag}(ss.1,ss.2,ss.3,ss.5, ss.6))] ~|~ [w_{h}\mapsfrom ss]\in \Phi.sss \}}\\
-\text{Retrievable}(w_{h},v) &\eqdef \ownGhost{\gname_{RETRI}}{\circ [w_{h}\mapsfrom \{v\}]}\\
+\text{Retrievable}(w_{h},vs) &\eqdef \ownGhost{\gname_{RETRI}}{\circ [w_{h}\mapsfrom vs]}\\
 \SI &\eqdef \ownGhost{\gname_{RETRI}}{\bullet \{[w_{h}\mapsfrom ss.4))] ~|~ [w_{h}\mapsfrom ss]\in \Phi.sss \}}
 \end{align*}
+\begin{mathpar}
+\inferrule[Transaction-Split]{}{\text{Accessible}_{q1+q2}(p,SA)\wand \text{Accessible}_{q1}(p,SA) \asts \text{Accessible}_{q2}(p,SA)}
 
-
-
-
+\inferrule[Retrievable-Split]{}{\text{Retrievable}(w_{h},vs1 \uplus vs2)\wand \text{Retrievable}(w_{h},vs1) \asts \text{Retrievable}(w_{h},vs2)}
+\end{mathpar}
 
 \end{document}
