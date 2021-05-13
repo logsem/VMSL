@@ -1,4 +1,4 @@
-From Coq Require Import ssreflect Bool Eqdep_dec.
+From Coq Require Import ssreflect Bool Eqdep_dec Program.Equality.
 From stdpp Require Import gmap fin_maps list binders strings countable fin mapset fin_map_dom listset_nodup.
 From iris.prelude Require Import options.
 From iris.algebra Require Import ofe.
@@ -7,7 +7,12 @@ From ExtLib Require Import Structures.Monads.
 Require Import monad_aux.
 Require Import machine_base.
 
+Export monad_notation.
+Open Scope monad_scope.
+
 Context `(HypervisorParams : HypervisorParameters).
+
+(* State *)
 
 Definition Mem : Type :=
   gmap Addr Word.
@@ -18,14 +23,17 @@ Definition RegFile : Type :=
 Definition VMID : Type :=
   fin VMCount.
 
+Definition PID : Type :=
+  fin PageCount.
+
 Definition PageTable : Type :=
-  gmap Addr Perm.
+  gmap PID Perm.
 
 Definition TXBuffer : Type :=
-  Addr.
+  PID.
 
 Definition RXBuffer : Type :=
-  (Addr * option(VMID)).
+  (PID * option(VMID)).
 
 Definition MailBox : Type :=
   (TXBuffer * RXBuffer).
@@ -39,7 +47,7 @@ Definition Flag : Type :=
   bool.
 
 Definition Transaction : Type :=
-  Addr * TransactionType * gmap VMID Flag.
+  VMID (* sender *) * Word (*flag *) * Word (* tag *) * gmap VMID (gmap PID Flag) * TransactionType.
 
 Definition Handle := Word.
 
@@ -48,6 +56,8 @@ Definition Transactions : Type :=
 
 Definition State : Type :=
   VMState * CurrentVM * Mem * Transactions.
+
+(* Getters *)
 
 Definition vmStates (st : State) : VMState :=
   fst (fst (fst st)).
@@ -82,25 +92,7 @@ Definition vmPageTable (st : State) (v : VMID) : option PageTable :=
   | Some a => Some (snd a)
   end.
 
-Definition checkAccess (st : State) (v : VMID) (addr : Addr) : bool :=
-  match (vmPageTable st v) with
-  | None => false
-  | Some pt =>
-    match pt !! addr with
-    | Some p => isAccessible p
-    | _ => false
-    end
-  end.
-
-Definition checkOwnership (st : State) (v : VMID) (addr : Addr) : bool :=
-  match (vmPageTable st v) with
-  | None => false
-  | Some pt =>
-    match pt !! addr with
-    | Some p => isOwned p
-    | _ => false
-    end
-  end.
+(* Conf *)
 
 Inductive ExecMode : Type :=
 | ExecI
@@ -114,7 +106,35 @@ Inductive ControlMode : Type :=
 
 Definition Conf : Type := ExecMode * State.
 
-Definition updateReg (st : State) (v : VMID) (r : RegName) (w : Word) : option State :=
+(* Aux funcs *)
+
+Definition checkAccessPage (st : State) (v : VMID) (pid : PID) : bool :=
+  match (vmPageTable st v) with
+  | None => false
+  | Some pt =>
+    match pt !! pid with
+    | Some p => isAccessible p
+    | _ => false
+    end
+  end.
+
+Definition checkAccessAddr (st : State) (v : VMID) (addr : Addr) : bool :=
+  checkAccessPage st v (MMTranslation addr).
+
+Definition checkOwnershipPage (st : State) (v : VMID) (pid : PID) : bool :=
+  match (vmPageTable st v) with
+  | None => false
+  | Some pt =>
+    match pt !! pid with
+    | Some p => isOwned p
+    | _ => false
+    end
+  end.
+
+Definition checkOwnershipAddr (st : State) (v : VMID) (addr : Addr) : bool :=
+  checkOwnershipPage st v (MMTranslation addr).
+
+Definition updateGeneralRegGlobal (st : State) (v : VMID) (r : RegName) (w : Word) : option State :=
   match r with
   | PC => None
   | NZ => None
@@ -122,115 +142,181 @@ Definition updateReg (st : State) (v : VMID) (r : RegName) (w : Word) : option S
     match vmState st v with
     | None => None
     | Some (rf, mb, pt) =>
-      Some (<[(currentVM st):=(<[r:=w]>rf, mb, pt)]>(vmStates st),
+      Some (<[v:=(<[r:=w]>rf, mb, pt)]>(vmStates st),
             currentVM st,
             mem st, transactions st)
     end
   end.
 
-Definition updateSysReg (st : State) (v : VMID) (r : RegName) (w : Word) : option State :=
+Definition updateGeneralReg (st : State) (r : RegName) (w : Word) : option State :=
+  updateGeneralRegGlobal st (currentVM st) r w.
+
+Definition updateSysRegGlobal (st : State) (v : VMID) (r : RegName) (w : Word) : option State :=
   match r with
   | R n fin => None
   | _ => match vmState st v with
          | None => None
          | Some (rf, mb, pt) =>
-           Some (<[(currentVM st):=(<[r:=w]>rf, mb, pt)]>(vmStates st),
+           Some (<[v:=(<[r:=w]>rf, mb, pt)]>(vmStates st),
                  currentVM st,
                  mem st, transactions st)
          end
   end.
 
-Definition getReg (st : State) (v : VMID) (r : RegName) : option Word :=
+Definition updateSysReg (st : State) (r : RegName) (w : Word) : option State :=
+  updateSysRegGlobal st (currentVM st) r w.
+
+Definition getRegGlobal (st : State) (v : VMID) (r : RegName) : option Word :=
   match vmRegFile st v with
   | None => None
   | Some rf => rf !! r 
   end.
 
-Definition updatePageTable (st : State) (v : VMID) (addr : Addr) (p : Perm) : option State :=
+Definition getReg (st : State) (r : RegName) : option Word :=
+  getRegGlobal st (currentVM st) r.
+
+Definition updatePageTableGlobal (st : State) (v : VMID) (pid : PID) (p : Perm) : option State :=
   match vmState st v with
   | None => None
   | Some (rf, mb, pt) =>
-    Some (<[(currentVM st):=(rf, mb, <[addr:=p]>pt)]>(vmStates st),
+    Some (<[v:=(rf, mb, <[pid:=p]>pt)]>(vmStates st),
           currentVM st,
           mem st, transactions st)
   end.
 
-Definition getPageTable (st : State) (v : VMID) (addr : Addr) : option Perm :=
+Definition updatePageTable (st : State) (pid : PID) (p : Perm) : option State :=
+  updatePageTableGlobal st (currentVM st) pid p.
+
+Definition getPageTableGlobal (st : State) (v : VMID) (pid : PID) : option Perm :=
   match vmPageTable st v with
   | None => None
-  | Some pt => pt !! addr
+  | Some pt => pt !! pid
   end.
+
+Definition getPageTable (st : State) (pid : PID) : option Perm :=
+  getPageTableGlobal st (currentVM st) pid.
                 
-Definition updateMem (st : State) (a : Addr) (w : Word) : State :=
+Definition updateMemUnsafe (st : State) (a : Addr) (w : Word) : State :=
   (vmStates st, currentVM st, <[a:=w]>(mem st), transactions st).
 
-Definition updateMemWithPerm (st : State) (a : Addr) (w : Word) : option State :=
-  if checkAccess st (currentVM st) a
-  then ret (updateMem st a w)
+Definition updateMem (st : State) (a : Addr) (w : Word) : option State :=
+  if checkAccessAddr st (currentVM st) a
+  then ret (updateMemUnsafe st a w)
   else None.
 
-Definition getMem (st : State) (a : Addr) : option Word :=
+Definition getMemUnsafe (st : State) (a : Addr) : option Word :=
   (mem st) !! a.
 
-Definition getMemWithPerm (st : State) (a : Addr) : option Word :=
-  if checkAccess st (currentVM st) a
-  then getMem st a
+Definition getMem (st : State) (a : Addr) : option Word :=
+  if checkAccessAddr st (currentVM st) a
+  then getMemUnsafe st a
   else None.
-
-Definition writeTX (st : State) (v : VMID) (msg : Word) : option State :=
+(* 
+Definition writeTXUnsafe (st : State) (v : VMID) (msg : vec Word PageCount) : option State :=
   match vmState st v with
   | None => None
-  | Some (rf, (txAddr, _), pt) => updateMemWithPerm st txAddr msg
+  | Some (rf, (txPid, _), pt) => ret (updateMemUnsafe st txAddr msg)
   end.
 
-Definition isRXReady (st : State) (v : VMID) : bool :=
+Definition writeTX (st : State) (v : VMID) (msg : Word) : option State :=
+    match vmState st v with
+  | None => None
+  | Some (rf, (txAddr, _), pt) => updateMem st txAddr msg
+  end.
+ *)
+Lemma atLeastOneAddrInPage (pid : PID) : vec Word (S (PageSize - 1)).
+Proof.
+  pose proof PageSizeSanity as H.
+  pose proof WordSizeAtLeast as H'.
+  pose proof (MMTranslationInv pid) as H''.
+  destruct PageSize.
+  - simpl in H. 
+    unfold WordSizeLowerBound in H'.
+    rewrite <- H in H'.
+    exfalso.
+    apply (Nat.nlt_0_r 15 H').
+  - simpl in *.
+    rewrite <- minus_n_O.
+    exact H''.
+Qed.
+
+Definition getTXBaseAddrGlobal (st : State) (v : VMID) : option Word :=
+  match vmState st v with
+  | Some (rf, (pid, _), pt) =>
+    Some (@Vector.hd Word (PageSize - 1) (atLeastOneAddrInPage pid))
+  | _ => None
+  end.
+
+Definition isRXReadyGlobal (st : State) (v : VMID) : bool :=
   match vmState st v with
   | Some (rf, (_, (_, Some _)), pt) => true
   | _ => false
   end.
 
-Definition getRXSender (st : State) (v : VMID) : option VMID :=
+Definition isRXReady (st : State) : bool :=
+  isRXReadyGlobal st (currentVM st).
+
+Definition getRXSenderGlobal (st : State) (v : VMID) : option VMID :=
   match vmState st v with
   | Some (rf, (_, (_, Some v')), pt) => Some v'
   | _ => None
   end.
 
-Definition getRXMsg (st : State) (v : VMID) : option Word :=
+Definition getRXSender (st : State) : option VMID :=
+  getRXSenderGlobal st (currentVM st).
+
+Program Definition getRXBaseAddrGlobal (st : State) (v : VMID) : option Word :=
   match vmState st v with
-  | Some (rf, (_, (addr, Some _)), pt) => getMem st addr
+  | Some (rf, (_, (pid, Some _)), pt) => Some (@Vector.hd Word (PageSize - 1) (atLeastOneAddrInPage pid))
   | _ => None
   end.
 
-Definition emptyRX (st : State) (v : VMID) : option State :=
+(*
+Definition getRXMsg (st : State) : option Word :=
+  match vmState st (currentVM st) with
+  | Some (rf, (_, (addr, Some _)), pt) => getMem st addr
+  | _ => None
+  end.
+ *)
+
+Definition emptyRXGlobal (st : State) (v : VMID) : option State :=
   match vmState st v with
-  | Some (rf, (txAddr, (rxAddr, Some v)), pt) =>
-    Some (<[(currentVM st):=(rf, (txAddr, (rxAddr, None)), pt)]>(vmStates st),
+  | Some (rf, (txAddr, (rxAddr, Some _)), pt) =>
+    Some (<[v:=(rf, (txAddr, (rxAddr, None)), pt)]>(vmStates st),
           currentVM st,
           mem st, transactions st)
   | _ => None
   end.
+Definition emptyRX (st : State) : option State :=
+  emptyRXGlobal st (currentVM st).
 
-Definition transferMsg (st : State) (v : VMID) (r : VMID) : option State :=
+Definition copyFromAddrToAddrUnsafe (st : State) (src dst : Addr) : option State :=
+  w <- getMemUnsafe st src ;;;
+  Some (updateMemUnsafe st dst w).
+
+Definition copyPageUnsafe (st : State) (src dst : PID) : option State :=
+  let src' := MMTranslationInv src
+  in
+  let dst' := MMTranslationInv dst
+  in
+  let H := vzip_with (fun x y => (x, y)) src' dst'
+  in
+  monad_general.foldrMVec (fun x s => match x with | (a, b) => copyFromAddrToAddrUnsafe s a b end) H st.
+
+Definition transferMsgUnsafe (st : State) (v : VMID) (r : VMID) : option State :=
   match vmState st v with
-  | Some (_, (txAddr, _), _) =>
+  | Some (_, (txPid, _), _) =>
     match vmState st r with
-    | Some (rf, (txAddr', (rxAddr, _)), pt) =>
-      match getMem st txAddr with
-        | Some val =>
-          let st' := updateMem st rxAddr val
-          in Some (<[(currentVM st):=(rf, (txAddr', (rxAddr, Some v)), pt)]>(vmStates st),
-                   currentVM st,
-                   mem st, transactions st)
-        | _ => None
-      end
+    | Some (rf, (_, (rxPid, _)), pt) =>
+      copyPageUnsafe st txPid rxPid
     | _ => None
     end
   | _ => None
   end.
 
-Definition tryIncrWord (n : Word) : option Word :=
-  match (nat_lt_dec (n + 1) WordUpperBound) with
-  | left l => Some (@nat_to_fin (n + 1) _ l)
+Definition tryIncrWord (n : Word) (p : nat) : option Word :=
+  match (nat_lt_dec (n + p) WordSize) with
+  | left l => Some (@nat_to_fin (n + p) _ l)
   | _ => None
   end.
 
@@ -239,10 +325,10 @@ Proof.
   destruct (Fin.to_nat x);
     destruct (Fin.to_nat y);
     destruct (x <? y); auto.
-Qed.
+Defined.
 
 Definition freshHandleHelper (val : Handle) (acc : option Handle) : option Handle :=
-  match (tryIncrWord val) with
+  match (tryIncrWord val 1) with
   | None => None
   | Some val' => match acc with
                  | None => Some val'
@@ -253,22 +339,140 @@ Definition freshHandleHelper (val : Handle) (acc : option Handle) : option Handl
 Definition freshHandle (m : gmap Handle Transaction) : option Handle := 
   set_fold freshHandleHelper None (@dom (gmap Handle Transaction) (gset Handle) gset_dom m).
 
-Definition TransactionDescriptor : Type :=
-  Word (* Length *) * VMID (* Sender *) * option Handle (* Handle *) * Word (* Tag *)
-  * Word (* Flag *) * list VMID (* Receivers *).
+Definition MemoryRegionDescriptor : Type :=
+  Word (* length *) * VMID (* receiver *) * list PID (* pids *).  
 
+(*
+Instance proofIrrelNoDup {A : Type} {l : list A} `{EqDecision A} : ProofIrrel (NoDup l).
+Proof.
+  assert (forall x (p : NoDup x) y (q : NoDup y),
+    x = y -> eq_dep (list A) NoDup x p y q) as aux.
+  {
+    fix FIX 4. intros x p y q eq.
+    destruct p.
+    - subst; dependent destruction q; reflexivity.
+    - subst; dependent destruction q.
+      Check In.
+      pose proof (FIX l0 p l0 q eq_refl).
+      admit.
+  }
+  intros p q;
+    apply (Eqdep_dec.eq_dep_eq_dec (fun x y => decide (x = y)));
+    apply aux; reflexivity.
+  Admitted.
+  
+Instance eqDecisionListsetNoDup {A : Type} `{EqDecision A} : EqDecision (listset_nodup A).
+Proof.
+  intros [x prfx] [y prfy].
+  destruct (decide (x = y)).
+  - subst; left.
+    pose proof (proof_irrel prfx prfy).
+    rewrite H.
+    reflexivity.
+  - right.
+    intros contra.
+    inversion contra.
+    contradiction.
+Qed.
+
+Instance eqDecisionMemoryRegionDescriptor : EqDecision MemoryRegionDescriptor.
+Proof.
+  intros [[w v] [ls prf]] [[w' v'] [ls' prf']]; try (by left); try (by right).
+  destruct (decide (w = w'));
+    destruct (decide (v = v'));
+    destruct (decide (ls = ls'));
+    try (right; congruence); subst.
+  rewrite (proof_irrel prf prf').
+  left.
+  reflexivity.
+Qed.
+*)
+
+Definition TransactionDescriptor : Type :=
+  VMID (* Sender *) * option Handle (* Handle *) * Word (* Tag *)
+  * Word (* Flag *)
+  * gmap VMID (listset_nodup PID) (* Receivers *).
+
+Definition memoryRegionsToGmap (md : listset_nodup MemoryRegionDescriptor) : gmap VMID (listset_nodup PID) :=
+  set_fold (fun v acc => match decide (NoDup (snd v)) with
+                         | left l => map_insert (snd (fst v)) (ListsetNoDup v.2 l) acc
+                         | right r => acc
+                         end) empty md.
+
+Definition addrOffset (base : Addr) (offset : nat) : option Addr :=
+  tryIncrWord base offset.
+
+Definition getMemWithOffset (st : State) (base : Addr) (offset : nat) : option Word :=
+  addr <- addrOffset base offset ;;;
+  getMem st addr.
+
+Definition parseMemoryRegionDescriptor (st : State) (base : Addr) : option MemoryRegionDescriptor :=
+  match getMemWithOffset st base 0 with
+  | None => None
+  | Some l =>
+    match getMemWithOffset st base 1 with
+    | None => None
+    | Some r =>
+      match DecodeVMID r with
+      | None => None
+      | Some r' =>
+        let ls := foldl (fun acc v => cons (bind (getMemWithOffset st base (2 + v)) DecodePID) acc) nil (seq 0 (fin_to_nat l))
+        in
+        match (monad_general.sequenceMList ls) with
+        | None => None
+        | Some ls' => ret (l, r', ls')
+        end
+      end
+    end
+  end.
+
+Definition parseMemoryRegionDescriptors (st : State) (base : Addr) (count : nat) : option (listset_nodup MemoryRegionDescriptor) :=
+  let ls := (foldl (fun acc v =>
+                     cons (bind (addrOffset base v) (parseMemoryRegionDescriptor st)) acc) (@nil (option MemoryRegionDescriptor)) (seq 0 count))
+  in
+  match monad_general.sequenceMList ls with
+  | None => None
+  | Some ls' =>
+    match NoDup_dec ls' with
+    | left prf => ret (ListsetNoDup ls' prf)
+    | right prf => None
+    end
+  end.
+
+(* TODO: Prop version, reflection *)
+Definition parseTransactionDescriptor (st : State) (wl : Word) (base : Addr) (ty : TransactionType) : option TransactionDescriptor :=
+  (* Main fields *)
+  vs <- getMemWithOffset st base 0 ;;;
+  vs' <- DecodeVMID vs ;;;
+  wf <- getMemWithOffset st base 1 ;;;
+  wh <- getMemWithOffset st base 2 ;;;
+  wt <- getMemWithOffset st base 3 ;;;
+  wc <- getMemWithOffset st base 4 ;;;
+  memDescrBase <- addrOffset base 5 ;;;
+  memDescrs <- parseMemoryRegionDescriptors st memDescrBase (fin_to_nat wc) ;;;
+  (* Validate length *)                                          
+  _ <- addrOffset base (fin_to_nat wl) ;;;
+  _ <- @monad_option.boolCheckOption True (negb (fin_to_nat wc =? 0)) ;;;
+  _ <- @monad_option.boolCheckOption True (fin_to_nat wl =? 5 + 3 * (fin_to_nat wc) + (set_fold (fun v acc => length (snd v) + acc) 0 memDescrs)) ;;;
+  _ <- @monad_option.boolCheckOption True (match ty with
+                                     | Donation => (fin_to_nat wc) =? 1
+                                     | _ => true
+                                     end) ;;;
+  ret (vs', (if (fin_to_nat wh) =? 0 then None else Some wh), wt, wf, memoryRegionsToGmap memDescrs).
+                                                           
 Definition insertTransaction (st : State) (h : Handle) (t : Transaction) : State :=
   (vmStates st, currentVM st, mem st, <[h:=t]>(transactions st)).
 
-Definition newTransaction (st : State) (v : VMID)
-           (addr : Addr) (tt : TransactionType)
-           (receivers : listset_nodup VMID)  : option State :=
-  if checkOwnership st v addr
+Definition newTransaction (st : State) (vid : VMID)
+           (tt : TransactionType)
+           (flag tag : Word)
+           (m : gmap VMID (gmap PID Flag))  : option State :=
+  if map_fold (fun _ v acc => andb acc (set_fold (fun v' acc' => andb acc' (checkOwnershipPage st vid v')) true (@dom (gmap PID Flag) (gset PID) gset_dom v))) true m
   then
     match freshHandle (transactions st) with
     | None => None
     | Some h' =>
-      ret (insertTransaction st h' (addr, tt, set_to_map (fun x => (x, false)) receivers))
+      ret (insertTransaction st h' (vid, flag, tag, m, tt))
     end
   else None.
 
@@ -277,6 +481,20 @@ Definition getTransaction (st : State) (h : Handle) : option Transaction :=
 
 Definition removeTransaction (s : State) (handle : Handle) : State :=
   (vmStates s, currentVM s, mem s, delete handle (transactions s)).
+
+Definition newTransactionFromDescriptor (st : State) (ty : TransactionType) (td : TransactionDescriptor) : option State :=
+  match td with
+  | (s, None, t, f, rs) => newTransaction st s ty f t (fmap (fun x => set_to_map (fun el => (el, false)) x) rs)
+  | _ => None
+  end.
+
+Definition newTransactionFromDescriptorInTXUnsafe (st : State) (v : VMID) (wl : Word) (ty : TransactionType) : option State :=
+  if (PageSize <? fin_to_nat wl)
+  then None
+  else
+    txBAddr <- getTXBaseAddrGlobal st v ;;;
+    td <- parseTransactionDescriptor st wl txBAddr ty ;;;
+    newTransactionFromDescriptor st ty td.
 
 Definition updateOffsetPC (st : State) (dir : bool) (offset : nat) : option State :=
   bind
@@ -287,19 +505,19 @@ Definition updateOffsetPC (st : State) (dir : bool) (offset : nat) : option Stat
                let v' := fin_to_nat v in
                if dir
                then
-                 match (nat_lt_dec (v' + offset) WordUpperBound) with
-                 | left l => updateReg st (currentVM st) PC (@nat_to_fin (v' + offset) _ l)
+                 match (nat_lt_dec (v' + offset) WordSize) with
+                 | left l => updateSysReg st PC (@nat_to_fin (v' + offset) _ l)
                  | _ => None
                  end
                else
-                 match (nat_lt_dec (v' - offset) WordUpperBound) with
-                 | left l => updateReg st (currentVM st) PC (@nat_to_fin (v' - offset) _ l)
+                 match (nat_lt_dec (v' - offset) WordSize) with
+                 | left l => updateSysReg st PC (@nat_to_fin (v' - offset) _ l)
                  | _ => None
                  end
     )).
 
 Definition updateIncrPC (st : State) : option State :=
-  updateOffsetPC st true 1.
+  updateOffsetPC st true 2.
 
 Definition updateCurrentVMID (st : State) (v : VMID) : State :=
   (vmStates st, v, mem st, transactions st).
@@ -310,21 +528,9 @@ Definition isPrimary (st : State) : bool :=
 Definition isSecondary (st : State) : bool :=
   negb (isPrimary st).
 
-Definition wordToAddr (w : Word) : option Addr :=
-  let w' := fin_to_nat w in
-  match (nat_lt_dec w' AddressSpaceSize) with
-  | left l => Some (nat_to_fin l)
-  | _ => None
-  end.
-
-Export monad_notation.
-Open Scope monad_scope.
-
 Definition isValidPC (st : State) : option bool :=
-  w <- getReg st (currentVM st) PC ;;;
-  addr <- wordToAddr w ;;;
-  p <- getPageTable st (currentVM st) addr ;;;
-  ret (isAccessible p).
+  w <- getReg st PC ;;;
+  Some (checkAccessAddr st (currentVM st) w).
 
 Definition simpleOptionStateUnpack (oldSt : State) (newSt : option State) : Conf :=
   match newSt with
@@ -334,88 +540,86 @@ Definition simpleOptionStateUnpack (oldSt : State) (newSt : option State) : Conf
 
 Definition MovHelperWord (s : State) (dst : RegName) (src : Word) : Conf * ControlMode :=
   let comp :=
-        s' <- updateReg s (currentVM s) dst src ;;;
+        s' <- updateGeneralReg s dst src ;;;
         updateIncrPC s'
     in
     (simpleOptionStateUnpack s comp, NormalM).
 
 Definition MovHelperReg (s : State) (dst : RegName) (src : RegName) : Conf * ControlMode :=
   let comp :=
-      src' <- getReg s (currentVM s) src ;;;
-      s'' <- updateReg s (currentVM s) dst src' ;;;
+      src' <- getReg s src ;;;
+      s'' <- updateGeneralReg s dst src' ;;;
       updateIncrPC s''
     in
   (simpleOptionStateUnpack s comp, NormalM).
 
 Definition LdrHelper (s : State) (dst : RegName) (src : RegName) : Conf * ControlMode :=
   let comp :=
-      src' <- getReg s (currentVM s) src ;;;
-      addr <- wordToAddr src' ;;;
-      v <- getMemWithPerm s addr ;;;
-      m <- updateReg s (currentVM s) dst v ;;;
+      src' <- getReg s src ;;;
+      v <- getMem s src' ;;;
+      m <- updateGeneralReg s dst v ;;;
       updateIncrPC m
   in
   (simpleOptionStateUnpack s comp, NormalM).
 
 Definition StrHelper (s : State) (src : RegName) (dst : RegName) : Conf * ControlMode :=
   let comp :=
-      src' <- getReg s (currentVM s) src ;;;
-      dst' <- getReg s (currentVM s) dst ;;;                                  
-      addr <- wordToAddr dst' ;;;
-      m <- updateMemWithPerm s addr src' ;;;
+      src' <- getReg s src ;;;
+      dst' <- getReg s dst ;;;
+      m <- updateMem s dst' src' ;;;
       updateIncrPC m
   in
   (simpleOptionStateUnpack s comp, NormalM).
 
 Program Definition CmpHelperWord (s : State) (arg1 : RegName) (arg2 : Word) : Conf * ControlMode :=
   let comp :=
-      arg1' <- getReg s (currentVM s) arg1 ;;;
+      arg1' <- getReg s arg1 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2)) with
-           | left _ => updateSysReg s (currentVM s) NZ (@nat_to_fin 1 WordUpperBound _)
-           | right _ => updateSysReg s (currentVM s) NZ (@nat_to_fin 0 WordUpperBound _)
+           | left _ => updateSysReg s NZ (@nat_to_fin 1 WordSize _)
+           | right _ => updateSysReg s NZ (@nat_to_fin 0 WordSize _)
            end ;;;
       updateIncrPC m       
   in
   (simpleOptionStateUnpack s comp, NormalM).
 Next Obligation.
-  pose proof (Nat.ltb_spec0 1 WordUpperBound) as H;
-    remember (1 <? WordUpperBound);
-    subst; inversion H; auto.
+  pose proof WordSizeAtLeast as G.
+  unfold WordSizeLowerBound in G.
+  lia.
 Qed.
 Next Obligation.
-  pose proof (Nat.ltb_spec0 0 WordUpperBound) as H;
-    remember (0 <? WordUpperBound);
-    subst; inversion H; auto.
+  pose proof WordSizeAtLeast as G.
+  unfold WordSizeLowerBound in G.
+  lia.
 Qed.
 
 Program Definition CmpHelperReg (s : State) (arg1 : RegName) (arg2 : RegName) : Conf * ControlMode :=
   let comp :=
-      arg1' <- getReg s (currentVM s) arg1 ;;;
-      arg2' <- getReg s (currentVM s) arg2 ;;;
+      arg1' <- getReg s arg1 ;;;
+      arg2' <- getReg s arg2 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2')) with
-           | left _ => updateSysReg s (currentVM s) NZ (@nat_to_fin 1 WordUpperBound _)
-           | right _ => updateSysReg s (currentVM s) NZ (@nat_to_fin 0 WordUpperBound _)
+           | left _ => updateSysReg s NZ (@nat_to_fin 1 WordSize _)
+           | right _ => updateSysReg s NZ (@nat_to_fin 0 WordSize _)
            end ;;;
       updateIncrPC m
   in
   (simpleOptionStateUnpack s comp, NormalM).
 Next Obligation.
-  pose proof (Nat.ltb_spec0 1 WordUpperBound) as H;
-    remember (1 <? WordUpperBound);
-    subst; inversion H; auto.
+  pose proof WordSizeAtLeast as G.
+  unfold WordSizeLowerBound in G.
+  lia.
 Qed.
 Next Obligation.
-  pose proof (Nat.ltb_spec0 0 WordUpperBound) as H;
-    remember (0 <? WordUpperBound);
-    subst; inversion H; auto.
+  pose proof WordSizeAtLeast as G.
+  unfold WordSizeLowerBound in G.
+  lia.
 Qed.
 
 Definition JnzHelper (s : State) (arg : RegName) : Conf * ControlMode :=
   let comp :=
-      arg' <- getReg s (currentVM s) arg ;;;
-      nz <- getReg s (currentVM s) NZ ;;;
+      arg' <- getReg s arg ;;;
+      nz <- getReg s NZ ;;;
       match (fin_to_nat nz) with
-      | 0 => updateSysReg s (currentVM s) PC arg'
+      | 0 => updateSysReg s PC arg'
       | _ => updateIncrPC s
       end
   in
@@ -423,8 +627,8 @@ Definition JnzHelper (s : State) (arg : RegName) : Conf * ControlMode :=
 
 Definition JmpHelper (s : State) (arg : RegName) : Conf * ControlMode :=
   let comp :=
-      arg' <- getReg s (currentVM s) arg ;;;
-      updateSysReg s (currentVM s) PC arg'
+      arg' <- getReg s arg ;;;
+      updateSysReg s PC arg'
   in
   (simpleOptionStateUnpack s comp, NormalM).
 
@@ -627,7 +831,7 @@ Definition WaitHelper (s : State) : Conf * ControlMode :=
  *)
 
 Program Definition RunHelper (s : State) : Conf * ControlMode :=
-  match getReg s (currentVM s) (R 1 _) with
+  match getReg s  (R 1 _) with
   | None => (FailI, s, NormalM)
   | Some id =>
     match updateIncrPC s with
@@ -640,9 +844,9 @@ Program Definition RunHelper (s : State) : Conf * ControlMode :=
     end
   end.
 Next Obligation.
-  pose proof (Nat.ltb_spec0 1 RegCountUpperBound) as H;
-    remember (1 <? RegCountUpperBound);
-    subst; inversion H; auto.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
 Qed.
 
 Definition YieldHelper (s : State) : Conf * ControlMode :=
@@ -676,7 +880,7 @@ Definition WaitHelper (s : State) : Conf * ControlMode :=
   FailHelper s.
 
 Program Definition HvcHelper (s : State) : Conf * ControlMode :=
-  match getReg s (currentVM s) (R 0 _) with
+  match getReg s (R 0 _) with
   | None => FailHelper s
   | Some r0 =>
     match DecodeHvcFunc r0 with
@@ -698,9 +902,9 @@ Program Definition HvcHelper (s : State) : Conf * ControlMode :=
     end
   end.
 Next Obligation.
-  pose proof (Nat.ltb_spec0 0 RegCountUpperBound) as H;
-    remember (1 <? WordUpperBound);
-    subst; inversion H; auto.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
 Qed.
 
 Definition exec (i : Instruction) (s : State) : Conf * ControlMode :=
@@ -772,10 +976,12 @@ Inductive step : Conf -> Conf * ControlMode -> Prop :=
       not (isValidPC st = Some true) ->
       step (ExecI, st) (FailI, st, NormalM)
 | step_exec_instr:
-    forall st a w i c,
+    forall st a w1 w2 i c,
       isValidPC st = Some true ->
-      getMem st a = Some w ->
-      DecodeInstr w = Some i ->
+      getReg st PC = Some a ->
+      getMem st a = Some w1 ->
+      getMemWithOffset st a 1 = Some w2 ->
+      DecodeInstr (w1, w2) = Some i ->
       exec i st = c ->
       step (ExecI, st) c.
 

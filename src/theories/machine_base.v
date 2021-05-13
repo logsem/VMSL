@@ -1,28 +1,44 @@
-From stdpp Require Import countable fin.
+From stdpp Require Import countable fin vector.
 From Coq Require Import ssreflect Bool Eqdep_dec.
 From ExtLib Require Import Structures.Monads.
 
 Open Scope general_if_scope.
 
+Definition RegCountLowerBound := 30.
+Definition WordSizeLowerBound := 15.
+(* Definition AddressSpaceSizeLowerBound := 1023. *)
+Definition PageSizeLowerBound := 15.
+
 (* TODO: ZArith seems to be much more convenient *)
-(*
 Class MachineParameters := {
-  WordUpperBound : nat;
-  WordHasAtLeastTwoValues : 1 < WordUpperBound;
-  RegCountUpperBound : nat;
-  RegCountAtLeastOne : 0 < RegCountUpperBound;
+  WordSize : nat;
+  WordSizeAtLeast : WordSizeLowerBound < WordSize;
+  RegCount : nat;
+  RegCountAtLeast : RegCountLowerBound < RegCount;
+  (*
   AddressSpaceSize : nat;
-                          }.
+  AddressSpaceSizeAtLeast : AddressSpaceSizeLowerBound < AddressSpaceSize;
+   *)
+  (*
+  DecodeAddress : fin WordSize -> option (fin AddressSpaceSize);
+  EncodeAddress : fin AddressSpaceSize -> fin WordSize;
+  DecodeEncodeAddress : forall (addr : fin AddressSpaceSize), DecodeAddress (EncodeAddress addr) = Some addr;
+   *)
+  PageSize : nat; (* in words *)
+  PageSizeAtLeast : PageSizeLowerBound < PageSize;
+  PageCount : nat;
+  DecodePID : fin WordSize -> option (fin PageCount);
+  EncodePID : fin PageCount -> fin WordSize;
+  DecodeEncodePID : forall (pid : fin PageCount), DecodePID (EncodePID pid) = Some pid;
+  PageSizeSanity : PageSize * PageCount = WordSize;
+  MMTranslation : fin WordSize -> fin PageCount;
+  MMTranslationInv : fin PageCount -> vec (fin WordSize) PageSize;
+  }.
 
 Context `(MachineParams : MachineParameters).
- *)
-
-Definition WordUpperBound := 65536.
-Definition RegCountUpperBound := 32.
-Definition AddressSpaceSize := 512.
 
 Definition Word : Type :=
-  fin WordUpperBound.
+  fin WordSize.
 
 Instance eqDecisionWord : EqDecision Word.
 Proof.
@@ -40,7 +56,7 @@ Qed.
 Inductive RegName : Type :=
 | PC
 | NZ
-| R (n : nat) (fin : n < RegCountUpperBound).
+| R (n : nat) (fin : n < RegCount).
 
 Instance eqDecisionRegName : EqDecision RegName.
 Proof.
@@ -51,7 +67,7 @@ Proof.
 Qed.
 
 Program Definition n_to_regname (n : nat) : option RegName :=
-  if (nat_lt_dec n RegCountUpperBound) then Some (R n _) else None.
+  if (nat_lt_dec n RegCount) then Some (R n _) else None.
 Next Obligation.
   auto.
 Defined.
@@ -73,7 +89,7 @@ Proof.
   intro r. destruct r; auto.
   rewrite decode_encode.
   unfold n_to_regname.
-  destruct (nat_lt_dec n RegCountUpperBound).
+  destruct (nat_lt_dec n RegCount).
   - do 2 f_equal; apply proof_irrel.
   - exfalso; auto.
 Qed.
@@ -140,8 +156,8 @@ Inductive Instruction : Type :=
 | Hvc.
 
 Class InstructionSerialization := {
-  DecodeInstr : Word -> option Instruction;
-  EncodeInstr : Instruction -> Word;
+  DecodeInstr : Word * Word -> option Instruction;
+  EncodeInstr : Instruction -> Word * Word;
   DecodeEncodeInstr : forall (i : Instruction), DecodeInstr (EncodeInstr i) = Some i;
                                  }.
 
@@ -165,8 +181,7 @@ Proof.
   apply DecodeEncodeInstr.
 Qed.
 
-Definition Addr : Type :=
-  fin AddressSpaceSize.
+Definition Addr : Type := Word.
 
 Instance eqDecisionAddr : EqDecision Addr.
 Proof.
@@ -211,4 +226,12 @@ Class HypervisorParameters := {
   EncodeHvcFunc : HvcFunc -> Word;
   DecodeEncodeHvcFunc : forall (hvc : HvcFunc),
       DecodeHvcFunc (EncodeHvcFunc hvc) = Some hvc;
+  DecodeHvcError : Word -> option HvcError;
+  EncodeHvcError : HvcError -> Word;
+  DecodeEncodeHvcError : forall (hvc : HvcError),
+      DecodeHvcError (EncodeHvcError hvc) = Some hvc;
+  DecodeTransactionType : Word -> option TransactionType;
+  EncodeTransactionType : TransactionType -> Word;
+  DecodeEncodeTransactionType : forall (ty : TransactionType),
+      DecodeTransactionType (EncodeTransactionType ty) = Some ty
                              }.
