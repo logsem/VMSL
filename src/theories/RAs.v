@@ -48,7 +48,7 @@ Definition gen_VMΣ (A V W R P F: Type) `{Countable A, Countable V, Countable W,
       GFunctor (agreeR natO);
       gen_heapΣ A W;
       gen_heapΣ (R * V) W;
-      GFunctor (authR (gmapUR V (agreeR (leibnizO P))))
+      GFunctor (authR (gmapUR V (agreeR (leibnizO P))));
       GFunctor (prodR (authR (gmapUR V (agreeR (leibnizO P)))) (optionR (gmap_viewR V (prodO boolO (prodO natO (leibnizO V))))));
       GFunctor (authR (gset_disjUR P));
       GFunctor (authR (gmapUR P (prodR dfracR (csumR (agreeR unitO) (exclR unitO)))));
@@ -58,4 +58,9 @@ Definition gen_VMΣ (A V W R P F: Type) `{Countable A, Countable V, Countable W,
 
 Global Instance subG_gen_VMPreG {Σ A V W R P F} `{Countable A, Countable V, Countable W, Countable R, Countable P}:
   subG (gen_VMΣ A V W R P F) Σ -> gen_VMPreG A V W R P F Σ.
-Proof. solve_inG.
+Proof.
+  (* hack: solve_inG does not currently unfold [subG X _] where X has more than
+     4 parameters. We have 6 (A, V, W, R, P, F). *)
+  set HA := gen_VMΣ A V W R P F. unfold gen_VMΣ in HA.
+  solve_inG.
+Qed.
