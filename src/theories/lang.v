@@ -108,6 +108,23 @@ Definition Conf : Type := ExecMode * State.
 
 (* Aux funcs *)
 
+Definition checkPermPage (st : State) (v : VMID) (pid : PID) (p : Perm) : bool :=
+  match (vmPageTable st v) with
+  | None => false
+  | Some pt =>
+    match pt !! pid with
+    | Some p' =>
+      match (decide (p = p')) with
+      | left _ => true
+      | right _ => false
+      end
+    | _ => false
+    end
+  end.
+
+Definition checkPermAddr (st : State) (v : VMID) (addr : Addr) (p : Perm) : bool :=
+  checkPermPage st v (MMTranslation addr) p.
+
 Definition checkAccessPage (st : State) (v : VMID) (pid : PID) : bool :=
   match (vmPageTable st v) with
   | None => false
@@ -530,7 +547,8 @@ Definition isSecondary (st : State) : bool :=
 
 Definition isValidPC (st : State) : option bool :=
   w <- getReg st PC ;;;
-  Some (checkAccessAddr st (currentVM st) w).
+  w' <- addrOffset w 1 ;;;
+  Some (andb (checkAccessAddr st (currentVM st) w) (checkAccessAddr st (currentVM st) w')).
 
 Definition simpleOptionStateUnpack (oldSt : State) (newSt : option State) : Conf :=
   match newSt with
@@ -638,198 +656,6 @@ Definition FailHelper (s : State) : Conf * ControlMode :=
 Definition HaltHelper (s : State) : Conf * ControlMode :=
   (HaltI, s, NormalM).
 
-(*
-Definition RunHelper (s : State) (arg : RegName) : Conf * ControlMode :=
-  let comp :=
-      arg' <- getReg s (currentVM s) arg ;;;
-      id <- DecodeVMID arg' ;;;
-      m <- updateIncrPC s ;;;
-      ret (m, id)
-  in
-  match comp with
-  | None => (FailI, s, NormalM)
-  | Some (st, id) =>
-    match fin_to_nat (currentVM st) with
-    | 0 => (NextI, st, YieldM id)
-    | _ => (FailI, s, NormalM)
-    end
-  end.
-
-Definition YieldHelper (s : State) : Conf * ControlMode :=
-  let comp := updateIncrPC s
-  in
-  match comp with
-  | None => (FailI, s, NormalM)
-  | Some st =>
-    match fin_to_nat (currentVM st) with
-    | 0 => (FailI, s, NormalM)
-    | _ => (NextI, st, YieldM (@nat_to_fin 0 _ VMCountPos))
-    end
-  end.
-
-Definition ShareHelper (s : State) (r : RegName) (receivers : list RegName) : Conf * ControlMode :=
-  let comp :=
-      r' <- getReg s (currentVM s) r ;;;
-      addr <- wordToAddr r' ;;;
-      pgEntry <- getPageTable s (currentVM s) addr ;;;
-      m <- match pgEntry with
-           | (Owned, ExclusiveAccess) =>
-             match decide (NoDup receivers) with
-               | left pr => 
-                 newTransaction s (currentVM s) addr Sharing (ListsetNoDup receivers pr)
-               | _ => None
-             end
-           | _ => None
-           end ;;;
-      m' <- updatePageTable s (currentVM s) addr (Owned, SharedAccess) ;;;
-      updateIncrPC m'
-  in 
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition LendHelper (s : State) (r : RegName) (receivers : list RegName) : Conf * ControlMode :=
-  let receivers := parseVMIDs s receivers
-  in
-  let comp :=
-      r' <- getReg s (currentVM s) r ;;;
-      addr <- wordToAddr r' ;;;
-      pgEntry <- getPageTable s (currentVM s) addr ;;;
-      m <- match pgEntry with
-           | (Owned, ExclusiveAccess) =>
-             match decide (NoDup receivers) with
-               | left pr => 
-                 newTransaction s (currentVM s) addr Lending (ListsetNoDup receivers pr)
-               | _ => None
-             end
-           | _ => None
-           end ;;;
-      m' <- updatePageTable s (currentVM s) addr (Owned, NoAccess) ;;;
-      updateIncrPC m'
-  in 
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition DonateHelper (s : State) (r : RegName) (receiver : RegName) : Conf * ControlMode :=
-  let comp :=
-      receiver <- getReg s (currentVM s) receiver ;;;
-      receiver <- wordToVMID receiver ;;;
-      r' <- getReg s (currentVM s) r ;;;
-      addr <- wordToAddr r' ;;;
-      pgEntry <- getPageTable s (currentVM s) addr ;;;
-      m <- match pgEntry with
-           | (Owned, ExclusiveAccess) =>
-             newTransaction s (currentVM s) addr Donation (listset_nodup_singleton receiver)
-           | _ => None
-           end ;;;
-      m' <- updatePageTable m (currentVM m) addr (NotOwned, NoAccess) ;;;
-      updateIncrPC m'
-  in 
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition toggleTransactionEntry (s : State) (h : Handle) (v : VMID) : State :=
-  (vmStates s, currentVM s, mem s,
-   alter (fun x => match x with
-                   | (a, t, m) => (a, t, alter (fun y => negb y) v m)
-                   end) h (transactions s)).
-
-Definition retrieveTransaction (s : State)
-           (handle : Handle)
-           (addr : Addr)
-           (type : TransactionType)
-           (receiversMap : gmap VMID Flag) : option State :=
-  match type with
-  | Sharing =>
-    let m := toggleTransactionEntry s handle (currentVM s)
-    in updatePageTable m (currentVM m) addr (NotOwned, SharedAccess)
-  | Lending =>
-    let m := toggleTransactionEntry s handle (currentVM s)
-    in if decide (1 < size receiversMap)
-       then updatePageTable m (currentVM m) addr (NotOwned, SharedAccess)
-       else updatePageTable m (currentVM m) addr (NotOwned, ExclusiveAccess)
-  | Donation =>
-    let m := toggleTransactionEntry s handle (currentVM s)
-    in updatePageTable m (currentVM m) addr (Owned, ExclusiveAccess)
-  end.
-
-Definition relinquishTransaction (s : State)
-           (handle : Handle)
-           (addr : Addr) : option State :=
-  let m := toggleTransactionEntry s handle (currentVM s)
-  in updatePageTable m (currentVM m) addr (NotOwned, NoAccess).
-
-Definition RetrieveHelper (s : State) (r : RegName) : Conf * ControlMode :=
-  let comp :=
-      handle <- getReg s (currentVM s) r ;;;
-      trn <- getTransaction s handle ;;;
-      m <- match trn with
-           | (addr, type, receiversMap) =>
-             retrieveTransaction s handle addr type receiversMap
-           end ;;;
-      updateIncrPC m
-  in
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition RelinquishHelper (s : State) (r : RegName) : Conf * ControlMode :=
-  let comp :=
-      handle <- getReg s (currentVM s) r ;;;
-      trn <- getTransaction s handle ;;;
-      m <- match trn with
-           | (addr, type, receiversMap) =>
-             relinquishTransaction s handle addr
-           end ;;;
-      updateIncrPC m
-  in
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition ReclaimHelper (s : State) (r : RegName) : Conf * ControlMode :=
-  let comp :=
-      handle <- getReg s (currentVM s) r ;;;
-      trn <- getTransaction s handle ;;;
-      m <- match trn with
-           | (addr, _, receiversMap) =>
-             if map_fold (fun _ v acc => orb v acc) false receiversMap
-             then
-               m' <- ret (removeTransaction s handle) ;;;
-               updatePageTable m' (currentVM m') addr (Owned, ExclusiveAccess)
-             else
-               None
-           end ;;;
-      updateIncrPC m
-  in
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition SendHelper (s : State)
-           (receiver : RegName) : Conf * ControlMode :=
-  let comp :=
-      receiver' <- getReg s (currentVM s) receiver ;;;
-      receiver'' <- wordToVMID receiver' ;;;
-      mb <- vmMailBox s (currentVM s) ;;;
-      mem <- getMem s (fst mb) ;;;
-      m <- transferMsg s (currentVM s) receiver'' ;;;
-      updateIncrPC m
-  in
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition ReceiveHelper (s : State) (dst1 : RegName) (dst2 : RegName) : Conf * ControlMode :=
-  let comp :=
-      w <- getRXMsg s (currentVM s) ;;;
-      v <- getRXSender s (currentVM s) ;;;
-      m <- emptyRX s (currentVM s) ;;;
-      m' <- updateReg m (currentVM m) dst2 (vmidToWord v) ;;;
-      m'' <- updateReg m' (currentVM m') dst1 w ;;;
-      m''' <- emptyRX m'' (currentVM m'') ;;;
-      updateIncrPC m'''
-  in
-  (simpleOptionStateUnpack s comp, NormalM).
-
-Definition WaitHelper (s : State) : Conf * ControlMode :=
-  match updateIncrPC s with
-  | None => (FailI, s, NormalM)
-  | Some s' =>
-    if isRXReady s (currentVM s)
-    then (NextI, s', NormalM)
-    else (NextI, s', YieldM (@nat_to_fin 0 _ VMCountStrictlyPositive))
-  end.
- *)
-
 Program Definition RunHelper (s : State) : Conf * ControlMode :=
   match getReg s  (R 1 _) with
   | None => (FailI, s, NormalM)
@@ -850,34 +676,242 @@ Next Obligation.
 Qed.
 
 Definition YieldHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+  match updateIncrPC s with
+  | None => (FailI, s, NormalM)
+  | Some s' => (NextI, s', YieldM (@nat_to_fin 0 VMCount VMCountPos))
+  end.
 
-Definition ShareHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Definition verifyPermTransaction (s : State) (p : Perm) (td : TransactionDescriptor) : bool :=
+  match td with
+  | (_, _, _, _, m) => map_fold
+                         (fun _ v acc => andb acc (set_fold (fun v' acc' => andb acc' (checkPermPage s (currentVM s) v' p)) true v))
+                         true
+                         m
+  end.
 
-Definition LendHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Program Definition ShareHelper (s : State) : Conf * ControlMode :=
+    let comp :=
+        r <- getReg s (R 1 _) ;;;
+        m <- (if (PageSize <? fin_to_nat r)
+              then None
+              else
+                txBAddr <- getTXBaseAddrGlobal s (currentVM s) ;;;
+                td <- parseTransactionDescriptor s r txBAddr Sharing ;;;
+                if (verifyPermTransaction s (Owned, ExclusiveAccess) td)
+                then bind (newTransactionFromDescriptor s Sharing td) (fun x => Some (x, td))
+                else None) ;;;
+        match m with
+        | (m', td) => _
+        end
+    in 
+    (simpleOptionStateUnpack s comp, NormalM).
+Next Obligation.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
+Defined.
+Next Obligation.
+  intros.
+  destruct td.
+  pose proof (map_fold (fun _ v acc => union v acc) empty g) as G.
+  destruct G as [ls prf].
+  exact (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (Owned, SharedAccess)) ls m').
+Defined.
 
-Definition DonateHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Program Definition LendHelper (s : State) : Conf * ControlMode :=
+  let comp :=
+      r <- getReg s (R 1 _) ;;;
+      m <- (if (PageSize <? fin_to_nat r)
+            then None
+            else
+              txBAddr <- getTXBaseAddrGlobal s (currentVM s) ;;;
+              td <- parseTransactionDescriptor s r txBAddr Lending ;;;
+              if (verifyPermTransaction s (Owned, ExclusiveAccess) td)
+              then bind (newTransactionFromDescriptor s Lending td) (fun x => Some (x, td))
+              else None) ;;;
+      match m with
+      | (m', td) => _
+      end
+  in 
+  (simpleOptionStateUnpack s comp, NormalM).
+Next Obligation.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
+Defined.
+Next Obligation.
+  intros.
+  destruct td.
+  pose proof (map_fold (fun _ v acc => union v acc) empty g) as G.
+  destruct G as [ls prf].
+  exact (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (Owned, NoAccess)) ls m').
+Defined.
 
-Definition RetrieveHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Program Definition DonateHelper (s : State) : Conf * ControlMode :=
+  let comp :=
+      r <- getReg s (R 1 _) ;;;
+      m <- (if (PageSize <? fin_to_nat r)
+            then None
+            else
+              txBAddr <- getTXBaseAddrGlobal s (currentVM s) ;;;
+              td <- parseTransactionDescriptor s r txBAddr Donation ;;;
+              if (verifyPermTransaction s (Owned, ExclusiveAccess) td)
+              then bind (newTransactionFromDescriptor s Donation td) (fun x => Some (x, td))
+              else None) ;;;
+      match m with
+      | (m', td) => _
+      end
+  in 
+  (simpleOptionStateUnpack s comp, NormalM).
+Next Obligation.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
+Defined.
+Next Obligation.
+  intros.
+  destruct td.
+  pose proof (map_fold (fun _ v acc => union v acc) empty g) as G.
+  destruct G as [ls prf].
+  exact (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (NotOwned, NoAccess)) ls m').
+Defined.
 
-Definition RelinquishHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Definition toggleTransactionEntry (s : State) (h : Handle) (v : VMID) (p : PID) : State :=
+  (vmStates s, currentVM s, mem s,
+   alter (fun x => match x with
+                   | (vs, w1, w2, gm, ty) => (vs, w1, w2, alter (fun y => alter (fun z => negb z) p y) v gm, ty)
+                   end) h (transactions s)).
 
-Definition ReclaimHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Program Definition toggleTransactionEntries (s : State) (h : Handle) (v : VMID) : State.
+Proof.
+  intros.
+  destruct ((transactions s) !! h) as [[[? t] ?] |].
+  - destruct (t !! v) as [g |].
+    + exact (map_fold (fun k _ acc => toggleTransactionEntry acc h v k) s g).
+    + exact s.
+  - exact s.
+Defined.
 
-Definition SendHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Definition getPIDs (s : State) (handle : Handle) : list PID :=
+  match (transactions s) !! handle with
+  | None => nil
+  | Some (_, _, _, m, _) =>
+    match m !! (currentVM s) with
+    | None => nil
+    | Some m' => map (fun x => match x with | (y, _) => y end) (map_to_list m')
+    end
+  end.
 
-Definition ReceiveHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+Definition retrieveTransaction (s : State)
+           (handle : Handle)
+           (type : TransactionType)
+           (receiversMap : gmap VMID (gmap PID Flag)) : option State :=
+  match type with
+  | Sharing =>
+    let m := toggleTransactionEntries s handle (currentVM s)
+    in (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (NotOwned, SharedAccess)) (getPIDs s handle) m)
+  | Lending =>
+    let m := toggleTransactionEntries s handle (currentVM s)
+    in if decide (1 < size receiversMap)
+       then (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (NotOwned, SharedAccess)) (getPIDs s handle) m)
+       else (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (NotOwned, ExclusiveAccess)) (getPIDs s handle) m)
+  | Donation =>
+    let m := toggleTransactionEntries s handle (currentVM s)
+    in (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (Owned, ExclusiveAccess)) (getPIDs s handle) m)
+  end.
+
+Definition relinquishTransaction (s : State)
+           (handle : Handle) : option State :=
+  let m := toggleTransactionEntries s handle (currentVM s)
+  in (monad_general.foldrMList (fun v' acc' => updatePageTable acc' v' (NotOwned, NoAccess)) (getPIDs s handle) m).
+
+Definition receivers (t : Transaction) : gmap VMID (gmap PID Flag) :=
+  match t with
+  | (_, _, _, m, _) => m
+  end.
+
+Definition type (t : Transaction) : TransactionType :=
+  match t with
+  | (_, _, _, _, ty) => ty
+  end.
+
+Program Definition RetrieveHelper (s : State) : Conf * ControlMode :=
+  let comp :=
+      handle <- getReg s (R 1 _) ;;;
+      trn <- getTransaction s handle ;;;
+      m <- retrieveTransaction s handle (type trn) (receivers trn) ;;;
+      updateIncrPC m
+  in
+  (simpleOptionStateUnpack s comp, NormalM).
+Next Obligation.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
+Defined.
+
+Program Definition RelinquishHelper (s : State) : Conf * ControlMode :=
+  let comp :=
+      handle <- getReg s (R 1 _) ;;;
+      m <- relinquishTransaction s handle ;;;
+      updateIncrPC m
+  in
+  (simpleOptionStateUnpack s comp, NormalM).
+Next Obligation.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
+Defined.
+
+Definition allNotReceived (s : State) (handle : Handle) (v : VMID) : bool :=
+  match (transactions s) !! handle with
+  | None => true
+  | Some (_, _, _, m, _) =>
+    match m !! v with
+    | None => true
+    | Some m' => map_fold (fun _ v acc => andb v acc) true m'
+    end
+  end.
+
+Program Definition ReclaimHelper (s : State) : Conf * ControlMode :=
+  let comp :=
+      handle <- getReg s (R 1 _) ;;;
+      m <- (if allNotReceived s handle (currentVM s)
+            then
+              (monad_general.foldrMList
+                 (fun v' acc' => updatePageTable acc' v' (Owned, ExclusiveAccess))
+                 (getPIDs s handle) (removeTransaction s handle))
+            else None) ;;;
+      updateIncrPC m
+  in
+  (simpleOptionStateUnpack s comp, NormalM).
+Next Obligation.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
+Defined.
+
+Program Definition SendHelper (s : State) : Conf * ControlMode :=
+  let comp :=
+      receiver <- getReg s (R 1 _) ;;;
+      receiver' <- DecodeVMID receiver ;;;
+      m <- transferMsgUnsafe s (currentVM s) receiver' ;;;
+      updateIncrPC m
+  in
+  (simpleOptionStateUnpack s comp, NormalM).
+Next Obligation.
+  pose proof RegCountAtLeast as G.
+  unfold RegCountLowerBound in G.
+  lia.
+Defined.
 
 Definition WaitHelper (s : State) : Conf * ControlMode :=
-  FailHelper s.
+  match updateIncrPC s with
+  | None => (FailI, s, NormalM)
+  | Some s' =>
+    if isRXReady s
+    then (NextI, s', NormalM)
+    else (NextI, s', YieldM (@nat_to_fin 0 _ VMCountPos))
+  end.
 
 Program Definition HvcHelper (s : State) : Conf * ControlMode :=
   match getReg s (R 0 _) with
@@ -896,7 +930,6 @@ Program Definition HvcHelper (s : State) : Conf * ControlMode :=
       | Relinquish => RelinquishHelper s
       | Reclaim => ReclaimHelper s
       | Send => SendHelper s
-      | Receive => ReceiveHelper s
       | Wait => WaitHelper s
       end
     end

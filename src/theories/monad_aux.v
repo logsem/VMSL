@@ -106,11 +106,18 @@ Module monad_general.
     | vcons x xs => bind (m x i) (foldrMVec m xs)
     end.
 
-Fixpoint sequenceMVec {A : Type} {n : nat} {M : Type -> Type} `{Monad M} (v : vec (M A) n) : M (vec A n) :=
-  match v with
-  | vnil => ret vnil
-  | vcons x xs => bind x (fun x' => bind (sequenceMVec xs) (fun k => ret (vcons x' k)))
-  end.
+  Fixpoint foldrMList {A B : Type} {M : Type -> Type} `{Monad M}
+           (m : A -> B -> M B) (v : list A) (i : B) : M B :=
+    match v with
+    | nil => ret i
+    | cons x xs => bind (m x i) (foldrMList m xs)
+    end.
+
+  Fixpoint sequenceMVec {A : Type} {n : nat} {M : Type -> Type} `{Monad M} (v : vec (M A) n) : M (vec A n) :=
+    match v with
+    | vnil => ret vnil
+    | vcons x xs => bind x (fun x' => bind (sequenceMVec xs) (fun k => ret (vcons x' k)))
+    end.
   
 End monad_general.
 

@@ -206,7 +206,6 @@ Inductive HvcFunc : Type :=
 | Relinquish
 | Reclaim
 | Send 
-| Receive
 | Wait.
 
 Inductive HvcError : Type :=
