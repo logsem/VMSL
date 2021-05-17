@@ -1,5 +1,6 @@
-From iris.base_logic.lib Require Import gen_heap.
+From iris.base_logic.lib Require Import gen_heap ghost_map.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
+Require Import lang.
 
 
 Section RA.
@@ -64,3 +65,12 @@ Proof.
   set HA := gen_VMΣ A V W R P F. unfold gen_VMΣ in HA.
   solve_inG.
 Qed.
+
+Section definitions.
+  Context `{Countable A, Countable V, Countable W, Countable RG, Countable P,
+            vmG : !gen_VMG A V W RG P F Σ}.
+
+  Definition gen_vm_interp (σ: State) : iProp Σ :=
+    own (gen_num_name vmG) (to_agree (map_size (vmStates σ))) ∗
+    ghost_map_auth (gen_mem_name vmG) 1 (mem σ).
+  .

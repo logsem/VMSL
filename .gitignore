@@ -67,3 +67,6 @@ theories/examples/monotone/
 *.cache
 *.vio
 *.vos
+*.vo
+*.vok
+*.glob

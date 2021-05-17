@@ -5,14 +5,17 @@ From iris.algebra Require Import ofe.
 From iris.program_logic Require Import language ectx_language ectxi_language.
 From ExtLib Require Import Structures.Monads.
 Require Import monad_aux.
-Require Import machine_base.
+Require Export machine_base.
 
 Export monad_notation.
 Open Scope monad_scope.
 
 Context `(HypervisorParams : HypervisorParameters).
-
 (* State *)
+Section State.
+
+Definition VMID : Type:=
+  fin VMCount.
 
 Definition Mem : Type :=
   gmap Addr Word.
@@ -20,18 +23,13 @@ Definition Mem : Type :=
 Definition RegFile : Type :=
   gmap RegName Word.
 
-Definition VMID : Type :=
-  fin VMCount.
-
-Definition PID : Type :=
-  fin PageCount.
-
 Definition PageTable : Type :=
   gmap PID Perm.
 
 Definition TXBuffer : Type :=
   PID.
 
+(* TODO length of the msg is missing*)
 Definition RXBuffer : Type :=
   (PID * option(VMID)).
 
@@ -41,11 +39,16 @@ Definition MailBox : Type :=
 Definition CurrentVM := VMID.
 
 Definition VMState : Type :=
-  gmap VMID (RegFile * MailBox * PageTable).
+  RegFile * MailBox * PageTable.
+
+(* XXX change it to list VMState? *)
+Definition VMStates : Type :=
+  gmap VMID VMState.
 
 Definition Flag : Type :=
   bool.
 
+ (* XXX using (gmap PID flag)?*)
 Definition Transaction : Type :=
   VMID (* sender *) * Word (*flag *) * Word (* tag *) * gmap VMID (gmap PID Flag) * TransactionType.
 
@@ -55,11 +58,27 @@ Definition Transactions : Type :=
   gmap Handle Transaction.
 
 Definition State : Type :=
-  VMState * CurrentVM * Mem * Transactions.
+  VMStates * CurrentVM * Mem * Transactions.
+
+(* Conf *)
+
+Inductive ExecMode : Type :=
+| ExecI
+| NextI
+| HaltI
+| FailI.
+
+Inductive ControlMode : Type :=
+| YieldM : VMID -> ControlMode
+| NormalM.
+
+Definition Conf : Type := ExecMode * State.
+
+End State.
 
 (* Getters *)
 
-Definition vmStates (st : State) : VMState :=
+Definition vmStates (st : State) : VMStates :=
   fst (fst (fst st)).
 
 Definition currentVM (st : State) : CurrentVM :=
@@ -67,9 +86,6 @@ Definition currentVM (st : State) : CurrentVM :=
 
 Definition mem (st : State) : Mem :=
   snd (fst st).
-
-Definition transactions (st : State) : Transactions :=
-  snd st.
 
 Definition vmState (st : State) (v : VMID) : option (RegFile * MailBox * PageTable) :=
   (vmStates st) !! v.
@@ -92,19 +108,8 @@ Definition vmPageTable (st : State) (v : VMID) : option PageTable :=
   | Some a => Some (snd a)
   end.
 
-(* Conf *)
-
-Inductive ExecMode : Type :=
-| ExecI
-| NextI
-| HaltI
-| FailI.
-
-Inductive ControlMode : Type :=
-| YieldM : VMID -> ControlMode
-| NormalM.
-
-Definition Conf : Type := ExecMode * State.
+Definition transactions (st : State) : Transactions :=
+  snd st.
 
 (* Aux funcs *)
 

@@ -94,6 +94,9 @@ Proof.
   - exfalso; auto.
 Qed.
 
+Definition PID : Type :=
+  fin PageCount.
+
 Inductive Ownership : Type :=
 | Owned
 | NotOwned.
