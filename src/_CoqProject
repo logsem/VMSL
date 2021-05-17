@@ -3,6 +3,6 @@
 -arg -w
 -arg -all
 
-theories/monad_aux.v
-theories/machine_base.v
+theories/monad.v
+theories/machine.v
 theories/lang.v
