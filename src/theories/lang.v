@@ -1106,3 +1106,23 @@ Inductive prim_step : expr -> state -> list Empty_set -> expr -> state -> list E
 | PS_seq st : prim_step (Seq (Instr NextI)) st [] (Seq (Instr ExecI)) st [] NormalM
 | PS_halt st : prim_step (Seq (Instr HaltI)) st [] (Instr HaltI) st [] NormalM
 | PS__fail st : prim_step (Seq (Instr FailI)) st [] (Instr FailI) st [] NormalM.
+
+Inductive pstep : expr -> state -> list Empty_set -> expr -> state -> list expr -> Prop :=
+  | Step st e st' e' :
+    (exists m, prim_step e st [] e' st' [] m) -> pstep e st [] e' st' [].
+
+Lemma hyp_lang_mixin : EctxiLanguageMixin of_val to_val fill_item pstep.
+  Proof.
+    constructor.
+    - intros [ | | ]; reflexivity.
+    - intros [[] | []] [ | | ] P; try (inversion P); reflexivity.
+    - intros [[] | []] s1 ? e2 s2 ? step; try reflexivity; inversion step as [? ? ? ? [? H]]; inversion H.
+    - intros [] [[] | []] p; inversion p as [? H]; inversion H.
+    - intros [] [[] | []] [[] | []] p; inversion p; reflexivity.
+    - intros [] [] [[] | []] [[] | []] p1 p2 p3; reflexivity.
+    - intros [] [[] | []] s1 ? [[] | []] s2 ? p; inversion p as [? ? ? ? [? H]]; inversion H; eauto.
+  Qed.
+
+Canonical Structure hyp_ectxi_lang := EctxiLanguage hyp_lang_mixin.
+Canonical Structure hyp_ectx_lang := EctxLanguageOfEctxi hyp_ectxi_lang.
+Canonical Structure hyp_lang := LanguageOfEctx hyp_ectx_lang.
