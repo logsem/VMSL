@@ -13,7 +13,7 @@ Open Scope monad_scope.
 Context `(HypervisorParams : HypervisorParameters).
 
 (* State *)
-Print word.
+
 Definition mem : Type :=
   gmap addr word.
 
@@ -51,7 +51,7 @@ Definition transaction : Type :=
   * word (*flag *)
   * word (* tag *)
   * gset vmid
-  * vec (gset pid) vm_count
+  * vec (listset_nodup pid) vm_count
   * transaction_type.
 
 Definition handle := word.
@@ -76,26 +76,17 @@ Definition get_mem (st : state) : mem :=
 Definition get_transactions (st : state) : transactions :=
   snd st.
 
-Definition get_vm_state (st : state) (v : vmid) : option (reg_file * mail_box * page_table) :=
-  (get_vm_states st) !! v.
+Definition get_vm_state (st : state) (v : vmid) : vm_state :=
+  (get_vm_states st) !!! v.
 
-Definition get_vm_reg_file (st : state) (v : vmid) : option reg_file :=
-  match get_vm_state st v with
-  | None => None
-  | Some a => Some (fst (fst a))
-  end.
+Definition get_vm_reg_file (st : state) (v : vmid) : reg_file :=
+  fst (fst (get_vm_state st v)).
 
-Definition get_vm_mail_box (st : state) (v : vmid) : option mail_box :=
-  match get_vm_state st v with
-  | None => None
-  | Some a => Some (snd (fst a))
-  end.
+Definition get_vm_mail_box (st : state) (v : vmid) : mail_box :=
+  snd (fst (get_vm_state st v)).
 
-Definition get_vm_page_table (st : state) (v : vmid) : option page_table :=
-  match get_vm_state st v with
-  | None => None
-  | Some a => Some (snd a)
-  end.
+Definition get_vm_page_table (st : state) (v : vmid) : page_table :=
+  snd (get_vm_state st v).
 
 (* Conf *)
 
@@ -114,106 +105,66 @@ Definition conf : Type := exec_mode * state.
 (* Aux funcs *)
 
 Definition check_perm_page (st : state) (v : vmid) (p : pid) (pm : permission) : bool :=
-  match (get_vm_page_table st v) with
-  | None => false
-  | Some pt =>
-    match pt !! p with
-    | Some p' =>
-      match (decide (pm = p')) with
-      | left _ => true
-      | right _ => false
-      end
-    | _ => false
+  match (get_vm_page_table st v) !! p with
+  | Some p' =>
+    match (decide (pm = p')) with
+    | left _ => true
+    | right _ => false
     end
+  | _ => false
   end.
 
 Definition check_perm_addr (st : state) (v : vmid) (a : addr) (p : permission) : bool :=
   check_perm_page st v (mm_translation a) p.
 
 Definition check_access_page (st : state) (v : vmid) (p : pid) : bool :=
-  match get_vm_page_table st v with
-  | None => false
-  | Some pt =>
-    match pt !! p with
-    | Some p' => is_accessible p'
-    | _ => false
-    end
+  match (get_vm_page_table st v) !! p with
+  | Some p' => is_accessible p'
+  | _ => false
   end.
 
 Definition check_access_addr (st : state) (v : vmid) (a : addr) : bool :=
   check_access_page st v (mm_translation a).
 
 Definition check_ownership_page (st : state) (v : vmid) (p : pid) : bool :=
-  match get_vm_page_table st v with
-  | None => false
-  | Some pt =>
-    match pt !! p with
-    | Some p' => is_owned p'
-    | _ => false
-    end
+  match (get_vm_page_table st v) !! p with
+  | Some p' => is_owned p'
+  | _ => false
   end.
 
 Definition check_ownership_addr (st : state) (v : vmid) (a : addr) : bool :=
   check_ownership_page st v (mm_translation a).
 
-Definition update_general_reg_global (st : state) (v : vmid) (r : reg_name) (w : word) : option state :=
-  match r with
-  | PC => None
-  | NZ => None
-  | R n fin =>
-    match get_vm_state st v with
-    | None => None
-    | Some (rf, mb, pt) =>
-      Some (<[v:=(<[r:=w]>rf, mb, pt)]>(get_vm_states st),
-            get_current_vm st,
-            get_mem st, get_transactions st)
-    end
+Definition update_reg_global (st : state) (v : vmid) (r : reg_name) (w : word) : state :=
+  match get_vm_state st v with
+    (rf, mb, pt) =>
+    (vinsert v (<[r:=w]>rf, mb, pt) (get_vm_states st),
+     get_current_vm st,
+     get_mem st, get_transactions st)
   end.
 
-Definition update_general_reg (st : state) (r : reg_name) (w : word) : option state :=
-  update_general_reg_global st (get_current_vm st) r w.
-
-Definition update_sys_reg_global (st : state) (v : vmid) (r : reg_name) (w : word) : option state :=
-  match r with
-  | R n fin => None
-  | _ => match get_vm_state st v with
-         | None => None
-         | Some (rf, mb, pt) =>
-           Some (<[v:=(<[r:=w]>rf, mb, pt)]>(get_vm_states st),
-                 get_current_vm st,
-                 get_mem st, get_transactions st)
-         end
-  end.
-
-Definition update_sys_reg (st : state) (r : reg_name) (w : word) : option state :=
-  update_sys_reg_global st (get_current_vm st) r w.
+Definition update_reg (st : state) (r : reg_name) (w : word) : state :=
+  update_reg_global st (get_current_vm st) r w.
 
 Definition get_reg_global (st : state) (v : vmid) (r : reg_name) : option word :=
-  match get_vm_reg_file st v with
-  | None => None
-  | Some rf => rf !! r 
-  end.
+  (get_vm_reg_file st v) !! r.
 
 Definition get_reg (st : state) (r : reg_name) : option word :=
   get_reg_global st (get_current_vm st) r.
 
-Definition update_page_table_global (st : state) (v : vmid) (p : pid) (pm : permission) : option state :=
+Definition update_page_table_global (st : state) (v : vmid) (p : pid) (pm : permission) : state :=
   match get_vm_state st v with
-  | None => None
-  | Some (rf, mb, pt) =>
-    Some (<[v:=(rf, mb, <[p:=pm]>pt)]>(get_vm_states st),
-          get_current_vm st,
-          get_mem st, get_transactions st)
+  | (rf, mb, pt) =>
+    (vinsert v (rf, mb, <[p:=pm]>pt) (get_vm_states st),
+     get_current_vm st,
+     get_mem st, get_transactions st)
   end.
 
-Definition update_page_table (st : state) (p : pid) (pm : permission) : option state :=
+Definition update_page_table (st : state) (p : pid) (pm : permission) : state :=
   update_page_table_global st (get_current_vm st) p pm.
 
 Definition get_page_table_global (st : state) (v : vmid) (p : pid) : option permission :=
-  match get_vm_page_table st v with
-  | None => None
-  | Some pt => pt !! p
-  end.
+  (get_vm_page_table st v) !! p.
 
 Definition get_page_table (st : state) (p : pid) : option permission :=
   get_page_table_global st (get_current_vm st) p.
@@ -255,24 +206,21 @@ Definition get_memory_with_offset (st : state) (base : addr) (offset : nat) : op
   get_memory st addr.
 
 Definition update_offset_PC (st : state) (dir : bool) (offset : nat) : option state :=
-  bind
-    (get_vm_reg_file st (get_current_vm st))
-    (fun rf =>
-       bind (rf !! PC)
-            (fun v =>
-               let v' := fin_to_nat v in
-               if dir
-               then
-                 match (nat_lt_dec (v' + offset) word_size) with
-                 | left l => update_sys_reg st PC (@nat_to_fin (v' + offset) _ l)
-                 | _ => None
-                 end
-               else
-                 match (nat_lt_dec (v' - offset) word_size) with
-                 | left l => update_sys_reg st PC (@nat_to_fin (v' - offset) _ l)
-                 | _ => None
-                 end
-    )).
+  bind ((get_vm_reg_file st (get_current_vm st)) !! PC)
+       (fun v =>
+          let v' := fin_to_nat v in
+          if dir
+          then
+            match (nat_lt_dec (v' + offset) word_size) with
+            | left l => Some (update_reg st PC (@nat_to_fin (v' + offset) _ l))
+            | _ => None
+            end
+          else
+            match (nat_lt_dec (v' - offset) word_size) with
+            | left l => Some (update_reg st PC (@nat_to_fin (v' - offset) _ l))
+            | _ => None
+            end
+       ).
 
 Definition update_incr_PC (st : state) : option state :=
   update_offset_PC st true 2.
@@ -288,97 +236,100 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
   | Some s => (NextI, s)
   end.
 
-Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_mode :=
+Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_mode := 
   let comp :=
-        s' <- update_general_reg s dst src ;;;
-        update_incr_PC s'
+      match dst with
+      | PC => None
+      | NZ => None
+      | _ => update_incr_PC (update_reg s dst src)
+      end
     in
     (option_state_unpack s comp, NormalM).
 
 Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : conf * control_mode :=
   let comp :=
-      src' <- get_reg s src ;;;
-      s'' <- update_general_reg s dst src' ;;;
-      update_incr_PC s''
+      match (dst, src) with
+      | (R _ _, R _ _) =>
+        src' <- get_reg s src ;;;
+                update_incr_PC (update_reg s dst src')
+      | _ => None
+      end
     in
   (option_state_unpack s comp, NormalM).
 
 Definition ldr (s : state) (dst : reg_name) (src : reg_name) : conf * control_mode :=
   let comp :=
-      src' <- get_reg s src ;;;
-      v <- get_memory s src' ;;;
-      m <- update_general_reg s dst v ;;;
-      update_incr_PC m
+      match (dst, src) with
+      | (R _ _, R _ _) =>
+        src' <- get_reg s src ;;;
+        v <- get_memory s src' ;;;
+        update_incr_PC (update_reg s dst v)
+      | _ => None
+      end
   in
   (option_state_unpack s comp, NormalM).
 
 Definition str (s : state) (src : reg_name) (dst : reg_name) : conf * control_mode :=
   let comp :=
-      src' <- get_reg s src ;;;
-      dst' <- get_reg s dst ;;;
-      m <- update_memory s dst' src' ;;;
-      update_incr_PC m
+      match (src, dst) with
+        | (R _ _, R _ _) =>
+          src' <- get_reg s src ;;;
+          dst' <- get_reg s dst ;;;
+          m <- update_memory s dst' src' ;;;
+          update_incr_PC m
+        | _ => None
+      end
   in
   (option_state_unpack s comp, NormalM).
+
+Ltac solveWordSize :=
+  pose proof word_size_at_least as G;
+  unfold word_size_lower_bound in G;
+  lia.
+
+Ltac solveRegCount :=
+  pose proof reg_count_at_least as G;
+  unfold reg_count_lower_bound in G;
+  lia.
 
 Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : conf * control_mode :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2)) with
-           | left _ => update_sys_reg s NZ (@nat_to_fin 1 word_size _)
-           | right _ => update_sys_reg s NZ (@nat_to_fin 0 word_size _)
+           | left _ => Some (update_reg s NZ (@nat_to_fin 1 word_size _))
+           | right _ => Some (update_reg s NZ (@nat_to_fin 0 word_size _))
            end ;;;
       update_incr_PC m       
   in
   (option_state_unpack s comp, NormalM).
-Next Obligation.
-  pose proof word_size_at_least as G.
-  unfold word_size_lower_bound in G.
-  lia.
-Qed.
-Next Obligation.
-  pose proof word_size_at_least as G.
-  unfold word_size_lower_bound in G.
-  lia.
-Qed.
+Solve Obligations with solveWordSize.
 
 Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : conf * control_mode :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2')) with
-           | left _ => update_sys_reg s NZ (@nat_to_fin 1 word_size _)
-           | right _ => update_sys_reg s NZ (@nat_to_fin 0 word_size _)
+           | left _ => Some (update_reg s NZ (@nat_to_fin 1 word_size _))
+           | right _ => Some (update_reg s NZ (@nat_to_fin 0 word_size _))
            end ;;;
       update_incr_PC m
   in
   (option_state_unpack s comp, NormalM).
-Next Obligation.
-  pose proof word_size_at_least as G.
-  unfold word_size_lower_bound in G.
-  lia.
-Qed.
-Next Obligation.
-  pose proof word_size_at_least as G.
-  unfold word_size_lower_bound in G.
-  lia.
-Qed.
+Solve Obligations with solveWordSize.
 
 Definition jnz (s : state) (arg : reg_name) : conf * control_mode :=
   let comp :=
       arg' <- get_reg s arg ;;;
       nz <- get_reg s NZ ;;;
       match (fin_to_nat nz) with
-      | 0 => update_sys_reg s PC arg'
+      | 0 => Some (update_reg s PC arg')
       | _ => update_incr_PC s
       end
   in
   (option_state_unpack s comp, NormalM).
 
 Definition jmp (s : state) (arg : reg_name) : conf * control_mode :=
-  let comp :=
-      arg' <- get_reg s arg ;;;
-      update_sys_reg s PC arg'
+  let comp := (fun x => update_reg s PC x) <$> (get_reg s arg)
   in
   (option_state_unpack s comp, NormalM).
 
@@ -415,17 +366,14 @@ Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) :
     match err with
     | inl () => (FailI, o, NormalM)
     | inr err' =>
-      match update_general_reg o (R 0 _) (encode_hvc_ret_code Error) with
-      | None => (FailI, o, NormalM)
-      | Some o' =>
-        match update_general_reg o' (R 2 _) (encode_hvc_error err') with
+      match update_incr_PC (update_reg
+                        (update_reg o
+                                    (R 0 _)
+                                    (encode_hvc_ret_code Error))
+                        (R 2 _)
+                        (encode_hvc_error err')) with
         | None => (FailI, o, NormalM)
-        | Some o'' =>
-          match update_incr_PC o'' with
-          | None => (FailI, o, NormalM)
-          | Some s'' => (NextI, o'', NormalM)
-          end
-        end
+        | Some s'' => (NextI, s'', NormalM)
       end
     end
   | inr o' =>
@@ -434,16 +382,7 @@ Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) :
     | Some o'' => (NextI, o'', NormalM)
     end
   end.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
+Solve Obligations with solveRegCount.
 
 Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * vmid)) : conf * control_mode :=
   match q with
@@ -451,17 +390,14 @@ Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * 
     match err with
     | inl () => (FailI, o, NormalM)
     | inr err' =>
-      match update_general_reg o (R 0 _) (encode_hvc_ret_code Error) with
-      | None => (FailI, o, NormalM)
-      | Some o' =>
-        match update_general_reg o' (R 2 _) (encode_hvc_error err') with
-        | None => (FailI, o, NormalM)
-        | Some o'' =>
-          match update_incr_PC o'' with
+      match update_incr_PC (update_reg
+                              (update_reg o
+                                          (R 0 _)
+                                          (encode_hvc_ret_code Error))
+                              (R 2 _)
+                              (encode_hvc_error err')) with
           | None => (FailI, o, NormalM)
-          | Some s'' => (NextI, o'', NormalM)
-          end
-        end
+          | Some s'' => (NextI, s'', NormalM)
       end
     end
   | inr (o', id) =>
@@ -470,16 +406,7 @@ Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * 
     | Some o'' => (NextI, o'', YieldM id)
     end
   end.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
+Solve Obligations with solveRegCount.
 
 (* ! depends on a constant ! *)
 Lemma at_least_one_addr_in_page (p : pid) : vec word (S (page_size - 1)).
@@ -498,16 +425,15 @@ Proof.
     exact H''.
 Qed.
 
-Definition get_tx_base_addr_global (st : state) (v : vmid) : option word :=
+Definition get_tx_base_addr_global (st : state) (v : vmid) : word :=
   match get_vm_state st v with
-  | Some (rf, (pid, _), pt) =>
-    Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
-  | _ => None
+  | (rf, (pid, _), pt) =>
+    (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
   end.
 
 Definition is_rx_ready_global (st : state) (v : vmid) : bool :=
   match get_vm_state st v with
-  | Some (rf, (_, (_, Some _)), pt) => true
+  | (rf, (_, (_, Some _)), pt) => true
   | _ => false
   end.
 
@@ -516,7 +442,7 @@ Definition is_rx_ready (st : state) : bool :=
 
 Definition get_rx_sender_global (st : state) (v : vmid) : option vmid :=
   match get_vm_state st v with
-  | Some (rf, (_, (_, Some v')), pt) => Some v'
+  | (rf, (_, (_, Some v')), pt) => Some v'
   | _ => None
   end.
 
@@ -525,7 +451,7 @@ Definition get_rx_sender (st : state) : option vmid :=
 
 Definition get_rx_base_addr_global (st : state) (v : vmid) : option word :=
   match get_vm_state st v with
-  | Some (rf, (_, (pid, Some _)), pt) => Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
+  | (rf, (_, (pid, _, Some _)), pt) => Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
   | _ => None
   end.
 
@@ -534,8 +460,8 @@ Definition get_rx_base_addr (st : state) : option word :=
 
 Definition empty_rx_global (st : state) (v : vmid) : option state :=
   match get_vm_state st v with
-  | Some (rf, (txAddr, (rxAddr, Some _)), pt) =>
-    Some (<[v:=(rf, (txAddr, (rxAddr, None)), pt)]>(get_vm_states st),
+  | (rf, (txAddr, (rxAddr, len, Some _)), pt) =>
+    Some (vinsert v (rf, (txAddr, (rxAddr, len, None)), pt) (get_vm_states st),
           get_current_vm st,
           get_mem st, get_transactions st)
   | _ => None
@@ -557,54 +483,67 @@ Definition copy_page_unsafe (st : state) (src dst : pid) : option state :=
         (Some st)
         (vzip_with (fun x y => (x, y)) (mm_translation_inv src) (mm_translation_inv dst)).
 
-Definition transfer_msg_unsafe (st : state) (v : vmid) (r : vmid) : option state :=
-  match get_vm_state st v with
-  | Some (_, (txPid, _), _) =>
-    match get_vm_state st r with
-    | Some (rf, (_, (rxPid, _)), pt) =>
-      copy_page_unsafe st txPid rxPid
-    | _ => None
+Definition fin_coerce {n m : nat} (i : fin n) (lt : fin_to_nat i < m) : fin m :=
+  Fin.of_nat_lt lt.  
+
+Program Definition transfer_msg_unsafe (st : state) (l : word) (v : vmid) (r : vmid) : hvc_result state :=
+  match decide (l < page_size) with
+  | left p =>
+    match get_vm_state st v with
+    | (_, (txPid, _), _) =>
+      match get_vm_state st r with
+      | (rf, (tx, ((rxPid, _), _)), pt) =>
+        st' <- lift_option (copy_page_unsafe st txPid rxPid) ;;;
+        unit (vinsert r (rf, (tx, (rxPid, _, Some v)), pt) (get_vm_states st),
+              get_current_vm st,
+              get_mem st, get_transactions st)
+      end
     end
-  | _ => None
+  | right _ => throw InvParam
   end.
+Next Obligation.
+  intros; exact (@fin_coerce word_size page_size l p).
+Defined.  
 
-Definition transfer_msg (st : state) (r : vmid) : option state :=
-  transfer_msg_unsafe st (get_current_vm st) r.
+Definition transfer_msg (st : state) (l : word) (r : vmid) : hvc_result state :=
+  transfer_msg_unsafe st l (get_current_vm st) r.
 
-Definition fresh_handle_helper (val : handle) (acc : option handle) : option handle :=
+Definition fresh_handle_helper (val : handle) (acc : hvc_result handle) : hvc_result handle :=
   match (try_incr_word val 1) with
-  | None => None
-  | Some val' => match acc with
-                 | None => Some val'
-                 | Some acc' => Some (fin_max val' acc')
-                 end
+  | None => throw NoMem
+  | Some val' =>
+    match acc with
+    | inl (inl ()) => unit val
+    | inl _ => acc
+    | inr acc' => unit (fin_max val' acc')
+    end
   end.
 
 (* TODO: pick the least *free* handle *)
-Definition fresh_handle (m : gmap handle transaction) : option handle := 
-  set_fold fresh_handle_helper None (@dom (gmap handle transaction) (gset handle) gset_dom m).
+Definition fresh_handle (m : gmap handle transaction) : hvc_result handle := 
+  set_fold fresh_handle_helper (inl (inl ())) (@dom (gmap handle transaction) (gset handle) gset_dom m).
 
 Definition memory_region_descriptor : Type :=
-  word (* length *) * vmid (* receiver *) * list pid (* pids *).  
+  vmid (* receiver *) * list pid (* pids *).
 
 Definition transaction_descriptor : Type :=
   vmid (* Sender *) * option handle (* Handle *) * word (* Tag *)
   * word (* Flag *)
   * word (* Counter *)
-  * gmap vmid (listset_nodup pid) (* Receivers *).
+  * vec (listset_nodup pid) vm_count (* Receivers *).
 
-Definition memory_regions_to_gmap (md : listset_nodup memory_region_descriptor) : gmap vmid (listset_nodup pid) :=
-  set_fold (fun v acc => match decide (NoDup (snd v)) with
-                         | left l => map_insert (snd (fst v)) (ListsetNoDup v.2 l) acc
+Definition memory_regions_to_vec (md : listset_nodup memory_region_descriptor) : vec (listset_nodup pid) vm_count :=
+  set_fold (fun v acc => match decide (NoDup v.2) with
+                         | left l => vinsert v.1 (ListsetNoDup v.2 l) acc
                          | right r => acc
-                         end) empty md.
+                         end) (vreplicate vm_count empty) md.
 
 Definition parse_memory_region_descriptor (st : state) (base : addr) : option memory_region_descriptor :=
   l <- get_memory_with_offset st base 0 ;;;
   r <- get_memory_with_offset st base 1 ;;;
   r' <- decode_vmid r ;;;
   ls' <- sequence_a (foldl (fun acc v => cons (bind (get_memory_with_offset st base (2 + v)) decode_pid) acc) nil (seq 0 (fin_to_nat l))) ;;;
-  unit (l, r', ls').
+  unit (r', ls').
 
 Definition parse_memory_region_descriptors (st : state) (base : addr) (count : nat) : option (listset_nodup memory_region_descriptor) :=
   ls' <- sequence_a (foldl (fun acc v =>
@@ -626,7 +565,7 @@ Definition parse_transaction_descriptor (st : state) (wl : word) (base : addr) (
   memDescrs <- parse_memory_region_descriptors st memDescrBase (fin_to_nat wc) ;;;
   (* Validate length *)
   vs' <- decode_vmid vs ;;;                                             
-  unit (vs', (if (fin_to_nat wh) =? 0 then None else Some wh), wt, wf, wc, memory_regions_to_gmap memDescrs).
+  unit (vs', (if (fin_to_nat wh) =? 0 then None else Some wh), wt, wf, wc, memory_regions_to_vec memDescrs).
 
 Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
            (t : transaction_descriptor) : hvc_result () :=
@@ -634,8 +573,7 @@ Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
   | (vs', h, wt, wf, wc, gm) =>
     _ <- lift_option_with_err (
         _ <- @bool_check_option True (negb (fin_to_nat wc =? 0)) ;;;
-        _ <- @bool_check_option True (fin_to_nat wc =? size gm) ;;;
-        _ <- @bool_check_option True (fin_to_nat wl =? 5 + (map_fold (fun k v acc => size v + acc) 0 gm)) ;;;
+        _ <- @bool_check_option True (fin_to_nat wc =? length gm) ;;;
         @bool_check_option True (match ty with
                                      | Donation => (fin_to_nat wc) =? 1
                                      | _ => true
@@ -646,19 +584,22 @@ Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
 Definition insert_transaction (st : state) (h : handle) (t : transaction) : state :=
   (get_vm_states st, get_current_vm st, get_mem st, <[h:=t]>(get_transactions st)).
 
-(* Should we handle fresh_handle None case somehow? *)
-Definition new_transaction (st : state) (vid : vmid)
+Program Definition new_transaction (st : state) (vid : vmid)
            (tt : transaction_type)
            (flag tag : word)
-           (m : gmap vmid (gmap pid bool))  : option state :=
-  if map_fold (fun _ v acc => andb acc (set_fold (fun v' acc' => andb acc' (check_ownership_page st vid v')) true (@dom (gmap pid bool) (gset pid) gset_dom v))) true m
+           (m : vec (listset_nodup pid) vm_count)  : hvc_result state :=
+  if foldr (fun v acc =>
+              andb acc
+                   (set_fold (fun v' acc' =>
+                                andb acc' (check_ownership_page st vid v'))
+                             true
+                             v))
+           true
+           m
   then
-    match fresh_handle (get_transactions st) with
-    | None => None
-    | Some h' =>
-      unit (insert_transaction st h' (vid, flag, tag, m, tt))
-    end
-  else None.
+    h <- fresh_handle (get_transactions st) ;;;
+    unit (insert_transaction st h (vid, flag, tag, empty, m, tt))
+  else throw Denied.
 
 Definition get_transaction (st : state) (h : handle) : option transaction :=
   (get_transactions st) !! h.
@@ -666,18 +607,17 @@ Definition get_transaction (st : state) (h : handle) : option transaction :=
 Definition remove_transaction (s : state) (h : handle) : state :=
   (get_vm_states s, get_current_vm s, get_mem s, delete h (get_transactions s)).
 
-Definition new_transaction_from_descriptor (st : state) (ty : transaction_type) (td : transaction_descriptor) : option state :=
+Definition new_transaction_from_descriptor (st : state) (ty : transaction_type) (td : transaction_descriptor) : hvc_result state :=
   match td with
-  | (s, None, t, f, wc, rs) => new_transaction st s ty f t (base.fmap (fun x => set_to_map (fun el => (el, false)) x) rs)
-  | _ => None
+  | (s, None, t, f, wc, rs) => new_transaction st s ty f t rs
+  | _ => throw InvParam
   end.
 
-Definition new_transaction_from_descriptor_in_tx_unsafe (st : state) (v : vmid) (wl : word) (ty : transaction_type) : option state :=
+Definition new_transaction_from_descriptor_in_tx_unsafe (st : state) (v : vmid) (wl : word) (ty : transaction_type) : hvc_result state :=
   if (page_size <? fin_to_nat wl)
-  then None
+  then throw InvParam
   else
-    txBAddr <- get_tx_base_addr_global st v ;;;
-    td <- parse_transaction_descriptor st wl txBAddr ty ;;;
+    td <- lift_option (parse_transaction_descriptor st wl (get_tx_base_addr_global st v) ty) ;;;
     new_transaction_from_descriptor st ty td.
 
 Definition update_current_vmid (st : state) (v : vmid) : state :=
@@ -700,38 +640,25 @@ Program Definition run (s : state) : conf * control_mode :=
         throw InvParam
   in
   unpack_hvc_result_yield s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
+Solve Obligations with solveRegCount.
   
 Program Definition yield (s : state) : conf * control_mode :=
   let comp :=
-      s' <- lift_option (update_general_reg s (R 0 _) (encode_hvc_ret_code Succ)) ;;;
+      let s' := (update_reg s (R 0 _) (encode_hvc_ret_code Succ))
+      in
       if is_primary s'
       then
         unit (s', (@nat_to_fin 0 vm_count vm_count_pos))
       else
-        s'' <- lift_option (update_general_reg s' (R 1 _) (encode_vmid (get_current_vm s'))) ;;;
-        unit (s'', (@nat_to_fin 0 vm_count vm_count_pos))
+        unit ((update_reg s' (R 1 _) (encode_vmid (get_current_vm s'))), (@nat_to_fin 0 vm_count vm_count_pos))
   in
   unpack_hvc_result_yield s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
+Solve Obligations with solveRegCount.
 
 Definition verify_perm_transaction (s : state) (p : permission) (td : transaction_descriptor) : bool :=
   match td with
-  | (_, _, _, _, m) => map_fold
-                         (fun _ v acc => andb acc (set_fold (fun v' acc' => andb acc' (check_perm_page s (get_current_vm s) v' p)) true v))
+  | (_, _, _, _, m) => foldr
+                         (fun v acc => andb acc (set_fold (fun v' acc' => andb acc' (check_perm_page s (get_current_vm s) v' p)) true v))
                          true
                          m
   end.
@@ -742,36 +669,27 @@ Program Definition share (s : state) : conf * control_mode :=
         m <- (if (page_size <? fin_to_nat r)
               then throw InvParam
               else
-                txBAddr <- lift_option (get_tx_base_addr_global s (get_current_vm s)) ;;;
-                td <- lift_option (parse_transaction_descriptor s r txBAddr Sharing) ;;;
+                td <- lift_option (parse_transaction_descriptor s r (get_tx_base_addr_global s (get_current_vm s)) Sharing) ;;;
                 _ <- validate_transaction_descriptor r Sharing td ;;;
                 if (verify_perm_transaction s (Owned, ExclusiveAccess) td)
-                then lift_option (bind (new_transaction_from_descriptor s Sharing td)
-                                       (fun x => Some (x, td)))
+                then (bind (new_transaction_from_descriptor s Sharing td) (fun x => unit (x, td)))
                 else throw Denied) ;;;
         match m with
         | (m', td) =>
           match td with
           | (_, gm) =>
-            match (map_fold (fun _ v acc => union v acc) empty gm) with
+            match (foldr (fun v acc => union v acc) empty gm) with
             | ListsetNoDup ls prf =>
-              s' <- lift_option (foldr (fun v' acc' => bind acc' (fun x => update_page_table x v' (Owned, SharedAccess))) (Some m') ls) ;;;
-              lift_option (update_general_reg s' (R 0 _) (encode_hvc_ret_code Succ))
+              unit (update_reg
+                      (foldr (fun v' acc' => update_page_table acc' v' (Owned, SharedAccess)) m' ls)
+                      (R 0 _)
+                      (encode_hvc_ret_code Succ))
             end
           end
         end
     in 
     unpack_hvc_result_normal s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
+Solve Obligations with solveRegCount.
 
 Program Definition lend (s : state) : conf * control_mode :=
   let comp :=
@@ -779,31 +697,28 @@ Program Definition lend (s : state) : conf * control_mode :=
       m <- (if (page_size <? fin_to_nat r)
             then throw InvParam
             else
-              txBAddr <- lift_option (get_tx_base_addr_global s (get_current_vm s)) ;;;
-              td <- lift_option (parse_transaction_descriptor s r txBAddr Lending) ;;;
+              td <- lift_option (parse_transaction_descriptor s r (get_tx_base_addr_global s (get_current_vm s)) Lending) ;;;
               _ <- validate_transaction_descriptor r Sharing td ;;;
               if (verify_perm_transaction s (Owned, ExclusiveAccess) td)
-              then lift_option (bind (new_transaction_from_descriptor s Lending td)
-                                     (fun x => Some (x, td)))
+              then bind (new_transaction_from_descriptor s Lending td)
+                        (fun x => unit (x, td))
               else throw Denied) ;;;
       match m with
       | (m', td) =>
         match td with
         | (_, gm) =>
-          match map_fold (fun _ v acc => union v acc) empty gm with
+          match foldr (fun v acc => union v acc) empty gm with
           | ListsetNoDup ls prf =>
-            s'<- lift_option (foldr (fun v' acc' => bind acc' (fun x => update_page_table x v' (Owned, NoAccess))) (Some m') ls) ;;;
-            lift_option (update_general_reg s' (R 0 _) (encode_hvc_ret_code Succ))
+            unit (update_reg
+                    (foldr (fun v' acc' => update_page_table acc' v' (Owned, NoAccess)) m' ls)
+                    (R 0 _)
+                    (encode_hvc_ret_code Succ))
           end
         end
       end
   in 
   unpack_hvc_result_normal s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
+Solve Obligations with solveRegCount.
 
 Program Definition donate (s : state) : conf * control_mode :=
   let comp :=
@@ -811,96 +726,96 @@ Program Definition donate (s : state) : conf * control_mode :=
       m <- (if (page_size <? fin_to_nat r)
             then throw InvParam
             else
-              txBAddr <- lift_option (get_tx_base_addr_global s (get_current_vm s)) ;;;
-              td <- lift_option (parse_transaction_descriptor s r txBAddr Donation) ;;;
+              td <- lift_option (parse_transaction_descriptor s r (get_tx_base_addr_global s (get_current_vm s)) Donation) ;;;
               _ <- validate_transaction_descriptor r Donation td ;;;
               if (verify_perm_transaction s (Owned, ExclusiveAccess) td)
-              then lift_option (bind (new_transaction_from_descriptor s Donation td)
-                                     (fun x => Some (x, td)))
+              then bind (new_transaction_from_descriptor s Donation td)
+                        (fun x => unit (x, td))
               else throw Denied) ;;;
       match m with
       | (m', td) =>
         match td with
         | (_, gm) =>
-          match map_fold (fun _ v acc => union v acc) empty gm with
+          match foldr (fun v acc => union v acc) empty gm with
           | ListsetNoDup ls prf =>
-            s' <- lift_option (foldr (fun v' acc' =>
-                                        bind acc' (fun x =>
-                                                     update_page_table x v' (NotOwned, NoAccess))) (Some m') ls) ;;;
-            lift_option (update_general_reg s' (R 0 _) (encode_hvc_ret_code Succ))
+            unit (update_reg
+                    (foldr (fun v' acc' => update_page_table acc' v' (NotOwned, NoAccess)) m' ls)
+                    (R 0 _)
+                    (encode_hvc_ret_code Succ))
           end
         end
       end
   in 
   unpack_hvc_result_normal s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
+Solve Obligations with solveRegCount.
 
-Definition toggle_transaction_entry (s : state) (h : handle) (v : vmid) (p : pid) : state :=
-  (get_vm_states s, get_current_vm s, get_mem s,
-   alter (fun x => match x with
-                   | (vs, w1, w2, gm, ty) => (vs, w1, w2, alter (fun y => alter (fun z => negb z) p y) v gm, ty)
-                   end) h (get_transactions s)).
-
-Definition toggle_transaction_entries (s : state) (h : handle) (v : vmid) : state.
-Proof.
-  intros.
-  destruct ((get_transactions s) !! h) as [[[? t] ?] |].
-  - destruct (t !! v) as [g |].
-    + exact (map_fold (fun k _ acc => toggle_transaction_entry acc h v k) s g).
-    + exact s.
-  - exact s.
-Defined.
-
-Definition get_pids (s : state) (h : handle) : list pid :=
-  match (get_transactions s) !! h with
-  | None => nil
-  | Some (_, _, _, m, _) =>
-    match m !! (get_current_vm s) with
-    | None => nil
-    | Some m' => map (fun x => match x with | (y, _) => y end) (map_to_list m')
+Definition toggle_transaction_retrieve (s : state) (h : handle) (v : vmid) : hvc_result state :=
+  match get_transaction s h with
+  | Some (vs, w1, w2, sr, vr, ty) =>
+    match (vr !!! v) with
+    | ListsetNoDup ls prf =>
+      match ls with
+      | nil => throw Denied
+      | _ => if decide (v ∈ sr)
+             then throw Denied
+             else unit (get_vm_states s, get_current_vm s, get_mem s,
+                       insert h (vs, w1, w2, union sr (singleton v), vr, ty) (get_transactions s))
+      end
     end
+  | _ => throw InvParam
+  end.
+
+Definition toggle_transaction_relinquish (s : state) (h : handle) (v : vmid) : hvc_result state :=
+  match get_transaction s h with
+  | Some (vs, w1, w2, sr, vr, ty) =>
+    match (vr !!! v) with
+    | ListsetNoDup ls prf =>
+      match ls with
+      | nil => throw Denied
+      | _ => if decide (v ∈ sr)
+             then unit (get_vm_states s, get_current_vm s, get_mem s,
+                        insert h (vs, w1, w2, difference sr (singleton v), vr, ty) (get_transactions s))
+             else throw Denied
+      end
+    end
+  | _ => throw InvParam
   end.
 
 Definition retrieve_transaction (s : state)
            (h : handle)
            (type : transaction_type)
-           (receiversMap : gmap vmid (gmap pid bool)) : option state :=
-  let m := toggle_transaction_entries s h (get_current_vm s)
-  in
+           (receiversMap : vec (listset_nodup pid) vm_count) : hvc_result state :=
+  m <- toggle_transaction_retrieve s h (get_current_vm s) ;;;
   match type with
   | Sharing =>
-    foldr (fun v' acc' =>
-             bind acc'
-                  (fun x => update_page_table x v' (NotOwned, SharedAccess)))
-          (Some m)
-          (get_pids s h)
+    unit (foldr (fun v' acc' =>
+                   update_page_table acc' v' (NotOwned, SharedAccess))
+                m
+         (receiversMap !!! (get_current_vm s)))
   | Lending =>
-    if decide (1 < size receiversMap)
-    then foldr (fun v' acc' =>
-                  bind acc' (fun x => update_page_table x v' (NotOwned, SharedAccess)))
-               (Some m)
-               (get_pids s h)
-    else foldr (fun v' acc' =>
-                  bind acc' (fun x => update_page_table x v' (NotOwned, ExclusiveAccess)))
-               (Some m)
-               (get_pids s h)
+    if decide (1 < foldr (fun v acc => acc + size v) 0 receiversMap)
+    then unit (foldr (fun v' acc' =>
+                        update_page_table acc' v' (NotOwned, SharedAccess))
+                     m
+                     (receiversMap !!! (get_current_vm s)))
+    else unit (foldr (fun v' acc' =>
+                        update_page_table acc' v' (NotOwned, ExclusiveAccess))
+                     m
+                     (receiversMap !!! (get_current_vm s)))
   | Donation =>
-    foldr (fun v' acc' =>
-             bind acc' (fun x => update_page_table x v' (Owned, ExclusiveAccess)))
-          (Some m)
-          (get_pids s h)
+    unit (foldr (fun v' acc' =>
+                   update_page_table acc' v' (Owned, ExclusiveAccess))
+                m
+                (receiversMap !!! (get_current_vm s)))
   end.
 
 Definition relinquish_transaction (s : state)
-           (h : handle) : option state :=
-  let m := toggle_transaction_entries s h (get_current_vm s)
-  in foldr (fun v' acc' => bind acc' (fun x => update_page_table x v' (NotOwned, NoAccess))) (Some m) (get_pids s h).
+           (h : handle)
+           (receiversMap : vec (listset_nodup pid) vm_count) : hvc_result state :=
+  s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
+  unit (foldr (fun v' acc' => update_page_table acc' v' (NotOwned, NoAccess)) s' (receiversMap !!! (get_current_vm s))).
 
-Definition get_receivers (t : transaction) : gmap vmid (gmap pid bool) :=
+Definition get_receivers (t : transaction) : vec (listset_nodup pid) vm_count :=
   match t with
   | (_, _, _, m, _) => m
   end.
@@ -914,80 +829,54 @@ Program Definition retrieve (s : state) : conf * control_mode :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-      lift_option (retrieve_transaction s handle (get_type trn) (get_receivers trn))
+      retrieve_transaction s handle (get_type trn) (get_receivers trn)
   in
   unpack_hvc_result_normal s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
+Solve Obligations with solveRegCount.
 
 Program Definition relinquish (s : state) : conf * control_mode :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
-      lift_option (relinquish_transaction s handle)
+      trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
+      relinquish_transaction s handle (get_receivers trn)
   in
   unpack_hvc_result_normal s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
+Solve Obligations with solveRegCount.
 
-Definition all_not_received (s : state) (h : handle) (v : vmid) : bool :=
-  match (get_transactions s) !! h with
+Definition no_borrowers (s : state) (h : handle) (v : vmid) : bool :=
+  match (get_transaction s h) with
   | None => true
-  | Some (_, _, _, m, _) =>
-    match m !! v with
-    | None => true
-    | Some m' => map_fold (fun _ v acc => andb v acc) true m'
-    end
+  | Some (vs, w1, w2, sr, vr, ty) =>
+    if decide (sr = empty)
+    then false
+    else true
   end.
 
 Program Definition reclaim (s : state) : conf * control_mode :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
-      if all_not_received s handle (get_current_vm s)
+      trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
+      if no_borrowers s handle (get_current_vm s)
       then
-        lift_option_with_err (foldr
-                                (fun v' acc' =>
-                                   bind acc' (fun x =>
-                                                update_page_table x v' (Owned, ExclusiveAccess)))
-                                (Some (remove_transaction s handle))
-                                (get_pids s handle))
-                             InvParam
+        unit (foldr
+                (fun v' acc' =>
+                   update_page_table acc' v' (Owned, ExclusiveAccess))
+                (remove_transaction s handle)
+                ((get_receivers trn) !!! (get_current_vm s)))
       else throw Denied
   in
   unpack_hvc_result_normal s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
+Solve Obligations with solveRegCount.
 
 Program Definition send (s : state) : conf * control_mode :=
   let comp :=
       receiver <- lift_option (get_reg s (R 1 _)) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
-      lift_option (transfer_msg_unsafe s (get_current_vm s) receiver')
+      l <- lift_option (get_reg s (R 2 _)) ;;;                
+      transfer_msg s l receiver'
   in
   unpack_hvc_result_normal s comp.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Defined.
+Solve Obligations with solveRegCount.
 
 Definition wait (s : state) : conf * control_mode :=
   let comp :=
@@ -1018,11 +907,7 @@ Program Definition hvc (s : state) : conf * control_mode :=
       end
     end
   end.
-Next Obligation.
-  pose proof reg_count_at_least as G.
-  unfold reg_count_lower_bound in G.
-  lia.
-Qed.
+Solve Obligations with solveRegCount.
 
 Definition exec (i : instruction) (s : state) : conf * control_mode :=
   match i with
