@@ -58,6 +58,7 @@ Thumbs.db
 semantics/.auctex-auto/
 slides/.auctex-auto/
 examples/.auctex-auto/
+./.auctex-auto/
 theories/examples/monotone/
 *.snm
 *.toc
