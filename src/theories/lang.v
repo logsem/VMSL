@@ -1,5 +1,5 @@
 From Coq Require Import ssreflect Bool Eqdep_dec Program.Equality.
-From stdpp Require Import gmap fin_maps list binders strings countable fin mapset fin_map_dom listset_nodup.
+From stdpp Require Import gmap fin_maps list binders strings countable fin mapset fin_map_dom listset_nodup vector.
 From iris.prelude Require Import options.
 From iris.algebra Require Import ofe.
 From iris.program_logic Require Import language ectx_language ectxi_language.
@@ -13,7 +13,7 @@ Open Scope monad_scope.
 Context `(HypervisorParams : HypervisorParameters).
 
 (* State *)
-
+Print word.
 Definition mem : Type :=
   gmap addr word.
 
@@ -33,21 +33,25 @@ Definition tx_buffer : Type :=
   pid.
 
 Definition rx_buffer : Type :=
-  (pid * option vmid).
+  (pid * fin page_size * option vmid).
 
 Definition mail_box : Type :=
   (tx_buffer * rx_buffer).
 
 Definition current_vm := vmid.
 
+Definition vm_state : Type :=
+  reg_file * mail_box * page_table.
+
 Definition vm_states : Type :=
-  gmap vmid (reg_file * mail_box * page_table).
+  vec vm_state vm_count.
 
 Definition transaction : Type :=
   vmid (* sender *)
   * word (*flag *)
   * word (* tag *)
-  * gmap vmid (gmap pid bool)
+  * gset vmid
+  * vec (gset pid) vm_count
   * transaction_type.
 
 Definition handle := word.
