@@ -1,53 +1,46 @@
-(* From ExtLib Require Import Structures.Monads. *)
 From stdpp Require Import vector.
 
 Class Functor (F : Type -> Type) := {
   fmap {A B : Type} (f : A -> B) (fa : F A) : F B;
+  (*
   fmap_id {A : Type} : forall x, fmap (@id A) x = id x;
   fmap_compose {A B C : Type} : forall (g : B -> C) (h : A -> B) x, fmap (compose g h) x = compose (fmap g) (fmap h) x;
+   *)
                                    }.
 
 Delimit Scope functor_scope with functor.
 
 Notation "f <$> a" := (@fmap _ _ _ _ f a) (at level 61, left associativity) : functor_scope.
 
-Class Applicative (F : Type -> Type) := {
-  pure {A : Type} (a : A) : F A;
+Class Applicative (F : Type -> Type) `{Functor F} := {
+  unit {A : Type} (a : A) : F A;
   ap {A B : Type} (f : F (A -> B)) (a : F A) : F B;
-  ap_pure_id {A : Type} : forall (v : F A),
-      ap (pure id) v = v;
-  pure_composition {A B C : Type} : forall (u : F (B -> C)) (v : F (A -> B)) (w : F A),
-      ap (ap (ap (pure compose) u) v) w = ap u (ap v w);
-  pure_homomorphism {A B : Type} : forall (f : A -> B) (x : A),
-      ap (pure f) (pure x) = pure (f x);
-  pure_interchange {A B : Type} : forall (u : F (A -> B)) (y : A),
-      ap u (pure y) = ap (pure (fun f => f y)) u;
+  (*
+  ap_unit_id {A : Type} : forall (v : F A),
+      ap (unit id) v = v;
+  unit_composition {A B C : Type} : forall (u : F (B -> C)) (v : F (A -> B)) (w : F A),
+      ap (ap (ap (unit compose) u) v) w = ap u (ap v w);
+  unit_homomorphism {A B : Type} : forall (f : A -> B) (x : A),
+      ap (unit f) (unit x) = unit (f x);
+  unit_interchange {A B : Type} : forall (u : F (A -> B)) (y : A),
+      ap u (unit y) = ap (unit (fun f => f y)) u;
+   *)
                                                     }.
-
-Instance applicative_implies_functor {F : Type -> Type} `{Applicative F} : Functor F.
-Proof.
-  refine {|
-      fmap := fun {A B : Type} (f : A -> B) (x : F A) => ap (pure f) x;
-      fmap_compose := _;
-      fmap_id := _;
-    |}.
-  - intros; rewrite ap_pure_id; reflexivity.
-  - intros; simpl; rewrite <- pure_composition; rewrite 2 pure_homomorphism; reflexivity.
-Defined.
 
 Delimit Scope applicative_scope with applicative.
 
-Notation "f <*> a" := (@ap _ _ _ _ f a) (at level 62, left associativity) : applicative_scope.
+Notation "f <*> a" := (@ap _ _ _ _ _ f a) (at level 62, left associativity) : applicative_scope.
 
-Class Monad (M : Type -> Type) := {
-  unit {A : Type} (a : A) : M A;
+Class Monad (M : Type -> Type) `{Applicative M} := {
   bind {A B : Type} : M A -> (A -> M B) -> M B;
+  (*
   unit_l_id_bind {A B : Type} : forall (f : A -> M B) (a : A),
       bind (unit a) f = f a;
   unit_r_id_bind {A B : Type} : forall (ma : M A),
       bind ma unit = ma;
   bind_assoc {A B C : Type} : forall (f : A -> M B) (g : B -> M C) (ma : M A),
       bind ma (fun x => bind (f x) g) = bind (bind ma f) g;
+   *)
                                                   }.
 
 Definition join {M : Type -> Type} {A : Type} `{Monad M} (mma : M (M A)) : M A :=
@@ -71,62 +64,20 @@ Class Traversable (T : Type -> Type) `{Foldable T} `{Functor T} := {
   sequence_a {A : Type} {F : Type -> Type} `{Applicative F} : T (F A) -> F (T A); 
   }.
 
-Module MonadExt.
-  From Coq Require Import Logic.FunctionalExtensionality.
-
-  Instance monad_implies_applicative {M : Type -> Type} `{Monad M} : Applicative M.
-  Proof.
-    refine {|
-        pure := fun {A : Type} (x : A) => unit x;
-        ap := fun {A B : Type} (f : M (A -> B)) (a : M A) => bind f (fun g => bind a (fun x => unit (g x)));
-      |}.
-    - intros A v.
-      rewrite unit_l_id_bind.
-      simpl.
-      exact (@unit_r_id_bind _ _ A A v).
-    - intros A B C u v w.
-      rewrite unit_l_id_bind.
-      rewrite <- 2 bind_assoc.
-      f_equal.
-      apply functional_extensionality.
-      intros g.
-      rewrite unit_l_id_bind.
-      rewrite <- 2 bind_assoc.
-      f_equal.
-      apply functional_extensionality.
-      intros f.
-      rewrite unit_l_id_bind.
-      rewrite <- bind_assoc.
-      f_equal.
-      apply functional_extensionality.
-      intros a.
-      rewrite unit_l_id_bind.
-      reflexivity.
-    - intros A B f x.
-      rewrite 2 unit_l_id_bind.
-      reflexivity.
-    - intros A B u y.
-      rewrite unit_l_id_bind.
-      f_equal.
-      apply functional_extensionality.
-      intros f.
-      rewrite unit_l_id_bind.
-      reflexivity.
-  Defined.
-End MonadExt.
-
 Module Option.
-
+  
   Instance functor_option : Functor option.
   Proof.
-    refine {| fmap := fun {A B : Type} (f : A -> B) (x : option A) => match x with | None => None | Some x' => Some (f x') end; |}.
+    refine {| monad.fmap := fun {A B : Type} (f : A -> B) (x : option A) => match x with | None => None | Some x' => Some (f x') end; |}.
+    (*
     - intros A [x |]; reflexivity.
     - intros A B C g h [x |]; reflexivity.
+     *)
   Defined.
 
   Instance applicative_option : Applicative option.
   Proof.
-    refine {| pure := fun {A : Type} (x : A) => Some x;
+    refine {| unit := fun {A : Type} (x : A) => Some x;
               ap := fun {A B : Type} (f : option (A -> B)) (a : option A) =>
                       match f with
                       | None => None
@@ -136,20 +87,23 @@ Module Option.
                         | Some a' => Some (f' a')
                         end
                       end; |}.
+    (*
     - intros A [v |]; reflexivity.
     - intros A B C [u |] [v |] [w |]; reflexivity.
     - reflexivity.
     - intros A B [u |] y; reflexivity.
+     *)
   Defined.
   
   Instance monad_option : Monad option.
   Proof.
-    refine {| unit t x := Some x;
-              bind t u mt f := match mt with | None => None | Some t => f t end;
+    refine {| bind t u mt f := match mt with | None => None | Some t => f t end;
            |}.
+    (*
     - reflexivity.
     - intros ? ? [ma |]; reflexivity.
     - intros A B C f g [ma |]; reflexivity.
+     *)
   Defined.
 
   Fixpoint list_from_some {A : Type} (l : list (option A)) : list A :=
@@ -179,13 +133,15 @@ Module Sum.
                                      | inr r => inr (f r)
                                  end
            |}.
+    (*
     - intros A [e | a]; reflexivity.
     - intros A B C g h [e | a]; reflexivity.
+     *)
   Defined.
 
   Instance applicative_sum {E : Type} : Applicative (sum E).
   Proof.
-    refine {| pure := fun {A : Type} (x : A) => inr x;
+    refine {| unit := fun {A : Type} (x : A) => inr x;
               ap := fun {A B : Type} (f : E + (A -> B)) (x : E + A) =>
                       match f with
                       | inl l => inl l
@@ -196,29 +152,24 @@ Module Sum.
                         end
                       end
            |}.
+    (*
     - intros A [e | a]; reflexivity.
     - intros A B C [e1 | u] [e2 | v] [e3 | w]; reflexivity.
     - reflexivity.
     - intros ? ? [e | f] y; reflexivity.
+     *)
   Defined.
   
   Instance monad_sum {E : Type} : Monad (sum E).
   Proof.
-    refine {| unit t x := inr x;
-              bind t u mt f := match mt with | inl l => inl l | inr r => f r end;
+    refine {| bind t u mt f := match mt with | inl l => inl l | inr r => f r end;
            |}.
+    (*
     - reflexivity.
     - intros ? ? [? | ?]; reflexivity.
     - intros ? ? ? f g [? | a]; [| destruct (f a)]; reflexivity.
+     *)
   Defined.
-  
-  Definition unpack_option_with_left {A B : Type} (v : option B) (err : A) : sum A B :=
-    match v with
-    | None => inl err
-    | Some v' => inr v'
-    end.
-
-  Definition throw {A B : Type} (err : A) : sum A B := inl err.
   
 End Sum.
 
@@ -233,9 +184,11 @@ Module List.
   Instance functor_list : Functor list.
   Proof.
     refine {| fmap := map |}.
+    (*
     - exact map_id.
     - symmetry.
       apply map_map.
+     *)
   Defined.
 
   Local Fixpoint foldr_list {A B : Type} (f : A -> B -> B) (b : B) (l : list A) : B :=
@@ -257,7 +210,7 @@ Module List.
   Defined.
   
   Local Fixpoint sequence_a_list {A : Type} {F : Type -> Type} `{Applicative F} (l : list (F A)) : F (list A) :=
-    foldr (fun val acc => ap (fmap cons val) acc) (pure nil) l.
+    foldr (fun val acc => ap (fmap cons val) acc) (unit nil) l.
 
   Local Definition traverse_list {A B : Type} {F : Type -> Type} `{Applicative F} (f : A -> F B) : list A -> F (list B) :=
     compose sequence_a_list (fmap f).    
@@ -277,6 +230,7 @@ Module List.
     end.
 
   (* TODO *)
+  (*
   Instance applicative_list : Applicative list.
   Proof.
     refine {| pure := fun _ x => [x];
@@ -325,6 +279,7 @@ Module List.
         rewrite IHl.
         admit.
   Admitted.
+   *)
 
 End List.
 
@@ -392,7 +347,7 @@ Module Vector.
   
   Local Fixpoint sequence_a_vec {A : Type} {F : Type -> Type} {n : nat} `{Applicative F} (l : vec (F A) n) : F (vec A n) :=
     match l with
-    | vnil => pure vnil
+    | vnil => unit vnil
     | @Vector.cons _ x n xs => ap (fmap (fun y => @vcons A y n) x) (sequence_a_vec xs)
     end.
 
@@ -402,6 +357,7 @@ Module Vector.
   Instance functor_vec {n : nat} : Functor (fun x => vec x n).
   Proof.
     refine {| fmap := fun _ _ f v => vmap f v; |}.
+    (*
     - intros.
       rewrite Vector.map_id.
       reflexivity.
@@ -411,12 +367,13 @@ Module Vector.
         f_equal.
         rewrite Vector.map_map.
         reflexivity.
+     *)
   Defined.
   
   Instance traversable_vec {n : nat} : Traversable (fun x => vec x n).
   Proof.
-    refine {| traverse := fun _ _ _ _ => traverse_vec;
-              sequence_a := fun _ _ _ => sequence_a_vec;
+    refine {| traverse := fun _ _ _ _ _ => traverse_vec;
+              sequence_a := fun _ _ _ _ => sequence_a_vec;
            |}.
   Defined.
   
@@ -433,9 +390,9 @@ Module MonadNotationBase.
   
   Delimit Scope monad_scope with monad.
   
-  Notation "c >>= f" := (@bind _ _ _ _ c f) (at level 58, left associativity) : monad_scope.
-  Notation "e1 ;;; e2" := (@bind _ _ _ _ e1%monad (fun _ => e2%monad))%monad
-                                                                      (at level 63, right associativity) : monad_scope.
+  Notation "c >>= f" := (@bind _ _ _ _ _ _ c f) (at level 58, left associativity) : monad_scope.
+  Notation "e1 ;;; e2" := (@bind _ _ _ _ _ _ e1%monad (fun _ => e2%monad))%monad
+                                                                        (at level 63, right associativity) : monad_scope.
   
 End MonadNotationBase.
 
@@ -443,11 +400,11 @@ Module MonadNotation.
   
   Export MonadNotationBase.
   
-  Notation "x <- c1 ;;; c2" := (@bind _ _ _ _ c1 (fun x => c2))
-                                (at level 63, c1 at next level, right associativity) : monad_scope.
+  Notation "x <- c1 ;;; c2" := (@bind _ _ _ _ _ _ c1 (fun x => c2))
+                                 (at level 63, c1 at next level, right associativity) : monad_scope.
   
   Notation "' pat <- c1 ;;; c2" :=
-    (@bind _ _ _ _ c1 (fun x => match x with pat => c2 end))
+    (@bind _ _ _ _ _ _ c1 (fun x => match x with pat => c2 end))
       (at level 63, pat pattern, c1 at next level, right associativity) : monad_scope.
   
 End MonadNotation.
