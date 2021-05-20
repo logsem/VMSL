@@ -1,7 +1,4 @@
-From Coq Require Import ssreflect Bool Eqdep_dec Program.Equality.
-From stdpp Require Import gmap fin_maps list binders strings countable fin mapset fin_map_dom listset_nodup vector.
-From iris.prelude Require Import options.
-From iris.algebra Require Import ofe.
+From stdpp Require Import gmap fin_maps list countable fin mapset fin_map_dom listset_nodup vector.
 From iris.program_logic Require Import language ectx_language ectxi_language.
 From hypvis Require Import machine monad.
 
@@ -477,7 +474,7 @@ Definition copy_page_unsafe (st : state) (src dst : pid) : option state :=
   foldr (fun x s =>
            match x with
            | (a, b) =>
-             (@bind option _ state state s (fun y => copy_from_addr_to_addr_unsafe y a b))
+             (@bind option _ _ _ state state s (fun y => copy_from_addr_to_addr_unsafe y a b))
            end)
         (Some st)
         (vzip_with (fun x y => (x, y)) (mm_translation_inv src) (mm_translation_inv dst)).
