@@ -1,6 +1,5 @@
-(* From iris.base_logic.lib Require Import gen_heap ghost_map. *)
+From iris.base_logic.lib Require Import gen_heap ghost_map.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
-(* From stdpp Require Import vector. *)
 Require Import lang monad.
 
 
@@ -23,7 +22,7 @@ Section RA.
 
 
  Class gen_VMG Σ := GenVMG{
-                      gen_VM_inG :> gen_VMPreG Addr VMID Word RegName PID HvcFunc  Σ;
+                      gen_VM_inG :> gen_VMPreG Addr VMID Word RegName PID hvc_func  Σ;
                       gen_num_name : gname;
                       gen_mem_name : gname;
                       gen_reg_name : gname;
@@ -122,8 +121,8 @@ Section definitions.
 
   (* TODO *)
 
-  (* Program Fixpoint vec_to_gmap_aux (i: fin VMCount) {n:fin VMCount} (vec: vec (gset PID) n)  : gmap VMID (gset PID):= *)
-  (*   foldr *)
+  Program Fixpoint vec_to_gmap_aux {n:fin VMCount} (vec: vec (gset PID) n)  : gmap VMID (gset PID):=
+    (foldr (λ (s: gset PID) (p: (gmap VMID (gset PID)) * nat), (<[(@nat_to_fin p.2 VMCount _):=s]>p.1, (p.2+1))) (∅, 0) vec).1.
   (*   match vec with *)
   (*   | s ::: ss => <[(@nat_to_fin (i-n) VMCount _):=s]>(vec_to_gmap_aux i ss) *)
   (*   | vnil => ∅ *)
