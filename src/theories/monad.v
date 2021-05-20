@@ -1,5 +1,5 @@
 (* From ExtLib Require Import Structures.Monads. *)
-From stdpp Require Import vector.
+From stdpp Require Export vector.
 
 Class Functor (F : Type -> Type) := {
   fmap {A B : Type} (f : A -> B) (fa : F A) : F B;
@@ -9,7 +9,7 @@ Class Functor (F : Type -> Type) := {
 
 Delimit Scope functor_scope with functor.
 
-Notation "f <$> a" := (@fmap _ _ _ _ f a) (at level 61, left associativity) : functor_scope.
+(* Notation "f <$> a" := (@fmap _ _ _ _ f a) (at level 61, left associativity) : functor_scope. *)
 
 Class Applicative (F : Type -> Type) := {
   pure {A : Type} (a : A) : F A;

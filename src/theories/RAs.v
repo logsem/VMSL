@@ -1,6 +1,7 @@
-From iris.base_logic.lib Require Import gen_heap ghost_map.
+(* From iris.base_logic.lib Require Import gen_heap ghost_map. *)
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
-Require Import lang.
+(* From stdpp Require Import vector. *)
+Require Import lang monad.
 
 
 Section RA.
@@ -120,8 +121,164 @@ Section definitions.
                  end)  ∅  δ.2 )).
 
   (* TODO *)
-  Definition get_trans_gmap σ : gmap Word (VMID * Word * Word * (gmap VMID (gset PID)) * HvcFunc).
 
+  (* Program Fixpoint vec_to_gmap_aux (i: fin VMCount) {n:fin VMCount} (vec: vec (gset PID) n)  : gmap VMID (gset PID):= *)
+  (*   foldr *)
+  (*   match vec with *)
+  (*   | s ::: ss => <[(@nat_to_fin (i-n) VMCount _):=s]>(vec_to_gmap_aux i ss) *)
+  (*   | vnil => ∅ *)
+  (*   end. *)
+  (* Next Obligation. *)
+  (*   intros. *)
+  (*   pose proof fin_to_nat_lt i. *)
+  (*   pose proof fin_to_nat_lt n. *)
+  (*   lia. *)
+  (* Qed. *)
+  (* Search (_ < _ -> _ < _ -> _ < _). *)
+  (* Definition to_fin(i m:nat) (n: fin i ) (H: (m < n)) : fin i := (@nat_to_fin m i (Nat.lt_trans m n i H (fin_to_nat_lt n))). *)
+
+  (* Definition fin_coerce {n m :nat} (i : fin n )( lt: fin_to_nat i < m ): fin m := *)
+  (*   Fin.of_nat_lt lt. *)
+
+  (* Program Definition to_fin(i m:nat) (n: fin i ) (H: (m < n)) : fin i := (fin_coerce (nat_to_fin H) _). *)
+  (* Next Obligation. *)
+  (*   intros. *)
+
+
+  (* Lemma to_nat_eq(i m:nat) (n: fin i) (H: m < n) : (fin_to_nat (to_fin i m n H)) = m. *)
+  (*   Proof. *)
+  (*     unfold to_fin. *)
+  (*     (* unfold to_nat_obligation_1. *) *)
+  (*     (* unfold nat_to_fin. *) *)
+  (*     pose proof fin_to_nat_lt n. *)
+  (*     generalize dependent i. *)
+  (*     generalize dependent m. *)
+  (*     induction n. *)
+  (*     intros. *)
+  (*     inversion H. *)
+  (*     simpl.  *)
+  (*     intros. *)
+  (*     (* induction m. *) *)
+  (*     (* intros. *) *)
+  (*     (* simpl. *) *)
+  (*     (* destruct i. *) *)
+  (*     (* lia. *) *)
+  (*     (* done. *) *)
+  (*     (* intros. *) *)
+  (*     (* simpl. *) *)
+  (*     (* destruct i. *) *)
+  (*     (* inversion H0. *) *)
+  (*     (* simpl. *) *)
+  (*     (* f_equal. *) *)
+  (*    pose proof (Nat.lt_trans m (S n0) (S n) H H0). *)
+  (*     pose proof (proof_irrel H1 *)
+  (*                              (Nat.lt_trans  m (S n0) (S n) H  H0)). *)
+  (*     pose proof (proof_irrel H0 (fin_to_nat_lt (FS n0))). *)
+  (*     rewrite <- H3. *)
+  (*     rewrite <- H2. *)
+  (*     Check nat_to_fin_to_nat. *)
+  (*     pose proof (nat_to_fin_to_nat  (fin_to_nat_lt (nat_to_fin H1)) ). *)
+  (*     rewrite <- H4. *)
+
+
+  (*     pose proof (proof_irrel H1 (Nat.lt_trans m (nat_to_fin H1) n () (fin_to_nat_lt n))). *)
+  (*     rewrite <- H2. *)
+  (*     pose proof (IHm i (@nat_to_fin m i H1)). *)
+
+  (*     Search lt_S_n.  *)
+  (*     unfold to_fin_obligation_1. *)
+  (*     intros. *)
+  (*     inversion H0. *)
+
+
+  (*     inversion H. *)
+  (*     destruct m eqn:Heqn. *)
+  (*     simpl. *)
+  (*     done. *)
+  (*     Search nat lt. *)
+
+  (*     apply lt_S_n in H0. *)
+  (*     simpl. *)
+  (*     destruct n0. *)
+  (*     inversion H. *)
+  (*     lia. *)
+  (*     subst m. *)
+  (*     simplify_eq /=. *)
+
+  (* Next Obligation. *)
+  (*   intros. *)
+
+  (*   assert (H' : wildcard' < i). *)
+  (* pose proof fin_to_nat_lt n. *)
+  (* rewrite <- Heq_anonymous in H. *)
+  (* Search nat lt. *)
+  (* apply (PeanoNat.Nat.lt_succ_l _ _ H). *)
+  (* exact (@nat_to_fin wildcard' i H'). *)
+  (* Defined. *)
+  (* Next Obligation. *)
+  (* intros. *)
+  (* simpl. *)
+  (* pose proof fin_to_nat_lt n. *)
+  (* assert (H': wildcard' < i). *)
+  (* lia. *)
+  (* induction ss. *)
+  (* - unfold vec_to_gmap_aux_obligation_2. *)
+  (*   simpl. *)
+  (*   destruct (fin_to_nat i) eqn:Hi. *)
+  (*   lia. *)
+  (*   done. *)
+  (* - unfold vec_to_gmap_aux_obligation_2. *)
+  (*   simpl. *)
+  (*   destruct (fin_to_nat i). *)
+
+
+
+  (*   assert (Hw: wildcard' <i). *)
+  (*   assert (Hw' : wildcard' < (S wildcard'));lia. *)
+  (*   unfold vec_to_gmap_aux_obligation_2. *)
+  (*   simplify_eq /=. *)
+  (*   destruct ss eqn:Hss. *)
+
+  (*   destruct (fin_to_nat i) eqn:Hi. *)
+  (*   inversion H'. *)
+  (*   rewrite  Heq_anonymous in H1. *)
+  (*   unfold vec_to_gmap_aux_obligation_2. *)
+  (*   simpl. *)
+  (*   lia. *)
+  (*   rewrite <- H0 in H'. *)
+  (*   inversion H'. *)
+  (*   rewrite H3 in H1. *)
+  (*   lia. *)
+  (*   subst m0. *)
+  (*   clear H3. *)
+  (*   rewrite  Heq_anonymous in H1. *)
+  (*   rewrite H0 in H'. *)
+  (*   unfold vec_to_gmap_aux_obligation_2. *)
+  (*   simpl. *)
+  (*   pose proof fin_to_nat_lt i. *)
+  (*   assert (Hm: (S m)< VMCount). *)
+  (*   lia. *)
+  (*   destruct (fin_to_nat (@nat_to_fin (S m) VMCount Hm)) eqn:Heqn. *)
+  (*   inversion Heqn. *)
+  (*   destruct VMCount. *)
+  (*   lia. *)
+  (*   inversion H4. *)
+  (*   simplify_eq /=. *)
+  (*   destruct VMCount. *)
+  (*   lia. *)
+  (*   simplify_eq /=. *)
+
+  (*   rewrite H0 in Hm. *)
+  (* lia. *)
+  (*   inversion Heqn. *)
+  (*   lia. *)
+  (*   inversion H'. *)
+
+
+  (* Definition vec_to_gmap{n: fin VMCount} (vec: vec (gset PID) n) : gmap VMID (gset PID):= *)
+  (*  (vec_to_gmap_aux n vec). *)
+
+  Definition get_trans_gmap σ : gmap Word (VMID * Word * Word  * (gmap VMID (gset PID)) * HvcFunc).
 
   Definition gen_vm_interp σ: iProp Σ :=
     let n := (map_size (vmStates σ)) in

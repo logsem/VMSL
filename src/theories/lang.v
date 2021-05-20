@@ -12,10 +12,6 @@ Open Scope monad_scope.
 
 Context `(HypervisorParams : HypervisorParameters).
 (* State *)
-Section State.
-
-Definition VMID : Type:=
-  fin VMCount.
 
 Definition mem : Type :=
   gmap addr word.
