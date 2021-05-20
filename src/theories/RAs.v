@@ -168,7 +168,11 @@ Section definitions.
    (map_fold (λ (h:word) (trans: transaction) m,
                   <[h:=((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.1.2), (vec_to_gmap trans.1.2)), trans.2)]>m
       ) ∅ (get_transactions σ)).
-
+  
+  Definition get_receivers_gset σ : authR (gmapUR word (gset_disjR (leibnizO vmid))) :=
+    let transactions := get_transactions σ
+    in ● (map_fold (λ (h : word) (trn : transaction) m, <[h:=GSet (trn.1.1.2)]>m) ∅ transactions).
+  
   Definition gen_vm_interp σ: iProp Σ :=
     let i := (get_current_vm σ) in
     let δ := (get_vm_state σ i) in
@@ -182,5 +186,6 @@ Section definitions.
             (vec_to_gmap (vmap (get_rx_state) (get_vm_states σ)))))) ∗
                  own (gen_owned_name vmG) (get_owned_gset δ) ∗
                  own (gen_access_name vmG) (get_access_gmap δ) ∗
-                 ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ)
+                 ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
+                 own (gen_retri_name vmG) (get_receivers_gset σ)
     .
