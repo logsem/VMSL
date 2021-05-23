@@ -1350,6 +1350,11 @@ If we are not interested in the $\DONE$s of VMs, the following par rule could be
 
 \subsection{Resources and RAs}
 
+\textbf{Current VM.} We need to remember the VMID of the VM that we are reasoning about. But it seems not trivial(or even impossible) to do it by constructing a RA that satisfies all desired properties.
+
+The issue is due to the unambiguity of the term `current VM`.  In the paper version of the sematics, the thread local reduction and thread pool reduction are of the forms $(\mu, i, \sigma) \tlr (\mu',i, \vec{\mu_{f}}, \sigma', \beta)$ and $(V_{1};(\mu,i);V_{2}, \sigma, i) \tpr (V_{1};(\mu',i);V_{2};\vec{\mu_{f}}, \sigma', i)$ respectively. It is tempting to regard the $i$ in thread local reduction as the current VM. Actually, it is the $i$ after the execution configuration $\sigma$ in the thread pool reduction that is the $\VMID$ of the current VM, or precisely speaking, the `currently running VM`, which can be integrated into the $\sigma$. Intuitively, the former is supposed to be considered as the $\VMID$ of the VM that is currently being reasoned about, which is in some sense irrelevant to $\sigma$. Therefore, instead of using a RA, it is more reasonable to remember it by adding a $\VMID$ to the weakestpre as a parameter or into the syntax of our language as a part of the expression.
+
+
 \textbf{The number of VMs.} Since the number of VMs is fixed after initialization, the corresponding ghost variable is persistent and duplicable in our logic. We use the construction $\AG{\nat}$.
 \begin{align*}
 \ownGGhost{\#~n}& \eqdef \ownGhost{\gname_{\#}}{\mathsf{ag}(n)}\\

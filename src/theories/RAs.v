@@ -184,8 +184,8 @@ Section definitions.
         ((get_txrx_auth_agree σ (λ p, p.2.1.1)),
           (Some (gmap_view_auth 1
             (vec_to_gmap (vmap (get_rx_state) (get_vm_states σ)))))) ∗
-                 own (gen_owned_name vmG) (get_owned_gset δ) ∗
-                 own (gen_access_name vmG) (get_access_gmap δ) ∗
-                 ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
-                 own (gen_retri_name vmG) (get_receivers_gset σ)
+      own (gen_owned_name vmG) (get_owned_gset δ) ∗
+      own (gen_access_name vmG) (get_access_gmap δ) ∗
+      ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
+      own (gen_retri_name vmG) (get_receivers_gset σ)
     .
