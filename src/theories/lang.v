@@ -1011,3 +1011,94 @@ Lemma hyp_lang_mixin : EctxiLanguageMixin of_val to_val fill_item pstep.
 Canonical Structure hyp_ectxi_lang := EctxiLanguage hyp_lang_mixin.
 Canonical Structure hyp_ectx_lang := EctxLanguageOfEctxi hyp_ectxi_lang.
 Canonical Structure hyp_lang := LanguageOfEctx hyp_ectx_lang.
+
+#[export] Hint Extern 20 (PureExec _ _ _) => progress simpl : typeclass_instances.
+
+#[export] Hint Extern 5 (IntoVal _ _) => eapply of_to_val; fast_done : typeclass_instances.
+#[export] Hint Extern 10 (IntoVal _ _) =>
+  rewrite /IntoVal; eapply of_to_val; rewrite /= !to_of_val /=; solve [ eauto ] : typeclass_instances.
+
+#[export] Hint Extern 5 (AsVal _) => eexists; eapply of_to_val; fast_done : typeclass_instances.
+#[export] Hint Extern 10 (AsVal _) =>
+eexists; rewrite /IntoVal; eapply of_to_val; rewrite /= !to_of_val /=; solve [ eauto ] : typeclass_instances.
+
+Local Hint Resolve language.val_irreducible : core.
+Local Hint Resolve to_of_val : core.
+Local Hint Unfold language.irreducible : core.
+
+Definition is_atomic (e : expr) : Prop :=
+  match e with
+  | Instr _ => True
+  | _ => False
+  end.
+
+Ltac uglyUnfold :=
+  unfold mov_word, mov_reg, ldr,
+  str, cmp_word, cmp_reg,
+  jnz, jmp, halt, fail,
+  hvc, run, yield, share, lend, donate,
+  retrieve, relinquish, reclaim, send, wait,
+  option_state_unpack, unpack_hvc_result_normal, unpack_hvc_result_yield,
+  get_reg, update_reg, update_incr_PC, get_memory, update_memory;
+  repeat case_match;
+  subst; eauto.
+
+Lemma instr_atomic i st :
+  exists st' m, (exec i st = (FailI, st', m)) \/ (exec i st = (NextI, st', m)) \/
+        (exec i st = (HaltI, st', m)).
+Proof.
+  unfold exec; repeat case_match; subst; uglyUnfold.
+Qed.
+
+Global Instance is_atomic_correct s (e : expr) : is_atomic e -> Atomic s e.
+Proof.
+  intros Ha; apply strongly_atomic_atomic, ectx_language_atomic.
+  - destruct e.
+    + destruct c; rewrite /Atomic; intros ????? Hstep;
+        inversion Hstep; subst.
+      * destruct H as [[] step]; inversion step; subst.
+        -- inversion H; subst; eauto.
+           simpl.
+           destruct (instr_atomic i σ) as [st' [m' [P1 | [P2 | P3]]]]; subst;
+             [ rewrite H6 in P1; inversion P1; subst; eauto |
+               rewrite H6 in P2; inversion P2; subst; eauto |
+               rewrite H6 in P3; inversion P3; subst; eauto ].
+        -- inversion H; subst.
+           destruct (instr_atomic i0 σ) as [st'' [m'' [P1 | [P2 | P3]]]]; subst;
+             [ rewrite H6 in P1; inversion P1; subst; eauto |
+               rewrite H6 in P2; inversion P2; subst; eauto |
+               rewrite H6 in P3; inversion P3; subst; eauto ].
+      * destruct H as [[] step]; inversion step.
+      * destruct H as [[] step]; inversion step.
+      * destruct H as [[] step]; inversion step.
+    + inversion Ha.
+  - intros K e' -> Hval%eq_None_not_Some.
+    induction K using rev_ind; first done.
+    simpl in Ha; rewrite fill_app in Ha; simpl in Ha.
+    destruct Hval. apply (fill_val K e'); simpl in *.
+    destruct x; naive_solver.
+Qed.
+
+Ltac solve_atomic :=
+  apply is_atomic_correct; simpl; repeat split;
+    rewrite ?to_of_val; eapply mk_is_Some; fast_done.
+
+#[export] Hint Extern 0 (Atomic _ _) => solve_atomic : core.
+#[export] Hint Extern 0 (Atomic _ _) => solve_atomic : typeclass_instances.
+
+Lemma head_reducible_from_step s1 e2 s2 c :
+  step (ExecI, s1) (e2, s2, c) ->
+  head_reducible (Instr ExecI) s1.
+Proof. intros * HH. rewrite /head_reducible /head_step //=.
+       destruct c.
+       - eexists [], (Instr _), (update_current_vmid s2 v), [].
+         constructor.
+         exists NormalM.
+         apply PS_instr_yield.
+         apply HH.
+       - eexists [], (Instr _), s2, [].
+         constructor.
+         exists NormalM.
+         apply PS_instr_normal.
+         apply HH.
+Qed.
