@@ -927,7 +927,8 @@ Inductive val : Type :=
 
 Inductive expr: Type :=
 | Instr (c : exec_mode)
-| Seq (e : expr).
+| Seq (e : expr) (i : vmid)
+| Start.
 
 Definition of_val (v : val) : expr :=
   match v with
@@ -945,7 +946,8 @@ Fixpoint to_val (e : expr) : option val :=
     | FailI => Some FailV
     | NextI => Some NextV
     end
-  | Seq _ => None
+  | Seq _ _ => None
+  | Start => None
   end.
 
 Lemma of_to_val:
@@ -960,12 +962,12 @@ Lemma to_of_val:
 Proof. destruct v; reflexivity. Qed.
 
 Inductive ectx_item :=
-| SeqCtx.
+| SeqCtx (i : vmid).
 Notation ectx := (list ectx_item).
 
 Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
-  | SeqCtx => Seq e
+  | SeqCtx i => Seq e i
   end.
 
 Inductive step : conf -> conf * control_mode -> Prop :=
@@ -982,30 +984,50 @@ Inductive step : conf -> conf * control_mode -> Prop :=
       decode_instruction (w1, w2) = Some i ->
       exec i st = c ->
       step (ExecI, st) c.
-
+  
 Inductive prim_step : expr -> state -> list Empty_set -> expr -> state -> list Empty_set -> control_mode -> Prop :=
 | PS_instr_normal st e' st' :
     step (ExecI, st) (e', st', NormalM) -> prim_step (Instr ExecI) st [] (Instr e') st' [] NormalM
 | PS_instr_yield st e' st' i :
     step (ExecI, st) (e', st', YieldM i) -> prim_step (Instr ExecI) st [] (Instr e') (update_current_vmid st' i) [] NormalM
-| PS_seq st : prim_step (Seq (Instr NextI)) st [] (Seq (Instr ExecI)) st [] NormalM
-| PS_halt st : prim_step (Seq (Instr HaltI)) st [] (Instr HaltI) st [] NormalM
-| PS__fail st : prim_step (Seq (Instr FailI)) st [] (Instr FailI) st [] NormalM.
+| PS_seq st i : prim_step (Seq (Instr NextI) i) st [] (Seq (Instr ExecI) i) st [] NormalM
+| PS_halt st i : prim_step (Seq (Instr HaltI) i) st [] (Instr HaltI) st [] NormalM
+| PS__fail st i : prim_step (Seq (Instr FailI) i) st [] (Instr FailI) st [] NormalM.
+
+Program Fixpoint list_of_vmid_exprs_aux (n : nat) (H : n < vm_count) : list expr :=
+  match n with
+  | 0  => cons (Seq (Instr NextI) (nat_to_fin H)) []
+  | S m => cons (Seq (Instr NextI) (nat_to_fin H)) (list_of_vmid_exprs_aux m _)
+  end.
+Next Obligation.
+  intros.
+  lia.
+Defined.
+
+Program Definition list_of_vm_exprs : list expr :=
+  list_of_vmid_exprs_aux (vm_count - 1) _.
+Next Obligation.
+  pose proof vm_count_pos.
+  lia.
+Defined.
 
 Inductive pstep : expr -> state -> list Empty_set -> expr -> state -> list expr -> Prop :=
+  | StartS st : pstep Start st [] (Instr HaltI) st list_of_vm_exprs
   | Step st e st' e' :
-    (exists m, prim_step e st [] e' st' [] m) -> pstep e st [] e' st' [].
+      (exists m, prim_step e st [] e' st' [] m) -> pstep e st [] e' st' [].
 
 Lemma hyp_lang_mixin : EctxiLanguageMixin of_val to_val fill_item pstep.
   Proof.
     constructor.
     - intros [ | | ]; reflexivity.
-    - intros [[] | []] [ | | ] P; try (inversion P); reflexivity.
-    - intros [[] | []] s1 ? e2 s2 ? step; try reflexivity; inversion step as [? ? ? ? [? H]]; inversion H.
-    - intros [] [[] | []] p; inversion p as [? H]; inversion H.
-    - intros [] [[] | []] [[] | []] p; inversion p; reflexivity.
-    - intros [] [] [[] | []] [[] | []] p1 p2 p3; reflexivity.
-    - intros [] [[] | []] s1 ? [[] | []] s2 ? p; inversion p as [? ? ? ? [? H]]; inversion H; eauto.
+    - intros [[] | [] | ] [ | | ] P; try (inversion P); reflexivity.
+    - intros [[] | [] |] s1 ? e2 s2 ? step; try reflexivity; inversion step; subst;
+        destruct H; inversion H.
+    - intros [] [[] | [] |] p; inversion p as [? H]; inversion H.
+    - intros [] [[] | [] |] [[] | [] |] p; inversion p; reflexivity.
+    - intros [] [] [[] | [] |] [[] | [] |] p1 p2 p3; inversion p3; reflexivity.
+    - intros [] [[] | [] |] s1 ? [[] | [] |] s2 ? p; inversion p; subst;
+        destruct H; inversion H; eauto.
   Qed.
 
 Canonical Structure hyp_ectxi_lang := EctxiLanguage hyp_lang_mixin.
@@ -1071,6 +1093,7 @@ Proof.
       * destruct H as [[] step]; inversion step.
       * destruct H as [[] step]; inversion step.
       * destruct H as [[] step]; inversion step.
+    + inversion Ha.
     + inversion Ha.
   - intros K e' -> Hval%eq_None_not_Some.
     induction K using rev_ind; first done.
