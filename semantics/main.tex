@@ -1415,35 +1415,55 @@ The construction for TX page is $\text{Auth}(\VMID \finmap \AG{\PID})$, for RX p
 \inferrule[Rx-Split2]{}{\text{RX}^{i}_{q}(p,b,n,v) \wand \text{RX}^{i}_{q}(p,b,n,v) \asts \text{RX}^{i}(p)  }
 
 \end{mathpar}
-\textbf{Page tables.} The page table of a VM can be regarded as two collections of $\PID$s. One records the ownership of pages, the other one records the accessibility. The first one can be simply encoded as $\text{Auth}(\mathcal{P}(\VMID))$ with disjoint union as the composition operation.
+% \textbf{Page tables.} The page table of a VM can be regarded as two collections of $\PID$s. One records the ownership of pages, the other one records the accessibility. The first one can be simply encoded as $\text{Auth}(\mathcal{P}(\VMID))$ with disjoint union as the composition operation.
+% \begin{align*}
+% \text{Owned}(s) &\eqdef \ownGhost{\gname_{OWN}}{\circ s} \\
+% \SI & \eqdef \ownGhost{\gname_{OWN}}{\bullet \{p ~|~ [p \mapsfrom (\text{O}, -)] \in \Phi.\delta s[i].pt \}}
+% \end{align*}
+% \begin{mathpar}
+% \inferrule[Owned-Split]{}{\text{Owned}(s1 \uplus s2) \wand \text{Owned}(s1) \asts \text{Owned}(s2)  }
+
+\textbf{Page tables.} The page table of a VM can be regarded as two collections of $\PID$s. One records the ownership of pages, the other one records the accessibility. The first one can be simply encoded as $\text{Auth}(\VMID \finmap (\text{Frac} \times \mathcal{P}(\PID)))$ with disjoint union as the composition operation.
 \begin{align*}
-\text{Owned}(s) &\eqdef \ownGhost{\gname_{OWN}}{\circ s} \\
-\SI & \eqdef \ownGhost{\gname_{OWN}}{\bullet \{p ~|~ [p \mapsfrom (\text{O}, -)] \in \Phi.\delta s[i].pt \}}
+\text{Owned}^{i}_{q}(s) &\eqdef \ownGhost{\gname_{OWN}}{\circ i \mapsfrom (q,s)} \\
+\SI & \eqdef \ownGhost{\gname_{OWN}}{\bullet \{ [j \mapsfrom (1,s)] ~|~ j \in [0,|\Phi.\delta s|)\cap \nat, s=\{ p ~|~ [p \mapsfrom (\text{O}, -)]\in \Phi.\delta s[j].pt \}  \} }
 \end{align*}
 \begin{mathpar}
-\inferrule[Owned-Split]{}{\text{Owned}(s1 \uplus s2) \wand \text{Owned}(s1) \asts \text{Owned}(s2)  }
+\inferrule[Owned-Split]{}{\text{Owned}^i_{q_1+q_2}(s1 \uplus s2) \wand \text{Owned}^i_{q_1}(s1) \asts \text{Owned}^i_{q_2}(s2)  }\\
+\inferrule[Owned-Update]{}{\text{Owned}^i_1(s) \wand \text{Owned}^i_1(s')}
 
 \end{mathpar}
 
-The second one needs a Frac to keep track of shared access to every pages: $\text{Auth}(\PID \finmap (\text{Frac}, \AG{} +\text{Ex}())$.
+% The second one needs a Frac to keep track of shared access to every pages: $\text{Auth}(\PID \finmap (\text{Frac}, \AG{} +\text{Ex}())$.
+% \begin{align*}
+% \text{Accessible}_{q}(p,a) &\eqdef \ownGhost{\gname_{ACC}}{\circ [p \mapsfrom (q, \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}()))]} \\
+% \SI & \eqdef \ownGhost{\gname_{ACC}}{\bullet \{[p \mapsfrom (1, \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}()))] ~|~ [p \mapsfrom (-,a)] \in \Phi.\delta s[i].pt\} }
+% \end{align*}
+% \begin{mathpar}
+% \inferrule[Access-Shared-Split]{}{\text{Accessible}_{q1+q2}(p,SA)\wand \text{Accessible}_{q1}(p,SA) \asts \text{Accessible}_{q2}(p,SA)}
+% \end{mathpar}
+
+The second one needs a Frac to keep track of shared access to every pages: $\text{Auth}(\VMID \finmap (\text{Frac},(\PID \finmap  \AG{} +\text{Ex}())))$.
 \begin{align*}
-\text{Accessible}_{q}(p,a) &\eqdef \ownGhost{\gname_{ACC}}{\circ [p \mapsfrom (q, \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}()))]} \\
-\SI & \eqdef \ownGhost{\gname_{ACC}}{\bullet \{[p \mapsfrom (1, \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}()))] ~|~ [p \mapsfrom (-,a)] \in \Phi.\delta s[i].pt\}}
+\text{Accessible}^{i}_{q}(p,a) &\eqdef \ownGhost{\gname_{ACC}}{\circ [i \mapsfrom (q,[p \mapsfrom  \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}())])]} \\
+\SI & \eqdef \ownGhost{\gname_{ACC}}{\bullet \big\{[j \mapsfrom (1, m) ~|~ j \in [0,|\Phi.\delta s|)\cap \nat, m =\big\{ \begin{array}{l}[p \mapsfrom  \textsf{if } a= \text{EA} \textsf{ then } \textsf{inr}(\textsf{ex}()) \textsf{ else } \textsf{inl}(\textsf{ag}())] ~|~ \\ \null [p \mapsfrom (-,a)] \in \Phi.\delta s[j].pt \end{array} \big\} \big\} }
 \end{align*}
 \begin{mathpar}
-\inferrule[Access-Shared-Split]{}{\text{Accessible}_{q1+q2}(p,SA)\wand \text{Accessible}_{q1}(p,SA) \asts \text{Accessible}_{q2}(p,SA)}
+\inferrule[Access-Shared-Split]{}{\text{Accessible}^i_{q1+q2}(p,SA)\wand \text{Accessible}^i_{q1}(p,SA) \asts \text{Accessible}^i_{q2}(p,SA)}
 \end{mathpar}
+
+
 
 \textbf{Transactions.}
-Transactions are indexed by the handles in $\SSS$. Thus, the basic construction is a partial finite map. We then divide transactions into two parts. The first is the ``constant'' part modeled by $\text{Auth}(\WORD \finmap (\text{Frac} \times \AG{\VMID \times \WORD \times \WORD \times (\VMID \finmap [\PID]) \times \FID)}))$. This part won't be changed during the transaction, so that we can simply apply the agreement construction. In order to make freeing handles possible, we additionally added a Frac to the construction. The second part is $\Auth(\WORD \finmap \mathcal{P}(\VMID))$ with pointwise disjoint union as the composition operation.  An element $v$ in the set can be considered as a token for the VM $v$ to retrieve.
+Transactions are indexed by the handles in $\SSS$. Thus, the basic construction is a partial finite map. We then divide transactions into two parts. The first is the ``constant'' part modeled by $\text{Auth}(\WORD \finmap (\text{Frac} \times \AG{\VMID \times \WORD \times \WORD \times (\VMID \finmap [\PID]) \times \FID}))$. This part won't be changed during the transaction, so that we can simply apply the agreement construction. In order to make freeing handles possible, we additionally added a Frac to the construction. The second part is $\Auth(\WORD \finmap \mathcal{P}(\VMID))$ with pointwise disjoint union as the composition operation.  An element $v$ in the set can be considered as a token for the VM $v$ to retrieve.
 \begin{align*}
 \text{Transaction}_{q}(w_{h},v,w_{f},w_{t},pgs,fid) &\eqdef \ownGhost{\gname_{TRANS}}{\circ [w_{h}\mapsfrom (q,\textsf{ag}(v,w_{f},w_{t},pgs, fid))]} \\
-\SI &\eqdef \ownGhost{\gname_{TRANS}}{\bullet \{[w_{h}\mapsfrom (1,\textsf{ag}(ss.1,ss.2,ss.3,ss.5, ss.6))] ~|~ [w_{h}\mapsfrom ss]\in \Phi.sss \}}\\
+\SI &\eqdef \ownGhost{\gname_{TRANS}}{\bullet \{[w_{h}\mapsfrom (1,\textsf{ag}(ss.1,ss.2,ss.3,ss.5, ss.6))] ~|~ [w_{h}\mapsfrom ss]\in \Phi.sss \}} \\
 \text{Retrievable}(w_{h},vs) &\eqdef \ownGhost{\gname_{RETRI}}{\circ [w_{h}\mapsfrom vs]}\\
-\SI &\eqdef \ownGhost{\gname_{RETRI}}{\bullet \{[w_{h}\mapsfrom ss.4))] ~|~ [w_{h}\mapsfrom ss]\in \Phi.sss \}}
+\SI &\eqdef \ownGhost{\gname_{RETRI}}{\bullet \{[w_{h}\mapsfrom ss.4] ~|~ [w_{h}\mapsfrom ss]\in \Phi.sss \}}
 \end{align*}
 \begin{mathpar}
-\inferrule[Transaction-Split]{}{\text{Accessible}_{q1+q2}(p,SA)\wand \text{Accessible}_{q1}(p,SA) \asts \text{Accessible}_{q2}(p,SA)}
+\inferrule[Transaction-Split]{}{\text{Transaction}_{q1+q2}(w_{h},v,w_{f},w_{t},pgs,fid)\wand  \text{Transaction}_{q1}(w_{h},v,w_{f},w_{t},pgs,fid) \asts \\  \text{Transaction}_{q2}(w_{h},v,w_{f},w_{t},pgs,fid) }\\
 
 \inferrule[Retrievable-Split]{}{\text{Retrievable}(w_{h},vs1 \uplus vs2)\wand \text{Retrievable}(w_{h},vs1) \asts \text{Retrievable}(w_{h},vs2)}
 \end{mathpar}
