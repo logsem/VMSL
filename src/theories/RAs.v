@@ -1,10 +1,10 @@
-From iris.base_logic.lib Require Import gen_heap ghost_map.
+From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
+From iris.program_logic Require Import weakestpre.
 From stdpp Require Import listset_nodup.
 Require Import lang.
 
 
-Section RA.
   (* Context{A V W R P F:Type} `{Countable A, Countable V, Countable W, Countable R, Countable P}. *)
 
   Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
@@ -15,15 +15,22 @@ Section RA.
                       gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
                       gen_rx_preG_inG :> inG Σ (prodR (authR (gmapUR V (agreeR (leibnizO P))))
                                                       (optionR (gmap_viewR V (optionO (prodO natO (leibnizO V))))));
-                      gen_owned_preG_inG :> inG Σ (authR (gset_disjUR (leibnizO P)));
-                      gen_access_preG_inG :> inG Σ (authR (gmapUR P (prodR dfracR (csumR (agreeR unitO) (exclR unitO)))));
+                      (* gen_owned_preG_inG :> inG Σ (authR (gset_disjUR (leibnizO P))); *)
+                      (* gen_access_preG_inG :> inG Σ (authR (gmapUR P (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))); *)
+                      gen_owned_preG_inG :> inG Σ (authR (gmapUR V
+                                    (prodR dfracR (gset_disjUR (leibnizO P)))));
+                      gen_access_preG_inG :> inG Σ (authR (gmapUR V
+                                    (prodR dfracR (gmapUR P (csumR (agreeR unitO) (exclR unitO))))));
                       gen_trans_preG_inG :> gen_heapPreG W (V * W* W*(gmap V (listset_nodup P))*F) Σ;
                       gen_retri_preG_inG :> inG Σ (authR (gmapUR W (gset_disjR (leibnizO V))))
                    }.
 
 
- Class gen_VMG Σ := GenVMG{
-                      gen_VM_inG :> gen_VMPreG addr vmid word reg_name pid transaction_type  Σ;
+  Class gen_VMG Σ := GenVMG{
+                      gen_VM_inG :> gen_VMPreG addr vmid word reg_name pid transaction_type Σ;
+                      gen_invG :> invG Σ;
+                      gen_na_invG :> na_invG Σ;
+                      gen_nainv_name : na_inv_pool_name;
                       gen_num_name : gname;
                       gen_mem_name : gname;
                       gen_reg_name : gname;
@@ -35,6 +42,7 @@ Section RA.
                       gen_retri_name : gname
                     }.
 
+Global Arguments gen_nainv_name {Σ} _.
 Global Arguments gen_num_name {Σ} _.
 Global Arguments gen_mem_name {Σ} _.
 Global Arguments gen_reg_name {Σ} _.
@@ -52,17 +60,19 @@ Definition ra_RXBuffer :=
   (prodR ra_TXBuffer
          (optionR (gmap_viewR vmid (optionO (prodO natO (leibnizO vmid)))))).
 Definition ra_Accessible:=
-  (authR (gmapUR pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))).
+  (authR (gmapUR vmid (prodR dfracR (gmapUR pid  (csumR (agreeR unitO) (exclR unitO)))))).
 
 
 Definition gen_VMΣ : gFunctors :=
   #[
+      (* inv Σ; *)
+      (* na_inv Σ; *)
       GFunctor (agreeR natO);
       gen_heapΣ addr word;
       gen_heapΣ (reg_name * vmid) word;
       GFunctor ra_TXBuffer;
       GFunctor ra_RXBuffer;
-      GFunctor (authR (gset_disjUR (leibnizO pid)));
+      GFunctor (authR (gmapUR vmid (prodR dfracR (gset_disjUR (leibnizO pid)))));
       GFunctor ra_Accessible;
       gen_heapΣ word (vmid * word * word * (gmap vmid (listset_nodup pid)) * transaction_type);
       GFunctor (authR (gmapUR word (gset_disjR (leibnizO vmid))))
@@ -81,10 +91,6 @@ Section definitions.
   Context `{vmG : !gen_VMG Σ}.
   Implicit Type σ: state.
   Implicit Type δ: vm_state.
-
-  Definition get_reg_gmap δ (i: vmid): gmap (reg_name * vmid) word :=
-    list_to_map (map  (λ (p: reg_name * word), ((p.1 , i), p.2))
-                      (map_to_list (δ.1.1))).
 
   Program Fixpoint vector_of_vmids_aux(n:nat) (H:n<vm_count) : vec vmid (S n):=
     match n with
@@ -122,8 +128,12 @@ Section definitions.
     (* ra_TXBuffer:= *)
     (* (● (vec_to_gmap (vmap (λ δ, (to_agree (f δ.1.2)))  (get_vm_states σ)))). *)
 
+  Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
+    (foldr (λ p acc, (map_fold (λ (r:reg_name) (w:word) acc', <[(r,p.1):= w ]>acc') acc p.2)) ∅
+              (vzip_with (λ v δ, (v,δ.1.1)) (vector_of_vmids) (get_vm_states σ))).
 
-   Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
+
+  Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
     ra_TXBuffer:=
     (● (foldr (λ p acc, <[p.1:=p.2]>acc) ∅
               (vzip_with (λ v δ, (v,to_agree (f δ.1.2))) (vector_of_vmids) (get_vm_states σ)))).
@@ -141,23 +151,35 @@ Section definitions.
    (*                | Unowned => s *)
    (*               end ) *)
    (* doesn't work...*)
-  Definition get_owned_gset δ : (authR (gset_disjUR pid)) :=
-    (● (map_fold (λ (p:pid) (perm:permission) (s: gset_disjUR pid),
+  Definition get_owned_gmap σ : (authR (gmapUR vmid (prodR dfracR (gset_disjUR pid)))) :=
+    (● (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅
+              (vzip_with (λ v δ, (v,
+                    (map_fold (λ (p:pid) (perm:permission) (s: gset_disjUR pid),
                   match perm.1 with
                   | Owned =>  match s with
                                 | GSet s' => GSet (s' ∪ {[p]})
                                 | GSetBot => GSet ∅
                               end
                   | Unowned => s
-                 end)  (GSet ∅)  δ.2 )).
+                 end)  (GSet ∅) δ.2))) (vector_of_vmids) (get_vm_states σ)))).
 
-  Definition get_access_gmap δ : ra_Accessible :=
-    (●  (map_fold (λ (p:pid) (perm:permission) (s: (gmap pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))),
+  (* Definition get_access_gmap δ : ra_Accessible := *)
+  (*   (●  (map_fold (λ (p:pid) (perm:permission) (s: (gmap pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))), *)
+  (*                 match perm.2 with *)
+  (*                 | NoAccess => s *)
+  (*                 | SharedAccess => <[p:= ((DfracOwn 1), (Cinl (to_agree ())))]>s *)
+  (*                 | ExclusiveAccess => <[p:= ((DfracOwn 1),(Cinr (Excl ())))]>s *)
+  (*                end)  ∅  δ.2 )). *)
+
+    Definition get_access_gmap σ : ra_Accessible :=
+    (●  (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅
+         (vzip_with (λ v δ, (v,
+                    (map_fold (λ (p:pid) (perm:permission) (s: (gmap pid (csumR (agreeR unitO) (exclR unitO)))),
                   match perm.2 with
                   | NoAccess => s
-                  | SharedAccess => <[p:= ((DfracOwn 1), (Cinl (to_agree ())))]>s
-                  | ExclusiveAccess => <[p:= ((DfracOwn 1),(Cinr (Excl ())))]>s
-                 end)  ∅  δ.2 )).
+                  | SharedAccess => <[p:= (Cinl (to_agree ()))]>s
+                  | ExclusiveAccess => <[p:= (Cinr (Excl ()))]>s
+                 end)  ∅ δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))).
 
 
   Program Fixpoint vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
@@ -165,27 +187,166 @@ Section definitions.
            (vzip_with (λ v s, (v,s)) (vector_of_vmids) vec)).
   (* TODO we need getters for transations.. *)
   Definition get_trans_gmap σ : gmap word (vmid * word * word  * (gmap vmid (listset_nodup pid)) * transaction_type):=
-   (map_fold (λ (h:word) (trans: transaction) m,
+    (map_fold (λ (h:word) (trans: transaction) m,
                   <[h:=((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.1.2), (vec_to_gmap trans.1.2)), trans.2)]>m
       ) ∅ (get_transactions σ)).
   
-  Definition get_receivers_gset σ : authR (gmapUR word (gset_disjR (leibnizO vmid))) :=
+  Definition get_receivers_gmap σ : authR (gmapUR word (gset_disjR (leibnizO vmid))) :=
     let transactions := get_transactions σ
     in ● (map_fold (λ (h : word) (trn : transaction) m, <[h:=GSet (trn.1.1.2)]>m) ∅ transactions).
   
   Definition gen_vm_interp σ: iProp Σ :=
-    let i := (get_current_vm σ) in
-    let δ := (get_vm_state σ i) in
+    (* let i := (get_current_vm σ) in *)
+    (* let δ := (get_vm_state σ i) in *)
       own (gen_num_name vmG) (to_agree vm_count)∗
       ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) ∗
-      ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap δ i) ∗
+      ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
       own (gen_tx_name vmG) (get_txrx_auth_agree σ (λ p, p.1)) ∗
       own (gen_rx_name vmG)
         ((get_txrx_auth_agree σ (λ p, p.2.1.1)),
           (Some (gmap_view_auth 1
             (vec_to_gmap (vmap (get_rx_state) (get_vm_states σ)))))) ∗
-      own (gen_owned_name vmG) (get_owned_gset δ) ∗
-      own (gen_access_name vmG) (get_access_gmap δ) ∗
+      own (gen_owned_name vmG) (get_owned_gmap σ) ∗
+      own (gen_access_name vmG) (get_access_gmap σ) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
-      own (gen_retri_name vmG) (get_receivers_gset σ)
+      own (gen_retri_name vmG) (get_receivers_gmap σ)
     .
+
+
+(* The Iris instance.*)
+  Global Instance VMG_irisG : irisG hyp_lang Σ := {
+    iris_invG := gen_invG;
+    state_interp σ _ κs _ := (gen_vm_interp σ)%I;
+    fork_post _ := True%I;
+    num_laters_per_step _ := 0;
+    state_interp_mono _ _ _ _ := fupd_intro _ _
+                                                 }.
+
+  Definition num_agree_def (n:nat) : iProp Σ :=
+    own (gen_num_name vmG) (to_agree n).
+  Definition num_agree_aux : seal (@num_agree_def). Proof. by eexists. Qed.
+  Definition num_agree:= num_agree_aux.(unseal).
+  Definition num_agree_eq : @num_agree = @num_agree_def := num_agree_aux.(seal_eq).
+
+  Definition mem_mapsto_def (a:addr) (dq : dfrac) (w:word) : iProp Σ :=
+    own (gen_mem_name vmG) (gmap_view_frag a dq (w : leibnizO word)).
+  Definition mem_mapsto_aux : seal (@mem_mapsto_def). Proof. by eexists. Qed.
+  Definition mem_mapsto := mem_mapsto_aux.(unseal).
+  Definition mem_mapsto_eq : @mem_mapsto = @mem_mapsto_def := mem_mapsto_aux.(seal_eq).
+
+  Definition reg_mapsto_def (r:reg_name) (i:vmid) (dq : dfrac) (w:word) : iProp Σ :=
+    own (gen_reg_name vmG) (gmap_view_frag (r,i) dq (w : leibnizO word)).
+  Definition reg_mapsto_aux : seal (@reg_mapsto_def). Proof. by eexists. Qed.
+  Definition reg_mapsto := reg_mapsto_aux.(unseal).
+  Definition reg_mapsto_eq : @reg_mapsto = @reg_mapsto_def := reg_mapsto_aux.(seal_eq).
+
+  Definition tx_mapsto_def (i:vmid) (p:pid) : iProp Σ :=
+    own (gen_tx_name vmG) (◯ {[i := (to_agree (p: leibnizO pid))]}).
+  Definition tx_mapsto_aux : seal (@tx_mapsto_def). Proof. by eexists. Qed.
+  Definition tx_mapsto := tx_mapsto_aux.(unseal).
+  Definition tx_mapsto_eq : @tx_mapsto = @tx_mapsto_def := tx_mapsto_aux.(seal_eq).
+
+  Definition rx_mapsto_def1 (i:vmid) (p:pid) (nr : option (nat *  vmid)) : iProp Σ :=
+    match nr with
+      | Some (n, r) =>
+        own (gen_rx_name vmG) ((◯ {[i := (to_agree p)]}),
+                               (Some (gmap_view_frag i (DfracOwn 1) (Some ((n:natO), (r: leibnizO vmid))))))
+      | None =>
+        own (gen_rx_name vmG) ((◯ {[i := (to_agree p)]}),
+                               (Some (gmap_view_frag i (DfracOwn 1) None)))
+    end.
+  Definition rx_mapsto_aux1 : seal (@rx_mapsto_def1). Proof. by eexists. Qed.
+  Definition rx_mapsto1 := rx_mapsto_aux1.(unseal).
+  Definition rx_mapsto_eq1 : @rx_mapsto1 = @rx_mapsto_def1 := rx_mapsto_aux1.(seal_eq).
+
+  Definition rx_mapsto_def2 (i:vmid) (p:pid) : iProp Σ :=
+    own (gen_rx_name vmG) ((◯ {[i := (to_agree p)]}),None).
+  Definition rx_mapsto_aux2 : seal (@rx_mapsto_def2). Proof. by eexists. Qed.
+  Definition rx_mapsto2 := rx_mapsto_aux2.(unseal).
+  Definition rx_mapsto_eq2 : @rx_mapsto2 = @rx_mapsto_def2 := rx_mapsto_aux2.(seal_eq).
+
+  Definition owned_mapsto_def (i:vmid) (dq: dfrac) (s: gset_disj pid) : iProp Σ :=
+    own (gen_owned_name vmG) (◯ {[i := (dq, s)]}).
+  Definition owned_mapsto_aux : seal (@owned_mapsto_def). Proof. by eexists. Qed.
+  Definition owned_mapsto := owned_mapsto_aux.(unseal).
+  Definition owned_mapsto_eq : @owned_mapsto = @owned_mapsto_def := owned_mapsto_aux.(seal_eq).
+
+  Definition access_mapsto_def (i:vmid) (dq: dfrac) (m: gmap pid access) : iProp Σ :=
+    own (gen_access_name vmG) (◯ {[i := (dq, (map_fold (λ p a acc,
+                                                       match a with
+                                                         | NoAccess => acc
+                                                         | SharedAccess => <[p:=(Cinl (to_agree ()))]>acc
+                                                         | ExclusiveAccess => <[p:=(Cinr (Excl ()))]>acc
+                                                       end) ∅ m))]}).
+  Definition access_mapsto_aux : seal (@access_mapsto_def). Proof. by eexists. Qed.
+  Definition access_mapsto := access_mapsto_aux.(unseal).
+  Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
+
+  Definition trans_mapsto_def(wh : word) (dq: dfrac) (v: vmid) (wf: word) (wt: word) (pgs : gmap vmid (listset_nodup pid)) (fid : transaction_type) : iProp Σ :=
+    own (gen_trans_name vmG) (gmap_view_frag wh dq
+                          (((((v, wf) , wt), pgs), fid): (leibnizO (vmid * word * word * (gmap vmid (listset_nodup pid)) * transaction_type)))).
+  Definition trans_mapsto_aux : seal (@trans_mapsto_def). Proof. by eexists. Qed.
+  Definition trans_mapsto := trans_mapsto_aux.(unseal).
+  Definition trans_mapsto_eq : @trans_mapsto = @trans_mapsto_def := trans_mapsto_aux.(seal_eq).
+
+  Definition retri_mapsto_def (w:word) (s: gset_disj vmid) : iProp Σ :=
+    own (gen_retri_name vmG) (◯ {[w := s]}).
+  Definition retri_mapsto_aux : seal (@retri_mapsto_def). Proof. by eexists. Qed.
+  Definition retri_mapsto := retri_mapsto_aux.(unseal).
+  Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
+
+End definitions.
+
+(* predicate for the number of vms *)
+Notation "## n" := (num_agree n)
+                        (at level 50, format "## n"): bi_scope.
+
+(* point-to predicates for registers and memory *)
+Notation "r @ i ↦r{ q } w" := (reg_mapsto r i q w)
+  (at level 20, q at level 50, format "r @ i ↦r{ q } w") : bi_scope.
+Notation "r @ i ↦r w" := (reg_mapsto r i (DfracOwn 1) w) (at level 20) : bi_scope.
+
+Notation "a ↦a { q } w" := (mem_mapsto a q w)
+  (at level 20, q at level 50, format "a ↦a { q } w") : bi_scope.
+Notation "a ↦a w" := (mem_mapsto a (DfracOwn 1) w) (at level 20) : bi_scope.
+
+(* predicates for TX and RX *)
+Notation "TX@ i := p" := (tx_mapsto i p)
+                              (at level 20, format "TX@ i := p"): bi_scope.
+Notation "RX@ i := p :( n , r )" := (rx_mapsto1 i p (Some (n, r)))
+                                        (at level 20, format "RX@ i := p :( n , r )"):bi_scope.
+Notation "RX@ i := p :()" := (rx_mapsto1 i p None)
+                                        (at level 20, format "RX@ i := p :()"):bi_scope.
+Notation "RX@ i := p" := (rx_mapsto2 i p)
+                                        (at level 20, format "RX@ i := p"):bi_scope.
+
+(* predicates for pagetables *)
+Notation "O@ i := { q } [ s ] " := (owned_mapsto i q s)
+                                           (at level 20, format "O@ i := { q } [ s ] "):bi_scope.
+Notation "O@ i := { q } p" := (owned_mapsto i q {[p]})
+                                           (at level 20, format "O@ i := { q } p"):bi_scope.
+
+Notation "A@ i := { q } [ m ]" := (access_mapsto i q m)
+                                      (at level 20, format "A@ i := { q } [ m ]"):bi_scope.
+Notation "A@ i := { q } ( p , a )" := (access_mapsto i q {[p:=a]})
+                                          (at level 20, format "A@ i := { q } ( p , a )"):bi_scope.
+(* predicates for transactions *)
+Notation "w ↦t { q } ( v , x , y , m , f )" := (trans_mapsto w q v x y m f)
+                                                   (at level 20, format "w ↦t { q } ( v , x , y , m , f )"):bi_scope.
+Notation "w ↦re [ s ]" := (retri_mapsto w s)
+                              (at level 20, format "w ↦re [ s ]"):bi_scope.
+Notation "w ↦re v" := (retri_mapsto w {[v]})
+                          (at level 20, format "w ↦re v"):bi_scope.
+
+Section hyp_lang_rules.
+
+  Context `{gen_VMG Σ}.
+  Implicit Types P Q : iProp Σ.
+  Implicit Types σ : state.
+  Implicit Types e : lang.expr.
+  Implicit Types a b c : addr.
+  Implicit Types r : reg_name.
+  Implicit Types v : lang.val.
+  Implicit Types w: word.
+
+End hyp_lang_rules.
