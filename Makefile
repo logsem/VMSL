@@ -4,7 +4,7 @@ TEST_VFILES := $(shell find 'theories' -name "*Tests.v")
 PROJ_VFILES := $(shell find 'theories' -name "*.v")
 VFILES := $(filter-out $(TEST_VFILES),$(PROJ_VFILES))
 
-COQARGS :=
+COQARGS := "-w all"
 
 default: $(VFILES:.v=.vo)
 test: $(TEST_VFILES:.v=.vo) $(VFILES:.v=.vo)
@@ -25,7 +25,7 @@ endif
 
 %.vo: %.v _CoqProject
 	@echo "COQC $<"
-	@coqc $(COQARGS) $(shell cat '_CoqProject') $< -o $@
+	@coqc -w none $(shell cat '_CoqProject') $< -o $@
 
 clean:
 	@echo "CLEAN vo glob aux"

@@ -3,6 +3,7 @@
 *.vok
 *.glob
 .*.aux
+.lia.cache
 .coqdeps.d
 _CoqProject
 
@@ -26,4 +27,3 @@ _CoqProject
 *.log
 
 
-.lia.cache
