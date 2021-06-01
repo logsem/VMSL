@@ -295,9 +295,9 @@ Notation "## n" := (num_agree n)
                         (at level 50, format "## n"): bi_scope.
 
 (* point-to predicates for registers and memory *)
-Notation "r @ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
-  (at level 20, q at level 50, format "r @ i ->r{ q } w") : bi_scope.
-Notation "r @ i ->r w" := (reg_mapsto r i (DfracOwn 1) w) (at level 20) : bi_scope.
+Notation "r @@ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
+  (at level 22, q at level 50, format "r @@ i ->r{ q } w") : bi_scope.
+Notation "r @@ i ->r w" := (reg_mapsto r i (DfracOwn 1) w) (at level 21, w at level 50) : bi_scope.
 
 Notation "a ->a{ q } w" := (mem_mapsto a (DfracOwn q) w)
   (at level 20, q at level 50, format "a ->a{ q } w") : bi_scope.
@@ -344,7 +344,7 @@ Section hyp_lang_rules.
   (* rules for register points-to *)
 
   Lemma reg_dupl_false r i w1 w2 :
-   r @ i ->r w1 -∗ r @ i ->r w2 -∗ False.
+   r @@ i ->r w1 -∗ r @@ i ->r w2 -∗ False.
   Proof using.
     rewrite reg_mapsto_eq.
     iIntros "Hr1 Hr2".
@@ -355,7 +355,7 @@ Section hyp_lang_rules.
   Qed.
 
   Lemma reg_neq r1 r2 i j w1 w2:
-   r1 @ i ->r w1 -∗ r2 @ j ->r w2 -∗ ⌜ r1 <> r2 ∨ i <> j⌝.
+   r1 @@ i ->r w1 -∗ r2 @@ j ->r w2 -∗ ⌜ r1 <> r2 ∨ i <> j⌝.
   Proof using.
     iIntros "Hr1 Hr2".
     destruct (decide (r1 = r2)).
