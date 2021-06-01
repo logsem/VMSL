@@ -1,5 +1,4 @@
 From stdpp Require Import gmap fin_maps list countable fin mapset fin_map_dom listset_nodup vector.
-From iris.program_logic Require Import language ectx_language ectxi_language.
 From HypVeri Require Export machine monad.
 
 Import MonadNotation.
@@ -88,7 +87,6 @@ Definition get_vm_page_table (st : state) (v : vmid) : page_table :=
 
 Inductive exec_mode : Type :=
 | ExecI
-| NextI
 | HaltI
 | FailI.
 
@@ -229,7 +227,7 @@ Definition is_valid_PC (st : state) : option bool :=
 Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
   match newSt with
   | None => (FailI, oldSt)
-  | Some s => (NextI, s)
+  | Some s => (ExecI, s)
   end.
 
 Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_mode := 
@@ -369,13 +367,13 @@ Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) :
                         (R 2 _)
                         (encode_hvc_error err')) with
         | None => (FailI, o, NormalM)
-        | Some s'' => (NextI, s'', NormalM)
+        | Some s'' => (ExecI, s'', NormalM)
       end
     end
   | inr o' =>
     match update_incr_PC o' with
     | None => (FailI, o, NormalM)
-    | Some o'' => (NextI, o'', NormalM)
+    | Some o'' => (ExecI, o'', NormalM)
     end
   end.
 Solve Obligations with solveRegCount.
@@ -393,13 +391,13 @@ Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * 
                               (R 2 _)
                               (encode_hvc_error err')) with
           | None => (FailI, o, NormalM)
-          | Some s'' => (NextI, s'', NormalM)
+          | Some s'' => (ExecI, s'', NormalM)
       end
     end
   | inr (o', id) =>
     match update_incr_PC o' with
     | None => (FailI, o, NormalM)
-    | Some o'' => (NextI, o'', YieldM id)
+    | Some o'' => (ExecI, o'', YieldM id)
     end
   end.
 Solve Obligations with solveRegCount.
@@ -920,62 +918,12 @@ Definition exec (i : instruction) (s : state) : conf * control_mode :=
   | Hvc => hvc s
   end.
 
-Inductive val : Type :=
-| NextV
-| HaltV
-| FailV.
-
-Inductive expr: Type :=
-| Instr (c : exec_mode)
-| Seq (e : expr) (i : vmid)
-| Start.
-
-Definition of_val (v : val) : expr :=
-  match v with
-  | NextV => Instr NextI
-  | HaltV => Instr HaltI
-  | FailV => Instr FailI
-  end.
-
-Fixpoint to_val (e : expr) : option val :=
-  match e with
-  | Instr c =>
-    match c with
-    | ExecI => None
-    | HaltI => Some HaltV
-    | FailI => Some FailV
-    | NextI => Some NextV
-    end
-  | Seq _ _ => None
-  | Start => None
-  end.
-
-Lemma of_to_val:
-  forall e v, to_val e = Some v ->
-              of_val v = e.
-Proof.
-  intros * HH; destruct e; try destruct c; simpl in HH; inversion HH; auto.
-Qed.
-
-Lemma to_of_val:
-    forall v, to_val (of_val v) = Some v.
-Proof. destruct v; reflexivity. Qed.
-
-Inductive ectx_item :=
-| SeqCtx (i : vmid).
-Notation ectx := (list ectx_item).
-
-Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
-  match Ki with
-  | SeqCtx i => Seq e i
-  end.
-
-Inductive step : conf -> conf * control_mode -> Prop :=
+Inductive step : exec_mode -> state -> exec_mode -> state -> Prop :=
 | step_exec_fail:
     forall st,
       not (is_valid_PC st = Some true) ->
-      step (ExecI, st) (FailI, st, NormalM)
-| step_exec_instr:
+      step ExecI st FailI st
+| step_exec_normal:
     forall st a w1 w2 i c,
       is_valid_PC st = Some true ->
       get_reg st PC = Some a ->
@@ -983,145 +931,30 @@ Inductive step : conf -> conf * control_mode -> Prop :=
       get_memory_with_offset st a 1 = Some w2 ->
       decode_instruction (w1, w2) = Some i ->
       exec i st = c ->
-      step (ExecI, st) c.
-  
-Inductive prim_step : expr -> state -> list Empty_set -> expr -> state -> list Empty_set -> control_mode -> Prop :=
-| PS_instr_normal st e' st' :
-    step (ExecI, st) (e', st', NormalM) -> prim_step (Instr ExecI) st [] (Instr e') st' [] NormalM
-| PS_instr_yield st e' st' i :
-    step (ExecI, st) (e', st', YieldM i) -> prim_step (Instr ExecI) st [] (Instr e') (update_current_vmid st' i) [] NormalM
-| PS_seq st i : prim_step (Seq (Instr NextI) i) st [] (Seq (Instr ExecI) i) st [] NormalM
-| PS_halt st i : prim_step (Seq (Instr HaltI) i) st [] (Instr HaltI) st [] NormalM
-| PS__fail st i : prim_step (Seq (Instr FailI) i) st [] (Instr FailI) st [] NormalM.
+      c.2 = NormalM ->
+      step ExecI st c.1.1 c.1.2
+| step_exec_yield:
+    forall st a w1 w2 i c v,
+      is_valid_PC st = Some true ->
+      get_reg st PC = Some a ->
+      get_memory st a = Some w1 ->
+      get_memory_with_offset st a 1 = Some w2 ->
+      decode_instruction (w1, w2) = Some i ->
+      exec i st = c ->
+      c.2 = YieldM v ->
+      step ExecI st c.1.1 (update_current_vmid c.1.2 v).
 
-Program Fixpoint list_of_vmid_exprs_aux (n : nat) (H : n < vm_count) : list expr :=
-  match n with
-  | 0  => cons (Seq (Instr NextI) (nat_to_fin H)) []
-  | S m => cons (Seq (Instr NextI) (nat_to_fin H)) (list_of_vmid_exprs_aux m _)
-  end.
-Next Obligation.
-  intros.
-  lia.
-Defined.
-
-Program Definition list_of_vm_exprs : list expr :=
-  list_of_vmid_exprs_aux (vm_count - 1) _.
-Next Obligation.
-  pose proof vm_count_pos.
-  lia.
-Defined.
-
-Inductive pstep : expr -> state -> list Empty_set -> expr -> state -> list expr -> Prop :=
-  | StartS st : pstep Start st [] (Instr HaltI) st list_of_vm_exprs
-  | Step st e st' e' :
-      (exists m, prim_step e st [] e' st' [] m) -> pstep e st [] e' st' [].
-
-Lemma hyp_lang_mixin : EctxiLanguageMixin of_val to_val fill_item pstep.
-  Proof.
-    constructor.
-    - intros [ | | ]; reflexivity.
-    - intros [[] | [] | ] [ | | ] P; try (inversion P); reflexivity.
-    - intros [[] | [] |] s1 ? e2 s2 ? step; try reflexivity; inversion step; subst;
-        destruct H; inversion H.
-    - intros [] [[] | [] |] p; inversion p as [? H]; inversion H.
-    - intros [] [[] | [] |] [[] | [] |] p; inversion p; reflexivity.
-    - intros [] [] [[] | [] |] [[] | [] |] p1 p2 p3; inversion p3; reflexivity.
-    - intros [] [[] | [] |] s1 ? [[] | [] |] s2 ? p; inversion p; subst;
-        destruct H; inversion H; eauto.
-  Qed.
-
-Canonical Structure hyp_ectxi_lang := EctxiLanguage hyp_lang_mixin.
-Canonical Structure hyp_ectx_lang := EctxLanguageOfEctxi hyp_ectxi_lang.
-Canonical Structure hyp_lang := LanguageOfEctx hyp_ectx_lang.
-
-#[export] Hint Extern 20 (PureExec _ _ _) => progress simpl : typeclass_instances.
-
-#[export] Hint Extern 5 (IntoVal _ _) => eapply of_to_val; fast_done : typeclass_instances.
-#[export] Hint Extern 10 (IntoVal _ _) =>
-  rewrite /IntoVal; eapply of_to_val; rewrite /= !to_of_val /=; solve [ eauto ] : typeclass_instances.
-
-#[export] Hint Extern 5 (AsVal _) => eexists; eapply of_to_val; fast_done : typeclass_instances.
-#[export] Hint Extern 10 (AsVal _) =>
-eexists; rewrite /IntoVal; eapply of_to_val; rewrite /= !to_of_val /=; solve [ eauto ] : typeclass_instances.
-
-Local Hint Resolve language.val_irreducible : core.
-Local Hint Resolve to_of_val : core.
-Local Hint Unfold language.irreducible : core.
-
-Definition is_atomic (e : expr) : Prop :=
+Definition terminated (e : exec_mode) :=
   match e with
-  | Instr _ => True
-  | _ => False
+  | ExecI => false
+  | _ => true
   end.
 
-Ltac uglyUnfold :=
-  unfold mov_word, mov_reg, ldr,
-  str, cmp_word, cmp_reg,
-  jnz, jmp, halt, fail,
-  hvc, run, yield, share, lend, donate,
-  retrieve, relinquish, reclaim, send, wait,
-  option_state_unpack, unpack_hvc_result_normal, unpack_hvc_result_yield,
-  get_reg, update_reg, update_incr_PC, get_memory, update_memory;
-  repeat case_match;
-  subst; eauto.
-
-Lemma instr_atomic i st :
-  exists st' m, (exec i st = (FailI, st', m)) \/ (exec i st = (NextI, st', m)) \/
-        (exec i st = (HaltI, st', m)).
+Lemma terminated_stuck m σ m' σ' :
+  step m σ m' σ' → terminated m = false.
 Proof.
-  unfold exec; repeat case_match; subst; uglyUnfold.
+  intros st; destruct st; reflexivity.
 Qed.
 
-Global Instance is_atomic_correct s (e : expr) : is_atomic e -> Atomic s e.
-Proof.
-  intros Ha; apply strongly_atomic_atomic, ectx_language_atomic.
-  - destruct e.
-    + destruct c; rewrite /Atomic; intros ????? Hstep;
-        inversion Hstep; subst.
-      * destruct H as [[] step]; inversion step; subst.
-        -- inversion H; subst; eauto.
-           simpl.
-           destruct (instr_atomic i σ) as [st' [m' [P1 | [P2 | P3]]]]; subst;
-             [ rewrite H6 in P1; inversion P1; subst; eauto |
-               rewrite H6 in P2; inversion P2; subst; eauto |
-               rewrite H6 in P3; inversion P3; subst; eauto ].
-        -- inversion H; subst.
-           destruct (instr_atomic i0 σ) as [st'' [m'' [P1 | [P2 | P3]]]]; subst;
-             [ rewrite H6 in P1; inversion P1; subst; eauto |
-               rewrite H6 in P2; inversion P2; subst; eauto |
-               rewrite H6 in P3; inversion P3; subst; eauto ].
-      * destruct H as [[] step]; inversion step.
-      * destruct H as [[] step]; inversion step.
-      * destruct H as [[] step]; inversion step.
-    + inversion Ha.
-    + inversion Ha.
-  - intros K e' -> Hval%eq_None_not_Some.
-    induction K using rev_ind; first done.
-    simpl in Ha; rewrite fill_app in Ha; simpl in Ha.
-    destruct Hval. apply (fill_val K e'); simpl in *.
-    destruct x; naive_solver.
-Qed.
-
-Ltac solve_atomic :=
-  apply is_atomic_correct; simpl; repeat split;
-    rewrite ?to_of_val; eapply mk_is_Some; fast_done.
-
-#[export] Hint Extern 0 (Atomic _ _) => solve_atomic : core.
-#[export] Hint Extern 0 (Atomic _ _) => solve_atomic : typeclass_instances.
-
-Lemma head_reducible_from_step s1 e2 s2 c :
-  step (ExecI, s1) (e2, s2, c) ->
-  head_reducible (Instr ExecI) s1.
-Proof. intros * HH. rewrite /head_reducible /head_step //=.
-       destruct c.
-       - eexists [], (Instr _), (update_current_vmid s2 v), [].
-         constructor.
-         exists NormalM.
-         apply PS_instr_yield.
-         apply HH.
-       - eexists [], (Instr _), s2, [].
-         constructor.
-         exists NormalM.
-         apply PS_instr_normal.
-         apply HH.
-Qed.
+Inductive scheduler : state → nat → Prop :=
+| schedule σ i : (get_current_vm σ) = i -> scheduler σ i.

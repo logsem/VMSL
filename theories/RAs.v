@@ -1,9 +1,8 @@
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
-From iris.program_logic Require Import weakestpre.
 From iris.proofmode Require Import tactics.
 From stdpp Require Import listset_nodup.
-From HypVeri Require Import lang.
+From HypVeri Require Export lang machine.
 (* From machine_program_logic.program_logic Require Import weakestpre. *)
 
 
@@ -216,14 +215,6 @@ Section definitions.
 
 
 (* The Iris instance.*)
-  Global Instance VMG_irisG : irisG hyp_lang Σ := {
-    iris_invG := gen_invG;
-    state_interp σ _ κs _ := (gen_vm_interp σ)%I;
-    fork_post _ := True%I;
-    num_laters_per_step _ := 0;
-    state_interp_mono _ _ _ _ := fupd_intro _ _
-                                                 }.
-
   Definition num_agree_def (n:nat) : iProp Σ :=
     own (gen_num_name vmG) (to_agree n).
   Definition num_agree_aux : seal (@num_agree_def). Proof. by eexists. Qed.
@@ -345,10 +336,8 @@ Section hyp_lang_rules.
   Context `{vmG :!gen_VMG Σ}.
   Implicit Types P Q : iProp Σ.
   Implicit Types σ : state.
-  Implicit Types e : lang.expr.
   Implicit Types a b c : addr.
   Implicit Types r : reg_name.
-  Implicit Types v : lang.val.
   Implicit Types w: word.
 
 
