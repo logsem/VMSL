@@ -7,3 +7,6 @@ theories/machine.vos theories/machine.vok theories/machine.required_vos: theorie
 theories/lang.vo theories/lang.glob theories/lang.v.beautified theories/lang.required_vo: theories/lang.v theories/machine.vo theories/monad.vo
 theories/lang.vio: theories/lang.v theories/machine.vio theories/monad.vio
 theories/lang.vos theories/lang.vok theories/lang.required_vos: theories/lang.v theories/machine.vos theories/monad.vos
+theories/RAs.vo theories/RAs.glob theories/RAs.v.beautified theories/RAs.required_vo: theories/RAs.v theories/lang.vo
+theories/RAs.vio: theories/RAs.v theories/lang.vio
+theories/RAs.vos theories/RAs.vok theories/RAs.required_vos: theories/RAs.v theories/lang.vos

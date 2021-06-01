@@ -1,6 +1,7 @@
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
 From iris.program_logic Require Import weakestpre.
+From iris.proofmode Require Import tactics.
 From stdpp Require Import listset_nodup.
 Require Import lang.
 
@@ -265,13 +266,13 @@ Section definitions.
   Definition rx_mapsto2 := rx_mapsto_aux2.(unseal).
   Definition rx_mapsto_eq2 : @rx_mapsto2 = @rx_mapsto_def2 := rx_mapsto_aux2.(seal_eq).
 
-  Definition owned_mapsto_def (i:vmid) (dq: dfrac) (s: gset_disj pid) : iProp Σ :=
+  Definition owned_mapsto_def (i:vmid) dq (s: gset_disj pid) : iProp Σ :=
     own (gen_owned_name vmG) (◯ {[i := (dq, s)]}).
   Definition owned_mapsto_aux : seal (@owned_mapsto_def). Proof. by eexists. Qed.
   Definition owned_mapsto := owned_mapsto_aux.(unseal).
   Definition owned_mapsto_eq : @owned_mapsto = @owned_mapsto_def := owned_mapsto_aux.(seal_eq).
 
-  Definition access_mapsto_def (i:vmid) (dq: dfrac) (m: gmap pid access) : iProp Σ :=
+  Definition access_mapsto_def (i:vmid) dq (m: gmap pid access) : iProp Σ :=
     own (gen_access_name vmG) (◯ {[i := (dq, (map_fold (λ p a acc,
                                                        match a with
                                                          | NoAccess => acc
@@ -282,7 +283,7 @@ Section definitions.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
 
-  Definition trans_mapsto_def(wh : word) (dq: dfrac) (v: vmid) (wf: word) (wt: word) (pgs : gmap vmid (listset_nodup pid)) (fid : transaction_type) : iProp Σ :=
+  Definition trans_mapsto_def(wh : word) dq (v: vmid) (wf: word) (wt: word) (pgs : gmap vmid (listset_nodup pid)) (fid : transaction_type) : iProp Σ :=
     own (gen_trans_name vmG) (gmap_view_frag wh dq
                           (((((v, wf) , wt), pgs), fid): (leibnizO (vmid * word * word * (gmap vmid (listset_nodup pid)) * transaction_type)))).
   Definition trans_mapsto_aux : seal (@trans_mapsto_def). Proof. by eexists. Qed.
@@ -302,45 +303,45 @@ Notation "## n" := (num_agree n)
                         (at level 50, format "## n"): bi_scope.
 
 (* point-to predicates for registers and memory *)
-Notation "r @ i ↦r{ q } w" := (reg_mapsto r i q w)
-  (at level 20, q at level 50, format "r @ i ↦r{ q } w") : bi_scope.
-Notation "r @ i ↦r w" := (reg_mapsto r i (DfracOwn 1) w) (at level 20) : bi_scope.
+Notation "r @ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
+  (at level 20, q at level 50, format "r @ i ->r{ q } w") : bi_scope.
+Notation "r @ i ->r w" := (reg_mapsto r i (DfracOwn 1) w) (at level 20) : bi_scope.
 
-Notation "a ↦a { q } w" := (mem_mapsto a q w)
-  (at level 20, q at level 50, format "a ↦a { q } w") : bi_scope.
-Notation "a ↦a w" := (mem_mapsto a (DfracOwn 1) w) (at level 20) : bi_scope.
+Notation "a ->a{ q } w" := (mem_mapsto a (DfracOwn q) w)
+  (at level 20, q at level 50, format "a ->a{ q } w") : bi_scope.
+Notation "a ->a w" := (mem_mapsto a (DfracOwn 1) w) (at level 20) : bi_scope.
 
 (* predicates for TX and RX *)
 Notation "TX@ i := p" := (tx_mapsto i p)
                               (at level 20, format "TX@ i := p"): bi_scope.
-Notation "RX@ i := p :( n , r )" := (rx_mapsto1 i p (Some (n, r)))
-                                        (at level 20, format "RX@ i := p :( n , r )"):bi_scope.
-Notation "RX@ i := p :()" := (rx_mapsto1 i p None)
-                                        (at level 20, format "RX@ i := p :()"):bi_scope.
-Notation "RX@ i := p" := (rx_mapsto2 i p)
+Notation "RX@ i :=( p ! n , r )" := (rx_mapsto1 i p (Some (n, r)))
+                                        (at level 20, format "RX@ i :=( p ! n , r )"):bi_scope.
+Notation "RX@ i :=( p !)" := (rx_mapsto1 i p None)
+                                        (at level 20, format "RX@ i :=( p !)"):bi_scope.
+Notation "RX@ i := p " := (rx_mapsto2 i p)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)
-Notation "O@ i := { q } [ s ] " := (owned_mapsto i q s)
-                                           (at level 20, format "O@ i := { q } [ s ] "):bi_scope.
-Notation "O@ i := { q } p" := (owned_mapsto i q {[p]})
-                                           (at level 20, format "O@ i := { q } p"):bi_scope.
+Notation "O@ i :={ q }[ s ] " := (owned_mapsto i (DfracOwn q) (GSet s))
+                                           (at level 20, format "O@ i :={ q }[ s ] "):bi_scope.
+Notation "O@ i :={ q } p " := (owned_mapsto i (DfracOwn q) (GSet {[p]}))
+                                           (at level 20, format "O@ i :={ q } p"):bi_scope.
 
-Notation "A@ i := { q } [ m ]" := (access_mapsto i q m)
-                                      (at level 20, format "A@ i := { q } [ m ]"):bi_scope.
-Notation "A@ i := { q } ( p , a )" := (access_mapsto i q {[p:=a]})
-                                          (at level 20, format "A@ i := { q } ( p , a )"):bi_scope.
+Notation "A@ i :={ q }[ m ]" := (access_mapsto i (DfracOwn q) m)
+                                      (at level 20, format "A@ i :={ q }[ m ]"):bi_scope.
+Notation "A@ i :={ q }( p , a ) " := (access_mapsto i (DfracOwn q) {[p:=a]})
+                                          (at level 20, format "A@ i :={ q }( p , a )"):bi_scope.
 (* predicates for transactions *)
-Notation "w ↦t { q } ( v , x , y , m , f )" := (trans_mapsto w q v x y m f)
-                                                   (at level 20, format "w ↦t { q } ( v , x , y , m , f )"):bi_scope.
-Notation "w ↦re [ s ]" := (retri_mapsto w s)
-                              (at level 20, format "w ↦re [ s ]"):bi_scope.
-Notation "w ↦re v" := (retri_mapsto w {[v]})
-                          (at level 20, format "w ↦re v"):bi_scope.
+Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v x y m f)
+                                                   (at level 20, format "w ->t{ q }( v , x , y , m , f )"):bi_scope.
+Notation "w ->re[ s ]" := (retri_mapsto w (GSet s))
+                              (at level 20, format "w ->re[ s ]"):bi_scope.
+Notation "w ->re v" := (retri_mapsto w (GSet {[v]}))
+                          (at level 20, format "w ->re v"):bi_scope.
 
 Section hyp_lang_rules.
 
-  Context `{gen_VMG Σ}.
+  Context `{vmG :!gen_VMG Σ}.
   Implicit Types P Q : iProp Σ.
   Implicit Types σ : state.
   Implicit Types e : lang.expr.
@@ -348,5 +349,169 @@ Section hyp_lang_rules.
   Implicit Types r : reg_name.
   Implicit Types v : lang.val.
   Implicit Types w: word.
+
+
+  (* rules for register points-to *)
+
+  Lemma reg_dupl_false r i w1 w2 :
+   r @ i ->r w1 -∗ r @ i ->r w2 -∗ False.
+  Proof using.
+    rewrite reg_mapsto_eq.
+    iIntros "Hr1 Hr2".
+    iDestruct (own_valid_2 with "Hr1 Hr2") as %?%gmap_view_frag_op_valid_L.
+    destruct H0.
+    apply dfrac_valid_own_r in H.
+    inversion H.
+  Qed.
+
+  Lemma reg_neq r1 r2 i j w1 w2:
+   r1 @ i ->r w1 -∗ r2 @ j ->r w2 -∗ ⌜ r1 <> r2 ∨ i <> j⌝.
+  Proof using.
+    iIntros "Hr1 Hr2".
+    destruct (decide (r1 = r2)).
+    destruct (decide (i = j)).
+    - simplify_eq /=.
+      iDestruct (reg_dupl_false with "Hr1 Hr2") as %[].
+    - iRight. done.
+    - iLeft. done.
+  Qed.
+
+ (* rules for memory points-to *)
+  Lemma mem_dupl_false a w1 w2:
+   a ->a w1 -∗ a ->a w2 -∗ False.
+  Proof using.
+    rewrite mem_mapsto_eq.
+    iIntros "Ha1 Ha2".
+    iDestruct (own_valid_2 with "Ha1 Ha2") as %?%gmap_view_frag_op_valid_L.
+    destruct H0.
+    apply dfrac_valid_own_r in H.
+    inversion H.
+  Qed.
+
+
+  Lemma mem_neq a1 a2  w1 w2:
+   a1 ->a w1 -∗ a2 ->a w2 -∗ ⌜ a1 <> a2⌝.
+  Proof using.
+    iIntros "Ha1 Ha2".
+    destruct (decide (a1 = a2)).
+    - simplify_eq /=.
+      iDestruct (mem_dupl_false with "Ha1 Ha2") as %[].
+    - done.
+  Qed.
+
+ (* rules for TX *)
+  Lemma tx_dupl i p :
+   TX@ i := p -∗ TX@ i := p ∗ TX@ i := p.
+  Proof using.
+    rewrite tx_mapsto_eq.
+    iIntros "Htx".
+    iApply own_op.
+    rewrite -auth_frag_op singleton_op.
+    rewrite agree_idemp.
+    done.
+  Qed.
+
+  (* rules for RX *)
+  Lemma rx_split_some i p n (v: vmid):
+  RX@ i :=( p ! n , v)  -∗ RX@ i :=( p ! n, v)  ∗ RX@ i := p.
+  Proof using.
+    iIntros "HR".
+    rewrite rx_mapsto_eq1 rx_mapsto_eq2.
+    iApply own_op.
+    rewrite -pair_op -auth_frag_op.
+    rewrite singleton_op agree_idemp.
+    rewrite Some_op_opM.
+    simplify_eq /=.
+    done.
+  Qed.
+
+  Lemma rx_split_none i p:
+  RX@ i :=(p !) -∗ RX@ i :=(p !) ∗ RX@ i := p.
+  Proof using.
+    iIntros "HR".
+    rewrite rx_mapsto_eq1 rx_mapsto_eq2.
+    iApply own_op.
+    rewrite -pair_op -auth_frag_op.
+    rewrite singleton_op agree_idemp.
+    rewrite  Some_op_opM.
+    simplify_eq /=.
+    done.
+  Qed.
+
+  Lemma rx_dupl i p:
+   RX@i:=p -∗ RX@i:=p ∗ RX@i:=p.
+  Proof using.
+    iIntros "HR".
+    rewrite rx_mapsto_eq2.
+    iApply own_op.
+    rewrite -pair_op -auth_frag_op.
+    rewrite singleton_op agree_idemp.
+    naive_solver.
+  Qed.
+
+  (* rules for pagetables  *)
+  Lemma owned_split_set i q1 q2 (s1 s2 : gset pid):
+   s1 ## s2 -> O@i:={(q1+q2)%Qp}[(s1 ∪ s2)] -∗ O@i:={q1}[s1] ∗ O@i:={q2}[s2].
+  Proof using.
+  iIntros (Hdisj) "HO".
+  rewrite owned_mapsto_eq.
+  iApply own_op.
+  rewrite -auth_frag_op singleton_op.
+  rewrite -pair_op.
+  rewrite (gset_disj_union _ _ Hdisj).
+  naive_solver.
+  Qed.
+
+  Lemma owned_split_singleton i q1 q2 (s : gset pid) p:
+   p ∉ s -> O@i:={(q1+q2)%Qp}[(s ∪ {[p]})] -∗ O@i:={q1}[s] ∗ O@i:={q2}p.
+  Proof using.
+    iIntros (Hnotin) "HO".
+    assert (Hdisj: s ## {[p]}).
+    { set_solver. }
+    iDestruct (owned_split_set i q1 q2 _ _ Hdisj with "HO")  as "HO'".
+    done.
+  Qed.
+
+
+  (* skip rules for accessible for now. not sure if the construction is good enough. *)
+
+  (* rules for transactions *)
+  Lemma trans_split wh q1 q2 i wf wt m f:
+   wh ->t{(q1+q2)%Qp}(i,wf,wt,m,f) -∗  wh ->t{q1}(i,wf,wt,m,f) ∗ wh ->t{q2}(i,wf,wt,m,f).
+  Proof using.
+    iIntros "HT".
+    rewrite trans_mapsto_eq.
+    iApply own_op.
+    rewrite -gmap_view_frag_op.
+    rewrite dfrac_op_own.
+    done.
+  Qed.
+
+  Lemma retri_split_set wh (s1 s2 : gset vmid):
+   s1 ## s2 -> wh ->re[(s1 ∪ s2)] -∗ wh ->re[s1] ∗ wh ->re[s2].
+  Proof using.
+    iIntros (Hdisj) "Hre".
+    rewrite retri_mapsto_eq.
+    iApply own_op.
+    rewrite -auth_frag_op singleton_op.
+    rewrite (gset_disj_union _ _ Hdisj).
+    naive_solver.
+  Qed.
+
+  Lemma  retri_split_singleton wh (s: gset vmid) i:
+   i ∉ s -> wh ->re[(s ∪ {[i]})] -∗ wh ->re[s] ∗ wh ->re i.
+  Proof using.
+    iIntros (Hnotin) "Hr".
+    assert (Hdisj: s ## {[i]}).
+    { set_solver. }
+    iDestruct (retri_split_set wh _ _ Hdisj with "Hr")  as "Hr'".
+    done.
+  Qed.
+
+
+
+
+
+
 
 End hyp_lang_rules.
