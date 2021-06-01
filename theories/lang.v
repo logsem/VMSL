@@ -1,6 +1,6 @@
 From stdpp Require Import gmap fin_maps list countable fin mapset fin_map_dom listset_nodup vector.
 From iris.program_logic Require Import language ectx_language ectxi_language.
-From hypvis Require Export machine monad.
+From HypVeri Require Export machine monad.
 
 Import MonadNotation.
 Import Option.

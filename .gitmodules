@@ -1,0 +1,3 @@
+[submodule "vendor/machine_program_logic"]
+	path = vendor/machine_program_logic
+	url = https://github.com/logsem/machine_program_logic.git

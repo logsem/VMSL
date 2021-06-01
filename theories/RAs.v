@@ -3,7 +3,8 @@ From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
 From iris.program_logic Require Import weakestpre.
 From iris.proofmode Require Import tactics.
 From stdpp Require Import listset_nodup.
-Require Import lang.
+From HypVeri Require Import lang.
+(* From machine_program_logic.program_logic Require Import weakestpre. *)
 
 
   (* Context{A V W R P F:Type} `{Countable A, Countable V, Countable W, Countable R, Countable P}. *)
@@ -90,7 +91,7 @@ Qed.
 
 Section definitions.
   Context `{vmG : !gen_VMG Σ}.
-  Implicit Type σ: state.
+  Implicit Type σ: HypVeri.lang.state.
   Implicit Type δ: vm_state.
 
   Program Fixpoint vector_of_vmids_aux(n:nat) (H:n<vm_count) : vec vmid (S n):=
@@ -140,7 +141,7 @@ Section definitions.
               (vzip_with (λ v δ, (v,to_agree (f δ.1.2))) (vector_of_vmids) (get_vm_states σ)))).
 
 
-  Definition get_rx_state δ :(optionO (prodO natO (leibnizO vmid))):=
+  Definition get_rx_state δ :(optionO (prodO natO (leibnizO HypVeri.lang.vmid))):=
     let mb := δ.1.2 in
     match mb.2.2 with
       | Some j => (Some (0, j))
@@ -507,9 +508,6 @@ Section hyp_lang_rules.
     iDestruct (retri_split_set wh _ _ Hdisj with "Hr")  as "Hr'".
     done.
   Qed.
-
-
-
 
 
 
