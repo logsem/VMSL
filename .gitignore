@@ -20,9 +20,6 @@ _CoqProject
 *.fdb_latexmk
 *.out
 **/.auctex-auto/
-# slides/.auctex-auto/
-# examples/.auctex-auto/
-# ./.auctex-auto/
 *.snm
 *.toc
 *.nav
