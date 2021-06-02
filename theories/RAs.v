@@ -16,12 +16,14 @@ From HypVeri Require Export lang machine.
                       gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
                       gen_rx_preG_inG :> inG Σ (prodR (authR (gmapUR V (agreeR (leibnizO P))))
                                                       (optionR (gmap_viewR V (optionO (prodO natO (leibnizO V))))));
-                      gen_owned_preG_inG :> inG Σ (authR (gset_disjUR (leibnizO P)));
-                      gen_access_preG_inG :> inG Σ (authR (gmapUR P (prodR dfracR (csumR (agreeR unitO) (exclR unitO)))));
-                      (* gen_owned_preG_inG :> inG Σ (authR (gmapUR V *)
-                      (*               (prodR dfracR (gset_disjUR (leibnizO P))))); *)
+                      (* gen_owned_preG_inG :> inG Σ (authR (gset_disjUR (leibnizO P))); *)
+                      (* gen_access_preG_inG :> inG Σ (authR (gmapUR P (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))); *)
+                      gen_owned_preG_inG :> inG Σ (authR (gmapUR V
+                                    (prodR dfracR (gset_disjUR (leibnizO P)))));
                       (* gen_access_preG_inG :> inG Σ (authR (gmapUR V *)
-                      (*               (prodR dfracR (gmapUR P (csumR (agreeR unitO) (exclR unitO)))))); *)
+                                    (* (prodR dfracR (gmapUR P (csumR (agreeR unitO) (exclR unitO)))))); *)
+                      gen_access_preG_inG :> inG Σ (authR (gmapUR V
+                                                    (prodR dfracR (gset_disjUR (leibnizO P)))));
                       gen_trans_preG_inG :> gen_heapPreG W (V * W* W*(gmap V (listset_nodup P))*F) Σ;
                       gen_retri_preG_inG :> inG Σ (authR (gmapUR W (gset_disjR (leibnizO V))))
                    }.
@@ -62,7 +64,8 @@ Definition ra_RXBuffer :=
          (optionR (gmap_viewR vmid (optionO (prodO natO (leibnizO vmid)))))).
 Definition ra_Accessible:=
   (* (authR (gmapUR vmid (prodR dfracR (gmapUR pid  (csumR (agreeR unitO) (exclR unitO)))))). *)
-  (authR (gmapUR pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))).
+  (* (authR (gmapUR pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))). *)
+  (authR (gmapUR vmid (prodR dfracR (gset_disjUR (leibnizO pid))))).
 
 
 
@@ -75,8 +78,8 @@ Definition gen_VMΣ : gFunctors :=
       gen_heapΣ (reg_name * vmid) word;
       GFunctor ra_TXBuffer;
       GFunctor ra_RXBuffer;
-      (* GFunctor (authR (gmapUR vmid (prodR dfracR (gset_disjUR (leibnizO pid))))); *)
-      GFunctor (authR (gset_disjUR (leibnizO pid)));
+      GFunctor (authR (gmapUR vmid (prodR dfracR (gset_disjUR (leibnizO pid)))));
+      (* GFunctor (authR (gset_disjUR (leibnizO pid))); *)
       GFunctor ra_Accessible;
       gen_heapΣ word (vmid * word * word * (gmap vmid (listset_nodup pid)) * transaction_type);
       GFunctor (authR (gmapUR word (gset_disjR (leibnizO vmid))))
@@ -179,24 +182,56 @@ Section definitions.
     (*               | ExclusiveAccess => <[p:= (Cinr (Excl ()))]>s *)
     (*              end)  ∅ δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))). *)
 
-  Definition get_owned_gset δ : (authR (gset_disjUR pid)) :=
-    (● (map_fold (λ (p:pid) (perm:permission) (s: gset_disjUR pid),
+
+  (* XXX:  seems like we have to keep resources being indexed by vmids...  *)
+
+  (* Definition get_owned_gset δ : (authR (gset_disjUR pid)) := *)
+  (*   (● (map_fold (λ (p:pid) (perm:permission) (s: gset_disjUR pid), *)
+  (*                 match perm.1 with *)
+  (*                 | Owned =>  match s with *)
+  (*                               | GSet s' => GSet (s' ∪ {[p]}) *)
+  (*                               | GSetBot => GSet ∅ *)
+  (*                             end *)
+  (*                 | Unowned => s *)
+  (*                end)  (GSet ∅) δ.2)). *)
+
+
+  (* Definition get_access_gmap δ : ra_Accessible := *)
+  (*   (●  (map_fold (λ (p:pid) (perm:permission) (s: (gmap pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))), *)
+  (*                 match perm.2 with *)
+  (*                 | NoAccess => s *)
+  (*                 | SharedAccess => <[p:= ((DfracOwn 1), (Cinl (to_agree ())))]>s *)
+  (*                 | ExclusiveAccess => <[p:= ((DfracOwn 1),(Cinr (Excl ())))]>s *)
+  (*                end)  ∅  δ.2 )). *)
+
+  (* XXX: another attempt: *)
+
+  Definition get_owned_gmap σ : (authR (gmapUR vmid (prodR dfracR (gset_disjUR pid)))) :=
+    (● (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅
+              (vzip_with (λ v δ, (v,
+                    (map_fold (λ (p:pid) (perm:permission) (s: gset_disjUR pid),
                   match perm.1 with
                   | Owned =>  match s with
                                 | GSet s' => GSet (s' ∪ {[p]})
                                 | GSetBot => GSet ∅
                               end
                   | Unowned => s
-                 end)  (GSet ∅) δ.2)).
+                 end)  (GSet ∅) δ.2))) (vector_of_vmids) (get_vm_states σ)))).
 
-
-  Definition get_access_gmap δ : ra_Accessible :=
-    (●  (map_fold (λ (p:pid) (perm:permission) (s: (gmap pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))),
+  Definition get_access_gmap σ : ra_Accessible :=
+    (●  (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅
+         (vzip_with (λ v δ, (v,
+                    (map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)),
                   match perm.2 with
                   | NoAccess => s
-                  | SharedAccess => <[p:= ((DfracOwn 1), (Cinl (to_agree ())))]>s
-                  | ExclusiveAccess => <[p:= ((DfracOwn 1),(Cinr (Excl ())))]>s
-                 end)  ∅  δ.2 )).
+                  | SharedAccess | ExclusiveAccess => match s with
+                                      | GSet s' => GSet (s' ∪ {[p]})
+                                      | GSetBot => GSet ∅
+                                    end
+                 end) (GSet ∅) δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))).
+
+
+  (* TODO: a new exclusive ra*)
 
 
   Program Fixpoint vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
@@ -223,14 +258,13 @@ Section definitions.
         ((get_txrx_auth_agree σ (λ p, p.2.1.1)),
           (Some (gmap_view_auth 1
             (vec_to_gmap (vmap (get_rx_state) (get_vm_states σ)))))) ∗
-      own (gen_owned_name vmG) (get_owned_gset δ) ∗
-      own (gen_access_name vmG) (get_access_gmap δ) ∗
+      own (gen_owned_name vmG) (get_owned_gmap σ) ∗
+      own (gen_access_name vmG) (get_access_gmap σ) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
       own (gen_retri_name vmG) (get_receivers_gmap σ)
     .
 
 
-(* The Iris instance.*)
   Definition num_agree_def (n:nat) : iProp Σ :=
     own (gen_num_name vmG) (to_agree n).
   Definition num_agree_aux : seal (@num_agree_def). Proof. by eexists. Qed.
@@ -238,13 +272,15 @@ Section definitions.
   Definition num_agree_eq : @num_agree = @num_agree_def := num_agree_aux.(seal_eq).
 
   Definition mem_mapsto_def (a:addr) (dq : dfrac) (w:word) : iProp Σ :=
-    own (gen_mem_name vmG) (gmap_view_frag a dq (w : leibnizO word)).
+    (ghost_map_elem (gen_mem_name vmG) a dq w).
+    (* own (gen_mem_name vmG) (gmap_view_frag a dq (w : leibnizO word)). *)
   Definition mem_mapsto_aux : seal (@mem_mapsto_def). Proof. by eexists. Qed.
   Definition mem_mapsto := mem_mapsto_aux.(unseal).
   Definition mem_mapsto_eq : @mem_mapsto = @mem_mapsto_def := mem_mapsto_aux.(seal_eq).
 
   Definition reg_mapsto_def (r:reg_name) (i:vmid) (dq : dfrac) (w:word) : iProp Σ :=
-    own (gen_reg_name vmG) (gmap_view_frag (r,i) dq (w : leibnizO word)).
+    (ghost_map_elem (gen_reg_name vmG) (r,i) dq w).
+    (* own (gen_reg_name vmG) (gmap_view_frag (r,i) dq (w : leibnizO word)). *)
   Definition reg_mapsto_aux : seal (@reg_mapsto_def). Proof. by eexists. Qed.
   Definition reg_mapsto := reg_mapsto_aux.(unseal).
   Definition reg_mapsto_eq : @reg_mapsto = @reg_mapsto_def := reg_mapsto_aux.(seal_eq).
@@ -274,10 +310,10 @@ Section definitions.
   Definition rx_mapsto2 := rx_mapsto_aux2.(unseal).
   Definition rx_mapsto_eq2 : @rx_mapsto2 = @rx_mapsto_def2 := rx_mapsto_aux2.(seal_eq).
 
-  (* Definition owned_mapsto_def (i:vmid) dq (s: gset_disj pid) : iProp Σ := *)
-  (*   own (gen_owned_name vmG) (◯ {[i := (dq, s)]}). *)
-  Definition owned_mapsto_def (s: gset_disj pid) : iProp Σ :=
-    own (gen_owned_name vmG) (◯ s).
+  Definition owned_mapsto_def (i:vmid) dq (s: gset_disj pid) : iProp Σ :=
+    own (gen_owned_name vmG) (◯ {[i := (dq, s)]}).
+  (* Definition owned_mapsto_def (s: gset_disj pid) : iProp Σ := *)
+    (* own (gen_owned_name vmG) (◯ s). *)
   Definition owned_mapsto_aux : seal (@owned_mapsto_def). Proof. by eexists. Qed.
   Definition owned_mapsto := owned_mapsto_aux.(unseal).
   Definition owned_mapsto_eq : @owned_mapsto = @owned_mapsto_def := owned_mapsto_aux.(seal_eq).
@@ -289,13 +325,15 @@ Section definitions.
   (*                                                        | SharedAccess => <[p:=(Cinl (to_agree ()))]>acc *)
   (*                                                        | ExclusiveAccess => <[p:=(Cinr (Excl ()))]>acc *)
   (*                                                      end) ∅ m))]}). *)
-  Definition access_mapsto_def dq (m: gmap pid access) : iProp Σ :=
-    own (gen_access_name vmG) (◯ (map_fold (λ p a acc,
-                                                       match a with
-                                                         | NoAccess => acc
-                                                         | SharedAccess => <[p:=(dq, (Cinl (to_agree ())))]>acc
-                                                         | ExclusiveAccess => <[p:=(dq, (Cinr (Excl ())))]>acc
-                                                       end) ∅ m)).
+  (* Definition access_mapsto_def dq (m: gmap pid access) : iProp Σ := *)
+  (*   own (gen_access_name vmG) (◯ (map_fold (λ p a acc, *)
+  (*                                                      match a with *)
+  (*                                                        | NoAccess => acc *)
+  (*                                                        | SharedAccess => <[p:=(dq, (Cinl (to_agree ())))]>acc *)
+  (*                                                        | ExclusiveAccess => <[p:=(dq, (Cinr (Excl ())))]>acc *)
+  (*                                                      end) ∅ m)). *)
+  Definition access_mapsto_def (i:vmid) dq (s: gset_disj pid) : iProp Σ :=
+    own (gen_access_name vmG) (◯ {[i := (dq,  s)]}).
   Definition access_mapsto_aux : seal (@access_mapsto_def). Proof. by eexists. Qed.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
@@ -322,7 +360,8 @@ Notation "## n" := (num_agree n)
 (* point-to predicates for registers and memory *)
 Notation "r @@ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
   (at level 22, q at level 50, format "r @@ i ->r{ q } w") : bi_scope.
-Notation "r @@ i ->r w" := (reg_mapsto r i (DfracOwn 1) w) (at level 21, w at level 50) : bi_scope.
+Notation "r @@ i ->r w" :=
+  (reg_mapsto r i (DfracOwn 1) w) (at level 21, w at level 50) : bi_scope.
 
 Notation "a ->a{ q } w" := (mem_mapsto a (DfracOwn q) w)
   (at level 20, q at level 50, format "a ->a{ q } w") : bi_scope.
@@ -339,15 +378,17 @@ Notation "RX@ i := p " := (rx_mapsto2 i p)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)
-Notation "O:=[ s ] " := (owned_mapsto (GSet s))
-                                           (at level 20, format "O:=[ s ] "):bi_scope.
-Notation "O:= p" := (owned_mapsto (GSet {[p]}))
-                                           (at level 20, format "O:= p"):bi_scope.
+Notation "O@ i :={ q }[ s ] " := (owned_mapsto i (DfracOwn q) (GSet s))
+                                           (at level 20, format "O@ i :={ q }[ s ] "):bi_scope.
+Notation "O@ i :={ q } p" := (owned_mapsto  i (DfracOwn q) (GSet {[p]}))
+                                           (at level 20, format "O@ i :={ q } p "):bi_scope.
 
-Notation "A:=[ m ]" := (access_mapsto m)
-                                      (at level 20, format "A:=[ m ]"):bi_scope.
-Notation "A:={ q }( p , a ) " := (access_mapsto (DfracOwn q) {[p:=a]})
-                                          (at level 20, format "A:={ q }( p , a )"):bi_scope.
+Notation "A@ i :={ q }[ s ] " := (access_mapsto i (DfracOwn q) (GSet s))
+                                          (at level 20, format "A@ i :={ q }[ s ] "):bi_scope.
+Notation "A@ i :={ q } p " := (access_mapsto  i (DfracOwn q) (GSet {[p]}))
+                                           (at level 20, format "A@ i :={ q } p "):bi_scope.
+
+
 (* predicates for transactions *)
 Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v x y m f)
                                                    (at level 20, format "w ->t{ q }( v , x , y , m , f )"):bi_scope.
@@ -371,10 +412,10 @@ Section hyp_lang_rules.
   Lemma reg_dupl_false r i w1 w2 :
    r @@ i ->r w1 -∗ r @@ i ->r w2 -∗ False.
   Proof using.
-    rewrite reg_mapsto_eq.
+    rewrite reg_mapsto_eq /reg_mapsto_def.
     iIntros "Hr1 Hr2".
-    iDestruct (own_valid_2 with "Hr1 Hr2") as %?%gmap_view_frag_op_valid_L.
-    destruct H0.
+    iDestruct (ghost_map_elem_valid_2 with "Hr1 Hr2") as %?.
+    destruct H.
     apply dfrac_valid_own_r in H.
     inversion H.
   Qed.
@@ -391,14 +432,33 @@ Section hyp_lang_rules.
     - iLeft. done.
   Qed.
 
+Lemma gen_reg_valid:
+  ∀ (σ : state) r i w,
+    i = (get_current_vm σ) ->
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    r @@ i ->r w -∗
+          ⌜ (get_reg σ r) = Some w ⌝.
+Proof.
+  iIntros (?????) "Hσ Hr".
+  rewrite reg_mapsto_eq /reg_mapsto_def.
+  iDestruct (ghost_map_lookup with "Hσ Hr") as "%".
+  simplify_eq /=.
+  iPureIntro.
+  unfold get_reg.
+  unfold get_reg_gmap in H0.
+  rewrite <- H0.
+  Admitted.
+(* TODO : should have defined get_mem_gmap in a proof friendly way... *)
+
+
  (* rules for memory points-to *)
   Lemma mem_dupl_false a w1 w2:
    a ->a w1 -∗ a ->a w2 -∗ False.
   Proof using.
-    rewrite mem_mapsto_eq.
+    rewrite mem_mapsto_eq /mem_mapsto_def.
     iIntros "Ha1 Ha2".
-    iDestruct (own_valid_2 with "Ha1 Ha2") as %?%gmap_view_frag_op_valid_L.
-    destruct H0.
+    iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %?.
+    destruct H.
     apply dfrac_valid_own_r in H.
     inversion H.
   Qed.
@@ -413,6 +473,21 @@ Section hyp_lang_rules.
       iDestruct (mem_dupl_false with "Ha1 Ha2") as %[].
     - done.
   Qed.
+
+Lemma gen_mem_valid:
+  ∀ (σ : state) a w,
+    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    a ->a w -∗
+          ⌜ (get_mem σ) !! a = Some w ⌝.
+Proof.
+  iIntros (???) "Hσ Ha".
+  rewrite mem_mapsto_eq /mem_mapsto_def.
+  iDestruct (ghost_map_lookup with "Hσ Ha") as "%".
+  done.
+ Qed.
+
+(* TODO: bigSep version *)
+
 
  (* rules for TX *)
   Lemma tx_dupl i p :
@@ -465,29 +540,48 @@ Section hyp_lang_rules.
   Qed.
 
   (* rules for pagetables  *)
-  Lemma owned_split_set (s1 s2 : gset pid):
-   s1 ## s2 -> O:=[(s1 ∪ s2)] -∗ O:=[s1] ∗ O:=[s2].
+  Lemma owned_split_set i q1 q2 (s1 s2 : gset pid):
+   s1 ## s2 -> O@i:={(q1+q2)%Qp}[(s1 ∪ s2)] -∗ O@i:={q1}[s1] ∗ O@i:={q2}[s2].
   Proof using.
   iIntros (Hdisj) "HO".
   rewrite owned_mapsto_eq.
   iApply own_op.
-  rewrite -auth_frag_op.
+  rewrite -auth_frag_op singleton_op.
+  rewrite -pair_op.
   rewrite (gset_disj_union _ _ Hdisj).
   naive_solver.
   Qed.
 
-  Lemma owned_split_singleton (s : gset pid) p:
-   p ∉ s -> O:=[(s ∪ {[p]})] -∗ O:=[s] ∗ O:=p.
+  Lemma owned_split_singleton i q1 q2 (s : gset pid) p:
+   p ∉ s -> O@i:={(q1+q2)%Qp}[(s ∪ {[p]})] -∗ O@i:={q1}[s] ∗ O@i:={q2}p.
   Proof using.
     iIntros (Hnotin) "HO".
-    assert (Hdisj: s ## {[p]}).
-    { set_solver. }
-    iDestruct (owned_split_set _ _ Hdisj with "HO")  as "HO'".
+    assert (Hdisj: s ## {[p]}). { set_solver. }
+    iDestruct (owned_split_set i q1 q2 _ _ Hdisj with "HO")  as "HO'".
     done.
   Qed.
 
+ Lemma access_split_set i q1 q2 (s1 s2 : gset pid):
+   s1 ## s2 -> A@i:={(q1+q2)%Qp}[(s1 ∪ s2)] -∗ A@i:={q1}[s1] ∗ A@i:={q2}[s2].
+  Proof using.
+  iIntros (Hdisj) "HO".
+  rewrite access_mapsto_eq.
+  iApply own_op.
+  rewrite -auth_frag_op singleton_op.
+  rewrite -pair_op.
+  rewrite (gset_disj_union _ _ Hdisj).
+  naive_solver.
+  Qed.
 
-  (* TODO: skip rules for accessible for now. not sure if the construction is good enough. *)
+  Lemma access_split_singleton i q1 q2 (s : gset pid) p:
+   p ∉ s -> A@i:={(q1+q2)%Qp}[(s ∪ {[p]})] -∗ A@i:={q1}[s] ∗ A@i:={q2}p.
+  Proof using.
+    iIntros (Hnotin) "HO".
+    assert (Hdisj: s ## {[p]}). { set_solver. }
+    iDestruct (access_split_set i q1 q2 _ _ Hdisj with "HO")  as "HO'".
+    done.
+  Qed.
+
 
   (* rules for transactions *)
   Lemma trans_split wh q1 q2 i wf wt m f:
