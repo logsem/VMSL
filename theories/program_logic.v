@@ -11,4 +11,4 @@ Canonical Structure hyp_machine := Machine terminated step (Some scheduler) mach
 Context `{_ : irisG hyp_machine Σ}.
 
 
-Lemma mov_reg_rule (i : nat) : True ⊢ WP ExecI @ i {{ (λ m, True) }}%I.
+Lemma mov_reg_rule (i : vmid) : PC @@ i  ⊢ SSWP ExecI @ i {{ (λ m, True) }}%I.
