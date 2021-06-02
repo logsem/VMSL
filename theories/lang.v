@@ -924,22 +924,22 @@ Inductive step : exec_mode -> state -> exec_mode -> state -> Prop :=
       not (is_valid_PC st = Some true) ->
       step ExecI st FailI st
 | step_exec_normal:
-    forall st a w1 w2 i c,
+    forall st a w i c,
       is_valid_PC st = Some true ->
       get_reg st PC = Some a ->
-      get_memory st a = Some w1 ->
-      get_memory_with_offset st a 1 = Some w2 ->
-      decode_instruction (w1, w2) = Some i ->
+      get_memory st a = Some w ->
+      (* get_memory_with_offset st a 1 = Some w2 -> *)
+      decode_instruction w = Some i ->
       exec i st = c ->
       c.2 = NormalM ->
       step ExecI st c.1.1 c.1.2
 | step_exec_yield:
-    forall st a w1 w2 i c v,
+    forall st a w i c v,
       is_valid_PC st = Some true ->
       get_reg st PC = Some a ->
-      get_memory st a = Some w1 ->
-      get_memory_with_offset st a 1 = Some w2 ->
-      decode_instruction (w1, w2) = Some i ->
+      get_memory st a = Some w ->
+      (* get_memory_with_offset st a 1 = Some w2 -> *)
+      decode_instruction w = Some i ->
       exec i st = c ->
       c.2 = YieldM v ->
       step ExecI st c.1.1 (update_current_vmid c.1.2 v).

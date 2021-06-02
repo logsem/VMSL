@@ -5,7 +5,7 @@ From ExtLib Require Import Structures.Monads.
 Open Scope general_if_scope.
 
 Definition reg_count_lower_bound := 30.
-Definition word_size_lower_bound := 15.
+Definition word_size_lower_bound := 15. (*TODO: Now a word is 64-bit long, how should I change this? *)
 Definition page_size_lower_bound := 15.
 
 (* TODO: ZArith seems to be much more convenient *)
@@ -156,12 +156,12 @@ Inductive instruction : Type :=
 | Fail
 | Hvc.
 
-Definition double_word : Type :=
-  (word * word).
+(* Definition double_word : Type := *)
+  (* (word * word). *)
 
 Class InstructionSerialization := {
-  decode_instruction : double_word -> option instruction;
-  encode_instruction : instruction -> double_word;
+  decode_instruction : word -> option instruction;
+  encode_instruction : instruction -> word;
   decode_encode_instruction : forall (i : instruction), decode_instruction (encode_instruction i) = Some i;
                                  }.
 
