@@ -217,12 +217,13 @@ Definition update_offset_PC (st : state) (dir : bool) (offset : nat) : option st
        ).
 
 Definition update_incr_PC (st : state) : option state :=
-  update_offset_PC st true 2.
+  update_offset_PC st true 1.
 
 Definition is_valid_PC (st : state) : option bool :=
   w <- get_reg st PC ;;;
-  w' <- addr_offset w 1 ;;;
-  Some (andb (check_access_addr st (get_current_vm st) w) (check_access_addr st (get_current_vm st) w')).
+  (* w' <- addr_offset w 1 ;;; *)
+  (* Some (andb (check_access_addr st (get_current_vm st) w) (check_access_addr st (get_current_vm st) w')). *)
+  Some (check_access_addr st (get_current_vm st) w).
 
 Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
   match newSt with
