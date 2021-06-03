@@ -1,7 +1,7 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
 From HypVeri Require Export lang RAs.
 From iris.proofmode Require Import tactics.
-From iris_string_ident Require Import ltac2_string_ident.
+(* From iris_string_ident Require Import ltac2_string_ident. *)
 
 Section lifting.
 
@@ -110,7 +110,23 @@ Proof.
   iIntros (Hdecode) "(Hpc & Hapc & Hacc & Hra)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
-  simplify_eq /=.
+  inversion Hsche.
+  subst i0 σ1.
   iModIntro.
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? )".
+  Check gen_reg_valid_Sep.
+  iDestruct ((gen_reg_valid_Sep σ (get_current_vm σ) (<[(PC,i):=a]>{[(ra,i):=w3]}))
+               with "Hreg [Hpc Hra]") as "Hreg".
+  done.
+  (* iApply (big_sepM_delete _ _ (PC,i) a). *)
+  (* simplify_map_eq. *)
+  (* done. *)
+  (* iFrame. *)
+  (* iApply (big_sepM_delete _ _ (ra,i) w3). *)
+  (* simplify_map_eq. *)
+  (* apply lookup_delete_Some. *)
+  (* split. *)
+  (* iFrame. *)
+
   (*TODO:  need some helper lemmas ...*)
   Admitted.

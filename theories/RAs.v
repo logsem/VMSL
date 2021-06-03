@@ -11,8 +11,8 @@ From HypVeri Require Export lang machine.
   Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
                       gen_num_preG_inG :> inG Σ (agreeR natO);
-                      gen_mem_preG_inG :> gen_heapPreG A W Σ;
-                      gen_reg_preG_inG :> gen_heapPreG (R * V) W Σ;
+                      gen_mem_preG_inG :> gen_heapGpreS A W Σ;
+                      gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
                       gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
                       gen_rx_preG_inG :> inG Σ (prodR (authR (gmapUR V (agreeR (leibnizO P))))
                                                       (optionR (gmap_viewR V (optionO (prodO natO (leibnizO V))))));
@@ -24,14 +24,14 @@ From HypVeri Require Export lang machine.
                                     (* (prodR dfracR (gmapUR P (csumR (agreeR unitO) (exclR unitO)))))); *)
                       gen_access_preG_inG :> inG Σ (authR (gmapUR V
                                                     (prodR dfracR (gset_disjUR (leibnizO P)))));
-                      gen_trans_preG_inG :> gen_heapPreG W (V * W* W*(gmap V (listset_nodup P))*F) Σ;
+                      gen_trans_preG_inG :> gen_heapGpreS W (V * W* W*(gmap V (listset_nodup P))*F) Σ;
                       gen_retri_preG_inG :> inG Σ (authR (gmapUR W (gset_disjR (leibnizO V))))
                    }.
 
 
   Class gen_VMG Σ := GenVMG{
                       gen_VM_inG :> gen_VMPreG addr vmid word reg_name pid transaction_type Σ;
-                      gen_invG :> invG Σ;
+                      gen_invG :> invGS Σ;
                       gen_na_invG :> na_invG Σ;
                       gen_nainv_name : na_inv_pool_name;
                       gen_num_name : gname;
@@ -126,6 +126,28 @@ Section definitions.
         lia.
       Qed.
 
+   Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:=
+    match n with
+      | S m => (nat_to_fin H) :: (list_of_vmids_aux m _)
+      | 0  => (nat_to_fin H)::nil
+    end.
+  Next Obligation.
+    Proof.
+      intros.
+      lia.
+  Defined.
+
+    Program Definition list_of_vmids :list vmid:=
+    list_of_vmids_aux (vm_count-1) _.
+    Next Obligation.
+     Proof.
+        simpl.
+        pose proof vm_count_pos.
+        pose vm_count.
+        lia.
+     Qed.
+
+
     (* Definition vec_to_gmap{A:Type}{B : cmra}  (vec: vec A vm_count)  : gmapUR vmid B:= *)
     (* (foldr (λ p acc, <[p.1:=p.2]>acc) ∅ *)
     (*        (vzip_with (λ v s, (v,s)) (vector_of_vmids) vec)). *)
@@ -135,10 +157,13 @@ Section definitions.
     (* ra_TXBuffer:= *)
     (* (● (vec_to_gmap (vmap (λ δ, (to_agree (f δ.1.2)))  (get_vm_states σ)))). *)
 
-  Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
-    (foldr (λ p acc, (map_fold (λ (r:reg_name) (w:word) acc', <[(r,p.1):= w ]>acc') acc p.2)) ∅
-              (vzip_with (λ v δ, (v,δ.1.1)) (vector_of_vmids) (get_vm_states σ))).
+    (* hard to prove lemmas for it, because of the use of foldr of vectors. *)
+    (*  Definition get_reg_gmap σ: gmap (reg_name * vmid) word := *)
+    (*     (foldr (λ p acc, (map_fold (λ (r:reg_name) (w:word) acc', <[(r,p.1):= w ]>acc') acc p.2)) ∅ *)
+    (*               (vzip_with (λ v δ, (v,δ.1.1)) (vector_of_vmids) (get_vm_states σ))). *)
 
+  Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
+     (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
 
   Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
     ra_TXBuffer:=
@@ -446,9 +471,63 @@ Proof.
   iPureIntro.
   unfold get_reg.
   unfold get_reg_gmap in H0.
-  rewrite <- H0.
-  Admitted.
-(* TODO : should have defined get_mem_gmap in a proof friendly way... *)
+  simplify_eq /=.
+  unfold get_reg_global.
+  apply elem_of_list_to_map_2 in H0.
+  apply elem_of_list_In in H0.
+  apply in_flat_map in H0.
+  inversion H0; clear H0.
+  destruct H.
+  apply in_map_iff in H0.
+  inversion H0;clear H0.
+  inversion H1;clear H1.
+  inversion H0.
+  apply elem_of_list_In in H2.
+  apply elem_of_map_to_list' in H2.
+  subst x.
+  done.
+Qed.
+
+
+(* TODO : quite ugly... *)
+Lemma gen_reg_valid_Sep:
+  ∀ (σ : state) i (regs: gmap (reg_name * vmid) word) ,
+    i = (get_current_vm σ) ->
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    ([∗ map] r↦w ∈ regs,  r.1 @@ r.2 ->r w)-∗
+          ([∗ map] r↦w ∈ regs, ⌜r.2 = i -> (get_reg σ r.1) = Some w ⌝).
+Proof.
+  iIntros (????) "Hσ Hregs".
+  rewrite reg_mapsto_eq /reg_mapsto_def.
+  iDestruct ((ghost_map_lookup_big  regs) with "[Hσ] [Hregs]") as "%Hincl".
+  iApply "Hσ".
+  iApply (big_sepM_proper (λ k x, (k.1, k.2)↪[gen_reg_name vmG] x)%I).
+  intros.
+  simplify_eq.
+  f_equiv.
+  destruct k.
+  done.
+  done.
+  iApply big_sepM_pure.
+  iIntros (????).
+  unfold get_reg.
+  unfold get_reg_global.
+  apply (lookup_weaken  _ (get_reg_gmap σ) _ _) in a1.
+  apply elem_of_list_to_map_2 in a1.
+  apply elem_of_list_In in a1.
+  apply in_flat_map in a1.
+  inversion a1; clear a1.
+  destruct H0.
+  apply in_map_iff in H1.
+  inversion H1;clear H1.
+  inversion H2;clear H2.
+  inversion H1.
+  apply elem_of_list_In in H3.
+  apply elem_of_map_to_list' in H3.
+  simplify_eq /=.
+  done.
+  done.
+Qed.
 
 
  (* rules for memory points-to *)
