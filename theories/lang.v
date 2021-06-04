@@ -231,6 +231,20 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
   | Some s => (ExecI, s)
   end.
 
+Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
+Proof.
+  unfold update_reg_global, get_mem.
+  destruct (get_vm_state σ i).
+  destruct p.
+  reflexivity.
+Qed.
+
+Lemma update_reg_preserve_mem σ r w : get_mem (update_reg σ r w) = get_mem σ.
+Proof.
+  unfold update_reg.
+  apply update_reg_global_preserve_mem.
+Qed.
+
 Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_mode := 
   let comp :=
       match dst with
