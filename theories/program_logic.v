@@ -105,7 +105,9 @@ Lemma mov_word {i w1 w3 q} a w2 ra :
   decode_instruction w1 = Some(Mov ra (inl w2)) ->
   PC ≠ ra ->
   NZ ≠ ra ->
-  PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3  ⊢ SSWP ExecI @ i {{ (λ m, True) }}%I.
+  PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ (* TODO : PC @@ i ->r a+1 *)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
+
 Proof.
   iIntros (Hdecode HneqPC HneqNZ) "(Hpc & Hapc & Hacc & Hra)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
