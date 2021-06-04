@@ -105,9 +105,10 @@ Implicit Type q : Qp.
 
 Lemma mov_word {i w1 w3 q} a w2 ra :
   decode_instruction w1 = Some(Mov ra (inl w2)) ->
+  PC ≠ ra ->
   PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3  ⊢ SSWP ExecI @ i {{ (λ m, True) }}%I.
 Proof.
-  iIntros (Hdecode) "(Hpc & Hapc & Hacc & Hra)".
+  iIntros (Hdecode ?) "(Hpc & Hapc & Hacc & Hra)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche.
@@ -117,16 +118,40 @@ Proof.
   Check gen_reg_valid_Sep.
   iDestruct ((gen_reg_valid_Sep σ (get_current_vm σ) (<[(PC,i):=a]>{[(ra,i):=w3]}))
                with "Hreg [Hpc Hra]") as "Hreg".
+  - done.
+  - iAssert (⌜(PC, (get_current_vm σ)) ≠ (ra, (get_current_vm σ))⌝)%I as "%Hneq".
+    iPureIntro.
+    intros P.
+    inversion P.
+    contradiction.
+    iApply (big_sepM_delete _ _ (PC,i) a).
+    simplify_map_eq.
   done.
-  (* iApply (big_sepM_delete _ _ (PC,i) a). *)
-  (* simplify_map_eq. *)
-  (* done. *)
-  (* iFrame. *)
-  (* iApply (big_sepM_delete _ _ (ra,i) w3). *)
-  (* simplify_map_eq. *)
-  (* apply lookup_delete_Some. *)
-  (* split. *)
-  (* iFrame. *)
+  iFrame.
+  iApply (big_sepM_delete _ _ (ra,i) w3).
+  simplify_map_eq.
+  done.
+  rewrite delete_insert.
+  rewrite delete_insert.
+  done.
+  done.
+  rewrite lookup_insert_None.
+  split.
+  done.
+  simplify_eq.
+  done.
 
+
+
+  apply lookup_delete_Some.
+  split.
+
+  rewrite <-(lookup_delete_ne _ (PC,(get_current_vm σ)) (ra, (get_current_vm σ))).
+  rewrite delete_insert_ne.
+  rewrite delete_notin.
+  simplify_map_eq.
+  admit.
+  apply lookup_singleton_None.
+  -
   (*TODO:  need some helper lemmas ...*)
   Admitted.

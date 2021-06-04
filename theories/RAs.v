@@ -243,17 +243,27 @@ Section definitions.
                   | Unowned => s
                  end)  (GSet ∅) δ.2))) (vector_of_vmids) (get_vm_states σ)))).
 
+  (* Definition get_access_gmap σ : ra_Accessible := *)
+  (*   (●  (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅ *)
+  (*        (vzip_with (λ v δ, (v, *)
+  (*                   (map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)), *)
+  (*                 match perm.2 with *)
+  (*                 | NoAccess => s *)
+  (*                 | SharedAccess | ExclusiveAccess => match s with *)
+  (*                                     | GSet s' => GSet (s' ∪ {[p]}) *)
+  (*                                     | GSetBot => GSet ∅ *)
+  (*                                   end *)
+  (*                end) (GSet ∅) δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))). *)
+
   Definition get_access_gmap σ : ra_Accessible :=
-    (●  (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅
-         (vzip_with (λ v δ, (v,
-                    (map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)),
-                  match perm.2 with
-                  | NoAccess => s
-                  | SharedAccess | ExclusiveAccess => match s with
+    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),(map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)),
+                  match (is_accessible perm) with
+                  | false => s
+                  | true => match s with
                                       | GSet s' => GSet (s' ∪ {[p]})
                                       | GSetBot => GSet ∅
                                     end
-                 end) (GSet ∅) δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))).
+                 end) (GSet ∅) (get_vm_page_table σ v))))) (list_of_vmids)))).
 
 
   (* TODO: a new exclusive ra*)
@@ -473,6 +483,7 @@ Proof.
   unfold get_reg_gmap in H0.
   simplify_eq /=.
   unfold get_reg_global.
+  Check elem_of_list_to_map_2.
   apply elem_of_list_to_map_2 in H0.
   apply elem_of_list_In in H0.
   apply in_flat_map in H0.
@@ -661,6 +672,84 @@ Proof.
     done.
   Qed.
 
+Lemma gen_access_valid:
+  ∀ (σ : state) i q p,
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    (A@ i :={q}p ) -∗
+          ( ⌜(check_access_page σ i p)= true ⌝).
+  Proof.
+    iIntros (????) "Hσ Hacc".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    iDestruct (own_valid_2 with "Hσ Hacc") as %Hvalid.
+    iPureIntro.
+    unfold get_access_gmap in Hvalid.
+    apply auth_both_valid_discrete in Hvalid.
+    destruct Hvalid.
+    remember (list_to_map
+        (map
+           (λ v : vmid,
+              (v,
+              (DfracOwn 1,
+              map_fold
+                (λ (p : pid) (perm : permission) (s : gset_disjUR pid),
+                   if is_accessible perm
+                   then
+                    match s with
+                    | GSet s' => GSet (s' ∪ {[p]})
+                    | GSetBot => GSet ∅
+                    end
+                   else s) (GSet ∅) (get_vm_page_table σ v)))) list_of_vmids)) as m.
+    pose proof (lookup_included {[i := (DfracOwn q, GSet {[p]})]} m).
+    rewrite ->H1 in H.
+    clear H1.
+    pose proof (H i).
+    clear H.
+    apply option_included in H1.
+    destruct H1.
+    simplify_map_eq.
+    destruct H.
+    destruct H.
+    destruct H.
+    apply lookup_singleton_Some in H.
+    destruct H.
+   simplify_map_eq /=.
+    destruct H1.
+   apply (elem_of_list_to_map_2 _ i x0) in H.
+   apply elem_of_list_In in H.
+   apply (in_map_iff ) in H.
+   destruct H.
+   destruct H.
+   inversion H.
+   simplify_eq /=.
+   clear H.
+   destruct H1.
+    - inversion H;clear H.
+      simplify_eq /=.
+      unfold check_access_page.
+     destruct (get_vm_page_table σ i !! p) eqn:Heqn.
+     + admit.
+    + (* apply (map_fold_ind (λ a b, False) (λ (p : pid) (perm : permission) (s : gset_disjUR pid), *)
+      (*       if is_accessible perm *)
+      (*       then match s with *)
+      (*            | GSet s' => GSet (s' ∪ {[p]}) *)
+      (*            | GSetBot => GSet ∅ *)
+      (*            end *)
+      (*       else s)  (GSet (∅: gset_disj pid)) ) . *)
+       induction (get_vm_page_table σ i) using map_fold_ind.
+       unfold map_fold in H3.
+       unfold curry, Datatypes.uncurry in H3.
+       simpl in H3.
+       exfalso.
+       generalize dependent p.
+       induction (get_vm_page_table σ i) using map_ind.
+       intros p H3.
+       rewrite map_to_list_empty in H3.
+       simpl in H3.
+       assert (H: GSet {[p]} ≼ (GSet (∅: gset pid))).
+       rewrite H3.
+       done.
+
+       (* TODO : gen_access_valid_Sep, gen_access_valid_set*)
 
   (* rules for transactions *)
   Lemma trans_split wh q1 q2 i wf wt m f:
