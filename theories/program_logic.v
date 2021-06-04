@@ -1,6 +1,7 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
 From HypVeri Require Export lang RAs.
 From iris.proofmode Require Import tactics.
+Require Import iris.base_logic.lib.ghost_map.
 (* From iris_string_ident Require Import ltac2_string_ident. *)
 
 Section lifting.
@@ -100,33 +101,107 @@ Implicit Type ra rb : reg_name.
 Implicit Type w: word.
 Implicit Type q : Qp.
 
-
-
-
 Lemma mov_word {i w1 w3 q} a w2 ra :
   decode_instruction w1 = Some(Mov ra (inl w2)) ->
+  PC ≠ ra ->
+  NZ ≠ ra ->
   PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3  ⊢ SSWP ExecI @ i {{ (λ m, True) }}%I.
 Proof.
-  iIntros (Hdecode) "(Hpc & Hapc & Hacc & Hra)".
+  iIntros (Hdecode HneqPC HneqNZ) "(Hpc & Hapc & Hacc & Hra)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche.
   subst i0 σ1.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? )".
-  Check gen_reg_valid_Sep.
+  iDestruct "Hσ" as "(H1 & Hmem & Hreg & H2)".
   iDestruct ((gen_reg_valid_Sep σ (get_current_vm σ) (<[(PC,i):=a]>{[(ra,i):=w3]}))
-               with "Hreg [Hpc Hra]") as "Hreg".
+               with "Hreg [Hpc Hra]") as "%Hreg".
   done.
-  (* iApply (big_sepM_delete _ _ (PC,i) a). *)
-  (* simplify_map_eq. *)
-  (* done. *)
-  (* iFrame. *)
-  (* iApply (big_sepM_delete _ _ (ra,i) w3). *)
-  (* simplify_map_eq. *)
-  (* apply lookup_delete_Some. *)
-  (* split. *)
-  (* iFrame. *)
-
-  (*TODO:  need some helper lemmas ...*)
-  Admitted.
+  iApply (big_sepM_delete _ _ (PC,i) a).
+  simplify_map_eq.
+  done.
+  iFrame.
+  iApply (big_sepM_delete _ _ (ra,i) w3).
+  simplify_map_eq.
+  apply lookup_delete_Some.
+  split.
+  intros P; inversion P; contradiction.
+  rewrite lookup_insert_Some.
+  right.
+  split.
+  intros P; inversion P; contradiction.
+  simplify_map_eq; done.
+  iFrame.
+  rewrite delete_insert.
+  rewrite delete_insert; auto using lookup_empty.
+  apply lookup_insert_None; split; auto using lookup_empty.
+  intros P; inversion P.
+  symmetry in H1.
+  contradiction.
+  assert (HPC : get_reg σ PC = Some a).
+  {
+    apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
+    simpl.
+    symmetry.
+    apply fin_to_nat_inj.
+    exact H.
+  }
+  assert (Hra : get_reg σ ra = Some w3).
+  {
+    apply (Hreg (ra, i) w3).
+    rewrite lookup_insert_Some.
+    right.
+    split.
+    intros P; inversion P; contradiction.
+    apply (lookup_insert _ (ra, i) w3).
+    simpl.
+    symmetry.
+    apply fin_to_nat_inj.
+    exact H.
+  }
+  iDestruct (gen_mem_valid σ a w1 with "Hmem Hapc") as "%HT".
+  iSplit.
+  iPureIntro.
+  remember (exec (Mov ra (inl w2)) σ) as ex.
+  exists ex.1.1.
+  exists ex.1.2.
+  unfold prim_step.
+  simpl.
+  apply step_exec_normal with a w1 (Mov ra (inl w2)).
+  - admit.
+  - apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
+    simpl.
+    symmetry.
+    apply fin_to_nat_inj.
+    exact H.
+  - admit.
+  - assumption.
+  - symmetry; assumption.
+  - simpl in Heqex.
+    destruct ra; try contradiction.
+    unfold mov_word in Heqex.
+    rewrite Heqex.
+    reflexivity.
+  - iModIntro.
+    iIntros (m2 σ2) "%stepP".
+    iModIntro.
+    iSplit; [| done].
+    simpl.
+    unfold gen_vm_interp.
+    iSplit; [done |].
+    iSplitL "Hmem Hapc".
+    + inversion stepP; subst; [done | | ].
+      * rewrite ->H1 in HPC.
+        inversion HPC; subst.
+        admit.
+      * rewrite ->H1 in HPC.
+        inversion HPC; subst.
+        admit.
+    + iSplitL "Hreg Hpc Hra".
+      * inversion stepP; subst; [done | | ].
+        -- admit.
+        -- admit.
+      * inversion stepP; subst; [done | | ].
+        -- admit.
+        -- admit.
+Admitted.
