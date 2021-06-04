@@ -255,15 +255,21 @@ Section definitions.
   (*                                   end *)
   (*                end) (GSet ∅) δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))). *)
 
+  (* Definition get_access_gmap σ : ra_Accessible := *)
+  (*   (● (list_to_map (map (λ v, (v, ((DfracOwn 1),(map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)), *)
+  (*                 match (is_accessible perm) with *)
+  (*                 | false => s *)
+  (*                 | true => match s with *)
+  (*                                     | GSet s' => GSet (s' ∪ {[p]}) *)
+  (*                                     | GSetBot => GSet ∅ *)
+  (*                                   end *)
+  (*                end) (GSet ∅) (get_vm_page_table σ v))))) (list_of_vmids)))). *)
+
   Definition get_access_gmap σ : ra_Accessible :=
-    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),(map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)),
-                  match (is_accessible perm) with
-                  | false => s
-                  | true => match s with
-                                      | GSet s' => GSet (s' ∪ {[p]})
-                                      | GSetBot => GSet ∅
-                                    end
-                 end) (GSet ∅) (get_vm_page_table σ v))))) (list_of_vmids)))).
+    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
+        (GSet ((list_to_set (map (λ (p:(pid*permission)), p.1)
+           (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v)))))
+                         : gset pid))))) (list_of_vmids)))).
 
 
   (* TODO: a new exclusive ra*)
@@ -685,20 +691,16 @@ Lemma gen_access_valid:
     unfold get_access_gmap in Hvalid.
     apply auth_both_valid_discrete in Hvalid.
     destruct Hvalid.
-    remember (list_to_map
-        (map
-           (λ v : vmid,
-              (v,
-              (DfracOwn 1,
-              map_fold
-                (λ (p : pid) (perm : permission) (s : gset_disjUR pid),
-                   if is_accessible perm
-                   then
-                    match s with
-                    | GSet s' => GSet (s' ∪ {[p]})
-                    | GSetBot => GSet ∅
-                    end
-                   else s) (GSet ∅) (get_vm_page_table σ v)))) list_of_vmids)) as m.
+    remember (list_to_map (map
+              (λ v : vmid,
+                 (v,
+                 (DfracOwn 1,
+                 GSet
+                   (list_to_set
+                      (map (λ p : pid * permission, p.1)
+                         (map_to_list
+                            (filter (λ p : pid * permission, is_accessible p.2 = true)
+                               (get_vm_page_table σ v)))))))) list_of_vmids)) as m.
     pose proof (lookup_included {[i := (DfracOwn q, GSet {[p]})]} m).
     rewrite ->H1 in H.
     clear H1.
@@ -727,27 +729,78 @@ Lemma gen_access_valid:
       simplify_eq /=.
       unfold check_access_page.
      destruct (get_vm_page_table σ i !! p) eqn:Heqn.
-     + admit.
-    + (* apply (map_fold_ind (λ a b, False) (λ (p : pid) (perm : permission) (s : gset_disjUR pid), *)
-      (*       if is_accessible perm *)
-      (*       then match s with *)
-      (*            | GSet s' => GSet (s' ∪ {[p]}) *)
-      (*            | GSetBot => GSet ∅ *)
-      (*            end *)
-      (*       else s)  (GSet (∅: gset_disj pid)) ) . *)
-       induction (get_vm_page_table σ i) using map_fold_ind.
-       unfold map_fold in H3.
-       unfold curry, Datatypes.uncurry in H3.
-       simpl in H3.
-       exfalso.
-       generalize dependent p.
-       induction (get_vm_page_table σ i) using map_ind.
-       intros p H3.
-       rewrite map_to_list_empty in H3.
-       simpl in H3.
-       assert (H: GSet {[p]} ≼ (GSet (∅: gset pid))).
-       rewrite H3.
-       done.
+    + assert ( p ∈ ({[p]}: gset pid)) as Hin.
+      { set_solver.  }
+      rewrite H3 in Hin.
+      apply elem_of_list_to_set in Hin.
+      apply elem_of_list_In in Hin.
+      apply (in_map_iff _ _ p) in Hin.
+      destruct Hin.
+      destruct H.
+      rewrite <- elem_of_list_In in H1.
+      apply elem_of_map_to_list' in H1.
+      apply map_filter_lookup_Some in H1.
+      destruct H1.
+      subst p.
+      rewrite H1 in Heqn.
+      inversion Heqn.
+      assumption.
+    + assert ( p ∈ ({[p]}: gset pid)) as Hin.
+      { set_solver.  }
+      rewrite H3 in Hin.
+      apply elem_of_list_to_set in Hin.
+      apply elem_of_list_In in Hin.
+      apply (in_map_iff _ _ p) in Hin.
+      destruct Hin.
+      destruct H.
+      rewrite <- elem_of_list_In in H1.
+      apply elem_of_map_to_list' in H1.
+      apply map_filter_lookup_Some in H1.
+      destruct H1.
+      subst p.
+      rewrite H1 in Heqn.
+      inversion Heqn.
+    - apply pair_included in H.
+      destruct H;clear H.
+      apply gset_disj_included in H1.
+      unfold check_access_page.
+     destruct (get_vm_page_table σ i !! p) eqn:Heqn.
+    + assert ( p ∈ (list_to_set
+           (map (λ p : pid * permission, p.1)
+              (map_to_list (filter (λ p : pid * permission, is_accessible p.2 = true) (get_vm_page_table σ i)))): gset pid)) as Hin.
+      { set_solver.  }
+      apply elem_of_list_to_set in Hin.
+      apply elem_of_list_In in Hin.
+      apply (in_map_iff _ _ p) in Hin.
+      destruct Hin.
+      destruct H.
+      rewrite <- elem_of_list_In in H3.
+      apply elem_of_map_to_list' in H3.
+      apply map_filter_lookup_Some in H3.
+      destruct H3.
+      subst p.
+      rewrite H3 in Heqn.
+      inversion Heqn.
+      assumption.
+    + assert ( p ∈ (list_to_set
+           (map (λ p : pid * permission, p.1)
+              (map_to_list (filter (λ p : pid * permission, is_accessible p.2 = true) (get_vm_page_table σ i)))): gset pid)) as Hin.
+      { set_solver.  }
+      apply elem_of_list_to_set in Hin.
+      apply elem_of_list_In in Hin.
+      apply (in_map_iff _ _ p) in Hin.
+      destruct Hin.
+      destruct H.
+      rewrite <- elem_of_list_In in H3.
+      apply elem_of_map_to_list' in H3.
+      apply map_filter_lookup_Some in H3.
+      destruct H3.
+      subst p.
+      rewrite H3 in Heqn.
+      inversion Heqn.
+Qed.
+
+
 
        (* TODO : gen_access_valid_Sep, gen_access_valid_set*)
 

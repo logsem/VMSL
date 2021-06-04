@@ -231,6 +231,19 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
   | Some s => (ExecI, s)
   end.
 
+Lemma option_state_unpack_preserve_mem σ σ1:
+  (forall σ', σ1 =  Some σ' -> get_mem σ = get_mem σ') -> (get_mem (option_state_unpack σ σ1).2)= get_mem σ.
+Proof.
+  intros.
+  destruct σ1.
+
+  rewrite (H s).
+  reflexivity.
+  reflexivity.
+  simpl.
+  reflexivity.
+Qed.
+
 Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
 Proof.
   unfold update_reg_global, get_mem.
