@@ -90,9 +90,6 @@ Inductive exec_mode : Type :=
 | HaltI
 | FailI.
 
-Inductive control_mode : Type :=
-| YieldM : vmid -> control_mode
-| NormalM.
 
 Definition conf : Type := exec_mode * state.
 
@@ -231,7 +228,7 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
   | Some s => (ExecI, s)
   end.
 
-Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_mode := 
+Definition mov_word (s : state) (dst : reg_name) (src : word) : conf :=
   let comp :=
       match dst with
       | PC => None
@@ -239,9 +236,9 @@ Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_m
       | _ => update_incr_PC (update_reg s dst src)
       end
     in
-    (option_state_unpack s comp, NormalM).
+    (option_state_unpack s comp).
 
-Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : conf * control_mode :=
+Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : conf :=
   let comp :=
       match (dst, src) with
       | (R _ _, R _ _) =>
@@ -250,9 +247,9 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : conf * contro
       | _ => None
       end
     in
-  (option_state_unpack s comp, NormalM).
+  (option_state_unpack s comp).
 
-Definition ldr (s : state) (dst : reg_name) (src : reg_name) : conf * control_mode :=
+Definition ldr (s : state) (dst : reg_name) (src : reg_name) : conf  :=
   let comp :=
       match (dst, src) with
       | (R _ _, R _ _) =>
@@ -262,9 +259,9 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : conf * control_mo
       | _ => None
       end
   in
-  (option_state_unpack s comp, NormalM).
+  (option_state_unpack s comp).
 
-Definition str (s : state) (src : reg_name) (dst : reg_name) : conf * control_mode :=
+Definition str (s : state) (src : reg_name) (dst : reg_name) : conf :=
   let comp :=
       match (src, dst) with
         | (R _ _, R _ _) =>
@@ -275,7 +272,7 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : conf * control_mo
         | _ => None
       end
   in
-  (option_state_unpack s comp, NormalM).
+  (option_state_unpack s comp).
 
 Ltac solveWordSize :=
   pose proof word_size_at_least as G;
@@ -287,7 +284,7 @@ Ltac solveRegCount :=
   unfold reg_count_lower_bound in G;
   lia.
 
-Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : conf * control_mode :=
+Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : conf :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2)) with
@@ -296,10 +293,10 @@ Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : conf *
            end ;;;
       update_incr_PC m       
   in
-  (option_state_unpack s comp, NormalM).
+  (option_state_unpack s comp).
 Solve Obligations with solveWordSize.
 
-Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : conf * control_mode :=
+Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : conf :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
@@ -309,10 +306,10 @@ Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : con
            end ;;;
       update_incr_PC m
   in
-  (option_state_unpack s comp, NormalM).
+  (option_state_unpack s comp).
 Solve Obligations with solveWordSize.
 
-Definition jnz (s : state) (arg : reg_name) : conf * control_mode :=
+Definition jnz (s : state) (arg : reg_name) : conf :=
   let comp :=
       arg' <- get_reg s arg ;;;
       nz <- get_reg s NZ ;;;
@@ -321,18 +318,18 @@ Definition jnz (s : state) (arg : reg_name) : conf * control_mode :=
       | _ => update_incr_PC s
       end
   in
-  (option_state_unpack s comp, NormalM).
+  (option_state_unpack s comp).
 
-Definition jmp (s : state) (arg : reg_name) : conf * control_mode :=
+Definition jmp (s : state) (arg : reg_name) : conf :=
   let comp := (fun x => update_reg s PC x) <$> (get_reg s arg)
   in
-  (option_state_unpack s comp, NormalM).
+  (option_state_unpack s comp).
 
-Definition fail (s : state) : conf * control_mode :=
-  (FailI, s, NormalM).
+Definition fail (s : state) : conf:=
+  (FailI, s).
 
-Definition halt (s : state) : conf * control_mode :=
-  (HaltI, s, NormalM).
+Definition halt (s : state) : conf :=
+  (HaltI, s).
 
 (* Hvc calls *)
 Definition hvc_result : Type -> Type :=
@@ -355,11 +352,11 @@ Definition undef {B : Type} : hvc_result B := inl (inl ()).
 
 Definition throw {B : Type} (e : hvc_error) : hvc_result B := inl (inr e).
 
-Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) : conf * control_mode :=
+Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) : conf :=
   match q with
   | inl err =>
     match err with
-    | inl () => (FailI, o, NormalM)
+    | inl () => (FailI, o)
     | inr err' =>
       match update_incr_PC (update_reg
                         (update_reg o
@@ -367,23 +364,26 @@ Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) :
                                     (encode_hvc_ret_code Error))
                         (R 2 _)
                         (encode_hvc_error err')) with
-        | None => (FailI, o, NormalM)
-        | Some s'' => (ExecI, s'', NormalM)
+        | None => (FailI, o)
+        | Some s'' => (ExecI, s'')
       end
     end
   | inr o' =>
     match update_incr_PC o' with
-    | None => (FailI, o, NormalM)
-    | Some o'' => (ExecI, o'', NormalM)
+    | None => (FailI, o)
+    | Some o'' => (ExecI, o'')
     end
   end.
 Solve Obligations with solveRegCount.
 
-Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * vmid)) : conf * control_mode :=
+Definition update_current_vmid (st : state) (v : vmid) : state :=
+  (get_vm_states st, v, get_mem st, get_transactions st).
+
+Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * vmid)) : conf :=
   match q with
   | inl err =>
     match err with
-    | inl () => (FailI, o, NormalM)
+    | inl () => (FailI, o)
     | inr err' =>
       match update_incr_PC (update_reg
                               (update_reg o
@@ -391,14 +391,14 @@ Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * 
                                           (encode_hvc_ret_code Error))
                               (R 2 _)
                               (encode_hvc_error err')) with
-          | None => (FailI, o, NormalM)
-          | Some s'' => (ExecI, s'', NormalM)
+          | None => (FailI, o)
+          | Some s'' => (ExecI, s'')
       end
     end
   | inr (o', id) =>
     match update_incr_PC o' with
-    | None => (FailI, o, NormalM)
-    | Some o'' => (ExecI, o'', YieldM id)
+    | None => (FailI, o)
+    | Some o'' => (ExecI, (update_current_vmid  o'' id))
     end
   end.
 Solve Obligations with solveRegCount.
@@ -615,8 +615,6 @@ Definition new_transaction_from_descriptor_in_tx_unsafe (st : state) (v : vmid) 
     td <- lift_option (parse_transaction_descriptor st wl (get_tx_base_addr_global st v) ty) ;;;
     new_transaction_from_descriptor st ty td.
 
-Definition update_current_vmid (st : state) (v : vmid) : state :=
-  (get_vm_states st, v, get_mem st, get_transactions st).
 
 Definition is_primary (st : state) : bool :=
   (get_current_vm st) =? 0.
@@ -624,7 +622,7 @@ Definition is_primary (st : state) : bool :=
 Definition is_secondary (st : state) : bool :=
   negb (is_primary st).
 
-Program Definition run (s : state) : conf * control_mode :=
+Program Definition run (s : state) : conf :=
   let comp :=
       r <- lift_option (get_reg s (R 1 _)) ;;;
       id <- lift_option_with_err (decode_vmid r) InvParam ;;;
@@ -637,7 +635,7 @@ Program Definition run (s : state) : conf * control_mode :=
   unpack_hvc_result_yield s comp.
 Solve Obligations with solveRegCount.
   
-Program Definition yield (s : state) : conf * control_mode :=
+Program Definition yield (s : state) : conf :=
   let comp :=
       let s' := (update_reg s (R 0 _) (encode_hvc_ret_code Succ))
       in
@@ -658,7 +656,7 @@ Definition verify_perm_transaction (s : state) (p : permission) (td : transactio
                          m
   end.
 
-Program Definition share (s : state) : conf * control_mode :=
+Program Definition share (s : state) : conf :=
     let comp :=
         r <- lift_option (get_reg s (R 1 _)) ;;;
         m <- (if (page_size <? fin_to_nat r)
@@ -686,7 +684,7 @@ Program Definition share (s : state) : conf * control_mode :=
     unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition lend (s : state) : conf * control_mode :=
+Program Definition lend (s : state) : conf :=
   let comp :=
       r <- lift_option (get_reg s (R 1 _)) ;;;
       m <- (if (page_size <? fin_to_nat r)
@@ -715,7 +713,7 @@ Program Definition lend (s : state) : conf * control_mode :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition donate (s : state) : conf * control_mode :=
+Program Definition donate (s : state) : conf :=
   let comp :=
       r <- lift_option (get_reg s (R 1 _)) ;;;
       m <- (if (page_size <? fin_to_nat r)
@@ -820,7 +818,7 @@ Definition get_type (t : transaction) : transaction_type :=
   | (_, _, _, _, ty) => ty
   end.
 
-Program Definition retrieve (s : state) : conf * control_mode :=
+Program Definition retrieve (s : state) : conf :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
@@ -829,7 +827,7 @@ Program Definition retrieve (s : state) : conf * control_mode :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition relinquish (s : state) : conf * control_mode :=
+Program Definition relinquish (s : state) : conf :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
@@ -847,7 +845,7 @@ Definition no_borrowers (s : state) (h : handle) (v : vmid) : bool :=
     else true
   end.
 
-Program Definition reclaim (s : state) : conf * control_mode :=
+Program Definition reclaim (s : state) : conf :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
@@ -863,7 +861,7 @@ Program Definition reclaim (s : state) : conf * control_mode :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition send (s : state) : conf * control_mode :=
+Program Definition send (s : state) : conf :=
   let comp :=
       receiver <- lift_option (get_reg s (R 1 _)) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
@@ -873,7 +871,7 @@ Program Definition send (s : state) : conf * control_mode :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Definition wait (s : state) : conf * control_mode :=
+Definition wait (s : state) : conf :=
   let comp :=
       if is_rx_ready s
       then unit (s, get_current_vm s)
@@ -881,7 +879,7 @@ Definition wait (s : state) : conf * control_mode :=
   in
   unpack_hvc_result_yield s comp.
 
-Program Definition hvc (s : state) : conf * control_mode :=
+Program Definition hvc (s : state) : conf :=
   match get_reg s (R 0 _) with
   | None => fail s
   | Some r0 =>
@@ -904,7 +902,7 @@ Program Definition hvc (s : state) : conf * control_mode :=
   end.
 Solve Obligations with solveRegCount.
 
-Definition exec (i : instruction) (s : state) : conf * control_mode :=
+Definition exec (i : instruction) (s : state) : conf :=
   match i with
   | Mov dst (inl srcWord) => mov_word s dst srcWord
   | Mov dst (inr srcReg) => mov_reg s dst srcReg
@@ -932,18 +930,7 @@ Inductive step : exec_mode -> state -> exec_mode -> state -> Prop :=
       (* get_memory_with_offset st a 1 = Some w2 -> *)
       decode_instruction w = Some i ->
       exec i st = c ->
-      c.2 = NormalM ->
-      step ExecI st c.1.1 c.1.2
-| step_exec_yield:
-    forall st a w i c v,
-      is_valid_PC st = Some true ->
-      get_reg st PC = Some a ->
-      get_memory st a = Some w ->
-      (* get_memory_with_offset st a 1 = Some w2 -> *)
-      decode_instruction w = Some i ->
-      exec i st = c ->
-      c.2 = YieldM v ->
-      step ExecI st c.1.1 (update_current_vmid c.1.2 v).
+      step ExecI st c.1 c.2.
 
 Definition terminated (e : exec_mode) :=
   match e with
