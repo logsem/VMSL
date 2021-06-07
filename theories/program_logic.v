@@ -205,5 +205,5 @@ Proof.
       rewrite -> update_offset_PC_preserve_trans , -> update_reg_global_preserve_trans.
       rewrite -> update_offset_PC_preserve_receivers , -> update_reg_global_preserve_receivers.
       iFrame.
-      (* TODO : almost done! the last thing is to update PC and ra*)
+      (* TODO : almost done! the last step is to update PC and ra*)
       Admitted.
