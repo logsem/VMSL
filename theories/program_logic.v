@@ -106,7 +106,7 @@ Lemma mov_word {i w1 w3 q} a w2 ra :
   PC ≠ ra ->
   NZ ≠ ra ->
   PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ (* TODO : PC @@ i ->r a+1 *)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ (* TODO : PC @@ i ->r a+1, need a helper function... *)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
 
 Proof.
   iIntros (Hdecode HneqPC HneqNZ) "(Hpc & Hapc & Hacc & Hra)".
@@ -178,86 +178,32 @@ Proof.
     iModIntro.
     inversion HstepP as
         [ σ1' Hnotvalid
-        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol]; simplify_eq /=.
+        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol]; simplify_eq /=;[| remember (get_current_vm σ1) as i eqn: Heqi].
     + (*Fail*)
       rewrite /is_valid_PC /= in Hnotvalid.
       by rewrite -> HPC ,Haccess in Hnotvalid.
     + (* Normal. *)
       (* eliminate Hmem2 *)
-      rewrite /get_memory Haccess /get_memory_unsafe Hmem in Hmem2 .
+      rewrite /get_memory -Heqi Haccess /get_memory_unsafe Hmem in Hmem2 .
       inversion Hmem2;subst; clear Hmem2.
       (* eliminate Hdecode2 *)
       rewrite Hdecode in Hdecode2;inversion Hdecode2;subst; clear Hdecode2.
-      remember (exec (Mov ra (inl w2)) σ1) as c2.
-      destruct ra eqn:Heqra;[contradiction|contradiction|].
+      remember (exec (Mov ra (inl w2)) σ1) as c2 eqn:Heqc2.
+      destruct ra eqn:Heqra;[contradiction|contradiction| rewrite <- Heqra].
       rewrite /gen_vm_interp.
       (* eliminate option_state_unpack *)
       rewrite /exec /mov_word /update_incr_PC in Heqc2.
       rewrite <- (option_state_unpack_preserve_state_Some σ1 (update_offset_PC (update_reg σ1 (R n fin) w2) true 1)) in Heqc2;[|done].
-      (* TODO *)
+      rewrite /update_reg in Heqc2.
+      simplify_eq /=.
+      (* unchanged part *)
+      rewrite -> update_offset_PC_preserve_mem , -> update_reg_global_preserve_mem.
+      rewrite -> update_offset_PC_preserve_tx , -> update_reg_global_preserve_tx.
+      rewrite -> update_offset_PC_preserve_rx , -> update_reg_global_preserve_rx.
+      rewrite -> update_offset_PC_preserve_owned , -> update_reg_global_preserve_owned.
+      rewrite -> update_offset_PC_preserve_access , -> update_reg_global_preserve_access.
+      rewrite -> update_offset_PC_preserve_trans , -> update_reg_global_preserve_trans.
+      rewrite -> update_offset_PC_preserve_receivers , -> update_reg_global_preserve_receivers.
+      iFrame.
+      (* TODO : almost done! the last thing is to update PC and ra*)
       Admitted.
-
-
-
-      (* iAssumption. *)
-      (* intros. *)
-      (* unfold update_offset_PC in H. *)
-      (* simpl in H. *)
-      (* destruct (nat_lt_dec (t + 1) word_size). *)
-      (* inversion H. *)
-      (* rewrite (update_reg_preserve_mem _ PC (nat_to_fin l) ). *)
-      (* rewrite (update_reg_preserve_mem). *)
-
-
-
-
-
-
-    (* iSplitL. *)
-    (* iSplitL "Hmem Hapc". *)
-    (* + inversion stepP; subst; [done | | ]. *)
-      unfold exec in H5.
-      rewrite HPC in H1;inversion H1;subst;clear H1.
-      unfold get_memory in H2.
-      apply fin_to_nat_inj in H.
-      subst i.
-      rewrite Haccess in H2.
-      unfold get_memory_unsafe in H2.
-      rewrite HT in H2;inversion H2;subst; clear H2.
-      rewrite Hdecode in H3;inversion H3;subst; clear H3.
-      unfold exec.
-      unfold mov_word.
-      destruct ra eqn:Heqn;[contradiction|contradiction|].
-      rewrite (option_state_unpack_preserve_mem  σ  ).
-      iAssumption.
-      unfold update_incr_PC.
-      intros.
-      unfold update_offset_PC in H.
-      destruct  (get_vm_reg_file (update_reg σ (R n fin) w2) (get_current_vm (update_reg σ (R n fin) w2)) !! PC).
-      simpl in H.
-      destruct (nat_lt_dec (t + 1) word_size).
-      inversion H.
-      rewrite (update_reg_preserve_mem _ PC (nat_to_fin l) ).
-      rewrite (update_reg_preserve_mem).
-      done.
-      inversion H.
-      simpl in H;inversion H.
-       *      unfold exec in H5.
-      rewrite HPC in H1;inversion H1;subst;clear H1.
-      unfold get_memory in H2.
-      apply fin_to_nat_inj in H.
-      subst i.
-      rewrite Haccess in H2.
-      unfold get_memory_unsafe in H2.
-      rewrite HT in H2;inversion H2;subst; clear H2.
-      rewrite Hdecode in H3;inversion H3;subst; clear H3.
-      unfold mov_word in H5.
-      inversion H5.
-    + iSplitL "Hreg Hpc Hra".
-      * inversion stepP; subst; [done | | ].
-        -- admit.
-        -- admit.
-      * inversion stepP; subst; [done | | ].
-        -- admit.
-        -- admit.
-Admitted.

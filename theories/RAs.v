@@ -1,3 +1,4 @@
+From Coq.Logic Require Import FunctionalExtensionality.
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
 From iris.proofmode Require Import tactics.
@@ -177,35 +178,136 @@ Section definitions.
 (*   reflexivity. *)
 (* Qed. *)
 
-(* Lemma update_reg_update_reg σ r w : get_mem (update_reg σ r w) = get_mem σ. *)
-(* Proof. *)
-(*   unfold update_reg. *)
-(*   apply update_reg_global_preserve_mem. *)
-(* Qed. *)
-
-(* Lemma update_offset_PC_update_reg σ d o : get_mem (update_offset_PC σ d o) = get_mem σ. *)
-(* Proof. *)
-(*   unfold update_offset_PC. *)
-
-(*   destruct (get_vm_reg_file σ (get_current_vm σ) !! PC). *)
-(*   destruct d; rewrite -> update_reg_preserve_mem;done. *)
-(*   done. *)
-(* Qed. *)
-
-
-
   Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
     ra_TXBuffer:=
-    (● (foldr (λ p acc, <[p.1:=p.2]>acc) ∅
-              (vzip_with (λ v δ, (v,to_agree (f δ.1.2))) (vector_of_vmids) (get_vm_states σ)))).
+    (● (list_to_map (map (λ v, (v,to_agree (f (get_vm_mail_box σ v)))) (list_of_vmids) )
+    )).
+
+  Definition get_tx_agree σ := get_txrx_auth_agree σ (λ p, p.1).
+
+  Lemma update_reg_global_preserve_tx σ i r w : get_tx_agree (update_reg_global σ i r w) =
+                                               (get_tx_agree σ).
+  Proof.
+    rewrite /get_tx_agree /get_txrx_auth_agree.
+    f_equal.
+    f_equal.
+    f_equal.
+    apply functional_extensionality.
+    intros.
+    rewrite /update_reg_global /get_vm_mail_box.
+    destruct (decide (i=x)).
+    - subst x.
+      destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite -> (vlookup_insert i _  σ.1.1.1).
+    - destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite vlookup_insert_ne;[done|].
+    Qed.
+
+  Lemma update_offset_PC_preserve_tx σ d o : get_tx_agree (update_offset_PC σ d o) = get_tx_agree σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    destruct d; rewrite /update_reg update_reg_global_preserve_tx;done.
+    done.
+  Qed.
+
+  Definition get_rx_agree σ := get_txrx_auth_agree σ (λ p, p.2.1.1).
+
+Lemma update_reg_global_preserve_rx1 σ i r w : get_rx_agree (update_reg_global σ i r w) =
+                                               (get_rx_agree σ).
+  Proof.
+    rewrite /get_rx_agree /get_txrx_auth_agree.
+    f_equal.
+    f_equal.
+    f_equal.
+    apply functional_extensionality.
+    intros.
+    rewrite /update_reg_global /get_vm_mail_box.
+    destruct (decide (i=x)).
+    - subst x.
+      destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite -> (vlookup_insert i _  σ.1.1.1).
+    - destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite vlookup_insert_ne;[done|].
+    Qed.
+
+  Lemma update_offset_PC_preserve_rx1 σ d o : get_rx_agree (update_offset_PC σ d o) = get_rx_agree σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    destruct d; rewrite /update_reg update_reg_global_preserve_rx1;done.
+    done.
+  Qed.
 
 
-  Definition get_rx_state δ :(optionO (prodO natO (leibnizO HypVeri.lang.vmid))):=
-    let mb := δ.1.2 in
-    match mb.2.2 with
-      | Some j => (Some (0, j))
-      | None => None
-    end.
+  Definition get_rx_gmap σ :=
+    (Some (gmap_view_auth 1
+            ((list_to_map (map (λ v, let mb := (get_vm_mail_box σ v) in
+                                    match mb.2.2 with
+                                      | Some j => (v, (Some (0, j)))
+                                      | None => (v,None)
+                                    end) (list_of_vmids))): (gmap vmid (optionO (prodO natO (leibnizO vmid))) )))).
+
+  Lemma update_reg_global_preserve_rx2 σ i r w : get_rx_gmap (update_reg_global σ i r w) =
+                                               (get_rx_gmap σ).
+  Proof.
+    rewrite /get_rx_gmap /get_txrx_auth_agree.
+    f_equal.
+    f_equal.
+    f_equal.
+    f_equal.
+    apply functional_extensionality.
+    intros.
+    rewrite /update_reg_global /get_vm_mail_box.
+    destruct (decide (i=x)).
+    - subst x.
+      destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite -> (vlookup_insert i _  σ.1.1.1).
+    - destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite vlookup_insert_ne;[done|].
+    Qed.
+
+  Lemma update_offset_PC_preserve_rx2 σ d o : get_rx_gmap (update_offset_PC σ d o) = get_rx_gmap σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    destruct d; rewrite /update_reg update_reg_global_preserve_rx2;done.
+    done.
+  Qed.
+
+
+  (* TODO: the proofs above are identical *)
+
+  Lemma update_reg_global_preserve_rx σ i r w : (get_rx_agree (update_reg_global σ i r w), get_rx_gmap (update_reg_global σ i r w)) =
+                                               (get_rx_agree σ, get_rx_gmap σ).
+  Proof.
+    by rewrite update_reg_global_preserve_rx1 update_reg_global_preserve_rx2.
+  Qed.
+
+Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ d o), get_rx_gmap (update_offset_PC σ d o) ) =
+                                               (get_rx_agree σ, get_rx_gmap σ).
+  Proof.
+    by rewrite update_offset_PC_preserve_rx1 update_offset_PC_preserve_rx2 .
+  Qed.
+
    (* HACK : don't know why *)
    (* match perm.1 with *)
    (*                | Owned => s ⊎ {[ p ]} *)
@@ -261,16 +363,44 @@ Section definitions.
   (* XXX: another attempt: *)
 
   Definition get_owned_gmap σ : (authR (gmapUR vmid (prodR dfracR (gset_disjUR pid)))) :=
-    (● (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅
-              (vzip_with (λ v δ, (v,
-                    (map_fold (λ (p:pid) (perm:permission) (s: gset_disjUR pid),
-                  match perm.1 with
-                  | Owned =>  match s with
-                                | GSet s' => GSet (s' ∪ {[p]})
-                                | GSetBot => GSet ∅
-                              end
-                  | Unowned => s
-                 end)  (GSet ∅) δ.2))) (vector_of_vmids) (get_vm_states σ)))).
+    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
+        (GSet ((list_to_set (map (λ (p:(pid*permission)), p.1)
+           (map_to_list (filter (λ p, (is_owned p.2) = true) (get_vm_page_table σ v)))))
+                         : gset pid))))) (list_of_vmids)))).
+
+  Lemma update_reg_global_preserve_owned σ i r w : get_owned_gmap (update_reg_global σ i r w) =
+                                               (get_owned_gmap σ).
+  Proof.
+    rewrite /get_owned_gmap.
+    f_equal.
+    f_equal.
+    f_equal.
+    apply functional_extensionality.
+    intros.
+    rewrite /update_reg_global /get_vm_page_table.
+    destruct (decide (i=x)).
+    - subst x.
+      destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite -> (vlookup_insert i _  σ.1.1.1).
+    - destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite vlookup_insert_ne;[done|].
+    Qed.
+
+  Lemma update_offset_PC_preserve_owned σ d o : get_owned_gmap (update_offset_PC σ d o) = get_owned_gmap σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    destruct d; rewrite /update_reg update_reg_global_preserve_owned;done.
+    done.
+  Qed.
+
+
 
   (* Definition get_access_gmap σ : ra_Accessible := *)
   (*   (●  (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅ *)
@@ -300,34 +430,110 @@ Section definitions.
            (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v)))))
                          : gset pid))))) (list_of_vmids)))).
 
+ Lemma update_reg_global_preserve_access σ i r w : get_access_gmap (update_reg_global σ i r w) =
+                                               (get_access_gmap σ).
+  Proof.
+    rewrite /get_access_gmap.
+    f_equal.
+    f_equal.
+    f_equal.
+    apply functional_extensionality.
+    intros.
+    rewrite /update_reg_global /get_vm_page_table.
+    destruct (decide (i=x)).
+    - subst x.
+      destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite -> (vlookup_insert i _  σ.1.1.1).
+    - destruct (get_vm_state σ i).
+      destruct p.
+      rewrite /get_vm_state /get_vm_states.
+      simpl.
+      by rewrite vlookup_insert_ne;[done|].
+    Qed.
+
+  Lemma update_offset_PC_preserve_access σ d o : get_access_gmap (update_offset_PC σ d o) = get_access_gmap σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    destruct d; rewrite /update_reg update_reg_global_preserve_access;done.
+    done.
+  Qed.
 
   (* TODO: a new exclusive ra*)
 
 
-  Program Fixpoint vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
+  Fixpoint vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
     (foldr (λ p acc, <[p.1:=p.2]>acc) ∅
            (vzip_with (λ v s, (v,s)) (vector_of_vmids) vec)).
   (* TODO we need getters for transations.. *)
   Definition get_trans_gmap σ : gmap word (vmid * word * word  * (gmap vmid (listset_nodup pid)) * transaction_type):=
-    (map_fold (λ (h:word) (trans: transaction) m,
-                  <[h:=((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.1.2), (vec_to_gmap trans.1.2)), trans.2)]>m
-      ) ∅ (get_transactions σ)).
-  
+    list_to_map (map (λ (p:word * transaction) ,
+                      let trans := p.2 in
+                  (p.1,((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.1.2), (vec_to_gmap trans.1.2)), trans.2))
+      )  (map_to_list (get_transactions σ))).
+
+
+ Lemma update_reg_global_preserve_trans σ i r w : get_trans_gmap (update_reg_global σ i r w) =
+                                               (get_trans_gmap σ).
+  Proof.
+    rewrite /get_trans_gmap.
+    f_equal.
+    f_equal.
+    f_equal.
+    rewrite /update_reg_global /get_transactions.
+    destruct (get_vm_state σ i).
+    destruct p.
+    by rewrite /get_vm_states.
+  Qed.
+
+  Lemma update_offset_PC_preserve_trans σ d o : get_trans_gmap (update_offset_PC σ d o) = get_trans_gmap σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    destruct d; rewrite /update_reg update_reg_global_preserve_trans;done.
+    done.
+  Qed.
+
+
   Definition get_receivers_gmap σ : authR (gmapUR word (gset_disjR (leibnizO vmid))) :=
-    let transactions := get_transactions σ
-    in ● (map_fold (λ (h : word) (trn : transaction) m, <[h:=GSet (trn.1.1.2)]>m) ∅ transactions).
-  
+    ● (list_to_map (map (λ (p:word * transaction) ,
+                      let trans := p.2 in
+                  (p.1,(GSet trans.1.1.2))) (map_to_list (get_transactions σ)))).
+
+  Lemma update_reg_global_preserve_receivers σ i r w : get_receivers_gmap (update_reg_global σ i r w) =
+                                               (get_receivers_gmap σ).
+  Proof.
+    rewrite /get_receivers_gmap.
+    f_equal.
+    f_equal.
+    f_equal.
+    f_equal.
+    rewrite /update_reg_global /get_transactions.
+    destruct (get_vm_state σ i).
+    destruct p.
+    by rewrite /get_vm_states.
+  Qed.
+
+  Lemma update_offset_PC_preserve_receivers σ d o : get_receivers_gmap (update_offset_PC σ d o) = get_receivers_gmap σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    destruct d; rewrite /update_reg update_reg_global_preserve_receivers;done.
+    done.
+  Qed.
+
+
   Definition gen_vm_interp σ: iProp Σ :=
     let i := (get_current_vm σ) in
     let δ := (get_vm_state σ i) in
       own (gen_num_name vmG) (to_agree vm_count)∗
       ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) ∗
       ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
-      own (gen_tx_name vmG) (get_txrx_auth_agree σ (λ p, p.1)) ∗
-      own (gen_rx_name vmG)
-        ((get_txrx_auth_agree σ (λ p, p.2.1.1)),
-          (Some (gmap_view_auth 1
-            (vec_to_gmap (vmap (get_rx_state) (get_vm_states σ)))))) ∗
+      own (gen_tx_name vmG) (get_tx_agree σ) ∗
+      own (gen_rx_name vmG) ((get_rx_agree σ), (get_rx_gmap σ) )∗
       own (gen_owned_name vmG) (get_owned_gmap σ) ∗
       own (gen_access_name vmG) (get_access_gmap σ) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
@@ -626,6 +832,15 @@ Proof.
     done.
   Qed.
 
+
+  Lemma gen_tx_valid σ i p:
+   TX@ i := p -∗ own (gen_tx_name vmG) (get_tx_agree σ) -∗ ⌜ (get_vm_mail_box σ i).1 = p ⌝.
+  Proof.
+    iIntros "Htx Hσ".
+    rewrite tx_mapsto_eq /mem_mapsto_def.
+    Admitted.
+
+
   (* rules for RX *)
   Lemma rx_split_some i p n (v: vmid):
   RX@ i :=( p ! n , v)  -∗ RX@ i :=( p ! n, v)  ∗ RX@ i := p.
@@ -831,7 +1046,7 @@ Qed.
 
 
 
-       (* TODO : gen_access_valid_Sep, gen_access_valid_set*)
+  (* TODO : gen_access_valid_Sep, gen_access_valid_set*)
 
   (* rules for transactions *)
   Lemma trans_split wh q1 q2 i wf wt m f:
@@ -865,8 +1080,6 @@ Qed.
     iDestruct (retri_split_set wh _ _ Hdisj with "Hr")  as "Hr'".
     done.
   Qed.
-
-
 
 
 End hyp_lang_rules.
