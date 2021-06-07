@@ -100,34 +100,7 @@ Section definitions.
   Implicit Type σ: state.
   Implicit Type δ: vm_state.
 
-  Program Fixpoint vector_of_vmids_aux(n:nat) (H:n<vm_count) : vec vmid (S n):=
-    match n with
-      | S m => (nat_to_fin H) ::: (vector_of_vmids_aux m _)
-      | 0  => (nat_to_fin H):::vnil
-    end.
-  Next Obligation.
-    Proof.
-      intros.
-      lia.
-  Defined.
-
-    Program Definition vector_of_vmids :vec vmid vm_count :=
-    vector_of_vmids_aux (vm_count-1) _.
-    Next Obligation.
-     Proof.
-        simpl.
-        pose proof vm_count_pos.
-        pose vm_count.
-        lia.
-     Qed.
-     Next Obligation.
-       Proof.
-        pose vm_count.
-        pose proof vm_count_pos.
-        lia.
-      Qed.
-
-   Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:=
+  Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:=
     match n with
       | S m => (nat_to_fin H) :: (list_of_vmids_aux m _)
       | 0  => (nat_to_fin H)::nil
@@ -136,38 +109,17 @@ Section definitions.
     Proof.
       intros.
       lia.
-  Defined.
+    Defined.
 
-    Program Definition list_of_vmids :list vmid:=
+  Program Definition list_of_vmids :list vmid:=
     list_of_vmids_aux (vm_count-1) _.
-    Next Obligation.
-     Proof.
-        simpl.
-        pose proof vm_count_pos.
-        pose vm_count.
-        lia.
-     Defined.
-
-     Lemma in_list_of_vmids v: In v list_of_vmids.
-     Proof.
-       induction list_of_vmids eqn:Heqn.
-
-       destruct vm_count eqn:Heqn1.
-
-       unfold list_of_vmids.
-       simpl.
-       apply Fin.case0.
-       destruct v.
-       done.
-       done.
-       unfold list_of_vmids in Heqn.
-       unfold list_of_vmids_aux in Heqn.
-       Admitted.
-
-
-    (* Definition vec_to_gmap{A:Type}{B : cmra}  (vec: vec A vm_count)  : gmapUR vmid B:= *)
-    (* (foldr (λ p acc, <[p.1:=p.2]>acc) ∅ *)
-    (*        (vzip_with (λ v s, (v,s)) (vector_of_vmids) vec)). *)
+  Next Obligation.
+    Proof.
+      simpl.
+      pose proof vm_count_pos.
+      pose vm_count.
+      lia.
+    Defined.
 
     (* hard to prove lemmas for it, because of the use of foldr of vectors. *)
     (*  Definition get_reg_gmap σ: gmap (reg_name * vmid) word := *)
@@ -179,262 +131,245 @@ Section definitions.
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
 
 (* TODO: very ugly proof... to be shorten *)
-Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
+  Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
                                              <[(r,i) := w]>(get_reg_gmap σ).
-Proof.
-  intros.
-  rewrite /get_reg_gmap /update_reg_global.
-  apply map_eq.
-  intro j.
-  destruct( decide (j=(r,i)) ).
-  - subst j.
-    rewrite lookup_insert.
-    apply  elem_of_list_to_map_1'.
-    + intro.
-      rewrite elem_of_list_In in_flat_map .
-      intro H1.
-      destruct H1.
-      destruct H0.
-    apply in_map_iff in H1.
-    destruct H1.
-    destruct H1.
-    apply elem_of_list_In in H2.
-    apply elem_of_map_to_list' in H2.
-    inversion H1;subst;clear H1.
-    unfold get_vm_state in H2.
-    unfold get_vm_reg_file in H2.
-    destruct (get_vm_states σ !!! i) in H2.
-    destruct p.
-    unfold get_vm_state in H2.
-    unfold get_vm_states in H2.
-    simpl in H2.
-    rewrite -> (vlookup_insert i _  σ.1.1.1) in H2.
-    inversion H2;subst.
-    rewrite lookup_insert in H2.
-    by inversion H2.
-   + rewrite elem_of_list_In in_flat_map .
-     exists i.
-     split.
-     * unfold get_reg_gmap in H.
-       unfold is_Some in H.
-       destruct H.
-       apply  elem_of_list_to_map_2 in H.
-       apply elem_of_list_In in H.
-       apply in_flat_map in H.
-       destruct H.
-       destruct H.
-       apply in_map_iff in H0.
-       destruct H0.
-       destruct H0.
-       by inversion H0;subst;clear H0.
-     *  apply in_map_iff.
-        exists (r,w).
-        split;[done|].
-        apply elem_of_list_In.
-        apply elem_of_map_to_list'.
-    unfold get_vm_state.
-    unfold get_vm_reg_file.
-    destruct (get_vm_states σ !!! i).
-    destruct p.
-    unfold get_vm_state.
-    unfold get_vm_states.
-    simpl.
-    rewrite -> (vlookup_insert i _  σ.1.1.1).
-    by rewrite lookup_insert.
-  - destruct ((get_reg_gmap σ) !! j) eqn:Heqn.
-    + rewrite lookup_insert_ne;[|done].
-    unfold get_reg_gmap in Heqn.
-    rewrite -> Heqn.
-    apply  elem_of_list_to_map_1'.
+  Proof.
     intros.
-      apply elem_of_list_In in H0.
-      apply in_flat_map in H0.
-      destruct H0.
-      destruct H0.
-    apply in_map_iff in H1.
-    destruct H1.
-    destruct H1.
-    apply elem_of_list_In in H2.
-    apply elem_of_map_to_list' in H2.
-    inversion H1;subst;clear H1.
-    unfold get_vm_state in H2.
-    unfold get_vm_reg_file in H2.
-    unfold get_vm_state in H2.
-    unfold get_vm_states in H2.
-    simpl in H2.
-    destruct (decide (x=i)).
-    subst x.
-    destruct (decide (x0.1 =r)).
-    subst r. contradiction.
-   apply elem_of_list_to_map_2 in Heqn.
-    apply elem_of_list_In in Heqn.
-      apply in_flat_map in Heqn.
-      destruct Heqn.
-      destruct H1.
-    apply in_map_iff in H3.
-    destruct H3.
-    destruct H3.
-    inversion H3;subst;clear H3.
-    apply elem_of_list_In in H4.
-    apply elem_of_map_to_list' in H4.
-    unfold get_vm_reg_file in H4.
-    unfold get_vm_state in H4.
-    unfold get_vm_states in H4.
-    destruct (σ.1.1.1 !!! i).
-    destruct p.
-    simpl in H2.
-    rewrite -> (vlookup_insert i _  σ.1.1.1) in H2.
-    rewrite lookup_insert_ne in H2.
-    simpl in H4.
-    rewrite H6 in H4.
-    rewrite H2 in H4.
-    by inversion H4.
-    done.
-    rewrite /get_vm_reg_file /get_vm_state /get_vm_states in Heqn.
-    destruct (σ.1.1.1 !!! i).
-    destruct p.
-    simpl in H2.
-    rewrite vlookup_insert_ne in H2;[|done].
-    apply elem_of_list_to_map_2 in Heqn.
-  apply elem_of_list_In in Heqn.
-      apply in_flat_map in Heqn.
-      destruct Heqn.
-      destruct H1.
-    apply in_map_iff in H3.
-    destruct H3.
-    destruct H3.
-    inversion H3;subst;clear H3.
-    apply elem_of_list_In in H4.
-    apply elem_of_map_to_list' in H4.
-    rewrite H6 in H4.
-    rewrite H2 in H4.
-    by inversion H4.
-    rewrite elem_of_list_In in_flat_map .
-    destruct j.
-     exists v.
-     split.
-     *  apply elem_of_list_to_map_2 in Heqn.
-  apply elem_of_list_In in Heqn.
-      apply in_flat_map in Heqn.
-      destruct Heqn.
-      destruct H0.
-    apply in_map_iff in H1.
-    destruct H1.
-    destruct H1.
-    by inversion H1;subst;clear H1.
-     *  apply in_map_iff.
-        exists (r0,w0).
+    rewrite /get_reg_gmap /update_reg_global.
+    apply map_eq.
+    intro j.
+    destruct( decide (j=(r,i)) ).
+    - subst j.
+      rewrite lookup_insert.
+      apply elem_of_list_to_map_1'.
+      + intro.
+        rewrite elem_of_list_In in_flat_map .
+        intro H1.
+        destruct H1.
+        destruct H0.
+        apply in_map_iff in H1.
+        destruct H1.
+        destruct H1.
+        apply elem_of_list_In in H2.
+        apply elem_of_map_to_list' in H2.
+        inversion H1;subst;clear H1.
+        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in H2.
+        destruct (get_vm_states σ !!! i) in H2.
+        destruct p.
+        simpl in H2.
+        rewrite -> (vlookup_insert i _  σ.1.1.1) in H2.
+        inversion H2;subst.
+        rewrite lookup_insert in H2.
+        by inversion H2.
+      + rewrite elem_of_list_In in_flat_map .
+        exists i.
+        split.
+        * rewrite /get_reg_gmap /is_Some in H.
+          destruct H.
+          apply  elem_of_list_to_map_2 in H.
+          apply elem_of_list_In in H.
+          apply in_flat_map in H.
+          destruct H.
+          destruct H.
+          apply in_map_iff in H0.
+          destruct H0.
+          destruct H0.
+          by inversion H0;subst.
+        *  apply in_map_iff.
+           exists (r,w).
+           split;[done|].
+           apply elem_of_list_In.
+           apply elem_of_map_to_list'.
+           rewrite /get_vm_reg_file /get_vm_state /get_vm_states.
+           destruct (get_vm_states σ !!! i).
+           destruct p.
+           simpl.
+           rewrite -> (vlookup_insert i _  σ.1.1.1).
+           by rewrite lookup_insert.
+    - destruct ((get_reg_gmap σ) !! j) eqn:Heqn.
+      + rewrite lookup_insert_ne;[|done].
+        unfold get_reg_gmap in Heqn.
+        rewrite -> Heqn.
+        apply  elem_of_list_to_map_1'.
+        intros.
+        apply elem_of_list_In in H0.
+        apply in_flat_map in H0.
+        destruct H0.
+        destruct H0.
+        apply in_map_iff in H1.
+        destruct H1.
+        destruct H1.
+        apply elem_of_list_In in H2.
+        apply elem_of_map_to_list' in H2.
+        inversion H1;subst;clear H1.
+        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in H2.
+        simpl in H2.
+        destruct (decide (x=i)).
+        subst x.
+        destruct (decide (x0.1 =r));[ subst r; contradiction|].
+        apply elem_of_list_to_map_2 in Heqn.
+        apply elem_of_list_In in Heqn.
+        apply in_flat_map in Heqn.
+        destruct Heqn.
+        destruct H1.
+        apply in_map_iff in H3.
+        destruct H3.
+        destruct H3.
+        inversion H3;subst;clear H3.
+        apply elem_of_list_In in H4.
+        apply elem_of_map_to_list' in H4.
+        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in H4.
+        destruct (σ.1.1.1 !!! i).
+        destruct p.
+        simpl in H2.
+        rewrite -> (vlookup_insert i _  σ.1.1.1) in H2.
+        rewrite lookup_insert_ne in H2.
+        simpl in H4.
+        rewrite H6 in H4.
+        rewrite H2 in H4.
+        by inversion H4.
+        done.
+        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in Heqn.
+        destruct (σ.1.1.1 !!! i).
+        destruct p.
+        simpl in H2.
+        rewrite vlookup_insert_ne in H2;[|done].
+        apply elem_of_list_to_map_2 in Heqn.
+        apply elem_of_list_In in Heqn.
+        apply in_flat_map in Heqn.
+        destruct Heqn.
+        destruct H1.
+        apply in_map_iff in H3.
+        destruct H3.
+        destruct H3.
+        inversion H3;subst;clear H3.
+        apply elem_of_list_In in H4.
+        apply elem_of_map_to_list' in H4.
+        rewrite H6 in H4.
+        rewrite H2 in H4.
+        by inversion H4.
+        rewrite elem_of_list_In in_flat_map .
+        destruct j.
+        exists v.
+        split.
+        * apply elem_of_list_to_map_2 in Heqn.
+          apply elem_of_list_In in Heqn.
+          apply in_flat_map in Heqn.
+          destruct Heqn.
+          destruct H0.
+          apply in_map_iff in H1.
+          destruct H1.
+          destruct H1.
+          by inversion H1;subst;clear H1.
+        * apply in_map_iff.
+          exists (r0,w0).
+          split;[done|].
+          apply elem_of_list_In.
+          apply elem_of_map_to_list'.
+          rewrite  /get_vm_state /get_vm_reg_file.
+          destruct (decide (v=i));subst.
+          destruct (decide (r=r0));subst;[contradiction|].
+          apply elem_of_list_to_map_2 in Heqn.
+          apply elem_of_list_In in Heqn.
+          apply in_flat_map in Heqn.
+          destruct Heqn.
+          destruct H0.
+          apply in_map_iff in H1.
+          destruct H1.
+          destruct H1.
+          inversion H1;subst;clear H1.
+          apply elem_of_list_In in H2.
+          apply elem_of_map_to_list' in H2.
+          rewrite  /get_vm_reg_file /get_vm_state in H2.
+          destruct (get_vm_states σ !!! i).
+          destruct p.
+          unfold get_vm_state.
+          unfold get_vm_states.
+          simpl.
+          rewrite -> (vlookup_insert i _ σ.1.1.1).
+          simpl.
+          by rewrite lookup_insert_ne.
+          simpl.
+          apply elem_of_list_to_map_2 in Heqn.
+          apply elem_of_list_In in Heqn.
+          apply in_flat_map in Heqn.
+          destruct Heqn.
+          destruct H0.
+          apply in_map_iff in H1.
+          destruct H1.
+          destruct H1.
+          inversion H1;subst;clear H1.
+          apply elem_of_list_In in H2.
+          apply elem_of_map_to_list' in H2.
+          rewrite  /get_vm_reg_file /get_vm_state /get_vm_states in H2.
+          destruct (σ.1.1.1 !!! i).
+          destruct p.
+          rewrite /get_vm_state /get_vm_states.
+          simpl.
+          by rewrite vlookup_insert_ne.
+      + rewrite lookup_insert_ne;[|done].
+        unfold get_reg_gmap in Heqn.
+        rewrite Heqn.
+        rewrite /get_vm_reg_file /get_vm_state /get_vm_states.
+        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in Heqn.
+        destruct j.
+        apply not_elem_of_list_to_map_2 in Heqn.
+        apply not_elem_of_list_to_map_1.
+        intro.
+        apply elem_of_list_In in H0.
+        apply in_map_iff in H0.
+        destruct H0.
+        destruct H0.
+        apply in_flat_map in H1.
+        destruct H1;destruct H1.
+        apply in_map_iff in H2.
+        destruct H2;destruct H2.
+        apply elem_of_list_In in H3.
+        apply elem_of_map_to_list' in H3.
+        simplify_eq /=.
+        destruct (decide (v=i)).
+        apply Heqn.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        exists (x1.1,v,x1.2).
+        split;[done|].
+        apply in_flat_map.
+        exists v.
+        split;[done|].
+        apply in_map_iff.
+        exists (x1.1, x1.2).
         split;[done|].
         apply elem_of_list_In.
         apply elem_of_map_to_list'.
-    unfold get_vm_state.
-    unfold get_vm_reg_file.
-       destruct (decide (v=i));subst.
-    destruct (decide (r=r0));subst;[contradiction|].
-
-    apply elem_of_list_to_map_2 in Heqn.
-  apply elem_of_list_In in Heqn.
-      apply in_flat_map in Heqn.
-      destruct Heqn.
-      destruct H0.
-    apply in_map_iff in H1.
-    destruct H1.
-    destruct H1.
-    inversion H1;subst;clear H1.
-    apply elem_of_list_In in H2.
-    apply elem_of_map_to_list' in H2.
-    rewrite  /get_vm_reg_file /get_vm_state in H2.
-     destruct (get_vm_states σ !!! i).
-    destruct p.
-    unfold get_vm_state.
-    unfold get_vm_states.
-    simpl.
-    rewrite -> (vlookup_insert i _ σ.1.1.1).
-    simpl.
-    by rewrite lookup_insert_ne.
-    simpl.
- apply elem_of_list_to_map_2 in Heqn.
-  apply elem_of_list_In in Heqn.
-      apply in_flat_map in Heqn.
-      destruct Heqn.
-      destruct H0.
-    apply in_map_iff in H1.
-    destruct H1.
-    destruct H1.
-    inversion H1;subst;clear H1.
-    apply elem_of_list_In in H2.
-    apply elem_of_map_to_list' in H2.
-    rewrite  /get_vm_reg_file /get_vm_state in H2.
-     destruct (get_vm_states σ !!! i).
-    destruct p.
-    unfold get_vm_state.
-    unfold get_vm_states.
-    simpl.
-    by rewrite vlookup_insert_ne.
-    +    rewrite lookup_insert_ne;[|done].
-    unfold get_reg_gmap in Heqn.
-    rewrite Heqn.
-    rewrite /get_vm_reg_file /get_vm_state /get_vm_states.
-    rewrite /get_vm_reg_file /get_vm_state /get_vm_states in Heqn.
-        destruct j.
-    apply not_elem_of_list_to_map_2 in Heqn.
-    apply not_elem_of_list_to_map_1.
-    intro.
-    apply elem_of_list_In in H0.
-    apply in_map_iff in H0.
-    destruct H0.
-    destruct H0.
-    apply in_flat_map in H1.
-    destruct H1;destruct H1.
-    apply in_map_iff in H2.
-    destruct H2;destruct H2.
-    apply elem_of_list_In in H3.
-    apply elem_of_map_to_list' in H3.
-    simplify_eq /=.
-    destruct (decide (v=i)).
-
-    apply Heqn.
-    apply elem_of_list_In.
-     apply in_map_iff.
-     exists (x1.1,v,x1.2).
-     split;[done|].
-    apply in_flat_map.
-    exists v.
-    split;[done|].
-    apply in_map_iff.
-    exists (x1.1, x1.2).
-    split;[done|].
-    apply elem_of_list_In.
-    apply elem_of_map_to_list'.
-    simplify_eq /=.
-    rewrite  -H3.
-    destruct (σ.1.1.1 !!! i).
-    destruct p.
-    simpl.
-    rewrite (vlookup_insert i _ σ.1.1.1).
-    simpl.
-    destruct (decide (r = x1.1));[subst;contradiction|].
-    by rewrite lookup_insert_ne.
-    apply Heqn.
-    apply elem_of_list_In.
-     apply in_map_iff.
-     exists (x1.1,v,x1.2).
-     split;[done|].
-    apply in_flat_map.
-    exists v.
-    split;[done|].
-    apply in_map_iff.
-    exists (x1.1, x1.2).
-    split;[done|].
-    apply elem_of_list_In.
-    apply elem_of_map_to_list'.
-    simplify_eq /=.
-    rewrite  -H3.
-    destruct (σ.1.1.1 !!! i).
-    destruct p.
-    simpl.
-    by rewrite vlookup_insert_ne.
-Qed.
+        simplify_eq /=.
+        rewrite  -H3.
+        destruct (σ.1.1.1 !!! i).
+        destruct p.
+        simpl.
+        rewrite (vlookup_insert i _ σ.1.1.1).
+        simpl.
+        destruct (decide (r = x1.1));[subst;contradiction|].
+        by rewrite lookup_insert_ne.
+        apply Heqn.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        exists (x1.1,v,x1.2).
+        split;[done|].
+        apply in_flat_map.
+        exists v.
+        split;[done|].
+        apply in_map_iff.
+        exists (x1.1, x1.2).
+        split;[done|].
+        apply elem_of_list_In.
+        apply elem_of_map_to_list'.
+        simplify_eq /=.
+        rewrite  -H3.
+        destruct (σ.1.1.1 !!! i).
+        destruct p.
+        simpl.
+        by rewrite vlookup_insert_ne.
+  Qed.
 
 (* TODO: how to specify this lemma? *)
 (* Lemma update_PC_offset_update_reg σ  *)
