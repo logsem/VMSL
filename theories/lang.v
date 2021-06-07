@@ -199,25 +199,37 @@ Definition get_memory_with_offset (st : state) (base : addr) (offset : nat) : op
   addr <- addr_offset base offset ;;;
   get_memory st addr.
 
-Definition update_offset_PC (st : state) (dir : bool) (offset : nat) : option state :=
-  bind ((get_vm_reg_file st (get_current_vm st)) !! PC)
-       (fun v =>
+Program Definition update_offset_PC (st : state) (dir : bool) (offset : nat) :  state :=
+  match ((get_vm_reg_file st (get_current_vm st)) !! PC) with
+   | Some v =>
           let v' := fin_to_nat v in
           if dir
           then
-            match (nat_lt_dec (v' + offset) word_size) with
-            | left l => Some (update_reg st PC (@nat_to_fin (v' + offset) _ l))
-            | _ => None
-            end
+          (update_reg st PC (@nat_to_fin ((v' + offset) mod word_size) _ _))
           else
-            match (nat_lt_dec (v' - offset) word_size) with
-            | left l => Some (update_reg st PC (@nat_to_fin (v' - offset) _ l))
-            | _ => None
-            end
-       ).
+          (update_reg st PC (@nat_to_fin ((v' - offset) mod word_size) _ _)) (* TODO: v'-offset = 0 if offset> v'*)
+   | None => st
+   end.
+
+Next Obligation.
+Proof.
+  intros.
+  apply mod_bound_pos.
+  lia.
+  pose proof word_size_at_least.
+  lia.
+  Defined.
+Next Obligation.
+Proof.
+  intros.
+  apply mod_bound_pos.
+  lia.
+  pose proof word_size_at_least.
+  lia.
+  Defined.
 
 Definition update_incr_PC (st : state) : option state :=
-  update_offset_PC st true 1.
+  Some (update_offset_PC st true 1).
 
 Definition is_valid_PC (st : state) : option bool :=
   w <- get_reg st PC ;;;
@@ -231,18 +243,28 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
   | Some s => (ExecI, s)
   end.
 
-Lemma option_state_unpack_preserve_mem σ σ1:
-  (forall σ', σ1 =  Some σ' -> get_mem σ = get_mem σ') -> (get_mem (option_state_unpack σ σ1).2)= get_mem σ.
+
+Lemma option_state_unpack_preserve_state_Some σ1 σ2 σ2' :
+  σ2' = Some σ2 ->  (ExecI, σ2) = (option_state_unpack σ1 σ2').
 Proof.
   intros.
-  destruct σ1.
-
-  rewrite (H s).
-  reflexivity.
-  reflexivity.
-  simpl.
-  reflexivity.
+  destruct σ2' eqn:Heqn.
+  inversion H; subst.
+  done.
+  done.
 Qed.
+
+(* Lemma option_state_unpack_preserve_mem σ σ1: *)
+(*   (forall σ', σ1 =  Some σ' -> get_mem σ = get_mem σ') -> (get_mem (option_state_unpack σ σ1).2)= get_mem σ. *)
+(* Proof. *)
+(*   intros. *)
+(*   destruct σ1. *)
+(*   rewrite (H s). *)
+(*   reflexivity. *)
+(*   reflexivity. *)
+(*   simpl. *)
+(*   reflexivity. *)
+(* Qed. *)
 
 Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
 Proof.
@@ -258,6 +280,18 @@ Proof.
   apply update_reg_global_preserve_mem.
 Qed.
 
+Lemma update_offset_PC_preserve_mem σ d o : get_mem (update_offset_PC σ d o) = get_mem σ.
+Proof.
+  unfold update_offset_PC.
+
+  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct d; rewrite -> update_reg_preserve_mem;done.
+  done.
+Qed.
+
+
+
+
 Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_mode := 
   let comp :=
       match dst with
@@ -267,6 +301,8 @@ Definition mov_word (s : state) (dst : reg_name) (src : word) : conf * control_m
       end
     in
     (option_state_unpack s comp, NormalM).
+
+Arguments mov_word _ !_ _.
 
 Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : conf * control_mode :=
   let comp :=
@@ -946,6 +982,8 @@ Definition exec (i : instruction) (s : state) : conf * control_mode :=
   | Hvc => hvc s
   end.
 
+Arguments exec !_ _.
+
 Inductive step : exec_mode -> state -> exec_mode -> state -> Prop :=
 | step_exec_fail:
     forall st,
@@ -984,5 +1022,5 @@ Proof.
   intros st; destruct st; reflexivity.
 Qed.
 
-Inductive scheduler : state → nat → Prop :=
-| schedule σ i : (get_current_vm σ) = i -> scheduler σ i.
+Definition scheduler : state → nat → Prop :=
+λ σ i,  (fin_to_nat (get_current_vm σ)) = i.

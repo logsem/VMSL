@@ -165,6 +165,35 @@ Section definitions.
   Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
 
+
+(* Lemma update_reg_global_update_reg σ i r w : get_reg_gmap (update_reg_global σ i r w) = *)
+(*                                              <[(r,i) := w]>(get_reg_gmap σ). *)
+(* Proof. *)
+(*   unfold update_reg_global, get_reg_gmap. *)
+
+(*   simpl. *)
+(*   destruct (get_vm_state σ i). *)
+(*   destruct p. *)
+(*   reflexivity. *)
+(* Qed. *)
+
+(* Lemma update_reg_update_reg σ r w : get_mem (update_reg σ r w) = get_mem σ. *)
+(* Proof. *)
+(*   unfold update_reg. *)
+(*   apply update_reg_global_preserve_mem. *)
+(* Qed. *)
+
+(* Lemma update_offset_PC_update_reg σ d o : get_mem (update_offset_PC σ d o) = get_mem σ. *)
+(* Proof. *)
+(*   unfold update_offset_PC. *)
+
+(*   destruct (get_vm_reg_file σ (get_current_vm σ) !! PC). *)
+(*   destruct d; rewrite -> update_reg_preserve_mem;done. *)
+(*   done. *)
+(* Qed. *)
+
+
+
   Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
     ra_TXBuffer:=
     (● (foldr (λ p acc, <[p.1:=p.2]>acc) ∅

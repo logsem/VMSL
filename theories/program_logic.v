@@ -112,11 +112,11 @@ Proof.
   iIntros (Hdecode HneqPC HneqNZ) "(Hpc & Hapc & Hacc & Hra)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
-  inversion Hsche.
-  subst i0 σ1.
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
-  iDestruct ((gen_reg_valid_Sep σ (get_current_vm σ) (<[(PC,i):=a]>{[(ra,i):=w3]}))
+  iDestruct ((gen_reg_valid_Sep σ1 (get_current_vm σ1) (<[(PC,i):=a]>{[(ra,i):=w3]}))
                with "Hreg [Hpc Hra]") as "%Hreg".
   done.
   iApply (big_sepM_delete _ _ (PC,i) a).
@@ -137,79 +137,93 @@ Proof.
   rewrite delete_insert.
   rewrite delete_insert; auto using lookup_empty.
   apply lookup_insert_None; split; auto using lookup_empty.
-  intros P; inversion P.
-  symmetry in H1.
-  contradiction.
-  Check gen_access_valid.
-  iDestruct (gen_access_valid σ i q (mm_translation a) with "Haccess Hacc") as %Hacc .
-  assert (HPC : get_reg σ PC = Some a).
+  intros P; by inversion P.
+  iDestruct (gen_access_valid σ1 i q (mm_translation a) with "Haccess Hacc") as %Hacc .
+  assert (HPC : get_reg σ1 PC = Some a).
   {
-    apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
-    simpl.
-    symmetry.
-    apply fin_to_nat_inj.
-    exact H.
+    by apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
   }
-  assert (Hra : get_reg σ ra = Some w3).
+  assert (Hra : get_reg σ1 ra = Some w3).
   {
     apply (Hreg (ra, i) w3).
     rewrite lookup_insert_Some.
     right.
     split.
     intros P; inversion P; contradiction.
-    apply (lookup_insert _ (ra, i) w3).
-    simpl.
-    symmetry.
-    apply fin_to_nat_inj.
-    exact H.
+    by apply (lookup_insert _ (ra, i) w3).
+    done.
   }
-  assert (Haccess: (check_access_addr σ i a) = true).
+  assert (Haccess: (check_access_addr σ1 i a) = true).
   {
-    unfold check_access_addr.
-    assumption.
+    by unfold check_access_addr.
   }
-  iDestruct (gen_mem_valid σ a w1 with "Hmem Hapc") as "%HT".
+  iDestruct (gen_mem_valid σ1 a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
   iPureIntro.
-  remember (exec (Mov ra (inl w2)) σ) as ex.
-  exists ex.1.1.
-  exists ex.1.2.
+  remember (exec (Mov ra (inl w2)) σ1) as ex.
+  exists ex.1.1, ex.1.2.
   unfold prim_step.
-  simpl.
-    apply fin_to_nat_inj in H.
   apply step_exec_normal with a w1 (Mov ra (inl w2)).
-  - unfold is_valid_PC. rewrite HPC.
-    simpl.
+  - rewrite /is_valid_PC HPC /=.
     subst i.
-    rewrite Haccess.
-    done.
-  - apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
-    simpl.
-    symmetry.
-    exact H.
+    by rewrite Haccess.
+  - by apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
   - unfold get_memory.
     subst i.
-    rewrite Haccess.
-    simpl.
-    unfold get_memory_unsafe.
-    assumption.
-  - assumption.
-  - symmetry; assumption.
+    by rewrite Haccess.
+  - done.
+  - by symmetry.
   - simpl in Heqex.
     destruct ra; try contradiction.
     unfold mov_word in Heqex.
-    rewrite Heqex.
-    reflexivity.
+    by rewrite Heqex.
   - iModIntro.
-    iIntros (m2 σ2) "%stepP".
+    iIntros (m2 σ2) "%HstepP".
     iModIntro.
-    iSplit; [| done].
-    simpl.
-    unfold gen_vm_interp.
-    iSplit; [done |].
-    iSplitL "Hmem Hapc".
-    + inversion stepP; subst; [done | | ].
-       * unfold exec in H5.
+    inversion HstepP as
+        [ σ1' Hnotvalid
+        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol
+        | HstepYield]; simplify_eq /=.
+    +  (*Fail*)
+      rewrite /is_valid_PC /= in Hnotvalid.
+      by rewrite -> HPC ,Haccess in Hnotvalid.
+    + (* Normal. *)
+      (* eliminate Hmem2 *)
+      rewrite /get_memory Haccess /get_memory_unsafe Hmem in Hmem2 .
+      inversion Hmem2;subst; clear Hmem2.
+      (* eliminate Hdecode2 *)
+      rewrite Hdecode in Hdecode2;inversion Hdecode2;subst; clear Hdecode2.
+      remember (exec (Mov ra (inl w2)) σ1) as c2.
+      destruct ra eqn:Heqra;[contradiction|contradiction|].
+      rewrite /gen_vm_interp.
+      (* eliminate option_state_unpack *)
+      rewrite /exec /mov_word /update_incr_PC in Heqc2.
+      rewrite <- (option_state_unpack_preserve_state_Some σ1 (update_offset_PC (update_reg σ1 (R n fin) w2) true 1)) in Heqc2;[|done].
+      (* TODO *)
+
+
+
+
+      iAssumption.
+      intros.
+      unfold update_offset_PC in H.
+      simpl in H.
+      destruct (nat_lt_dec (t + 1) word_size).
+      inversion H.
+      rewrite (update_reg_preserve_mem _ PC (nat_to_fin l) ).
+      rewrite (update_reg_preserve_mem).
+
+
+
+
+
+
+    (* perform updating here *)
+    rewrite /gen_vm_interp.
+    (* iSplitL. *)
+    (* iSplitL "Hmem Hapc". *)
+    (* + inversion stepP; subst; [done | | ]. *)
+      unfold exec in H5.
       rewrite HPC in H1;inversion H1;subst;clear H1.
       unfold get_memory in H2.
       apply fin_to_nat_inj in H.
