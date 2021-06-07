@@ -161,7 +161,7 @@ Proof.
   iSplit.
   iPureIntro.
   remember (exec (Mov ra (inl w2)) σ1) as ex.
-  exists ex.1.1, ex.1.2.
+  exists ex.1, ex.2.
   unfold prim_step.
   apply step_exec_normal with a w1 (Mov ra (inl w2)).
   - rewrite /is_valid_PC HPC /=.
@@ -173,18 +173,13 @@ Proof.
     by rewrite Haccess.
   - done.
   - by symmetry.
-  - simpl in Heqex.
-    destruct ra; try contradiction.
-    unfold mov_word in Heqex.
-    by rewrite Heqex.
   - iModIntro.
     iIntros (m2 σ2) "%HstepP".
     iModIntro.
     inversion HstepP as
         [ σ1' Hnotvalid
-        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol
-        | HstepYield]; simplify_eq /=.
-    +  (*Fail*)
+        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol]; simplify_eq /=.
+    + (*Fail*)
       rewrite /is_valid_PC /= in Hnotvalid.
       by rewrite -> HPC ,Haccess in Hnotvalid.
     + (* Normal. *)
@@ -200,26 +195,24 @@ Proof.
       rewrite /exec /mov_word /update_incr_PC in Heqc2.
       rewrite <- (option_state_unpack_preserve_state_Some σ1 (update_offset_PC (update_reg σ1 (R n fin) w2) true 1)) in Heqc2;[|done].
       (* TODO *)
+      Admitted.
+
+
+
+      (* iAssumption. *)
+      (* intros. *)
+      (* unfold update_offset_PC in H. *)
+      (* simpl in H. *)
+      (* destruct (nat_lt_dec (t + 1) word_size). *)
+      (* inversion H. *)
+      (* rewrite (update_reg_preserve_mem _ PC (nat_to_fin l) ). *)
+      (* rewrite (update_reg_preserve_mem). *)
 
 
 
 
-      iAssumption.
-      intros.
-      unfold update_offset_PC in H.
-      simpl in H.
-      destruct (nat_lt_dec (t + 1) word_size).
-      inversion H.
-      rewrite (update_reg_preserve_mem _ PC (nat_to_fin l) ).
-      rewrite (update_reg_preserve_mem).
 
 
-
-
-
-
-    (* perform updating here *)
-    rewrite /gen_vm_interp.
     (* iSplitL. *)
     (* iSplitL "Hmem Hapc". *)
     (* + inversion stepP; subst; [done | | ]. *)
