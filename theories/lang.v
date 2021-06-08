@@ -35,12 +35,6 @@ Definition mail_box : Type :=
 
 Definition current_vm := vmid.
 
-Definition vm_state : Type :=
-  reg_file * mail_box * page_table.
-
-Definition vm_states : Type :=
-  vec vm_state vm_count.
-
 Definition transaction : Type :=
   vmid (* sender *)
   * word (*flag *)
@@ -55,12 +49,9 @@ Definition transactions : Type :=
   gmap handle transaction.
 
 Definition state : Type :=
-  vm_states * current_vm * mem * transactions.
+  vec reg_file vm_count * vec mail_box vm_count * vec page_table vm_count * current_vm * mem * transactions.
 
 (* Getters *)
-
-Definition get_vm_states (st : state) : vm_states :=
-  fst (fst (fst st)).
 
 Definition get_current_vm (st : state) : current_vm :=
   snd (fst (fst st)).
@@ -71,17 +62,23 @@ Definition get_mem (st : state) : mem :=
 Definition get_transactions (st : state) : transactions :=
   snd st.
 
-Definition get_vm_state (st : state) (v : vmid) : vm_state :=
-  (get_vm_states st) !!! v.
+Definition get_reg_files (st : state) : vec reg_file vm_count :=
+  fst (fst (fst (fst (fst st)))).
 
 Definition get_vm_reg_file (st : state) (v : vmid) : reg_file :=
-  fst (fst (get_vm_state st v)).
+  (get_reg_files st) !!! v.
+
+Definition get_mail_boxes (st : state) : vec mail_box vm_count :=
+  snd (fst (fst (fst (fst st)))).
 
 Definition get_vm_mail_box (st : state) (v : vmid) : mail_box :=
-  snd (fst (get_vm_state st v)).
+  (get_mail_boxes st) !!! v.
+
+Definition get_page_tables (st : state) : vec page_table vm_count :=
+  snd (fst (fst (fst st))).
 
 Definition get_vm_page_table (st : state) (v : vmid) : page_table :=
-  snd (get_vm_state st v).
+  (get_page_tables st) !!! v.
 
 (* Conf *)
 
@@ -89,9 +86,6 @@ Inductive exec_mode : Type :=
 | ExecI
 | HaltI
 | FailI.
-
-
-Definition conf : Type := exec_mode * state.
 
 (* Aux funcs *)
 
@@ -127,12 +121,9 @@ Definition check_ownership_addr (st : state) (v : vmid) (a : addr) : bool :=
   check_ownership_page st v (mm_translation a).
 
 Definition update_reg_global (st : state) (v : vmid) (r : reg_name) (w : word) : state :=
-  match get_vm_state st v with
-    (rf, mb, pt) =>
-    (vinsert v (<[r:=w]>rf, mb, pt) (get_vm_states st),
-     get_current_vm st,
-     get_mem st, get_transactions st)
-  end.
+  (vinsert v (<[r:=w]>(get_vm_reg_file st v)) (get_reg_files st), (get_mail_boxes st), (get_page_tables st),
+   get_current_vm st,
+   get_mem st, get_transactions st).
 
 Definition update_reg (st : state) (r : reg_name) (w : word) : state :=
   update_reg_global st (get_current_vm st) r w.
@@ -144,12 +135,9 @@ Definition get_reg (st : state) (r : reg_name) : option word :=
   get_reg_global st (get_current_vm st) r.
 
 Definition update_page_table_global (st : state) (v : vmid) (p : pid) (pm : permission) : state :=
-  match get_vm_state st v with
-  | (rf, mb, pt) =>
-    (vinsert v (rf, mb, <[p:=pm]>pt) (get_vm_states st),
-     get_current_vm st,
-     get_mem st, get_transactions st)
-  end.
+  (get_reg_files st, get_mail_boxes st, vinsert v (<[p:=pm]>(get_vm_page_table st v)) (get_page_tables st),
+   get_current_vm st,
+   get_mem st, get_transactions st).
 
 Definition update_page_table (st : state) (p : pid) (pm : permission) : state :=
   update_page_table_global st (get_current_vm st) p pm.
@@ -161,7 +149,7 @@ Definition get_page_table (st : state) (p : pid) : option permission :=
   get_page_table_global st (get_current_vm st) p.
                 
 Definition update_memory_unsafe (st : state) (a : addr) (w : word) : state :=
-  (get_vm_states st, get_current_vm st, <[a:=w]>(get_mem st), get_transactions st).
+  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, <[a:=w]>(get_mem st), get_transactions st).
 
 Definition update_memory (st : state) (a : addr) (w : word) : option state :=
   if check_access_addr st (get_current_vm st) a
@@ -234,7 +222,7 @@ Definition is_valid_PC (st : state) : option bool :=
   (* Some (andb (check_access_addr st (get_current_vm st) w) (check_access_addr st (get_current_vm st) w')). *)
   Some (check_access_addr st (get_current_vm st) w).
 
-Definition option_state_unpack (oldSt : state) (newSt : option state) : conf :=
+Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mode * state :=
   match newSt with
   | None => (FailI, oldSt)
   | Some s => (ExecI, s)
@@ -265,8 +253,7 @@ Qed.
 Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
 Proof.
   unfold update_reg_global, get_mem.
-  destruct (get_vm_state σ i).
-  destruct p.
+  simpl.
   reflexivity.
 Qed.
 
@@ -286,7 +273,7 @@ Proof.
 Qed.
 
 
-Definition mov_word (s : state) (dst : reg_name) (src : word) : conf :=
+Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * state :=
   let comp :=
       match dst with
       | PC => None
@@ -296,7 +283,7 @@ Definition mov_word (s : state) (dst : reg_name) (src : word) : conf :=
     in
     (option_state_unpack s comp).
 
-Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : conf :=
+Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   let comp :=
       match (dst, src) with
       | (R _ _, R _ _) =>
@@ -307,7 +294,7 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : conf :=
     in
   (option_state_unpack s comp).
 
-Definition ldr (s : state) (dst : reg_name) (src : reg_name) : conf  :=
+Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   let comp :=
       match (dst, src) with
       | (R _ _, R _ _) =>
@@ -319,7 +306,7 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : conf  :=
   in
   (option_state_unpack s comp).
 
-Definition str (s : state) (src : reg_name) (dst : reg_name) : conf :=
+Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state :=
   let comp :=
       match (src, dst) with
         | (R _ _, R _ _) =>
@@ -342,7 +329,7 @@ Ltac solveRegCount :=
   unfold reg_count_lower_bound in G;
   lia.
 
-Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : conf :=
+Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : exec_mode * state :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2)) with
@@ -354,7 +341,7 @@ Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : conf :
   (option_state_unpack s comp).
 Solve Obligations with solveWordSize.
 
-Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : conf :=
+Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
@@ -367,7 +354,7 @@ Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : con
   (option_state_unpack s comp).
 Solve Obligations with solveWordSize.
 
-Definition jnz (s : state) (arg : reg_name) : conf :=
+Definition jnz (s : state) (arg : reg_name) : exec_mode * state :=
   let comp :=
       arg' <- get_reg s arg ;;;
       nz <- get_reg s NZ ;;;
@@ -378,15 +365,15 @@ Definition jnz (s : state) (arg : reg_name) : conf :=
   in
   (option_state_unpack s comp).
 
-Definition jmp (s : state) (arg : reg_name) : conf :=
+Definition jmp (s : state) (arg : reg_name) : exec_mode * state :=
   let comp := (fun x => update_reg s PC x) <$> (get_reg s arg)
   in
   (option_state_unpack s comp).
 
-Definition fail (s : state) : conf:=
+Definition fail (s : state) : exec_mode * state :=
   (FailI, s).
 
-Definition halt (s : state) : conf :=
+Definition halt (s : state) : exec_mode * state :=
   (HaltI, s).
 
 (* Hvc calls *)
@@ -410,7 +397,7 @@ Definition undef {B : Type} : hvc_result B := inl (inl ()).
 
 Definition throw {B : Type} (e : hvc_error) : hvc_result B := inl (inr e).
 
-Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) : conf :=
+Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) : exec_mode * state :=
   match q with
   | inl err =>
     match err with
@@ -435,9 +422,9 @@ Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) :
 Solve Obligations with solveRegCount.
 
 Definition update_current_vmid (st : state) (v : vmid) : state :=
-  (get_vm_states st, v, get_mem st, get_transactions st).
+  (get_reg_files st, get_mail_boxes st, get_page_tables st, v, get_mem st, get_transactions st).
 
-Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * vmid)) : conf :=
+Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * vmid)) : exec_mode * state :=
   match q with
   | inl err =>
     match err with
@@ -479,14 +466,13 @@ Proof.
 Qed.
 
 Definition get_tx_base_addr_global (st : state) (v : vmid) : word :=
-  match get_vm_state st v with
-  | (rf, (pid, _), pt) =>
-    (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
+  match get_vm_mail_box st v with
+    | (pid, _) => (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
   end.
 
 Definition is_rx_ready_global (st : state) (v : vmid) : bool :=
-  match get_vm_state st v with
-  | (rf, (_, (_, Some _)), pt) => true
+  match get_vm_mail_box st v with
+  | (_, (_, _, Some _)) => true
   | _ => false
   end.
 
@@ -494,8 +480,8 @@ Definition is_rx_ready (st : state) : bool :=
   is_rx_ready_global st (get_current_vm st).
 
 Definition get_rx_sender_global (st : state) (v : vmid) : option vmid :=
-  match get_vm_state st v with
-  | (rf, (_, (_, Some v')), pt) => Some v'
+  match get_vm_mail_box st v with
+  | (_, (_, Some v')) => Some v'
   | _ => None
   end.
 
@@ -503,8 +489,8 @@ Definition get_rx_sender (st : state) : option vmid :=
   get_rx_sender_global st (get_current_vm st).
 
 Definition get_rx_base_addr_global (st : state) (v : vmid) : option word :=
-  match get_vm_state st v with
-  | (rf, (_, (pid, _, Some _)), pt) => Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
+  match get_vm_mail_box st v with
+  | (_, (pid, _, Some _)) => Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
   | _ => None
   end.
 
@@ -512,9 +498,11 @@ Definition get_rx_base_addr (st : state) : option word :=
   get_rx_base_addr_global st (get_current_vm st).
 
 Definition empty_rx_global (st : state) (v : vmid) : option state :=
-  match get_vm_state st v with
-  | (rf, (txAddr, (rxAddr, len, Some _)), pt) =>
-    Some (vinsert v (rf, (txAddr, (rxAddr, len, None)), pt) (get_vm_states st),
+  match get_vm_mail_box st v with
+  | (txAddr, (rxAddr, len, Some _)) =>
+    Some (get_reg_files st,
+          vinsert v (txAddr, (rxAddr, len, None)) (get_mail_boxes st),
+          get_page_tables st,
           get_current_vm st,
           get_mem st, get_transactions st)
   | _ => None
@@ -542,12 +530,14 @@ Definition fin_coerce {n m : nat} (i : fin n) (lt : fin_to_nat i < m) : fin m :=
 Program Definition transfer_msg_unsafe (st : state) (l : word) (v : vmid) (r : vmid) : hvc_result state :=
   match decide (l < page_size) with
   | left p =>
-    match get_vm_state st v with
-    | (_, (txPid, _), _) =>
-      match get_vm_state st r with
-      | (rf, (tx, ((rxPid, _), _)), pt) =>
+    match get_vm_mail_box st v with
+    | (txPid, _) =>
+      match get_vm_mail_box st r with
+      | (tx, ((rxPid, _), _)) =>
         st' <- lift_option (copy_page_unsafe st txPid rxPid) ;;;
-        unit (vinsert r (rf, (tx, (rxPid, _, Some v)), pt) (get_vm_states st),
+        unit (get_reg_files st,
+              vinsert r (tx, (rxPid, _, Some v)) (get_mail_boxes st),
+              get_page_tables st,
               get_current_vm st,
               get_mem st, get_transactions st)
       end
@@ -635,7 +625,7 @@ Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
   end.
 
 Definition insert_transaction (st : state) (h : handle) (t : transaction) : state :=
-  (get_vm_states st, get_current_vm st, get_mem st, <[h:=t]>(get_transactions st)).
+  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, get_mem st, <[h:=t]>(get_transactions st)).
 
 Program Definition new_transaction (st : state) (vid : vmid)
            (tt : transaction_type)
@@ -658,7 +648,7 @@ Definition get_transaction (st : state) (h : handle) : option transaction :=
   (get_transactions st) !! h.
 
 Definition remove_transaction (s : state) (h : handle) : state :=
-  (get_vm_states s, get_current_vm s, get_mem s, delete h (get_transactions s)).
+  (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s, delete h (get_transactions s)).
 
 Definition new_transaction_from_descriptor (st : state) (ty : transaction_type) (td : transaction_descriptor) : hvc_result state :=
   match td with
@@ -680,7 +670,7 @@ Definition is_primary (st : state) : bool :=
 Definition is_secondary (st : state) : bool :=
   negb (is_primary st).
 
-Program Definition run (s : state) : conf :=
+Program Definition run (s : state) : exec_mode * state :=
   let comp :=
       r <- lift_option (get_reg s (R 1 _)) ;;;
       id <- lift_option_with_err (decode_vmid r) InvParam ;;;
@@ -693,7 +683,7 @@ Program Definition run (s : state) : conf :=
   unpack_hvc_result_yield s comp.
 Solve Obligations with solveRegCount.
   
-Program Definition yield (s : state) : conf :=
+Program Definition yield (s : state) : exec_mode * state :=
   let comp :=
       let s' := (update_reg s (R 0 _) (encode_hvc_ret_code Succ))
       in
@@ -714,7 +704,7 @@ Definition verify_perm_transaction (s : state) (p : permission) (td : transactio
                          m
   end.
 
-Program Definition share (s : state) : conf :=
+Program Definition share (s : state) : exec_mode * state :=
     let comp :=
         r <- lift_option (get_reg s (R 1 _)) ;;;
         m <- (if (page_size <? fin_to_nat r)
@@ -742,7 +732,7 @@ Program Definition share (s : state) : conf :=
     unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition lend (s : state) : conf :=
+Program Definition lend (s : state) : exec_mode * state :=
   let comp :=
       r <- lift_option (get_reg s (R 1 _)) ;;;
       m <- (if (page_size <? fin_to_nat r)
@@ -771,7 +761,7 @@ Program Definition lend (s : state) : conf :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition donate (s : state) : conf :=
+Program Definition donate (s : state) : exec_mode * state :=
   let comp :=
       r <- lift_option (get_reg s (R 1 _)) ;;;
       m <- (if (page_size <? fin_to_nat r)
@@ -809,7 +799,7 @@ Definition toggle_transaction_retrieve (s : state) (h : handle) (v : vmid) : hvc
       | nil => throw Denied
       | _ => if decide (v ∈ sr)
              then throw Denied
-             else unit (get_vm_states s, get_current_vm s, get_mem s,
+             else unit (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
                        insert h (vs, w1, w2, union sr (singleton v), vr, ty) (get_transactions s))
       end
     end
@@ -824,7 +814,7 @@ Definition toggle_transaction_relinquish (s : state) (h : handle) (v : vmid) : h
       match ls with
       | nil => throw Denied
       | _ => if decide (v ∈ sr)
-             then unit (get_vm_states s, get_current_vm s, get_mem s,
+             then unit (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
                         insert h (vs, w1, w2, difference sr (singleton v), vr, ty) (get_transactions s))
              else throw Denied
       end
@@ -876,7 +866,7 @@ Definition get_type (t : transaction) : transaction_type :=
   | (_, _, _, _, ty) => ty
   end.
 
-Program Definition retrieve (s : state) : conf :=
+Program Definition retrieve (s : state) : exec_mode * state :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
@@ -885,7 +875,7 @@ Program Definition retrieve (s : state) : conf :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition relinquish (s : state) : conf :=
+Program Definition relinquish (s : state) : exec_mode * state :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
@@ -903,7 +893,7 @@ Definition no_borrowers (s : state) (h : handle) (v : vmid) : bool :=
     else true
   end.
 
-Program Definition reclaim (s : state) : conf :=
+Program Definition reclaim (s : state) : exec_mode * state :=
   let comp :=
       handle <- lift_option (get_reg s (R 1 _)) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
@@ -919,7 +909,7 @@ Program Definition reclaim (s : state) : conf :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Program Definition send (s : state) : conf :=
+Program Definition send (s : state) : exec_mode * state :=
   let comp :=
       receiver <- lift_option (get_reg s (R 1 _)) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
@@ -929,7 +919,7 @@ Program Definition send (s : state) : conf :=
   unpack_hvc_result_normal s comp.
 Solve Obligations with solveRegCount.
 
-Definition wait (s : state) : conf :=
+Definition wait (s : state) : exec_mode * state :=
   let comp :=
       if is_rx_ready s
       then unit (s, get_current_vm s)
@@ -937,7 +927,7 @@ Definition wait (s : state) : conf :=
   in
   unpack_hvc_result_yield s comp.
 
-Program Definition hvc (s : state) : conf :=
+Program Definition hvc (s : state) : exec_mode * state :=
   match get_reg s (R 0 _) with
   | None => fail s
   | Some r0 =>
@@ -960,7 +950,7 @@ Program Definition hvc (s : state) : conf :=
   end.
 Solve Obligations with solveRegCount.
 
-Definition exec (i : instruction) (s : state) : conf :=
+Definition exec (i : instruction) (s : state) : exec_mode * state :=
   match i with
   | Mov dst (inl srcWord) => mov_word s dst srcWord
   | Mov dst (inr srcReg) => mov_reg s dst srcReg
