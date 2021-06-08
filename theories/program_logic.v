@@ -178,7 +178,8 @@ Proof.
     iModIntro.
     inversion HstepP as
         [ σ1' Hnotvalid
-        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol]; simplify_eq /=;[| remember (get_current_vm σ1) as i eqn: Heqi].
+        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol];
+      simplify_eq /=;[| remember (get_current_vm σ1) as i eqn: Heqi].
     + (*Fail*)
       rewrite /is_valid_PC /= in Hnotvalid.
       by rewrite -> HPC ,Haccess in Hnotvalid.
@@ -193,7 +194,8 @@ Proof.
       rewrite /gen_vm_interp.
       (* eliminate option_state_unpack *)
       rewrite /exec /mov_word /update_incr_PC in Heqc2.
-      rewrite <- (option_state_unpack_preserve_state_Some σ1 (update_offset_PC (update_reg σ1 (R n fin) w2) true 1)) in Heqc2;[|done].
+      rewrite <- (option_state_unpack_preserve_state_Some
+                  σ1 (update_offset_PC (update_reg σ1 (R n fin) w2) true 1)) in Heqc2;[|done].
       rewrite /update_reg in Heqc2.
       simplify_eq /=.
       (* unchanged part *)

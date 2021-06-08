@@ -570,12 +570,6 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
   Proof.
     rewrite /get_trans_gmap.
     f_equal.
-    f_equal.
-    f_equal.
-    rewrite /update_reg_global /get_transactions.
-    destruct (get_vm_state σ i).
-    destruct p.
-    by rewrite /get_vm_states.
   Qed.
 
   Lemma update_offset_PC_preserve_trans σ d o : get_trans_gmap (update_offset_PC σ d o) = get_trans_gmap σ.
@@ -597,13 +591,6 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
   Proof.
     rewrite /get_receivers_gmap.
     f_equal.
-    f_equal.
-    f_equal.
-    f_equal.
-    rewrite /update_reg_global /get_transactions.
-    destruct (get_vm_state σ i).
-    destruct p.
-    by rewrite /get_vm_states.
   Qed.
 
   Lemma update_offset_PC_preserve_receivers σ d o : get_receivers_gmap (update_offset_PC σ d o) = get_receivers_gmap σ.
@@ -617,7 +604,7 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
 
   Definition gen_vm_interp σ: iProp Σ :=
     let i := (get_current_vm σ) in
-    let δ := (get_vm_state σ i) in
+    (* let δ := (get_vm_state σ i) in *)
       own (gen_num_name vmG) (to_agree vm_count)∗
       ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) ∗
       ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
