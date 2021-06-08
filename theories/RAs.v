@@ -1,4 +1,3 @@
-From Coq.Logic Require Import FunctionalExtensionality.
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
 From iris.proofmode Require Import tactics.
@@ -98,7 +97,6 @@ Qed.
 Section definitions.
   Context `{vmG : !gen_VMG Σ}.
   Implicit Type σ: state.
-  Implicit Type δ: vm_state.
 
   Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:=
     match n with
@@ -153,12 +151,9 @@ Section definitions.
         apply elem_of_list_In in H2.
         apply elem_of_map_to_list' in H2.
         inversion H1;subst;clear H1.
-        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in H2.
-        destruct (get_vm_states σ !!! i) in H2.
-        destruct p.
+        rewrite /get_vm_reg_file /get_reg_files in H2.
         simpl in H2.
-        rewrite -> (vlookup_insert i _  σ.1.1.1) in H2.
-        inversion H2;subst.
+        rewrite -> (vlookup_insert i _  _) in H2.
         rewrite lookup_insert in H2.
         by inversion H2.
       + rewrite elem_of_list_In in_flat_map .
@@ -180,11 +175,9 @@ Section definitions.
            split;[done|].
            apply elem_of_list_In.
            apply elem_of_map_to_list'.
-           rewrite /get_vm_reg_file /get_vm_state /get_vm_states.
-           destruct (get_vm_states σ !!! i).
-           destruct p.
+           rewrite /get_vm_reg_file /get_reg_files.
            simpl.
-           rewrite -> (vlookup_insert i _  σ.1.1.1).
+           rewrite -> (vlookup_insert i _ _).
            by rewrite lookup_insert.
     - destruct ((get_reg_gmap σ) !! j) eqn:Heqn.
       + rewrite lookup_insert_ne;[|done].
@@ -202,7 +195,7 @@ Section definitions.
         apply elem_of_list_In in H2.
         apply elem_of_map_to_list' in H2.
         inversion H1;subst;clear H1.
-        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in H2.
+        rewrite /get_vm_reg_file /get_reg_files in H2.
         simpl in H2.
         destruct (decide (x=i)).
         subst x.
@@ -218,20 +211,15 @@ Section definitions.
         inversion H3;subst;clear H3.
         apply elem_of_list_In in H4.
         apply elem_of_map_to_list' in H4.
-        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in H4.
-        destruct (σ.1.1.1 !!! i).
-        destruct p.
-        simpl in H2.
-        rewrite -> (vlookup_insert i _  σ.1.1.1) in H2.
+        rewrite /get_vm_reg_file /get_reg_files in H4.
+        rewrite -> (vlookup_insert i _ _) in H2.
         rewrite lookup_insert_ne in H2.
         simpl in H4.
         rewrite H6 in H4.
         rewrite H2 in H4.
         by inversion H4.
         done.
-        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in Heqn.
-        destruct (σ.1.1.1 !!! i).
-        destruct p.
+        rewrite /get_vm_reg_file /get_reg_files in Heqn.
         simpl in H2.
         rewrite vlookup_insert_ne in H2;[|done].
         apply elem_of_list_to_map_2 in Heqn.
@@ -266,7 +254,7 @@ Section definitions.
           split;[done|].
           apply elem_of_list_In.
           apply elem_of_map_to_list'.
-          rewrite  /get_vm_state /get_vm_reg_file.
+          rewrite  /get_reg_files /get_vm_reg_file.
           destruct (decide (v=i));subst.
           destruct (decide (r=r0));subst;[contradiction|].
           apply elem_of_list_to_map_2 in Heqn.
@@ -280,14 +268,11 @@ Section definitions.
           inversion H1;subst;clear H1.
           apply elem_of_list_In in H2.
           apply elem_of_map_to_list' in H2.
-          rewrite  /get_vm_reg_file /get_vm_state in H2.
-          destruct (get_vm_states σ !!! i).
-          destruct p.
-          unfold get_vm_state.
-          unfold get_vm_states.
+          rewrite  /get_vm_reg_file /get_reg_files in H2.
           simpl.
-          rewrite -> (vlookup_insert i _ σ.1.1.1).
+          rewrite  /get_vm_reg_file /get_reg_files.
           simpl.
+          rewrite -> (vlookup_insert i _ _).
           by rewrite lookup_insert_ne.
           simpl.
           apply elem_of_list_to_map_2 in Heqn.
@@ -301,17 +286,15 @@ Section definitions.
           inversion H1;subst;clear H1.
           apply elem_of_list_In in H2.
           apply elem_of_map_to_list' in H2.
-          rewrite  /get_vm_reg_file /get_vm_state /get_vm_states in H2.
-          destruct (σ.1.1.1 !!! i).
-          destruct p.
-          rewrite /get_vm_state /get_vm_states.
+          rewrite  /get_vm_reg_file /get_reg_files in H2.
+          rewrite /get_vm_reg_file /get_reg_files.
           simpl.
           by rewrite vlookup_insert_ne.
       + rewrite lookup_insert_ne;[|done].
         unfold get_reg_gmap in Heqn.
         rewrite Heqn.
-        rewrite /get_vm_reg_file /get_vm_state /get_vm_states.
-        rewrite /get_vm_reg_file /get_vm_state /get_vm_states in Heqn.
+        rewrite /get_vm_reg_file /get_reg_files.
+        rewrite /get_vm_reg_file /get_reg_files in Heqn.
         destruct j.
         apply not_elem_of_list_to_map_2 in Heqn.
         apply not_elem_of_list_to_map_1.
@@ -343,10 +326,8 @@ Section definitions.
         apply elem_of_map_to_list'.
         simplify_eq /=.
         rewrite  -H3.
-        destruct (σ.1.1.1 !!! i).
-        destruct p.
         simpl.
-        rewrite (vlookup_insert i _ σ.1.1.1).
+        rewrite (vlookup_insert i _ _).
         simpl.
         destruct (decide (r = x1.1));[subst;contradiction|].
         by rewrite lookup_insert_ne.
@@ -365,8 +346,6 @@ Section definitions.
         apply elem_of_map_to_list'.
         simplify_eq /=.
         rewrite  -H3.
-        destruct (σ.1.1.1 !!! i).
-        destruct p.
         simpl.
         by rewrite vlookup_insert_ne.
   Qed.
@@ -386,24 +365,7 @@ Section definitions.
   Proof.
     rewrite /get_tx_agree /get_txrx_auth_agree.
     f_equal.
-    f_equal.
-    f_equal.
-    apply functional_extensionality.
-    intros.
-    rewrite /update_reg_global /get_vm_mail_box.
-    destruct (decide (i=x)).
-    - subst x.
-      destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite -> (vlookup_insert i _  σ.1.1.1).
-    - destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite vlookup_insert_ne;[done|].
-    Qed.
+  Qed.
 
   Lemma update_offset_PC_preserve_tx σ d o : get_tx_agree (update_offset_PC σ d o) = get_tx_agree σ.
   Proof.
@@ -420,24 +382,7 @@ Lemma update_reg_global_preserve_rx1 σ i r w : get_rx_agree (update_reg_global 
   Proof.
     rewrite /get_rx_agree /get_txrx_auth_agree.
     f_equal.
-    f_equal.
-    f_equal.
-    apply functional_extensionality.
-    intros.
-    rewrite /update_reg_global /get_vm_mail_box.
-    destruct (decide (i=x)).
-    - subst x.
-      destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite -> (vlookup_insert i _  σ.1.1.1).
-    - destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite vlookup_insert_ne;[done|].
-    Qed.
+  Qed.
 
   Lemma update_offset_PC_preserve_rx1 σ d o : get_rx_agree (update_offset_PC σ d o) = get_rx_agree σ.
   Proof.
@@ -461,25 +406,7 @@ Lemma update_reg_global_preserve_rx1 σ i r w : get_rx_agree (update_reg_global 
   Proof.
     rewrite /get_rx_gmap /get_txrx_auth_agree.
     f_equal.
-    f_equal.
-    f_equal.
-    f_equal.
-    apply functional_extensionality.
-    intros.
-    rewrite /update_reg_global /get_vm_mail_box.
-    destruct (decide (i=x)).
-    - subst x.
-      destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite -> (vlookup_insert i _  σ.1.1.1).
-    - destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite vlookup_insert_ne;[done|].
-    Qed.
+  Qed.
 
   Lemma update_offset_PC_preserve_rx2 σ d o : get_rx_gmap (update_offset_PC σ d o) = get_rx_gmap σ.
   Proof.
@@ -569,23 +496,6 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
   Proof.
     rewrite /get_owned_gmap.
     f_equal.
-    f_equal.
-    f_equal.
-    apply functional_extensionality.
-    intros.
-    rewrite /update_reg_global /get_vm_page_table.
-    destruct (decide (i=x)).
-    - subst x.
-      destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite -> (vlookup_insert i _  σ.1.1.1).
-    - destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite vlookup_insert_ne;[done|].
     Qed.
 
   Lemma update_offset_PC_preserve_owned σ d o : get_owned_gmap (update_offset_PC σ d o) = get_owned_gmap σ.
@@ -631,23 +541,6 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
   Proof.
     rewrite /get_access_gmap.
     f_equal.
-    f_equal.
-    f_equal.
-    apply functional_extensionality.
-    intros.
-    rewrite /update_reg_global /get_vm_page_table.
-    destruct (decide (i=x)).
-    - subst x.
-      destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite -> (vlookup_insert i _  σ.1.1.1).
-    - destruct (get_vm_state σ i).
-      destruct p.
-      rewrite /get_vm_state /get_vm_states.
-      simpl.
-      by rewrite vlookup_insert_ne;[done|].
     Qed.
 
   Lemma update_offset_PC_preserve_access σ d o : get_access_gmap (update_offset_PC σ d o) = get_access_gmap σ.
@@ -660,7 +553,7 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
 
   (* TODO: a new exclusive ra*)
 
-
+  
   Fixpoint vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
     (foldr (λ p acc, <[p.1:=p.2]>acc) ∅
            (vzip_with (λ v s, (v,s)) (vector_of_vmids) vec)).
