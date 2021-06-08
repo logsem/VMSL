@@ -555,8 +555,8 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
 
   
   Fixpoint vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
-    (foldr (λ p acc, <[p.1:=p.2]>acc) ∅
-           (vzip_with (λ v s, (v,s)) (vector_of_vmids) vec)).
+    (list_to_map (map (λ v, (v, (vec !!! v))) (list_of_vmids))).
+
   (* TODO we need getters for transations.. *)
   Definition get_trans_gmap σ : gmap word (vmid * word * word  * (gmap vmid (listset_nodup pid)) * transaction_type):=
     list_to_map (map (λ (p:word * transaction) ,
@@ -807,26 +807,21 @@ Proof.
   iIntros (?????) "Hσ Hr".
   rewrite reg_mapsto_eq /reg_mapsto_def.
   iDestruct (ghost_map_lookup with "Hσ Hr") as "%".
-  simplify_eq /=.
   iPureIntro.
-  unfold get_reg.
+  rewrite /get_reg /get_reg_global.
   unfold get_reg_gmap in H0.
-  simplify_eq /=.
-  unfold get_reg_global.
-  Check elem_of_list_to_map_2.
   apply elem_of_list_to_map_2 in H0.
   apply elem_of_list_In in H0.
   apply in_flat_map in H0.
   inversion H0; clear H0.
-  destruct H.
-  apply in_map_iff in H0.
-  inversion H0;clear H0.
+  destruct H1.
+  apply in_map_iff in H1.
   inversion H1;clear H1.
-  inversion H0.
-  apply elem_of_list_In in H2.
-  apply elem_of_map_to_list' in H2.
-  subst x.
-  done.
+  inversion H2;clear H2.
+  inversion H1.
+  apply elem_of_list_In in H3.
+  apply elem_of_map_to_list' in H3.
+  by simplify_eq /=.
 Qed.
 
 
@@ -846,13 +841,11 @@ Proof.
   intros.
   simplify_eq.
   f_equiv.
-  destruct k.
-  done.
+  by destruct k.
   done.
   iApply big_sepM_pure.
   iIntros (????).
-  unfold get_reg.
-  unfold get_reg_global.
+  rewrite /get_reg /get_reg_global.
   apply (lookup_weaken  _ (get_reg_gmap σ) _ _) in a1.
   apply elem_of_list_to_map_2 in a1.
   apply elem_of_list_In in a1.
@@ -865,10 +858,53 @@ Proof.
   inversion H1.
   apply elem_of_list_In in H3.
   apply elem_of_map_to_list' in H3.
-  simplify_eq /=.
-  done.
+  by simplify_eq /=.
   done.
 Qed.
+
+Lemma gen_reg_update:
+  ∀ (σ : state) r i w w',
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    r @@ i ->r w ==∗
+               ghost_map_auth (gen_reg_name vmG) 1 (<[(r,i):=w']>(get_reg_gmap σ)) ∗
+              r @@ i ->r  w'.
+ Proof.
+  iIntros (?????) "Hσ Hr".
+  rewrite reg_mapsto_eq /reg_mapsto_def.
+  iDestruct (ghost_map_update w' with "Hσ Hr") as ">[Hσ Hr]".
+  iFrame.
+  done.
+ Qed.
+
+
+ Lemma reg_proper {m: gmap (reg_name * vmid) word}:
+([∗ map] k ↦ x ∈ m, k↪[gen_reg_name vmG] x) ⊣⊢ ([∗ map]k ↦ x ∈ m,  (k.1, k.2)↪[gen_reg_name vmG] x).
+   Proof.
+      iApply (big_sepM_proper _ (λ k x, (k.1, k.2)↪[gen_reg_name vmG] x)%I).
+      intros.
+  simpl.
+  f_equiv.
+  destruct k;done.
+Qed.
+
+
+ Lemma gen_reg_update_Sep:
+  ∀ (σ : state) regs regs',
+      dom (gset (reg_name * vmid)) regs = dom (gset (reg_name * vmid )) regs' ->
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    ([∗ map] r↦w ∈ regs,  r.1 @@ r.2 ->r w) ==∗
+               ghost_map_auth (gen_reg_name vmG) 1 (regs' ∪ (get_reg_gmap σ)) ∗
+             ([∗ map] r↦w ∈ regs',  r.1 @@ r.2 ->r w).
+ Proof.
+  iIntros (????) "Hσ Hr".
+  rewrite reg_mapsto_eq /reg_mapsto_def.
+  iDestruct (ghost_map_update_big regs regs' H with "[Hσ] [Hr]") as ">[Hσ Hr]".
+  done.
+  by iApply reg_proper.
+  iModIntro.
+  rewrite reg_proper.
+  iFrame.
+ Qed.
 
 
  (* rules for memory points-to *)
