@@ -106,7 +106,7 @@ Lemma mov_word {i w1 w3 q} a w2 ra :
   PC ≠ ra ->
   NZ ≠ ra ->
   PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ (* TODO : PC @@ i ->r a+1, need a helper function... *)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ PC @@ i ->r (a +w 1)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
 
 Proof.
   iIntros (Hdecode HneqPC HneqNZ) "(Hpc & Hapc & Hacc & Hra)".
@@ -208,44 +208,35 @@ Proof.
       rewrite -> update_offset_PC_preserve_receivers , -> update_reg_global_preserve_receivers.
       iFrame.
       (* updated part *)
-      rewrite -> (update_offset_PC_update_PC1 _ (get_current_vm (update_reg_global σ1 (get_current_vm σ1) (R n fin) w2)) a 1).
+      rewrite -> (update_offset_PC_update_PC1 _ (get_current_vm (update_reg_global σ1 (get_current_vm σ1) (R n fin) w2)) a 1);[|done|].
       * rewrite update_reg_global_preserve_current_vm.
         rewrite  -> update_reg_global_update_reg.
         --  iDestruct (gen_reg_update_Sep σ1 {[(PC, get_current_vm σ1) := a; (R n fin, get_current_vm σ1) := w3]}
                 (<[(PC, get_current_vm σ1):=a +w 1]> {[(R n fin, get_current_vm σ1):=w2]} )
-                      with "[Hreg] [Hpc Hra]") as ">[Hσ H]".
-            set_solver.
-            done.
+                      with "[Hreg] [Hpc Hra]") as ">[Hσ Hreg]";[set_solver|done| | ].
             iApply (big_sepM_delete _ _ (PC,_) a).
             by simplify_map_eq.
             iFrame.
             iApply (big_sepM_delete _ _ (R n fin,_) w3).
             by simplify_map_eq.
             iFrame.
-            rewrite delete_insert.
-            rewrite delete_insert.
-            done.
-            done.
-            rewrite lookup_singleton_ne;done.
+            repeat rewrite delete_insert;[|done|by simplify_map_eq];done.
             iModIntro.
-            iDestruct (big_sepM_delete _ _ (R n fin,_) w2 with "H") as "[Hra HPC]".
+            iDestruct (big_sepM_delete _ _ (PC,_) (a +w 1) with "Hreg") as "[HPC Hreg]".
             by simplify_map_eq.
-            iFrame.
+            iDestruct (big_sepM_delete _ _ (R n fin,_) w2 with "Hreg") as "[Hra _]".
+            by simplify_map_eq.
             rewrite insert_union_singleton_l.
             do 2 rewrite -> insert_union_singleton_l.
             rewrite  map_union_assoc.
-            iFrame.
-            done.
-        --  exists w3.
-          rewrite  get_reg_gmap_get_reg;[done|done].
-      * done.
+            simplify_map_eq.
+            by iFrame.
+        --  exists w3; rewrite  get_reg_gmap_get_reg;[done|done].
       * rewrite update_reg_global_preserve_current_vm.
         rewrite update_reg_global_update_reg.
-        rewrite lookup_insert_ne.
+        rewrite lookup_insert_ne;[|done].
         rewrite  get_reg_gmap_get_reg;[done|done].
-        done.
-        exists w3.
-        rewrite  get_reg_gmap_get_reg;[done|done].
+        exists w3; rewrite  get_reg_gmap_get_reg;[done|done].
 Qed.
 
 End rules.
