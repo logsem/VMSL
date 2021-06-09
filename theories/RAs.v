@@ -140,272 +140,153 @@ Qed.
   Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
 
-  Definition get_reg_gmap_get_reg σ (r:reg_name) (w:word) (i:vmid) : i= (get_current_vm σ)->
-                                                                   (get_reg_gmap σ) !! (r,i) = Some w <->
-                                                                   ((get_reg σ r) = Some w).
-  Proof.
-    intros.
-    split; unfold get_reg_gmap, get_reg.
-    -  intro.
-      apply elem_of_list_to_map_2 in H0.
-      rewrite -> elem_of_list_In, -> in_flat_map in H0 .
-        destruct H0.
-        destruct H0.
-        apply in_map_iff in H1.
-        destruct H1.
-        destruct H1.
-        apply elem_of_list_In in H2.
-        apply elem_of_map_to_list' in H2.
-        inversion H1;subst;clear H1.
-        by unfold get_reg_global.
-    - unfold get_reg_global.
-      intro.
-      apply elem_of_list_to_map_1'.
-      + intros.
-        rewrite -> elem_of_list_In, -> in_flat_map in H1 .
-        destruct H1.
-        destruct H1.
-        apply in_map_iff in H2.
-        destruct H2.
-        destruct H2.
-        apply elem_of_list_In in H3.
-        apply elem_of_map_to_list' in H3.
-        inversion H2;subst;clear H2.
-        rewrite H0 in H3.
-        by inversion H3.
-      + rewrite -> elem_of_list_In, -> in_flat_map .
+
+  Lemma get_reg_gmap_lookup_Some σ i r w : (get_reg_gmap σ) !! (r,i)= Some w <->  get_vm_reg_file σ i !! r = Some w.
+    Proof.
+      split.
+      - unfold get_reg_gmap.
+        intro HSome.
+        apply elem_of_list_to_map_2 in HSome.
+        apply elem_of_list_In in HSome.
+        apply in_flat_map in HSome.
+        destruct HSome  as [i'] .
+        destruct H as [HiIn].
+        apply in_map_iff in H.
+        destruct H as [p].
+        destruct H as [Heqn].
+        inversion Heqn ;subst;clear Heqn.
+        apply elem_of_list_In in H.
+        by apply elem_of_map_to_list' in H.
+      - intro HSome.
+        apply  elem_of_list_to_map_1'.
+        + intros.
+          apply elem_of_list_In in H.
+          apply in_flat_map in H.
+          destruct H as [i'].
+          destruct H as [Hi'In H].
+          apply in_map_iff in H.
+          destruct H as [p].
+          destruct H as [Heqn H].
+          apply elem_of_list_In in H.
+          apply elem_of_map_to_list' in H.
+          inversion Heqn;subst;clear Heqn.
+          rewrite H in HSome.
+          by inversion HSome.
+        + apply elem_of_list_In.
+          apply in_flat_map.
+          exists i.
+          split;[apply in_list_of_vmids|].
+          apply in_map_iff.
+          exists (r,w).
+          split;[done|].
+          apply elem_of_list_In.
+          apply elem_of_map_to_list'.
+          done.
+Qed.
+
+
+    Lemma get_reg_gmap_lookup_None σ i r : (get_reg_gmap σ) !! (r,i)= None <->  get_vm_reg_file σ i !! r = None.
+    Proof.
+      split.
+      - destruct (get_vm_reg_file σ i !! r) eqn:Heqn;[|done].
+        intro HNone.
+        apply not_elem_of_list_to_map_2 in HNone.
+        exfalso.
+        apply HNone.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        exists (r,i,w).
+        split;[done|].
+        apply in_flat_map.
         exists i.
-        split.
-        apply in_list_of_vmids.
+        split;[apply in_list_of_vmids|].
         apply in_map_iff.
         exists (r,w).
         split;[done|].
         apply elem_of_list_In.
         apply elem_of_map_to_list'.
         by simplify_eq /=.
+      - intro HNone.
+        apply  not_elem_of_list_to_map_1.
+        intro.
+        apply elem_of_list_In in H.
+          apply in_map_iff in H.
+          destruct H as [p].
+          destruct H as [Heqn H].
+          apply elem_of_list_In in H.
+          apply elem_of_list_In in H.
+          apply in_flat_map in H.
+          inversion Heqn;subst;clear Heqn.
+          destruct H as [i'].
+          destruct H as [HIn H].
+           apply in_map_iff in H.
+          destruct H as [p2].
+          destruct H as [Heqn H].
+          apply elem_of_list_In in H.
+          apply elem_of_map_to_list' in H.
+          inversion Heqn;subst;clear H0.
+          inversion H1;subst;clear H1.
+          rewrite H in HNone.
+          by inversion HNone.
 Qed.
-      
-(* TODO: very ugly proof... to be shorten *)
+
+
+  Definition get_reg_gmap_get_vm_reg_file σ (r:reg_name) (i:vmid) :
+   (get_reg_gmap σ) !! (r,i) = (get_vm_reg_file σ i) !! r.
+  Proof.
+    destruct (get_reg_gmap σ !! (r, i)) eqn:Heqn.
+    apply get_reg_gmap_lookup_Some in Heqn;done.
+    apply get_reg_gmap_lookup_None in Heqn;done.
+  Qed.
+
+
+  Definition get_reg_gmap_get_reg_Some σ (r:reg_name) (w:word) (i:vmid) : i= (get_current_vm σ)->
+                                                                   (get_reg_gmap σ) !! (r,i) = Some w <->
+                                                                   ((get_reg σ r) = Some w).
+  Proof.
+    intros.
+    rewrite get_reg_gmap_get_vm_reg_file.
+    unfold get_reg,get_reg_global;subst;done.
+  Qed.
+
+
   Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
                                              <[(r,i) := w]>(get_reg_gmap σ).
   Proof.
     intros.
-    rewrite /get_reg_gmap /update_reg_global.
+    rewrite  /update_reg_global.
     apply map_eq.
     intro j.
     destruct( decide (j=(r,i)) ).
     - subst j.
+
       rewrite lookup_insert.
-      apply elem_of_list_to_map_1'.
-      + intro.
-        rewrite elem_of_list_In in_flat_map .
-        intro H1.
-        destruct H1.
-        destruct H0.
-        apply in_map_iff in H1.
-        destruct H1.
-        destruct H1.
-        apply elem_of_list_In in H2.
-        apply elem_of_map_to_list' in H2.
-        inversion H1;subst;clear H1.
-        rewrite /get_vm_reg_file /get_reg_files in H2.
-        simpl in H2.
-        rewrite -> (vlookup_insert i _  _) in H2.
-        rewrite lookup_insert in H2.
-        by inversion H2.
-      + rewrite elem_of_list_In in_flat_map .
-        exists i.
-        split.
-        * rewrite /get_reg_gmap /is_Some in H.
-          destruct H.
-          apply  elem_of_list_to_map_2 in H.
-          apply elem_of_list_In in H.
-          apply in_flat_map in H.
-          destruct H.
-          destruct H.
-          apply in_map_iff in H0.
-          destruct H0.
-          destruct H0.
-          by inversion H0;subst.
-        *  apply in_map_iff.
-           exists (r,w).
-           split;[done|].
-           apply elem_of_list_In.
-           apply elem_of_map_to_list'.
-           rewrite /get_vm_reg_file /get_reg_files.
-           simpl.
-           rewrite -> (vlookup_insert i _ _).
-           by rewrite lookup_insert.
-    - destruct ((get_reg_gmap σ) !! j) eqn:Heqn.
-      + rewrite lookup_insert_ne;[|done].
-        unfold get_reg_gmap in Heqn.
-        rewrite -> Heqn.
-        apply  elem_of_list_to_map_1'.
-        intros.
-        apply elem_of_list_In in H0.
-        apply in_flat_map in H0.
-        destruct H0.
-        destruct H0.
-        apply in_map_iff in H1.
-        destruct H1.
-        destruct H1.
-        apply elem_of_list_In in H2.
-        apply elem_of_map_to_list' in H2.
-        inversion H1;subst;clear H1.
-        rewrite /get_vm_reg_file /get_reg_files in H2.
-        simpl in H2.
-        destruct (decide (x=i)).
-        subst x.
-        destruct (decide (x0.1 =r));[ subst r; contradiction|].
-        apply elem_of_list_to_map_2 in Heqn.
-        apply elem_of_list_In in Heqn.
-        apply in_flat_map in Heqn.
-        destruct Heqn.
-        destruct H1.
-        apply in_map_iff in H3.
-        destruct H3.
-        destruct H3.
-        inversion H3;subst;clear H3.
-        apply elem_of_list_In in H4.
-        apply elem_of_map_to_list' in H4.
-        rewrite /get_vm_reg_file /get_reg_files in H4.
-        rewrite -> (vlookup_insert i _ _) in H2.
-        rewrite lookup_insert_ne in H2.
-        simpl in H4.
-        rewrite H6 in H4.
-        rewrite H2 in H4.
-        by inversion H4.
-        done.
-        rewrite /get_vm_reg_file /get_reg_files in Heqn.
-        simpl in H2.
-        rewrite vlookup_insert_ne in H2;[|done].
-        apply elem_of_list_to_map_2 in Heqn.
-        apply elem_of_list_In in Heqn.
-        apply in_flat_map in Heqn.
-        destruct Heqn.
-        destruct H1.
-        apply in_map_iff in H3.
-        destruct H3.
-        destruct H3.
-        inversion H3;subst;clear H3.
-        apply elem_of_list_In in H4.
-        apply elem_of_map_to_list' in H4.
-        rewrite H6 in H4.
-        rewrite H2 in H4.
-        by inversion H4.
-        rewrite elem_of_list_In in_flat_map .
-        destruct j.
-        exists v.
-        split.
-        * apply elem_of_list_to_map_2 in Heqn.
-          apply elem_of_list_In in Heqn.
-          apply in_flat_map in Heqn.
-          destruct Heqn.
-          destruct H0.
-          apply in_map_iff in H1.
-          destruct H1.
-          destruct H1.
-          by inversion H1;subst;clear H1.
-        * apply in_map_iff.
-          exists (r0,w0).
-          split;[done|].
-          apply elem_of_list_In.
-          apply elem_of_map_to_list'.
-          rewrite  /get_reg_files /get_vm_reg_file.
-          destruct (decide (v=i));subst.
-          destruct (decide (r=r0));subst;[contradiction|].
-          apply elem_of_list_to_map_2 in Heqn.
-          apply elem_of_list_In in Heqn.
-          apply in_flat_map in Heqn.
-          destruct Heqn.
-          destruct H0.
-          apply in_map_iff in H1.
-          destruct H1.
-          destruct H1.
-          inversion H1;subst;clear H1.
-          apply elem_of_list_In in H2.
-          apply elem_of_map_to_list' in H2.
-          rewrite  /get_vm_reg_file /get_reg_files in H2.
-          simpl.
-          rewrite  /get_vm_reg_file /get_reg_files.
-          simpl.
-          rewrite -> (vlookup_insert i _ _).
-          by rewrite lookup_insert_ne.
-          simpl.
-          apply elem_of_list_to_map_2 in Heqn.
-          apply elem_of_list_In in Heqn.
-          apply in_flat_map in Heqn.
-          destruct Heqn.
-          destruct H0.
-          apply in_map_iff in H1.
-          destruct H1.
-          destruct H1.
-          inversion H1;subst;clear H1.
-          apply elem_of_list_In in H2.
-          apply elem_of_map_to_list' in H2.
-          rewrite  /get_vm_reg_file /get_reg_files in H2.
-          rewrite /get_vm_reg_file /get_reg_files.
-          simpl.
-          by rewrite vlookup_insert_ne.
-      + rewrite lookup_insert_ne;[|done].
-        unfold get_reg_gmap in Heqn.
-        rewrite Heqn.
-        rewrite /get_vm_reg_file /get_reg_files.
-        rewrite /get_vm_reg_file /get_reg_files in Heqn.
-        destruct j.
-        apply not_elem_of_list_to_map_2 in Heqn.
-        apply not_elem_of_list_to_map_1.
-        intro.
-        apply elem_of_list_In in H0.
-        apply in_map_iff in H0.
-        destruct H0.
-        destruct H0.
-        apply in_flat_map in H1.
-        destruct H1;destruct H1.
-        apply in_map_iff in H2.
-        destruct H2;destruct H2.
-        apply elem_of_list_In in H3.
-        apply elem_of_map_to_list' in H3.
-        simplify_eq /=.
-        destruct (decide (v=i)).
-        apply Heqn.
-        apply elem_of_list_In.
-        apply in_map_iff.
-        exists (x1.1,v,x1.2).
-        split;[done|].
-        apply in_flat_map.
-        exists v.
-        split;[done|].
-        apply in_map_iff.
-        exists (x1.1, x1.2).
-        split;[done|].
-        apply elem_of_list_In.
-        apply elem_of_map_to_list'.
-        simplify_eq /=.
-        rewrite  -H3.
+      rewrite get_reg_gmap_get_vm_reg_file.
+      rewrite /get_vm_reg_file /get_reg_files.
         simpl.
-        rewrite (vlookup_insert i _ _).
-        simpl.
-        destruct (decide (r = x1.1));[subst;contradiction|].
-        by rewrite lookup_insert_ne.
-        apply Heqn.
-        apply elem_of_list_In.
-        apply in_map_iff.
-        exists (x1.1,v,x1.2).
-        split;[done|].
-        apply in_flat_map.
-        exists v.
-        split;[done|].
-        apply in_map_iff.
-        exists (x1.1, x1.2).
-        split;[done|].
-        apply elem_of_list_In.
-        apply elem_of_map_to_list'.
-        simplify_eq /=.
-        rewrite  -H3.
-        simpl.
-        by rewrite vlookup_insert_ne.
-  Qed.
+        rewrite -> (vlookup_insert i _  _).
+        by rewrite lookup_insert.
+    - destruct ((get_reg_gmap σ) !! j) eqn:Heqn;
+        rewrite lookup_insert_ne;[|done | |done];
+        rewrite -> Heqn;
+        destruct j as [r' i'];
+        rewrite ->get_reg_gmap_get_vm_reg_file in Heqn;
+        rewrite ->get_reg_gmap_get_vm_reg_file;
+        destruct (decide (i=i'));
+        destruct (decide (r=r'));
+        subst;
+        try contradiction;
+        rewrite - Heqn;
+        rewrite /get_vm_reg_file /get_reg_files;simpl.
+       + rewrite -> (vlookup_insert i' _ _).
+         by rewrite lookup_insert_ne ;[|done].
+       + by rewrite vlookup_insert_ne.
+       + by rewrite vlookup_insert_ne.
+       + rewrite -> (vlookup_insert i' _ _).
+         by rewrite lookup_insert_ne ;[|done].
+       + by rewrite vlookup_insert_ne ;[|done].
+       + by rewrite vlookup_insert_ne ;[|done].
+     Qed.
 
   Lemma update_offset_PC_update_PC1 σ i (w:word) (o:nat): i=get_current_vm σ -> ((get_reg_gmap σ) !! (PC,i) = Some w) -> get_reg_gmap (update_offset_PC σ true o) =
                                              <[(PC,i) := (w +w o)]>(get_reg_gmap σ).
