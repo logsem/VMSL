@@ -184,15 +184,27 @@ Definition get_memory_with_offset (st : state) (base : addr) (offset : nat) : op
   addr <- addr_offset base offset ;;;
   get_memory st addr.
 
+Program Definition word_add (w:word) (n:nat):word:=
+  (@nat_to_fin (((fin_to_nat w)+n) mod word_size) _ _).
+Next Obligation.
+Proof.
+  intros.
+  apply mod_bound_pos.
+  lia.
+  pose proof word_size_at_least.
+  lia.
+  Defined.
+
+Infix "+w" := word_add (at level 70, no associativity).
+
 Program Definition update_offset_PC (st : state) (dir : bool) (offset : nat) :  state :=
   match ((get_vm_reg_file st (get_current_vm st)) !! PC) with
    | Some v =>
-          let v' := fin_to_nat v in
           if dir
           then
-          (update_reg st PC (@nat_to_fin ((v' + offset) mod word_size) _ _))
+          (update_reg st PC (v +w offset))
           else
-          (update_reg st PC (@nat_to_fin ((v' - offset) mod word_size) _ _)) (* TODO: v'-offset = 0 if offset> v'*)
+          (update_reg st PC (@nat_to_fin ((v - offset) mod word_size) _ _)) (* TODO: v'-offset = 0 if offset> v'*)
    | None => st
    end.
 
@@ -204,17 +216,9 @@ Proof.
   pose proof word_size_at_least.
   lia.
   Defined.
-Next Obligation.
-Proof.
-  intros.
-  apply mod_bound_pos.
-  lia.
-  pose proof word_size_at_least.
-  lia.
-  Defined.
 
-Definition update_incr_PC (st : state) : option state :=
-  Some (update_offset_PC st true 1).
+Definition update_incr_PC (st : state) : state :=
+  update_offset_PC st true 1.
 
 Definition is_valid_PC (st : state) : option bool :=
   w <- get_reg st PC ;;;
@@ -238,22 +242,18 @@ Proof.
   done.
 Qed.
 
-(* Lemma option_state_unpack_preserve_mem σ σ1: *)
-(*   (forall σ', σ1 =  Some σ' -> get_mem σ = get_mem σ') -> (get_mem (option_state_unpack σ σ1).2)= get_mem σ. *)
-(* Proof. *)
-(*   intros. *)
-(*   destruct σ1. *)
-(*   rewrite (H s). *)
-(*   reflexivity. *)
-(*   reflexivity. *)
-(*   simpl. *)
-(*   reflexivity. *)
-(* Qed. *)
-
 Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
 Proof.
   unfold update_reg_global, get_mem.
   simpl.
+  reflexivity.
+Qed.
+
+Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
+Proof.
+  unfold   get_current_vm ,update_reg_global.
+  simpl.
+  unfold get_current_vm.
   reflexivity.
 Qed.
 
@@ -278,7 +278,7 @@ Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * stat
       match dst with
       | PC => None
       | NZ => None
-      | _ => update_incr_PC (update_reg s dst src)
+      | _ => Some (update_incr_PC (update_reg s dst src))
       end
     in
     (option_state_unpack s comp).
@@ -288,7 +288,7 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
       match (dst, src) with
       | (R _ _, R _ _) =>
         src' <- get_reg s src ;;;
-                update_incr_PC (update_reg s dst src')
+                Some (update_incr_PC (update_reg s dst src'))
       | _ => None
       end
     in
@@ -300,7 +300,7 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
       | (R _ _, R _ _) =>
         src' <- get_reg s src ;;;
         v <- get_memory s src' ;;;
-        update_incr_PC (update_reg s dst v)
+        Some(update_incr_PC (update_reg s dst v))
       | _ => None
       end
   in
@@ -313,7 +313,7 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
           src' <- get_reg s src ;;;
           dst' <- get_reg s dst ;;;
           m <- update_memory s dst' src' ;;;
-          update_incr_PC m
+          Some(update_incr_PC m)
         | _ => None
       end
   in
@@ -336,7 +336,7 @@ Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : exec_m
            | left _ => Some (update_reg s NZ (@nat_to_fin 1 word_size _))
            | right _ => Some (update_reg s NZ (@nat_to_fin 0 word_size _))
            end ;;;
-      update_incr_PC m       
+      Some(update_incr_PC m)
   in
   (option_state_unpack s comp).
 Solve Obligations with solveWordSize.
@@ -349,7 +349,7 @@ Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exe
            | left _ => Some (update_reg s NZ (@nat_to_fin 1 word_size _))
            | right _ => Some (update_reg s NZ (@nat_to_fin 0 word_size _))
            end ;;;
-      update_incr_PC m
+      Some(update_incr_PC m)
   in
   (option_state_unpack s comp).
 Solve Obligations with solveWordSize.
@@ -360,7 +360,7 @@ Definition jnz (s : state) (arg : reg_name) : exec_mode * state :=
       nz <- get_reg s NZ ;;;
       match (fin_to_nat nz) with
       | 0 => Some (update_reg s PC arg')
-      | _ => update_incr_PC s
+      | _ => Some(update_incr_PC s)
       end
   in
   (option_state_unpack s comp).
@@ -403,21 +403,14 @@ Program Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) :
     match err with
     | inl () => (FailI, o)
     | inr err' =>
-      match update_incr_PC (update_reg
+      (ExecI, (update_incr_PC (update_reg
                         (update_reg o
                                     (R 0 _)
                                     (encode_hvc_ret_code Error))
                         (R 2 _)
-                        (encode_hvc_error err')) with
-        | None => (FailI, o)
-        | Some s'' => (ExecI, s'')
-      end
+                        (encode_hvc_error err'))))
     end
-  | inr o' =>
-    match update_incr_PC o' with
-    | None => (FailI, o)
-    | Some o'' => (ExecI, o'')
-    end
+  | inr o' => (ExecI, update_incr_PC o')
   end.
 Solve Obligations with solveRegCount.
 
@@ -430,21 +423,14 @@ Program Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * 
     match err with
     | inl () => (FailI, o)
     | inr err' =>
-      match update_incr_PC (update_reg
+       (ExecI, update_incr_PC (update_reg
                               (update_reg o
                                           (R 0 _)
                                           (encode_hvc_ret_code Error))
                               (R 2 _)
-                              (encode_hvc_error err')) with
-          | None => (FailI, o)
-          | Some s'' => (ExecI, s'')
-      end
+                              (encode_hvc_error err')))
     end
-  | inr (o', id) =>
-    match update_incr_PC o' with
-    | None => (FailI, o)
-    | Some o'' => (ExecI, (update_current_vmid  o'' id))
-    end
+  | inr (o', id) => (ExecI, (update_current_vmid  (update_incr_PC o') id))
   end.
 Solve Obligations with solveRegCount.
 

@@ -1,3 +1,4 @@
+Require Import Coq.Program.Equality.
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
 From iris.proofmode Require Import tactics.
@@ -97,20 +98,14 @@ Qed.
 Section definitions.
   Context `{vmG : !gen_VMG Σ}.
   Implicit Type σ: state.
-
-  Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:=
+  Program Fixpoint list_of_vmids_aux(n:nat)  : list nat:=
     match n with
-      | S m => (nat_to_fin H) :: (list_of_vmids_aux m _)
-      | 0  => (nat_to_fin H)::nil
+      | S m => m :: (list_of_vmids_aux m)
+      | 0  =>  nil
     end.
-  Next Obligation.
-    Proof.
-      intros.
-      lia.
-    Defined.
 
-  Program Definition list_of_vmids :list vmid:=
-    list_of_vmids_aux (vm_count-1) _.
+  Program Definition list_of_vmids :list nat:=
+     (list_of_vmids_aux vm_count).
   Next Obligation.
     Proof.
       simpl.
@@ -118,6 +113,32 @@ Section definitions.
       pose vm_count.
       lia.
     Defined.
+  Next Obligation.
+    Proof.
+      intros.
+      lia.
+    Defined.
+
+  (* Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:= *)
+  (*   match n with *)
+  (*     | S m => (nat_to_fin H) :: (list_of_vmids_aux m _) *)
+  (*     | 0  => (nat_to_fin H)::nil *)
+  (*   end. *)
+  (* Next Obligation. *)
+  (*   Proof. *)
+  (*     intros. *)
+  (*     lia. *)
+  (*   Defined. *)
+
+  (* Program Definition list_of_vmids :list vmid:= *)
+  (*   list_of_vmids_aux (vm_count-1) _. *)
+  (* Next Obligation. *)
+  (*   Proof. *)
+  (*     simpl. *)
+  (*     pose proof vm_count_pos. *)
+  (*     pose vm_count. *)
+  (*     lia. *)
+  (*   Defined. *)
 
     (* hard to prove lemmas for it, because of the use of foldr of vectors. *)
     (*  Definition get_reg_gmap σ: gmap (reg_name * vmid) word := *)
@@ -125,9 +146,68 @@ Section definitions.
     (*               (vzip_with (λ v δ, (v,δ.1.1)) (vector_of_vmids) (get_vm_states σ))). *)
 
 
+Lemma in_list_of_vmids v: In v list_of_vmids.
+Proof.
+  induction list_of_vmids eqn:Heqn.
+  - unfold list_of_vmids in Heqn.
+    unfold list_of_vmids_aux in Heqn.
+    inversion Heqn.
+    admit.
+    -
+    unfold list_of_vmids.
+    (vm_count-1).
+
+
+
   Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
 
+  Definition get_reg_gmap_get_reg σ (r:reg_name) (w:word) (i:vmid) : i= (get_current_vm σ)->
+                                                                   (get_reg_gmap σ) !! (r,i) = Some w <->
+                                                                   ((get_reg σ r) = Some w).
+  Proof.
+    intros.
+    split; unfold get_reg_gmap, get_reg.
+    -  intro.
+      apply elem_of_list_to_map_2 in H0.
+      rewrite -> elem_of_list_In, -> in_flat_map in H0 .
+        destruct H0.
+        destruct H0.
+        apply in_map_iff in H1.
+        destruct H1.
+        destruct H1.
+        apply elem_of_list_In in H2.
+        apply elem_of_map_to_list' in H2.
+        inversion H1;subst;clear H1.
+        by unfold get_reg_global.
+    - unfold get_reg_global.
+      intro.
+      apply elem_of_list_to_map_1'.
+      + intros.
+        rewrite -> elem_of_list_In, -> in_flat_map in H1 .
+        destruct H1.
+        destruct H1.
+        apply in_map_iff in H2.
+        destruct H2.
+        destruct H2.
+        apply elem_of_list_In in H3.
+        apply elem_of_map_to_list' in H3.
+        inversion H2;subst;clear H2.
+        rewrite H0 in H3.
+        by inversion H3.
+      + rewrite -> elem_of_list_In, -> in_flat_map .
+        exists i.
+        split.
+        admit.
+        apply in_map_iff.
+        exists (r,w).
+        split;[done|].
+        apply elem_of_list_In.
+        apply elem_of_map_to_list'.
+        by simplify_eq /=.
+  Admitted.
+
+      
 (* TODO: very ugly proof... to be shorten *)
   Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
                                              <[(r,i) := w]>(get_reg_gmap σ).
@@ -350,8 +430,31 @@ Section definitions.
         by rewrite vlookup_insert_ne.
   Qed.
 
-(* TODO: how to specify this lemma? *)
-(* Lemma update_PC_offset_update_reg σ  *)
+  Lemma update_offset_PC_update_PC1 σ i (w:word) (o:nat): i=get_current_vm σ -> ((get_reg_gmap σ) !! (PC,i) = Some w) -> get_reg_gmap (update_offset_PC σ true o) =
+                                             <[(PC,i) := (w +w o)]>(get_reg_gmap σ).
+  Proof.
+    intros.
+    rewrite /update_offset_PC.
+    remember H0.
+    clear Heqe.
+    rewrite /get_reg_gmap /update_reg_global in H0.
+    apply elem_of_list_to_map_2 in H0.
+    apply elem_of_list_In in H0.
+    apply in_flat_map in H0.
+    destruct H0.
+    destruct H0.
+    apply in_map_iff in H1.
+          destruct H1.
+          destruct H1.
+          inversion H1;subst;clear H1.
+          apply elem_of_list_In in H2.
+          apply elem_of_map_to_list' in H2.
+          rewrite H2.
+          rewrite /update_reg.
+          apply update_reg_global_update_reg.
+          exists x0.2.
+          rewrite H4.  done.
+          Qed.
 
   Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
     ra_TXBuffer:=

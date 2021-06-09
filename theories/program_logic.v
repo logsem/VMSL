@@ -175,7 +175,7 @@ Proof.
   - by symmetry.
   - iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    iModIntro.
+    (* iModIntro. *)
     inversion HstepP as
         [ σ1' Hnotvalid
         | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol];
@@ -207,5 +207,43 @@ Proof.
       rewrite -> update_offset_PC_preserve_trans , -> update_reg_global_preserve_trans.
       rewrite -> update_offset_PC_preserve_receivers , -> update_reg_global_preserve_receivers.
       iFrame.
-      (* TODO : almost done! the last step is to update PC and ra*)
-      Admitted.
+      (* updated part *)
+      rewrite -> (update_offset_PC_update_PC1 _ (get_current_vm (update_reg_global σ1 (get_current_vm σ1) (R n fin) w2)) a 1).
+      * rewrite update_reg_global_preserve_current_vm.
+        rewrite  -> update_reg_global_update_reg.
+        --  iDestruct (gen_reg_update_Sep σ1 {[(PC, get_current_vm σ1) := a; (R n fin, get_current_vm σ1) := w3]}
+                (<[(PC, get_current_vm σ1):=a +w 1]> {[(R n fin, get_current_vm σ1):=w2]} )
+                      with "[Hreg] [Hpc Hra]") as ">[Hσ H]".
+            set_solver.
+            done.
+            iApply (big_sepM_delete _ _ (PC,_) a).
+            by simplify_map_eq.
+            iFrame.
+            iApply (big_sepM_delete _ _ (R n fin,_) w3).
+            by simplify_map_eq.
+            iFrame.
+            rewrite delete_insert.
+            rewrite delete_insert.
+            done.
+            done.
+            rewrite lookup_singleton_ne;done.
+            iModIntro.
+            iDestruct (big_sepM_delete _ _ (R n fin,_) w2 with "H") as "[Hra HPC]".
+            by simplify_map_eq.
+            iFrame.
+            rewrite insert_union_singleton_l.
+            do 2 rewrite -> insert_union_singleton_l.
+            rewrite  map_union_assoc.
+            iFrame.
+            done.
+        --  exists w3.
+          rewrite  get_reg_gmap_get_reg;[done|done].
+      * done.
+      * rewrite update_reg_global_preserve_current_vm.
+        rewrite update_reg_global_update_reg.
+        rewrite lookup_insert_ne.
+        rewrite  get_reg_gmap_get_reg;[done|done].
+        done.
+        exists w3.
+        rewrite  get_reg_gmap_get_reg;[done|done].
+Qed.
