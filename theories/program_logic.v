@@ -247,3 +247,5 @@ Proof.
         exists w3.
         rewrite  get_reg_gmap_get_reg;[done|done].
 Qed.
+
+End rules.

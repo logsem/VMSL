@@ -1,4 +1,3 @@
-Require Import Coq.Program.Equality.
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
 From iris.proofmode Require Import tactics.
@@ -98,26 +97,9 @@ Qed.
 Section definitions.
   Context `{vmG : !gen_VMG Σ}.
   Implicit Type σ: state.
-  Program Fixpoint list_of_vmids_aux(n:nat)  : list nat:=
-    match n with
-      | S m => m :: (list_of_vmids_aux m)
-      | 0  =>  nil
-    end.
 
-  Program Definition list_of_vmids :list nat:=
-     (list_of_vmids_aux vm_count).
-  Next Obligation.
-    Proof.
-      simpl.
-      pose proof vm_count_pos.
-      pose vm_count.
-      lia.
-    Defined.
-  Next Obligation.
-    Proof.
-      intros.
-      lia.
-    Defined.
+
+Definition list_of_vmids  := vec_to_list (fun_to_vec (λ v: fin vm_count, v)).
 
   (* Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:= *)
   (*   match n with *)
@@ -144,18 +126,14 @@ Section definitions.
     (*  Definition get_reg_gmap σ: gmap (reg_name * vmid) word := *)
     (*     (foldr (λ p acc, (map_fold (λ (r:reg_name) (w:word) acc', <[(r,p.1):= w ]>acc') acc p.2)) ∅ *)
     (*               (vzip_with (λ v δ, (v,δ.1.1)) (vector_of_vmids) (get_vm_states σ))). *)
-
-
-Lemma in_list_of_vmids v: In v list_of_vmids.
+Lemma in_list_of_vmids v: In v  list_of_vmids.
 Proof.
-  induction list_of_vmids eqn:Heqn.
-  - unfold list_of_vmids in Heqn.
-    unfold list_of_vmids_aux in Heqn.
-    inversion Heqn.
-    admit.
-    -
-    unfold list_of_vmids.
-    (vm_count-1).
+  apply elem_of_list_In.
+  apply elem_of_vlookup.
+  exists v.
+  apply lookup_fun_to_vec.
+Qed.
+
 
 
 
@@ -198,15 +176,14 @@ Proof.
       + rewrite -> elem_of_list_In, -> in_flat_map .
         exists i.
         split.
-        admit.
+        apply in_list_of_vmids.
         apply in_map_iff.
         exists (r,w).
         split;[done|].
         apply elem_of_list_In.
         apply elem_of_map_to_list'.
         by simplify_eq /=.
-  Admitted.
-
+Qed.
       
 (* TODO: very ugly proof... to be shorten *)
   Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
