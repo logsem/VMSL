@@ -99,221 +99,19 @@ Section definitions.
   Implicit Type σ: state.
 
 
-Definition list_of_vmids  := vec_to_list (fun_to_vec (λ v: fin vm_count, v)).
+  Definition list_of_vmids  := vec_to_list (fun_to_vec (λ v: fin vm_count, v)).
 
-  (* Program Fixpoint list_of_vmids_aux(n:nat) (H:n<vm_count) : list vmid:= *)
-  (*   match n with *)
-  (*     | S m => (nat_to_fin H) :: (list_of_vmids_aux m _) *)
-  (*     | 0  => (nat_to_fin H)::nil *)
-  (*   end. *)
-  (* Next Obligation. *)
-  (*   Proof. *)
-  (*     intros. *)
-  (*     lia. *)
-  (*   Defined. *)
-
-  (* Program Definition list_of_vmids :list vmid:= *)
-  (*   list_of_vmids_aux (vm_count-1) _. *)
-  (* Next Obligation. *)
-  (*   Proof. *)
-  (*     simpl. *)
-  (*     pose proof vm_count_pos. *)
-  (*     pose vm_count. *)
-  (*     lia. *)
-  (*   Defined. *)
-
-    (* hard to prove lemmas for it, because of the use of foldr of vectors. *)
-    (*  Definition get_reg_gmap σ: gmap (reg_name * vmid) word := *)
-    (*     (foldr (λ p acc, (map_fold (λ (r:reg_name) (w:word) acc', <[(r,p.1):= w ]>acc') acc p.2)) ∅ *)
-    (*               (vzip_with (λ v δ, (v,δ.1.1)) (vector_of_vmids) (get_vm_states σ))). *)
-Lemma in_list_of_vmids v: In v  list_of_vmids.
-Proof.
-  apply elem_of_list_In.
-  apply elem_of_vlookup.
-  exists v.
-  apply lookup_fun_to_vec.
-Qed.
-
-
-
+  Lemma in_list_of_vmids v: In v  list_of_vmids.
+  Proof.
+    apply elem_of_list_In.
+    apply elem_of_vlookup.
+    exists v.
+    apply lookup_fun_to_vec.
+  Qed.
 
   Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
 
-
-  Lemma get_reg_gmap_lookup_Some σ i r w : (get_reg_gmap σ) !! (r,i)= Some w <->  get_vm_reg_file σ i !! r = Some w.
-    Proof.
-      split.
-      - unfold get_reg_gmap.
-        intro HSome.
-        apply elem_of_list_to_map_2 in HSome.
-        apply elem_of_list_In in HSome.
-        apply in_flat_map in HSome.
-        destruct HSome  as [i'] .
-        destruct H as [HiIn].
-        apply in_map_iff in H.
-        destruct H as [p].
-        destruct H as [Heqn].
-        inversion Heqn ;subst;clear Heqn.
-        apply elem_of_list_In in H.
-        by apply elem_of_map_to_list' in H.
-      - intro HSome.
-        apply  elem_of_list_to_map_1'.
-        + intros.
-          apply elem_of_list_In in H.
-          apply in_flat_map in H.
-          destruct H as [i'].
-          destruct H as [Hi'In H].
-          apply in_map_iff in H.
-          destruct H as [p].
-          destruct H as [Heqn H].
-          apply elem_of_list_In in H.
-          apply elem_of_map_to_list' in H.
-          inversion Heqn;subst;clear Heqn.
-          rewrite H in HSome.
-          by inversion HSome.
-        + apply elem_of_list_In.
-          apply in_flat_map.
-          exists i.
-          split;[apply in_list_of_vmids|].
-          apply in_map_iff.
-          exists (r,w).
-          split;[done|].
-          apply elem_of_list_In.
-          apply elem_of_map_to_list'.
-          done.
-Qed.
-
-
-    Lemma get_reg_gmap_lookup_None σ i r : (get_reg_gmap σ) !! (r,i)= None <->  get_vm_reg_file σ i !! r = None.
-    Proof.
-      split.
-      - destruct (get_vm_reg_file σ i !! r) eqn:Heqn;[|done].
-        intro HNone.
-        apply not_elem_of_list_to_map_2 in HNone.
-        exfalso.
-        apply HNone.
-        apply elem_of_list_In.
-        apply in_map_iff.
-        exists (r,i,w).
-        split;[done|].
-        apply in_flat_map.
-        exists i.
-        split;[apply in_list_of_vmids|].
-        apply in_map_iff.
-        exists (r,w).
-        split;[done|].
-        apply elem_of_list_In.
-        apply elem_of_map_to_list'.
-        by simplify_eq /=.
-      - intro HNone.
-        apply  not_elem_of_list_to_map_1.
-        intro.
-        apply elem_of_list_In in H.
-          apply in_map_iff in H.
-          destruct H as [p].
-          destruct H as [Heqn H].
-          apply elem_of_list_In in H.
-          apply elem_of_list_In in H.
-          apply in_flat_map in H.
-          inversion Heqn;subst;clear Heqn.
-          destruct H as [i'].
-          destruct H as [HIn H].
-           apply in_map_iff in H.
-          destruct H as [p2].
-          destruct H as [Heqn H].
-          apply elem_of_list_In in H.
-          apply elem_of_map_to_list' in H.
-          inversion Heqn;subst;clear H0.
-          inversion H1;subst;clear H1.
-          rewrite H in HNone.
-          by inversion HNone.
-Qed.
-
-
-  Definition get_reg_gmap_get_vm_reg_file σ (r:reg_name) (i:vmid) :
-   (get_reg_gmap σ) !! (r,i) = (get_vm_reg_file σ i) !! r.
-  Proof.
-    destruct (get_reg_gmap σ !! (r, i)) eqn:Heqn.
-    apply get_reg_gmap_lookup_Some in Heqn;done.
-    apply get_reg_gmap_lookup_None in Heqn;done.
-  Qed.
-
-
-  Definition get_reg_gmap_get_reg_Some σ (r:reg_name) (w:word) (i:vmid) : i= (get_current_vm σ)->
-                                                                   (get_reg_gmap σ) !! (r,i) = Some w <->
-                                                                   ((get_reg σ r) = Some w).
-  Proof.
-    intros.
-    rewrite get_reg_gmap_get_vm_reg_file.
-    unfold get_reg,get_reg_global;subst;done.
-  Qed.
-
-
-  Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
-                                             <[(r,i) := w]>(get_reg_gmap σ).
-  Proof.
-    intros.
-    rewrite  /update_reg_global.
-    apply map_eq.
-    intro j.
-    destruct( decide (j=(r,i)) ).
-    - subst j.
-
-      rewrite lookup_insert.
-      rewrite get_reg_gmap_get_vm_reg_file.
-      rewrite /get_vm_reg_file /get_reg_files.
-        simpl.
-        rewrite -> (vlookup_insert i _  _).
-        by rewrite lookup_insert.
-    - destruct ((get_reg_gmap σ) !! j) eqn:Heqn;
-        rewrite lookup_insert_ne;[|done | |done];
-        rewrite -> Heqn;
-        destruct j as [r' i'];
-        rewrite ->get_reg_gmap_get_vm_reg_file in Heqn;
-        rewrite ->get_reg_gmap_get_vm_reg_file;
-        destruct (decide (i=i'));
-        destruct (decide (r=r'));
-        subst;
-        try contradiction;
-        rewrite - Heqn;
-        rewrite /get_vm_reg_file /get_reg_files;simpl.
-       + rewrite -> (vlookup_insert i' _ _).
-         by rewrite lookup_insert_ne ;[|done].
-       + by rewrite vlookup_insert_ne.
-       + by rewrite vlookup_insert_ne.
-       + rewrite -> (vlookup_insert i' _ _).
-         by rewrite lookup_insert_ne ;[|done].
-       + by rewrite vlookup_insert_ne ;[|done].
-       + by rewrite vlookup_insert_ne ;[|done].
-     Qed.
-
-  Lemma update_offset_PC_update_PC1 σ i (w:word) (o:nat):
-   i=get_current_vm σ -> ((get_reg_gmap σ) !! (PC,i) = Some w)
-   ->get_reg_gmap (update_offset_PC σ true o) = <[(PC,i) := (w +w o)]>(get_reg_gmap σ).
-  Proof.
-    intros.
-    rewrite /update_offset_PC.
-    remember H0.
-    clear Heqe.
-    rewrite /get_reg_gmap /update_reg_global in H0.
-    apply elem_of_list_to_map_2 in H0.
-    apply elem_of_list_In in H0.
-    apply in_flat_map in H0.
-    destruct H0.
-    destruct H0.
-    apply in_map_iff in H1.
-    destruct H1.
-    destruct H1.
-    inversion H1;subst;clear H1.
-    apply elem_of_list_In in H2.
-    apply elem_of_map_to_list' in H2.
-    rewrite H2.
-    rewrite /update_reg.
-    apply update_reg_global_update_reg.
-    exists x0.2.
-    by rewrite H4.
-  Qed.
 
   Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
     ra_TXBuffer:=
@@ -322,37 +120,9 @@ Qed.
 
   Definition get_tx_agree σ := get_txrx_auth_agree σ (λ p, p.1).
 
-  Lemma update_reg_global_preserve_tx σ i r w : get_tx_agree (update_reg_global σ i r w) =
-                                               (get_tx_agree σ).
-  Proof.
-    rewrite /get_tx_agree /get_txrx_auth_agree.
-    f_equal.
-  Qed.
-
-  Lemma update_offset_PC_preserve_tx σ d o : get_tx_agree (update_offset_PC σ d o) = get_tx_agree σ.
-  Proof.
-    unfold update_offset_PC.
-    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_tx;done.
-    done.
-  Qed.
 
   Definition get_rx_agree σ := get_txrx_auth_agree σ (λ p, p.2.1.1).
 
-Lemma update_reg_global_preserve_rx1 σ i r w : get_rx_agree (update_reg_global σ i r w) =
-                                               (get_rx_agree σ).
-  Proof.
-    rewrite /get_rx_agree /get_txrx_auth_agree.
-    f_equal.
-  Qed.
-
-  Lemma update_offset_PC_preserve_rx1 σ d o : get_rx_agree (update_offset_PC σ d o) = get_rx_agree σ.
-  Proof.
-    unfold update_offset_PC.
-    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_rx1;done.
-    done.
-  Qed.
 
 
   Definition get_rx_gmap σ :=
@@ -362,66 +132,6 @@ Lemma update_reg_global_preserve_rx1 σ i r w : get_rx_agree (update_reg_global 
                                       | Some j => (v, (Some (0, j)))
                                       | None => (v,None)
                                     end) (list_of_vmids))): (gmap vmid (optionO (prodO natO (leibnizO vmid))) )))).
-
-  Lemma update_reg_global_preserve_rx2 σ i r w : get_rx_gmap (update_reg_global σ i r w) =
-                                               (get_rx_gmap σ).
-  Proof.
-    rewrite /get_rx_gmap /get_txrx_auth_agree.
-    f_equal.
-  Qed.
-
-  Lemma update_offset_PC_preserve_rx2 σ d o : get_rx_gmap (update_offset_PC σ d o) = get_rx_gmap σ.
-  Proof.
-    unfold update_offset_PC.
-    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_rx2;done.
-    done.
-  Qed.
-
-
-  (* TODO: the proofs above are identical *)
-
-  Lemma update_reg_global_preserve_rx σ i r w : (get_rx_agree (update_reg_global σ i r w), get_rx_gmap (update_reg_global σ i r w)) =
-                                               (get_rx_agree σ, get_rx_gmap σ).
-  Proof.
-    by rewrite update_reg_global_preserve_rx1 update_reg_global_preserve_rx2.
-  Qed.
-
-Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ d o), get_rx_gmap (update_offset_PC σ d o) ) =
-                                               (get_rx_agree σ, get_rx_gmap σ).
-  Proof.
-    by rewrite update_offset_PC_preserve_rx1 update_offset_PC_preserve_rx2 .
-  Qed.
-
-   (* HACK : don't know why *)
-   (* match perm.1 with *)
-   (*                | Owned => s ⊎ {[ p ]} *)
-   (*                | Unowned => s *)
-   (*               end ) *)
-   (* doesn't work...*)
-
-  (* XXX : Now our wp is parameterized by vmid, so we don't need it for owned and accessible anymore? *)
-  (* Definition get_owned_gmap σ : (authR (gmapUR vmid (prodR dfracR (gset_disjUR pid)))) := *)
-  (*   (● (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅ *)
-  (*             (vzip_with (λ v δ, (v, *)
-  (*                   (map_fold (λ (p:pid) (perm:permission) (s: gset_disjUR pid), *)
-  (*                 match perm.1 with *)
-  (*                 | Owned =>  match s with *)
-  (*                               | GSet s' => GSet (s' ∪ {[p]}) *)
-  (*                               | GSetBot => GSet ∅ *)
-  (*                             end *)
-  (*                 | Unowned => s *)
-  (*                end)  (GSet ∅) δ.2))) (vector_of_vmids) (get_vm_states σ)))). *)
-
-  (* Definition get_access_gmap σ : ra_Accessible := *)
-    (* (●  (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅ *)
-    (*      (vzip_with (λ v δ, (v, *)
-    (*                 (map_fold (λ (p:pid) (perm:permission) (s: (gmap pid (csumR (agreeR unitO) (exclR unitO)))), *)
-    (*               match perm.2 with *)
-    (*               | NoAccess => s *)
-    (*               | SharedAccess => <[p:= (Cinl (to_agree ()))]>s *)
-    (*               | ExclusiveAccess => <[p:= (Cinr (Excl ()))]>s *)
-    (*              end)  ∅ δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))). *)
 
 
   (* XXX:  seems like we have to keep resources being indexed by vmids...  *)
@@ -453,34 +163,6 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
            (map_to_list (filter (λ p, (is_owned p.2) = true) (get_vm_page_table σ v)))))
                          : gset pid))))) (list_of_vmids)))).
 
-  Lemma update_reg_global_preserve_owned σ i r w : get_owned_gmap (update_reg_global σ i r w) =
-                                               (get_owned_gmap σ).
-  Proof.
-    rewrite /get_owned_gmap.
-    f_equal.
-    Qed.
-
-  Lemma update_offset_PC_preserve_owned σ d o : get_owned_gmap (update_offset_PC σ d o) = get_owned_gmap σ.
-  Proof.
-    unfold update_offset_PC.
-    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_owned;done.
-    done.
-  Qed.
-
-
-
-  (* Definition get_access_gmap σ : ra_Accessible := *)
-  (*   (●  (foldr (λ p acc, <[p.1:=((DfracOwn 1),p.2)]>acc) ∅ *)
-  (*        (vzip_with (λ v δ, (v, *)
-  (*                   (map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)), *)
-  (*                 match perm.2 with *)
-  (*                 | NoAccess => s *)
-  (*                 | SharedAccess | ExclusiveAccess => match s with *)
-  (*                                     | GSet s' => GSet (s' ∪ {[p]}) *)
-  (*                                     | GSetBot => GSet ∅ *)
-  (*                                   end *)
-  (*                end) (GSet ∅) δ.2 ))) (vector_of_vmids) (get_vm_states σ) ))). *)
 
   (* Definition get_access_gmap σ : ra_Accessible := *)
   (*   (● (list_to_map (map (λ v, (v, ((DfracOwn 1),(map_fold (λ (p:pid) (perm:permission) (s: (gset_disjUR pid)), *)
@@ -498,25 +180,10 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
            (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v)))))
                          : gset pid))))) (list_of_vmids)))).
 
- Lemma update_reg_global_preserve_access σ i r w : get_access_gmap (update_reg_global σ i r w) =
-                                               (get_access_gmap σ).
-  Proof.
-    rewrite /get_access_gmap.
-    f_equal.
-    Qed.
-
-  Lemma update_offset_PC_preserve_access σ d o : get_access_gmap (update_offset_PC σ d o) = get_access_gmap σ.
-  Proof.
-    unfold update_offset_PC.
-    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_access;done.
-    done.
-  Qed.
-
   (* TODO: a new exclusive ra*)
 
   
-  Fixpoint vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
+  Definition vec_to_gmap{A:Type}  (vec: vec A vm_count)  : gmap vmid A:=
     (list_to_map (map (λ v, (v, (vec !!! v))) (list_of_vmids))).
 
   (* TODO we need getters for transations.. *)
@@ -526,43 +193,10 @@ Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ 
                   (p.1,((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.1.2), (vec_to_gmap trans.1.2)), trans.2))
       )  (map_to_list (get_transactions σ))).
 
-
- Lemma update_reg_global_preserve_trans σ i r w : get_trans_gmap (update_reg_global σ i r w) =
-                                               (get_trans_gmap σ).
-  Proof.
-    rewrite /get_trans_gmap.
-    f_equal.
-  Qed.
-
-  Lemma update_offset_PC_preserve_trans σ d o : get_trans_gmap (update_offset_PC σ d o) = get_trans_gmap σ.
-  Proof.
-    unfold update_offset_PC.
-    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_trans;done.
-    done.
-  Qed.
-
-
   Definition get_receivers_gmap σ : authR (gmapUR word (gset_disjR (leibnizO vmid))) :=
     ● (list_to_map (map (λ (p:word * transaction) ,
                       let trans := p.2 in
                   (p.1,(GSet trans.1.1.2))) (map_to_list (get_transactions σ)))).
-
-  Lemma update_reg_global_preserve_receivers σ i r w : get_receivers_gmap (update_reg_global σ i r w) =
-                                               (get_receivers_gmap σ).
-  Proof.
-    rewrite /get_receivers_gmap.
-    f_equal.
-  Qed.
-
-  Lemma update_offset_PC_preserve_receivers σ d o : get_receivers_gmap (update_offset_PC σ d o) = get_receivers_gmap σ.
-  Proof.
-    unfold update_offset_PC.
-    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_receivers;done.
-    done.
-  Qed.
-
 
   Definition gen_vm_interp σ: iProp Σ :=
     let i := (get_current_vm σ) in
