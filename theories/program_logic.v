@@ -2,7 +2,6 @@ From machine_program_logic.program_logic Require Import machine weakestpre.
 From HypVeri Require Export lang RAs.
 From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
-(* From iris_string_ident Require Import ltac2_string_ident. *)
 
 Section lifting.
 
@@ -101,6 +100,27 @@ Implicit Type ra rb : reg_name.
 Implicit Type w: word.
 Implicit Type q : Qp.
 
+
+Ltac rewrite_reg_all :=
+  match goal with
+  | |- _ =>  rewrite -> update_offset_PC_preserve_mem , -> update_reg_global_preserve_mem;
+      rewrite -> update_offset_PC_preserve_tx , -> update_reg_global_preserve_tx;
+      rewrite -> update_offset_PC_preserve_rx , -> update_reg_global_preserve_rx;
+      rewrite -> update_offset_PC_preserve_owned , -> update_reg_global_preserve_owned;
+      rewrite -> update_offset_PC_preserve_access , -> update_reg_global_preserve_access;
+      rewrite -> update_offset_PC_preserve_trans , -> update_reg_global_preserve_trans;
+      rewrite -> update_offset_PC_preserve_receivers , -> update_reg_global_preserve_receivers
+  end.
+
+Ltac solve_reg_lookup :=
+  match goal with
+  | _ : get_reg ?σ ?r = Some ?w |- get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r = Some ?w |- is_Some (get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
+    rewrite lookup_insert_ne; eauto
+  end.
+
+
 Lemma mov_word {i w1 w3 q} a w2 ra :
   decode_instruction w1 = Some(Mov ra (inl w2)) ->
   PC ≠ ra ->
@@ -116,127 +136,51 @@ Proof.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
-  iDestruct ((gen_reg_valid_Sep σ1 (get_current_vm σ1) (<[(PC,i):=a]>{[(ra,i):=w3]}))
-               with "Hreg [Hpc Hra]") as "%Hreg".
-  done.
-  iApply (big_sepM_delete _ _ (PC,i) a).
-  simplify_map_eq.
-  done.
-  iFrame.
-  iApply (big_sepM_delete _ _ (ra,i) w3).
-  simplify_map_eq.
-  apply lookup_delete_Some.
-  split.
-  intros P; inversion P; contradiction.
-  rewrite lookup_insert_Some.
-  right.
-  split.
-  intros P; inversion P; contradiction.
-  simplify_map_eq; done.
-  iFrame.
-  rewrite delete_insert.
-  rewrite delete_insert; auto using lookup_empty.
-  apply lookup_insert_None; split; auto using lookup_empty.
-  intros P; by inversion P.
-  iDestruct (gen_access_valid σ1 i q (mm_translation a) with "Haccess Hacc") as %Hacc .
-  assert (HPC : get_reg σ1 PC = Some a).
-  {
-    by apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
-  }
-  assert (Hra : get_reg σ1 ra = Some w3).
-  {
-    apply (Hreg (ra, i) w3).
-    rewrite lookup_insert_Some.
-    right.
-    split.
-    intros P; inversion P; contradiction.
-    by apply (lookup_insert _ (ra, i) w3).
-    done.
-  }
-  assert (Haccess: (check_access_addr σ1 i a) = true).
-  {
-    by unfold check_access_addr.
-  }
+  (* valid regs *)
+  iDestruct ((gen_reg_valid2 σ1 i PC a ra w3 Hcur HneqPC) with "Hreg Hpc Hra") as "[%HPC %Hra]".
+  (* valid pt *)
+  iDestruct (gen_access_valid_addr σ1 i q a with "Haccess Hacc") as %Hacc.
+  (* valid mem *)
   iDestruct (gen_mem_valid σ1 a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
-  iPureIntro.
-  remember (exec (Mov ra (inl w2)) σ1) as ex.
-  exists ex.1, ex.2.
-  unfold prim_step.
-  apply step_exec_normal with a w1 (Mov ra (inl w2)).
-  - rewrite /is_valid_PC HPC /=.
-    subst i.
-    by rewrite Haccess.
-  - by apply (Hreg (PC, i) a (lookup_insert _ (PC, i) a)).
-  - unfold get_memory.
-    subst i.
-    by rewrite Haccess.
-  - done.
-  - by symmetry.
-  - iModIntro.
+  - (* reducible *)
+    iPureIntro.
+    remember (exec (Mov ra (inl w2)) σ1) as ex.
+    exists ex.1, ex.2.
+    unfold prim_step.
+    apply step_exec_normal with a w1 (Mov ra (inl w2));subst i;eauto.
+    + rewrite /is_valid_PC HPC /=.
+      by rewrite Hacc.
+    + by rewrite /get_memory Hacc.
+  - (* step *)
+    iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    (* iModIntro. *)
     inversion HstepP as
         [ σ1' Hnotvalid
         | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol];
       simplify_eq /=;[| remember (get_current_vm σ1) as i eqn: Heqi].
     + (*Fail*)
-      rewrite /is_valid_PC /= in Hnotvalid.
-      by rewrite -> HPC ,Haccess in Hnotvalid.
+      by rewrite /is_valid_PC //= HPC Hacc in  Hnotvalid.
     + (* Normal. *)
       (* eliminate Hmem2 *)
-      rewrite /get_memory -Heqi Haccess /get_memory_unsafe Hmem in Hmem2 .
-      inversion Hmem2;subst; clear Hmem2.
+      rewrite /get_memory -Heqi Hacc /get_memory_unsafe Hmem in Hmem2 .
+      inversion Hmem2;subst w1; clear Hmem2.
       (* eliminate Hdecode2 *)
-      rewrite Hdecode in Hdecode2;inversion Hdecode2;subst; clear Hdecode2.
+      rewrite Hdecode in Hdecode2;inversion Hdecode2;subst i0; clear Hdecode2.
       remember (exec (Mov ra (inl w2)) σ1) as c2 eqn:Heqc2.
-      destruct ra eqn:Heqra;[contradiction|contradiction| rewrite <- Heqra].
       rewrite /gen_vm_interp.
-      (* eliminate option_state_unpack *)
-      rewrite /exec /mov_word /update_incr_PC in Heqc2.
-      rewrite <- (option_state_unpack_preserve_state_Some
-                  σ1 (update_offset_PC (update_reg σ1 (R n fin) w2) true 1)) in Heqc2;[|done].
-      rewrite /update_reg in Heqc2.
-      simplify_eq /=.
+      rewrite /exec (mov_word_ExecI σ1 ra _ HneqPC HneqNZ)  /update_incr_PC /update_reg -Heqi in Heqc2.
+      subst c2;simpl.
       (* unchanged part *)
-      rewrite -> update_offset_PC_preserve_mem , -> update_reg_global_preserve_mem.
-      rewrite -> update_offset_PC_preserve_tx , -> update_reg_global_preserve_tx.
-      rewrite -> update_offset_PC_preserve_rx , -> update_reg_global_preserve_rx.
-      rewrite -> update_offset_PC_preserve_owned , -> update_reg_global_preserve_owned.
-      rewrite -> update_offset_PC_preserve_access , -> update_reg_global_preserve_access.
-      rewrite -> update_offset_PC_preserve_trans , -> update_reg_global_preserve_trans.
-      rewrite -> update_offset_PC_preserve_receivers , -> update_reg_global_preserve_receivers.
+      rewrite_reg_all.
       iFrame.
       (* updated part *)
-      rewrite -> (update_offset_PC_update_PC1 _ (get_current_vm (update_reg_global σ1 (get_current_vm σ1) (R n fin) w2)) a 1);[|done|].
-      * rewrite update_reg_global_preserve_current_vm.
-        rewrite  -> update_reg_global_update_reg.
-        --  iDestruct (gen_reg_update_Sep σ1 {[(PC, get_current_vm σ1) := a; (R n fin, get_current_vm σ1) := w3]}
-                (<[(PC, get_current_vm σ1):=a +w 1]> {[(R n fin, get_current_vm σ1):=w2]} )
-                      with "[Hreg] [Hpc Hra]") as ">[Hσ Hreg]";[set_solver|done| | ].
-            iApply (big_sepM_delete _ _ (PC,_) a).
-            by simplify_map_eq.
-            iFrame.
-            iApply (big_sepM_delete _ _ (R n fin,_) w3).
-            by simplify_map_eq.
-            iFrame.
-            repeat rewrite delete_insert;[|done|by simplify_map_eq];done.
-            iModIntro.
-            iDestruct (big_sepM_delete _ _ (PC,_) (a +w 1) with "Hreg") as "[HPC Hreg]".
-            by simplify_map_eq.
-            iDestruct (big_sepM_delete _ _ (R n fin,_) w2 with "Hreg") as "[Hra _]".
-            by simplify_map_eq.
-            rewrite insert_union_singleton_l.
-            do 2 rewrite -> insert_union_singleton_l.
-            rewrite  map_union_assoc.
-            simplify_map_eq.
-            by iFrame.
-        --  exists w3; rewrite  get_reg_gmap_get_reg;[done|done].
-      * rewrite update_reg_global_preserve_current_vm.
-        rewrite update_reg_global_update_reg.
-        rewrite lookup_insert_ne;[|done].
-        rewrite  get_reg_gmap_get_reg;[done|done].
-        exists w3; rewrite  get_reg_gmap_get_reg;[done|done].
-Qed.
-
+      rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
+      * rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
+        iDestruct ((gen_reg_update2_global σ1 PC i a (a +w 1) ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+         by iFrame.
+      * rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+        repeat solve_reg_lookup.
+        intros P; symmetry in P;inversion P; contradiction.
+    Qed.
 End rules.

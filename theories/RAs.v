@@ -288,8 +288,9 @@ Qed.
        + by rewrite vlookup_insert_ne ;[|done].
      Qed.
 
-  Lemma update_offset_PC_update_PC1 σ i (w:word) (o:nat): i=get_current_vm σ -> ((get_reg_gmap σ) !! (PC,i) = Some w) -> get_reg_gmap (update_offset_PC σ true o) =
-                                             <[(PC,i) := (w +w o)]>(get_reg_gmap σ).
+  Lemma update_offset_PC_update_PC1 σ i (w:word) (o:nat):
+   i=get_current_vm σ -> ((get_reg_gmap σ) !! (PC,i) = Some w)
+   ->get_reg_gmap (update_offset_PC σ true o) = <[(PC,i) := (w +w o)]>(get_reg_gmap σ).
   Proof.
     intros.
     rewrite /update_offset_PC.
@@ -302,17 +303,17 @@ Qed.
     destruct H0.
     destruct H0.
     apply in_map_iff in H1.
-          destruct H1.
-          destruct H1.
-          inversion H1;subst;clear H1.
-          apply elem_of_list_In in H2.
-          apply elem_of_map_to_list' in H2.
-          rewrite H2.
-          rewrite /update_reg.
-          apply update_reg_global_update_reg.
-          exists x0.2.
-          rewrite H4.  done.
-          Qed.
+    destruct H1.
+    destruct H1.
+    inversion H1;subst;clear H1.
+    apply elem_of_list_In in H2.
+    apply elem_of_map_to_list' in H2.
+    rewrite H2.
+    rewrite /update_reg.
+    apply update_reg_global_update_reg.
+    exists x0.2.
+    by rewrite H4.
+  Qed.
 
   Definition get_txrx_auth_agree σ (f: mail_box -> pid) :
     ra_TXBuffer:=
@@ -745,9 +746,9 @@ Section hyp_lang_rules.
     - iLeft. done.
   Qed.
 
-Lemma gen_reg_valid:
+Lemma gen_reg_valid1:
   ∀ (σ : state) r i w,
-    i = (get_current_vm σ) ->
+    (get_current_vm σ) = i ->
     ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
     r @@ i ->r w -∗
           ⌜ (get_reg σ r) = Some w ⌝.
@@ -776,7 +777,7 @@ Qed.
 (* TODO : quite ugly... *)
 Lemma gen_reg_valid_Sep:
   ∀ (σ : state) i (regs: gmap (reg_name * vmid) word) ,
-    i = (get_current_vm σ) ->
+    (get_current_vm σ) = i ->
     ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
     ([∗ map] r↦w ∈ regs,  r.1 @@ r.2 ->r w)-∗
           ([∗ map] r↦w ∈ regs, ⌜r.2 = i -> (get_reg σ r.1) = Some w ⌝).
@@ -810,7 +811,32 @@ Proof.
   done.
 Qed.
 
-Lemma gen_reg_update:
+Lemma gen_reg_valid2:
+  ∀ (σ : state) i r1 w1 r2 w2 ,
+    (get_current_vm σ) = i ->
+    r1 ≠ r2->
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+                r1 @@ i ->r w1 -∗
+                             r2 @@ i ->r w2 -∗
+           ⌜ (get_reg σ r1) = Some w1 ⌝ ∗ ⌜ (get_reg σ r2) =Some w2 ⌝.
+Proof.
+  iIntros (?????? Hneq Hi) "Hreg Hr1 Hr2".
+  iDestruct ((gen_reg_valid_Sep σ i (<[(r1,i):=w1]>{[(r2,i):=w2]}))
+               with "Hreg [Hr1 Hr2]") as "%Hreg";eauto.
+  rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+  iFrame.
+  apply lookup_insert_None; split;eauto; intros P; by inversion P.
+  iPureIntro.
+  split.
+  - by apply (Hreg (r1, i) w1 (lookup_insert _ (r1, i) w1)).
+  - apply (Hreg (r2, i) w2);eauto.
+    rewrite lookup_insert_Some;right;split;
+    [intros P; inversion P; contradiction|];
+    by rewrite !lookup_insert.
+ Qed.
+
+
+Lemma gen_reg_update1:
   ∀ (σ : state) r i w w',
     ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
     r @@ i ->r w ==∗
@@ -853,6 +879,30 @@ Qed.
   rewrite reg_proper.
   iFrame.
  Qed.
+
+ Lemma gen_reg_update2_global:
+  ∀ (σ : state) r1 i1 w1 w1' r2 i2 w2 w2',
+    r1 ≠ r2 ∨ i1 ≠ i2 ->
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+     r1 @@ i1 ->r w1 -∗
+                      r2 @@ i2 ->r w2==∗
+               ghost_map_auth (gen_reg_name vmG) 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']> (get_reg_gmap σ))) ∗
+             r1 @@ i1 ->r w1'  ∗ r2 @@ i2 ->r w2'.
+ Proof.
+  iIntros (????????? Hneq) "Hreg Hr1 Hr2".
+  iDestruct ((gen_reg_update_Sep _ {[(r1,i1):=w1; (r2,i2):=w2]} {[(r1,i1):=w1'; (r2,i2):=w2']}) with "Hreg [Hr1 Hr2]")
+    as ">[Hreg Hr12]" ;eauto;[set_solver| | ].
+        rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+        iFrame.
+        destruct Hneq; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+        iModIntro.
+        rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+        iDestruct "Hr12" as "(? & ? & _)".
+        rewrite ?insert_union_singleton_l map_union_assoc.
+        simplify_map_eq.
+        by iFrame.
+        destruct Hneq; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+Qed.
 
 
  (* rules for memory points-to *)
@@ -1117,7 +1167,17 @@ Lemma gen_access_valid:
       inversion Heqn.
 Qed.
 
-
+Lemma gen_access_valid_addr:
+  ∀ (σ : state) i q a,
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    (A@ i :={q} (mm_translation a) ) -∗
+          ( ⌜(check_access_addr σ i a)= true ⌝).
+Proof.
+  iIntros (????) "Haccess Hacc".
+  iDestruct (gen_access_valid σ i q (mm_translation a) with "Haccess Hacc") as %Hacc.
+  iPureIntro.
+  by unfold check_access_page.
+Qed.
 
   (* TODO : gen_access_valid_Sep, gen_access_valid_set*)
 

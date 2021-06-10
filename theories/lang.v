@@ -283,6 +283,18 @@ Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * stat
     in
     (option_state_unpack s comp).
 
+Lemma mov_word_ExecI σ1 r w :
+  PC ≠ r ->  NZ ≠ r -> (mov_word σ1 r w)= (ExecI, (update_incr_PC (update_reg σ1 r w))).
+Proof.
+  intros.
+  unfold mov_word .
+  destruct r;[contradiction|contradiction|].
+  rewrite <- (option_state_unpack_preserve_state_Some σ1
+              (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
+Qed.
+
+
+
 Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   let comp :=
       match (dst, src) with
