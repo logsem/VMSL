@@ -21,7 +21,9 @@ Implicit Type q : Qp.
 
 Ltac rewrite_reg_all :=
   match goal with
-  | |- _ =>  rewrite -> update_offset_PC_preserve_mem , -> update_reg_global_preserve_mem;
+  | |- _ =>
+    rewrite -> update_offset_PC_preserve_current_vm , -> update_reg_global_preserve_current_vm;
+    rewrite -> update_offset_PC_preserve_mem , -> update_reg_global_preserve_mem;
       rewrite -> update_offset_PC_preserve_tx , -> update_reg_global_preserve_tx;
       rewrite -> update_offset_PC_preserve_rx , -> update_reg_global_preserve_rx;
       rewrite -> update_offset_PC_preserve_owned , -> update_reg_global_preserve_owned;
@@ -43,11 +45,10 @@ Lemma mov_word {i w1 w3 q} a w2 ra :
   decode_instruction w1 = Some(Mov ra (inl w2)) ->
   PC ≠ ra ->
   NZ ≠ ra ->
-  PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ PC @@ i ->r (a +w 1)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
-
+  <<i>> ∗ PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (a +w 1)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
 Proof.
-  iIntros (Hdecode HneqPC HneqNZ) "(Hpc & Hapc & Hacc & Hra)".
+  iIntros (Hdecode HneqPC HneqNZ) "(? & Hpc & Hapc & Hacc & Hra)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -87,10 +88,11 @@ Proof.
       rewrite Hdecode in Hdecode2;inversion Hdecode2;subst i0; clear Hdecode2.
       remember (exec (Mov ra (inl w2)) σ1) as c2 eqn:Heqc2.
       rewrite /gen_vm_interp.
-      rewrite /exec (mov_word_ExecI σ1 ra _ HneqPC HneqNZ)  /update_incr_PC /update_reg -Heqi in Heqc2.
-      subst c2;simpl.
+      rewrite /exec (mov_word_ExecI σ1 ra _ HneqPC HneqNZ)  /update_incr_PC /update_reg  in Heqc2.
+      subst c2; simpl.
       (* unchanged part *)
       rewrite_reg_all.
+      rewrite -Heqi.
       iFrame.
       (* updated part *)
       rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.

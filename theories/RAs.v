@@ -1,5 +1,5 @@
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
-From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset.
+From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset frac_agree.
 From iris.proofmode Require Import tactics.
 From stdpp Require Import listset_nodup.
 From HypVeri Require Export lang machine.
@@ -10,7 +10,8 @@ From HypVeri Require Export lang machine.
 
   Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
-                      gen_num_preG_inG :> inG Σ (agreeR natO);
+                      (* gen_num_preG_inG :> inG Σ (agreeR natO); *)
+                      gen_token_preG_inG :> inG Σ (frac_agreeR (leibnizO V));
                       gen_mem_preG_inG :> gen_heapGpreS A W Σ;
                       gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
                       gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
@@ -34,7 +35,8 @@ From HypVeri Require Export lang machine.
                       gen_invG :> invGS Σ;
                       gen_na_invG :> na_invG Σ;
                       gen_nainv_name : na_inv_pool_name;
-                      gen_num_name : gname;
+                      gen_token_name : gname;
+                      (* gen_num_name : gname; *)
                       gen_mem_name : gname;
                       gen_reg_name : gname;
                       gen_tx_name : gname;
@@ -46,7 +48,8 @@ From HypVeri Require Export lang machine.
                     }.
 
 Global Arguments gen_nainv_name {Σ} _.
-Global Arguments gen_num_name {Σ} _.
+(* Global Arguments gen_num_name {Σ} _. *)
+Global Arguments gen_token_name {Σ} _.
 Global Arguments gen_mem_name {Σ} _.
 Global Arguments gen_reg_name {Σ} _.
 Global Arguments gen_rx_name {Σ} _.
@@ -73,7 +76,8 @@ Definition gen_VMΣ : gFunctors :=
   #[
       invΣ;
       na_invΣ;
-      GFunctor (agreeR natO);
+      (* GFunctor (agreeR natO); *)
+      GFunctor (frac_agreeR (leibnizO vmid));
       gen_heapΣ addr word;
       gen_heapΣ (reg_name * vmid) word;
       GFunctor ra_TXBuffer;
@@ -108,6 +112,9 @@ Section definitions.
     exists v.
     apply lookup_fun_to_vec.
   Qed.
+
+  Definition get_token  (v:vmid) :=
+     (to_frac_agree (1/2) (v: leibnizO vmid)).
 
   Definition get_reg_gmap σ: gmap (reg_name * vmid) word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
@@ -199,9 +206,9 @@ Section definitions.
                   (p.1,(GSet trans.1.1.2))) (map_to_list (get_transactions σ)))).
 
   Definition gen_vm_interp σ: iProp Σ :=
-    let i := (get_current_vm σ) in
-    (* let δ := (get_vm_state σ i) in *)
-      own (gen_num_name vmG) (to_agree vm_count)∗
+      (* XXX: seems like (to_agree vm_count) is not very useful ...*)
+      (* own (gen_num_name vmG) (to_agree vm_count)∗ *)
+      own (gen_token_name vmG) (get_token (get_current_vm σ)) ∗
       ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) ∗
       ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
       own (gen_tx_name vmG) (get_tx_agree σ) ∗
@@ -213,11 +220,19 @@ Section definitions.
     .
 
 
-  Definition num_agree_def (n:nat) : iProp Σ :=
-    own (gen_num_name vmG) (to_agree n).
-  Definition num_agree_aux : seal (@num_agree_def). Proof. by eexists. Qed.
-  Definition num_agree:= num_agree_aux.(unseal).
-  Definition num_agree_eq : @num_agree = @num_agree_def := num_agree_aux.(seal_eq).
+  (* Definition num_agree_def (n:nat) : iProp Σ := *)
+  (*   own (gen_num_name vmG) (to_agree n). *)
+  (* Definition num_agree_aux : seal (@num_agree_def). Proof. by eexists. Qed. *)
+  (* Definition num_agree:= num_agree_aux.(unseal). *)
+  (* Definition num_agree_eq : @num_agree = @num_agree_def := num_agree_aux.(seal_eq). *)
+
+
+  Definition token_agree_def (v:vmid) : iProp Σ :=
+    own (gen_token_name vmG) (get_token v) .
+  Definition token_agree_aux : seal (@token_agree_def). Proof. by eexists. Qed.
+  Definition token_agree:= token_agree_aux.(unseal).
+  Definition token_agree_eq : @token_agree = @token_agree_def := token_agree_aux.(seal_eq).
+
 
   Definition mem_mapsto_def (a:addr) (dq : dfrac) (w:word) : iProp Σ :=
     (ghost_map_elem (gen_mem_name vmG) a dq w).
@@ -302,8 +317,13 @@ Section definitions.
 End definitions.
 
 (* predicate for the number of vms *)
-Notation "## n" := (num_agree n)
-                        (at level 50, format "## n"): bi_scope.
+(* Notation "## n" := (num_agree n) *)
+(*                         (at level 50, format "## n"): bi_scope. *)
+
+(* predicate for current vm (token) *)
+
+Notation "<< n >>" := (token_agree n)
+                        (at level 50, format "<< n >>"): bi_scope.
 
 (* point-to predicates for registers and memory *)
 Notation "r @@ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
@@ -354,6 +374,40 @@ Section hyp_lang_rules.
   Implicit Types r : reg_name.
   Implicit Types w: word.
 
+
+  Lemma token_valid i1 i2 :
+   << i1 >> -∗
+      << i2 >> -∗
+      ⌜ i1 = i2 ⌝.
+  Proof.
+    rewrite token_agree_eq /token_agree_def.
+    iIntros "H1 H2".
+    iDestruct (own_valid_2  with "H1 H2") as %Hvalid.
+    rewrite /get_token in Hvalid.
+    apply frac_agree_op_valid_L in Hvalid.
+    destruct Hvalid;done.
+   Qed.
+
+    Lemma token_update i1 i2 :
+   << i1 >> -∗
+      << i1 >> ==∗
+      << i2 >> ∗ << i2 >>.
+  Proof.
+    rewrite token_agree_eq /token_agree_def /get_token.
+    rewrite -own_op.
+    iApply own_update_2.
+    rewrite - frac_agree_op.
+    pose proof (to_frac_agree_exclusive (i1: leibnizO vmid)).
+    assert (Heq:  ( 1/2 + 1/2 =  1)%Qp ).
+    { apply (bool_decide_unpack _). by compute. }
+    rewrite Heq.
+    apply (cmra_update_exclusive ).
+    rewrite -frac_agree_op.
+    unfold to_frac_agree.
+    rewrite Heq.
+    apply pair_valid.
+    split;done.
+  Qed.
 
   (* rules for register points-to *)
 
