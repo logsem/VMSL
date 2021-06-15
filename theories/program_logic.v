@@ -244,12 +244,13 @@ Lemma ldr_neq_norm {i w1 w2 w3 q s} ai a ra rb :
   PC ≠ rb ->
   NZ ≠ rb ->
   ra ≠ rb ->
+  ai ≠ a ->
   s = {[(mm_translation ai);(mm_translation a)]} ->
   <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={q}[s] ∗ ra @@ i ->r w3
     ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                                       ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ) }}%I.
 Proof.
-  iIntros (Hdecode HneqPCa HneqNZa HneqPCb HneqNZb Hneqab Hs) "(? & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
+  iIntros (Hdecode HneqPCa HneqNZa HneqPCb HneqNZb Hneqab Hneqaia Hs) "(? & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -259,9 +260,58 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid3 σ1 i PC ai ra w3 rb a Hcur HneqPCa HneqPCb Hneqab ) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  Admitted.
-  (* TODO: gen_access_valid_addr2, ai =? a doesn't matter? *))
+  iDestruct ((gen_access_valid_addr2 σ1 i q s ai a Hs) with "Haccess Hacc") as "[%Hai %Ha]".
+   (* valid mem *)
+  iDestruct (gen_mem_valid2 σ1 ai w1 a w2 Hneqaia with "Hmem Hapc Harb ") as "[%Hmemai %Hmema]".
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    remember (exec (Ldr ra rb) σ1) as ex.
+    exists ex.1, ex.2.
+    unfold prim_step.
+    apply step_exec_normal with ai w1 (Ldr ra rb);subst i;eauto.
+    + rewrite /is_valid_PC HPC /=.
+      by rewrite Hai.
+    + by rewrite /get_memory Hai.
+  -  (* step *)
+    iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    inversion HstepP as
+        [ σ1' Hnotvalid
+        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol];
+      simplify_eq /=;[| remember (get_current_vm σ1) as i eqn: Heqi].
+    + (*Fail*)
+      by rewrite /is_valid_PC //= HPC Hai in  Hnotvalid.
+    + (* Normal. *)
+      (* eliminate Hmem2 *)
+      rewrite /get_memory -Heqi Hai /get_memory_unsafe Hmemai in Hmem2 .
+      inversion Hmem2;subst w1; clear Hmem2.
+      (* eliminate Hdecode2 *)
+      rewrite Hdecode in Hdecode2;inversion Hdecode2;subst i0; clear Hdecode2.
+      remember (exec (Ldr ra rb) σ1) as c2 eqn:Heqc2.
+      rewrite /gen_vm_interp.
+      Print ldr_ExecI.
+      rewrite /exec (ldr_ExecI σ1 ra rb a w2 HneqPCa HneqNZa HneqPCb HneqNZb Hrb _) /update_incr_PC /update_reg in Heqc2.
+      2: {
+        unfold get_memory.
+        by rewrite -Heqi Ha.
+      }.
+      subst c2; simpl.
+      (* unchanged part *)
+      rewrite_reg_all.
+      rewrite -Heqi.
+      iFrame.
+      (* updated part *)
+      rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+      * rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
+        iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
+        apply (get_reg_gmap_get_reg_Some _ _ _ i Heqi) in Hra.
+          by iFrame.
+      * rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+        repeat solve_reg_lookup.
+        intros P; symmetry in P;inversion P; contradiction.
+    Qed.
 
-
+(* TODO: a general lemma for proving reducible. *)
 
 End rules.

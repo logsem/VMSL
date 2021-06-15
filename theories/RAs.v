@@ -472,8 +472,7 @@ Lemma gen_reg_valid_Sep:
 Proof.
   iIntros (????) "Hσ Hregs".
   rewrite reg_mapsto_eq /reg_mapsto_def.
-  iDestruct ((ghost_map_lookup_big  regs) with "[Hσ] [Hregs]") as "%Hincl".
-  iApply "Hσ".
+  iDestruct ((ghost_map_lookup_big regs) with "Hσ [Hregs]") as "%Hincl".
   iApply (big_sepM_proper (λ k x, (k.1, k.2)↪[gen_reg_name vmG] x)%I).
   intros.
   simplify_eq.
@@ -483,7 +482,7 @@ Proof.
   iApply big_sepM_pure.
   iIntros (????).
   rewrite /get_reg /get_reg_global.
-  apply (lookup_weaken  _ (get_reg_gmap σ) _ _) in a1.
+  apply (lookup_weaken  _ (get_reg_gmap σ) _ _) in a1;eauto.
   apply elem_of_list_to_map_2 in a1.
   apply elem_of_list_In in a1.
   apply in_flat_map in a1.
@@ -496,7 +495,6 @@ Proof.
   apply elem_of_list_In in H3.
   apply elem_of_map_to_list' in H3.
   by simplify_eq /=.
-  done.
 Qed.
 
 Lemma gen_reg_valid2:
@@ -665,8 +663,40 @@ Proof.
   done.
  Qed.
 
-(* TODO: bigSep version *)
+Lemma gen_mem_valid_Sep:
+  ∀ (σ : state) mem,
+    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ([∗ map] a↦w ∈ mem,  a ->a w)-∗
+         ([∗ map] a↦w ∈ mem, ⌜ (get_mem σ) !! a = Some w ⌝).
+Proof.
+  iIntros (??) "Hσ Hmem".
+  rewrite mem_mapsto_eq /mem_mapsto_def.
+  iDestruct ((ghost_map_lookup_big mem) with "Hσ Hmem") as "%Hincl".
+  iApply big_sepM_pure.
+  iIntros (???).
+  iPureIntro.
+  apply (lookup_weaken  mem (get_mem σ) _ _ a1 Hincl) .
+Qed.
 
+Lemma gen_mem_valid2:
+  ∀ (σ : state) a1 w1 a2 w2,
+    a1 ≠ a2 ->
+    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    a1 ->a w1 -∗
+    a2 ->a w2 -∗
+          ⌜ (get_mem σ) !! a1 = Some w1 ⌝ ∗ ⌜ (get_mem σ) !! a2 = Some w2 ⌝.
+Proof.
+  iIntros (????? Hneq) "Hσ Ha1 Ha2".
+  iDestruct (gen_mem_valid_Sep _ {[a1:=w1;a2:=w2]} with "Hσ [Ha1 Ha2]") as "%";eauto.
+  rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+  iFrame.
+  by simplify_map_eq.
+  iPureIntro.
+  split.
+  - by apply (H a1 w1 (lookup_insert _ a1 w1)).
+  - apply (H a2 w2);eauto.
+    by simplify_map_eq.
+ Qed.
 
  (* rules for TX *)
   Lemma tx_dupl i p :
@@ -770,12 +800,13 @@ Proof.
     done.
   Qed.
 
-Lemma gen_access_valid:
-  ∀ (σ : state) i q p,
+
+Lemma gen_access_valid_Set:
+  ∀ (σ : state) i q (s:gset pid),
     own (gen_access_name vmG) (get_access_gmap σ)  -∗
-    (A@ i :={q}p ) -∗
-          ( ⌜(check_access_page σ i p)= true ⌝).
-  Proof.
+    (A@ i :={q}[s] ) -∗
+          ([∗ set]  p ∈ s, ⌜(check_access_page σ i p)= true ⌝).
+Proof.
     iIntros (????) "Hσ Hacc".
     rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (own_valid_2 with "Hσ Hacc") as %Hvalid.
@@ -793,7 +824,7 @@ Lemma gen_access_valid:
                          (map_to_list
                             (filter (λ p : pid * permission, is_accessible p.2 = true)
                                (get_vm_page_table σ v)))))))) list_of_vmids)) as m.
-    pose proof (lookup_included {[i := (DfracOwn q, GSet {[p]})]} m).
+    pose proof (lookup_included {[i := (DfracOwn q, GSet s)]} m).
     rewrite ->H1 in H.
     clear H1.
     pose proof (H i).
@@ -816,14 +847,12 @@ Lemma gen_access_valid:
    inversion H.
    simplify_eq /=.
    clear H.
+   unfold set_Forall.
+   intros p Hin.
    destruct H1.
-    - inversion H;clear H.
+  - inversion H;clear H.
       simplify_eq /=.
       unfold check_access_page.
-     destruct (get_vm_page_table σ i !! p) eqn:Heqn.
-    + assert ( p ∈ ({[p]}: gset pid)) as Hin.
-      { set_solver.  }
-      rewrite H3 in Hin.
       apply elem_of_list_to_set in Hin.
       apply elem_of_list_In in Hin.
       apply (in_map_iff _ _ p) in Hin.
@@ -834,33 +863,16 @@ Lemma gen_access_valid:
       apply map_filter_lookup_Some in H1.
       destruct H1.
       subst p.
-      rewrite H1 in Heqn.
-      inversion Heqn.
-      assumption.
-    + assert ( p ∈ ({[p]}: gset pid)) as Hin.
-      { set_solver.  }
-      rewrite H3 in Hin.
-      apply elem_of_list_to_set in Hin.
-      apply elem_of_list_In in Hin.
-      apply (in_map_iff _ _ p) in Hin.
-      destruct Hin.
-      destruct H.
-      rewrite <- elem_of_list_In in H1.
-      apply elem_of_map_to_list' in H1.
-      apply map_filter_lookup_Some in H1.
-      destruct H1.
-      subst p.
-      rewrite H1 in Heqn.
-      inversion Heqn.
+      by rewrite H1 /=.
     - apply pair_included in H.
       destruct H;clear H.
       apply gset_disj_included in H1.
       unfold check_access_page.
-     destruct (get_vm_page_table σ i !! p) eqn:Heqn.
-    + assert ( p ∈ (list_to_set
+      assert ( p ∈ (list_to_set
            (map (λ p : pid * permission, p.1)
-              (map_to_list (filter (λ p : pid * permission, is_accessible p.2 = true) (get_vm_page_table σ i)))): gset pid)) as Hin.
+              (map_to_list (filter (λ p : pid * permission, is_accessible p.2 = true) (get_vm_page_table σ i)))): gset pid)) as Hin'.
       { set_solver.  }
+      clear Hin;rename Hin' into Hin.
       apply elem_of_list_to_set in Hin.
       apply elem_of_list_In in Hin.
       apply (in_map_iff _ _ p) in Hin.
@@ -871,26 +883,21 @@ Lemma gen_access_valid:
       apply map_filter_lookup_Some in H3.
       destruct H3.
       subst p.
-      rewrite H3 in Heqn.
-      inversion Heqn.
-      assumption.
-    + assert ( p ∈ (list_to_set
-           (map (λ p : pid * permission, p.1)
-              (map_to_list (filter (λ p : pid * permission, is_accessible p.2 = true) (get_vm_page_table σ i)))): gset pid)) as Hin.
-      { set_solver.  }
-      apply elem_of_list_to_set in Hin.
-      apply elem_of_list_In in Hin.
-      apply (in_map_iff _ _ p) in Hin.
-      destruct Hin.
-      destruct H.
-      rewrite <- elem_of_list_In in H3.
-      apply elem_of_map_to_list' in H3.
-      apply map_filter_lookup_Some in H3.
-      destruct H3.
-      subst p.
-      rewrite H3 in Heqn.
-      inversion Heqn.
+      rewrite H3.
+      done.
 Qed.
+
+  Lemma gen_access_valid:
+  ∀ (σ : state) i q p,
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    (A@ i :={q}p ) -∗
+          ( ⌜(check_access_page σ i p)= true ⌝).
+  Proof.
+     iIntros (????) "Hσ Hacc".
+     iDestruct (gen_access_valid_Set _ _ _ {[p]} with "Hσ Hacc") as %->;eauto.
+     set_solver.
+  Qed.
+
 
 Lemma gen_access_valid_addr:
   ∀ (σ : state) i q a,
@@ -904,7 +911,27 @@ Proof.
   by unfold check_access_page.
 Qed.
 
-  (* TODO : gen_access_valid_Sep, gen_access_valid_set*)
+
+Lemma gen_access_valid_addr2:
+  ∀ (σ : state) i q s a1 a2,
+      s= {[(mm_translation a1); (mm_translation a2)]} ->
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    (A@ i :={q}[s] ) -∗
+          ( ⌜(check_access_addr σ i a1)= true ⌝ ∗ ⌜(check_access_addr σ i a2)= true ⌝).
+Proof.
+  iIntros (???????) "Haccess Hacc".
+  iDestruct (gen_access_valid_Set σ i q s with "Haccess Hacc") as %Hacc.
+  iPureIntro.
+  split.
+  pose proof (Hacc (mm_translation a1)).
+  apply H0.
+  set_solver.
+  pose proof (Hacc (mm_translation a2)).
+  apply H0.
+  set_solver.
+Qed.
+
+  (* TODO : gen_access_valid_Sep*)
 
   (* rules for transactions *)
   Lemma trans_split wh q1 q2 i wf wt m f:

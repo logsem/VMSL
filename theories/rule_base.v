@@ -42,6 +42,25 @@ From HypVeri Require Import RAs.
 
 
 
+  Lemma ldr_ExecI σ1 r1 r2 a w:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   (get_reg σ1 r2) = Some a ->
+   get_memory σ1 a = Some w ->
+   (ldr σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
+  Proof.
+    intros.
+    unfold ldr.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    unfold bind.
+    simpl.
+    rewrite H3 H4.
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+                                                        (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
+  Qed.
+
+
+
   Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
   Proof.
     unfold get_current_vm ,update_reg_global.

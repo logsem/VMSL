@@ -257,6 +257,7 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
     in
   (option_state_unpack s comp).
 
+(* XXX: reading from tx page is disallowed. *)
 Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   let comp :=
       match (dst, src) with
@@ -926,7 +927,6 @@ Inductive step : exec_mode -> state -> exec_mode -> state -> Prop :=
       is_valid_PC st = Some true ->
       get_reg st PC = Some a ->
       get_memory st a = Some w ->
-      (* get_memory_with_offset st a 1 = Some w2 -> *)
       decode_instruction w = Some i ->
       exec i st = c ->
       step ExecI st c.1 c.2.
