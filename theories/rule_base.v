@@ -393,3 +393,44 @@ From HypVeri Require Import RAs.
     destruct d; rewrite /update_reg update_reg_global_preserve_receivers;done.
     done.
   Qed.
+
+
+  Lemma reducible_normal{σ} i instr ai wi :
+   (get_current_vm σ) = i ->
+   check_access_addr σ i ai = true ->
+   get_reg σ PC = Some ai ->
+   get_mem σ !! ai = Some wi ->
+   decode_instruction wi = Some (instr) ->
+   ∃ m' σ', step ExecI σ m' σ'.
+  Proof.
+    intros.
+    remember (exec instr σ) as ex.
+    exists ex.1 ,ex.2 .
+    apply step_exec_normal with ai wi instr;subst i ;eauto.
+    + by rewrite /is_valid_PC H1 /= H0.
+    + by rewrite /get_memory H0.
+   Qed.
+
+  Lemma step_ExecI_normal {σ m' σ' } i instr ai wi  :
+   step ExecI σ m' σ'->
+   (get_current_vm σ) = i ->
+   check_access_addr σ i ai = true ->
+   get_reg σ PC = Some ai ->
+   get_mem σ !! ai = Some wi ->
+   decode_instruction wi = Some (instr) ->
+   (exec instr σ).1 = m' ∧ (exec instr σ).2 = σ'.
+  Proof.
+    intros HstepP Heqi Hacc HPC Hmem Hdecode.
+  inversion HstepP as
+        [ σ1' Hnotvalid
+        | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol];
+      simplify_eq /=.
+    + (*Fail*)
+      by rewrite /is_valid_PC //= HPC Hacc in  Hnotvalid.
+    + (* Normal. *)
+      (* eliminate Hmem2 *)
+      rewrite /get_memory  Hacc /get_memory_unsafe Hmem in Hmem2 .
+      inversion Hmem2;subst wi; clear Hmem2.
+      (* eliminate Hdecode2 *)
+      by rewrite Hdecode in Hdecode2;inversion Hdecode2;subst i0.
+      Qed.
