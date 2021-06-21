@@ -252,12 +252,10 @@ Qed.
 Lemma update_offset_PC_preserve_mem σ d o : get_mem (update_offset_PC σ d o) = get_mem σ.
 Proof.
   unfold update_offset_PC.
-
   destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
   destruct d; rewrite -> update_reg_preserve_mem;done.
   done.
 Qed.
-
 
 Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * state :=
   let comp :=
@@ -309,9 +307,16 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
   | (R _ _, R _ _) =>
     match get_reg s src with
     | Some src' =>
-      match get_memory s src' with
-      | Some v => (ExecI, update_incr_PC (update_reg s dst v))
-      | _ => (FailPageFaultI, s)
+      match (get_mail_boxes s) !!! (get_current_vm s) with
+      | (tx, _) =>
+        match decide (mm_translation src' = tx) with
+        | left _ =>
+          match get_memory s src' with
+          | Some v => (ExecI, update_incr_PC (update_reg s dst v))
+          | _ => (FailPageFaultI, s)
+          end
+        | right _ => (FailPageFaultI, s)
+        end
       end
     | _ => (FailI, s)
     end
@@ -326,7 +331,14 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
   in
   match comp with
   | Some (src', dst') =>
-    update_memory (update_incr_PC s) dst' src'
+    match (get_mail_boxes s) !!! (get_current_vm s) with
+    | (_, (rx, _, _)) =>
+      match decide (mm_translation dst' = rx) with
+      | left _ =>
+        update_memory (update_incr_PC s) dst' src'
+      | right _ => (FailPageFaultI, s)
+      end
+    end
   | _ => (FailI, s)
   end.
 
@@ -606,7 +618,7 @@ Definition parse_transaction_descriptor (st : state) (wl : word) (base : addr) (
   (* Validate length *)
   vs' <- decode_vmid vs ;;;                                             
   unit (vs', (if (fin_to_nat wh) =? 0 then None else Some wh), wt, wf, wc, memory_regions_to_vec memDescrs).
-Search (nat -> nat -> bool).
+
 Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
            (t : transaction_descriptor) : hvc_result () :=
   match t with
