@@ -606,7 +606,7 @@ Definition parse_transaction_descriptor (st : state) (wl : word) (base : addr) (
   (* Validate length *)
   vs' <- decode_vmid vs ;;;                                             
   unit (vs', (if (fin_to_nat wh) =? 0 then None else Some wh), wt, wf, wc, memory_regions_to_vec memDescrs).
-
+Search (nat -> nat -> bool).
 Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
            (t : transaction_descriptor) : hvc_result () :=
   match t with
@@ -616,7 +616,8 @@ Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
         _ <- @bool_check_option True (fin_to_nat wc =? length gm) ;;;
         @bool_check_option True (match ty with
                                      | Donation => (fin_to_nat wc) =? 1
-                                     | _ => true
+                                     | Sharing => (fin_to_nat wc) <? 3
+                                     | Lending => (fin_to_nat wc) <? 3
                                  end)) InvParam ;;;
     unit tt
   end.
