@@ -162,10 +162,12 @@ Definition reg_valid_cond (r : reg_name) : Prop :=
 (* Definition double_word : Type := *)
   (* (word * word). *)
 Inductive valid_instruction : instruction -> Prop :=
-| valid_mov src dst : reg_valid_cond dst ->
-                      reg_valid_cond src ->
-                      src ≠ dst ->
-                      valid_instruction (Mov dst (inr src))
+| valid_mov_imm src dst : reg_valid_cond dst ->
+                          reg_valid_cond src ->
+                          src ≠ dst ->
+                          valid_instruction (Mov dst (inr src))
+| valid_mov_reg imm dst : reg_valid_cond dst ->
+                          valid_instruction (Mov dst (inl imm))
 | valid_ldr src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
                       src ≠ dst ->
