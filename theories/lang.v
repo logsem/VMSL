@@ -256,7 +256,6 @@ Proof.
   destruct d; rewrite -> update_reg_preserve_mem;done.
   done.
 Qed.
->>>>>>> origin/lang
 
 Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * state :=
   let comp :=

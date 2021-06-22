@@ -41,167 +41,116 @@ Ltac solve_reg_lookup :=
   end.
 
 
-Lemma mov_word {i w1 w3 q instr} a w2 ra :
-  instr = Mov ra (inl w2) ->
-  decode_instruction w1 = Some(instr) ->
-  PC ≠ ra ->
-  NZ ≠ ra ->
+Lemma mov_word {i w1 w3 q} a w2 ra :
+  decode_instruction w1 = Some(Mov ra (inl w2)) ->
   <<i>> ∗ PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3
     ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (a +w 1)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2) }}%I.
 Proof.
-  iIntros (Hinstr Hdecode HneqPC HneqNZ) "(? & Hpc & Hapc & Hacc & Hra)".
+  iIntros (Hdecode) "(? & Hpc & Hapc & Hacc & Hra)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
+  pose proof (decode_instruction_valid w1 (Mov ra (inl w2)) Hdecode) as H.
+  inversion H as [| ? ? H' | | | | |].
+  inversion H; subst; clear H.
+  destruct H' as [H1' H2'].
   (* valid regs *)
-  iDestruct ((gen_reg_valid2 σ1 i PC a ra w3 Hcur HneqPC) with "Hreg Hpc Hra") as "[%HPC %Hra]".
+  assert (PCne : PC ≠ ra); auto.
+  assert (NZne : NZ ≠ ra); auto.
+  iDestruct ((gen_reg_valid2 σ1 (get_current_vm σ1) PC a ra w3 eq_refl PCne) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr σ1 i q a with "Haccess Hacc") as %Hacc.
+  iDestruct (gen_access_valid_addr σ1 (get_current_vm σ1) q a with "Haccess Hacc") as %Hacc.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr a w1);eauto.
+    apply (reducible_normal (get_current_vm σ1) (Mov ra (inl w2)) a w1);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr a w1) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (mov_word_ExecI σ1 ra _ HneqPC HneqNZ)  /update_incr_PC /update_reg  in Heqc2.
+    apply (step_ExecI_normal (get_current_vm σ1) (Mov ra (inl w2)) a w1) in HstepP;eauto.
+    remember (exec (Mov ra (inl w2)) σ1) as c2 eqn:Heqc2.
+    rewrite /exec (mov_word_ExecI σ1 ra _ PCne NZne)  /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
     rewrite_reg_all.
-    rewrite Hcur.
     iFrame.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
+    rewrite -> (update_offset_PC_update_PC1 _ (get_current_vm σ1) a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global σ1 PC i a (a +w 1) ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC (get_current_vm σ1) a (a +w 1) ra (get_current_vm σ1) w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
         by iFrame.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-Lemma mov_reg_neq {i w1 w3 q instr} a w2 ra rb :
-  instr = Mov ra (inr rb)->
-  decode_instruction w1 = Some(instr) ->
-  PC ≠ ra ->
-  NZ ≠ ra ->
-  PC ≠ rb ->
-  NZ ≠ rb ->
-  ra ≠ rb ->
+Lemma mov_reg_neq {i w1 w3 q} a w2 ra rb :
+  decode_instruction w1 = Some(Mov ra (inr rb)) ->
   <<i>> ∗ PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3
     ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (a +w 1)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3 ∗ rb @@ i ->r w3) }}%I.
 Proof.
-  iIntros (Hinstr Hdecode HneqPCa HneqNZa HneqPCb HneqNZb Hneqab) "(? & Hpc & Hapc & Hacc & Hra & Hrb)".
+  iIntros (Hdecode) "(? & Hpc & Hapc & Hacc & Hra & Hrb)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
+  pose proof (decode_instruction_valid w1 (Mov ra (inr rb)) Hdecode) as H.
+  inversion H as [H' H'' H1 H2 H3 H''' | | | | | |]; subst; clear H.
+  inversion H1; subst; clear H1.
+  inversion H2; subst; clear H2.
   iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
   (* valid regs *)
-  iDestruct ((gen_reg_valid3 σ1 i PC a ra w2 rb w3 Hcur HneqPCa HneqPCb Hneqab) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  assert (PCne : PC ≠ ra); auto.
+  assert (NZne : NZ ≠ ra); auto.
+  assert (PCne' : PC ≠ rb); auto.
+  assert (NZne' : NZ ≠ rb); auto.
+  assert (Hneqab : ra ≠ rb); auto.
+  iDestruct ((gen_reg_valid3 σ1 (get_current_vm σ1) PC a ra w2 rb w3 eq_refl PCne PCne' Hneqab) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr σ1 i q a with "Haccess Hacc") as %Hacc.
+  iDestruct (gen_access_valid_addr σ1 (get_current_vm σ1) q a with "Haccess Hacc") as %Hacc.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr a w1);eauto.
+    apply (reducible_normal (get_current_vm σ1) (Mov ra (inr rb)) a w1);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr a w1) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (mov_reg_ExecI σ1 ra rb w3 HneqPCa HneqNZa HneqPCb HneqNZb Hrb)  /update_incr_PC /update_reg  in Heqc2.
+    apply (step_ExecI_normal (get_current_vm σ1) (Mov ra (inr rb)) a w1) in HstepP;eauto.
+    remember (exec (Mov ra (inr rb)) σ1) as c2 eqn:Heqc2.
+    rewrite /exec (mov_reg_ExecI σ1 ra rb w3 PCne NZne PCne' NZne' Hrb)  /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
     rewrite_reg_all.
-    rewrite Hcur.
     iFrame.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
+    rewrite -> (update_offset_PC_update_PC1 _ (get_current_vm σ1) a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global σ1 PC i a (a +w 1) ra i w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC (get_current_vm σ1) a (a +w 1) ra (get_current_vm σ1) w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
       by iFrame.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
-
-Lemma mov_reg_eq {i w1 w3 q instr} a w2 ra :
-  instr = Mov ra (inr ra) ->
-  decode_instruction w1 = Some(instr) ->
-  PC ≠ ra ->
-  NZ ≠ ra ->
-  <<i>> ∗ PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (a +w 1)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2 ) }}%I.
-Proof.
-  iIntros (Hinstr Hdecode HneqPCa HneqNZa) "(? & Hpc & Hapc & Hacc & Hra )".
-  iApply (sswp_lift_atomic_step ExecI);[done|].
-  iIntros (σ1) "%Hsche Hσ".
-  inversion Hsche as [ Hcur ]; clear Hsche.
-  apply fin_to_nat_inj in Hcur.
-  iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
-  (* valid regs *)
-  iDestruct ((gen_reg_valid2 σ1 i PC a ra w2  Hcur HneqPCa ) with "Hreg Hpc Hra") as "[%HPC %Hra]".
-  (* valid pt *)
-  iDestruct (gen_access_valid_addr σ1 i q a with "Haccess Hacc") as %Hacc.
-  (* valid mem *)
-  iDestruct (gen_mem_valid σ1 a w1 with "Hmem Hapc") as "%Hmem".
-  iSplit.
-  - (* reducible *)
-    iPureIntro.
-    apply (reducible_normal i instr a w1);eauto.
-  - (* step *)
-    iModIntro.
-    iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr a w1) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (mov_reg_ExecI σ1 ra ra w2 HneqPCa HneqNZa HneqPCa HneqNZa Hra)  /update_incr_PC /update_reg  in Heqc2.
-    destruct HstepP;subst m2 σ2; subst c2; simpl.
-    rewrite /gen_vm_interp.
-    (* unchanged part *)
-    rewrite_reg_all.
-    rewrite Hcur.
-    iFrame.
-    (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
-    + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update1_global σ1 PC i a (a +w 1) ) with "Hreg Hpc") as ">[Hσ Hreg]";eauto.
-      apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
-      rewrite (insert_id _ (ra,i) w2 Hra).
-      by iFrame.
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
-      repeat solve_reg_lookup.
-      intros P; symmetry in P;inversion P; contradiction.
-    Qed.
-
 
 (* XXX: do we need a separate rule for reading from rx with ldr?
         - no we don't, just add TX@i = p and p ≠ (mm_translation a) *)
-Lemma ldr_neq {i w1 w2 w3 q s instr} ai a ra rb :
-  instr = Ldr ra rb ->
-  decode_instruction w1 = Some(instr) ->
-  PC ≠ ra ->
-  NZ ≠ ra ->
-  PC ≠ rb ->
-  NZ ≠ rb ->
-  ra ≠ rb ->
+Lemma ldr_neq {i w1 w2 w3 q s p} ai a ra rb :
+  decode_instruction w1 = Some(Ldr ra rb) ->
   ai ≠ a ->
+  (mm_translation a) ≠ p -> 
   s = {[(mm_translation ai);(mm_translation a)]} ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={q}[s] ∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+  TX@ i := p ∗ <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={q}[s] ∗ ra @@ i ->r w3
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ TX@ i := p ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                                       ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ) }}%I.
 Proof.
   iIntros (Hinstr Hdecode HneqPCa HneqNZa HneqPCb HneqNZb Hneqab Hneqaia Hs) "(? & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".

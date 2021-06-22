@@ -47,6 +47,7 @@ From HypVeri Require Import RAs.
    PC ≠ r2 -> NZ ≠ r2 ->
    (get_reg σ1 r2) = Some a ->
    get_memory σ1 a = Some w ->
+   (mm_translation a) ≠ (get_mail_boxes σ1 !!! get_current_vm σ1).1 ->
    (ldr σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
   Proof.
     intros.
@@ -55,8 +56,9 @@ From HypVeri Require Import RAs.
     unfold bind.
     simpl.
     rewrite H3 H4.
-    rewrite <- (option_state_unpack_preserve_state_Some σ1
-                                                        (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
+    destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+    simpl in *.
+    destruct (decide (mm_translation a = t)); done.
   Qed.
 
 
