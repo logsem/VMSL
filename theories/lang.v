@@ -310,12 +310,12 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
       match (get_mail_boxes s) !!! (get_current_vm s) with
       | (tx, _) =>
         match decide (mm_translation src' = tx) with
-        | left _ =>
+        | right _ =>
           match get_memory s src' with
           | Some v => (ExecI, update_incr_PC (update_reg s dst v))
           | _ => (FailPageFaultI, s)
           end
-        | right _ => (FailPageFaultI, s)
+        | left _ => (FailPageFaultI, s)
         end
       end
     | _ => (FailI, s)
@@ -334,9 +334,9 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
     match (get_mail_boxes s) !!! (get_current_vm s) with
     | (_, (rx, _, _)) =>
       match decide (mm_translation dst' = rx) with
-      | left _ =>
+      | right _ =>
         update_memory (update_incr_PC s) dst' src'
-      | right _ => (FailPageFaultI, s)
+      | left _ => (FailPageFaultI, s)
       end
     end
   | _ => (FailI, s)
