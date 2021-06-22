@@ -628,7 +628,7 @@ Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
         _ <- @bool_check_option True (fin_to_nat wc =? length gm) ;;;
         @bool_check_option True (match ty with
                                      | Donation => (fin_to_nat wc) =? 1
-                                     | Sharing => (fin_to_nat wc) <? 3
+                                     | Sharing => (fin_to_nat wc) <? 2
                                      | Lending => (fin_to_nat wc) <? 3
                                  end)) InvParam ;;;
     unit tt
