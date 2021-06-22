@@ -156,11 +156,38 @@ Inductive instruction : Type :=
 | Fail
 | Hvc.
 
+Definition reg_valid_cond (r : reg_name) : Prop :=
+  r ≠ PC /\ r ≠ NZ.
+
 (* Definition double_word : Type := *)
   (* (word * word). *)
+Inductive valid_instruction : instruction -> Prop :=
+| valid_mov_imm src dst : reg_valid_cond dst ->
+                          reg_valid_cond src ->
+                          src ≠ dst ->
+                          valid_instruction (Mov dst (inr src))
+| valid_mov_reg imm dst : reg_valid_cond dst ->
+                          valid_instruction (Mov dst (inl imm))
+| valid_ldr src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      src ≠ dst ->
+                      valid_instruction (Ldr dst src)
+| valid_str src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      src ≠ dst ->
+                      valid_instruction (Str dst src)
+| valid_cmp src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      src ≠ dst ->
+                      valid_instruction (Cmp dst (inr src))
+| valid_jnz r : reg_valid_cond r ->
+                valid_instruction (Jnz r)
+| valid_jmp r : reg_valid_cond r ->
+                valid_instruction (Jmp r).
 
 Class InstructionSerialization := {
   decode_instruction : word -> option instruction;
+  decode_instruction_valid : forall w i, decode_instruction w = Some i -> valid_instruction i;
   encode_instruction : instruction -> word;
   decode_encode_instruction : forall (i : instruction), decode_instruction (encode_instruction i) = Some i;
                                  }.

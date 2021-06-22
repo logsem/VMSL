@@ -85,7 +85,8 @@ Definition get_vm_page_table (st : state) (v : vmid) : page_table :=
 Inductive exec_mode : Type :=
 | ExecI
 | HaltI
-| FailI.
+| FailI
+| FailPageFaultI.
 
 (* Aux funcs *)
 
@@ -151,18 +152,8 @@ Definition get_page_table (st : state) (p : pid) : option permission :=
 Definition update_memory_unsafe (st : state) (a : addr) (w : word) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, <[a:=w]>(get_mem st), get_transactions st).
 
-Definition update_memory (st : state) (a : addr) (w : word) : option state :=
-  if check_access_addr st (get_current_vm st) a
-  then unit (update_memory_unsafe st a w)
-  else None.
-
 Definition get_memory_unsafe (st : state) (a : addr) : option word :=
   (get_mem st) !! a.
-
-Definition get_memory (st : state) (a : addr) : option word :=
-  if check_access_addr st (get_current_vm st) a
-  then get_memory_unsafe st a
-  else None.
 
 Definition try_incr_word (n : word) (p : nat) : option word :=
   match (nat_lt_dec (n + p) word_size) with
@@ -179,10 +170,6 @@ Defined.
 
 Definition addr_offset (base : addr) (offset : nat) : option addr :=
   try_incr_word base offset.
-
-Definition get_memory_with_offset (st : state) (base : addr) (offset : nat) : option word :=
-  addr <- addr_offset base offset ;;;
-  get_memory st addr.
 
 Program Definition word_add (w:word) (n:nat):word:=
   (@nat_to_fin (((fin_to_nat w)+n) mod word_size) _ _).
@@ -207,7 +194,6 @@ Program Definition update_offset_PC (st : state) (dir : bool) (offset : nat) :  
           (update_reg st PC (@nat_to_fin ((v - offset) mod word_size) _ _)) (* TODO: v'-offset = 0 if offset> v'*)
    | None => st
    end.
-
 Next Obligation.
 Proof.
   intros.
@@ -233,7 +219,6 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mod
   end.
 
 
-
 Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * state :=
   let comp :=
       match dst with
@@ -243,8 +228,6 @@ Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * stat
       end
     in
     (option_state_unpack s comp).
-
-
 
 Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   let comp :=
@@ -257,31 +240,45 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
     in
   (option_state_unpack s comp).
 
-(* XXX: reading from tx page is disallowed. *)
 Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
-  let comp :=
-      match (dst, src) with
-      | (R _ _, R _ _) =>
-        src' <- get_reg s src ;;;
-        v <- get_memory s src' ;;;
-        Some(update_incr_PC (update_reg s dst v))
-      | _ => None
+  match (dst, src) with
+  | (R _ _, R _ _) =>
+    match get_reg s src with
+    | Some src' =>
+      match (get_mail_boxes s) !!! (get_current_vm s) with
+      | (tx, _) =>
+        match decide (mm_translation src' = tx) with
+        | right _ =>
+          match get_memory s src' with
+          | Some v => (ExecI, update_incr_PC (update_reg s dst v))
+          | _ => (FailPageFaultI, s)
+          end
+        | left _ => (FailPageFaultI, s)
+        end
       end
-  in
-  (option_state_unpack s comp).
+    | _ => (FailI, s)
+    end
+  | _ => (FailI, s)
+  end.
 
 Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state :=
   let comp :=
-      match (src, dst) with
-        | (R _ _, R _ _) =>
-          src' <- get_reg s src ;;;
-          dst' <- get_reg s dst ;;;
-          m <- update_memory s dst' src' ;;;
-          Some(update_incr_PC m)
-        | _ => None
-      end
+      src' <- get_reg s src ;;;
+      dst' <- get_reg s dst ;;;
+      Some (src', dst')
   in
-  (option_state_unpack s comp).
+  match comp with
+  | Some (src', dst') =>
+    match (get_mail_boxes s) !!! (get_current_vm s) with
+    | (_, (rx, _, _)) =>
+      match decide (mm_translation dst' = rx) with
+      | right _ =>
+        update_memory (update_incr_PC s) dst' src'
+      | left _ => (FailPageFaultI, s)
+      end
+    end
+  | _ => (FailI, s)
+  end.
 
 Ltac solveWordSize :=
   pose proof word_size_at_least as G;
@@ -569,7 +566,8 @@ Definition validate_transaction_descriptor (wl : word) (ty : transaction_type)
         _ <- @bool_check_option True (fin_to_nat wc =? length gm) ;;;
         @bool_check_option True (match ty with
                                      | Donation => (fin_to_nat wc) =? 1
-                                     | _ => true
+                                     | Sharing => (fin_to_nat wc) <? 2
+                                     | Lending => (fin_to_nat wc) <? 3
                                  end)) InvParam ;;;
     unit tt
   end.
