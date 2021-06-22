@@ -698,6 +698,21 @@ Proof.
     by simplify_map_eq.
  Qed.
 
+
+Lemma gen_mem_update1:
+  ∀ (σ : state) a w w',
+    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    a ->a w ==∗
+               ghost_map_auth (gen_mem_name vmG) 1 (<[a:=w']>(get_mem σ)) ∗
+              a ->a w'.
+ Proof.
+  iIntros (????) "Hσ Ha".
+  rewrite mem_mapsto_eq /mem_mapsto_def.
+  iDestruct (ghost_map_update w' with "Hσ Ha") as ">[Hσ Ha]".
+  iFrame.
+  done.
+ Qed.
+
  (* rules for TX *)
   Lemma tx_dupl i p :
    TX@ i := p -∗ TX@ i := p ∗ TX@ i := p.
