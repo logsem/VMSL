@@ -28,7 +28,7 @@ Definition tx_buffer : Type :=
   pid.
 
 Definition rx_buffer : Type :=
-  (pid * fin page_size * option vmid).
+  (pid * option(fin page_size * vmid)).
 
 Definition mail_box : Type :=
   (tx_buffer * rx_buffer).
@@ -155,22 +155,6 @@ Definition update_memory_unsafe (st : state) (a : addr) (w : word) : state :=
 Definition get_memory_unsafe (st : state) (a : addr) : option word :=
   (get_mem st) !! a.
 
-Definition try_incr_word (n : word) (p : nat) : option word :=
-  match (nat_lt_dec (n + p) word_size) with
-  | left l => Some (@nat_to_fin (n + p) _ l)
-  | _ => None
-  end.
-
-Lemma fin_max {n : nat} (x y : fin n) : fin n.
-Proof.
-  destruct (Fin.to_nat x);
-    destruct (Fin.to_nat y);
-    destruct (x <? y); auto.
-Defined.
-
-Definition addr_offset (base : addr) (offset : nat) : option addr :=
-  try_incr_word base offset.
-
 Program Definition word_add (w:word) (n:nat):word:=
   (@nat_to_fin (((fin_to_nat w)+n) mod word_size) _ _).
 Next Obligation.
@@ -183,6 +167,26 @@ Proof.
   Defined.
 
 Infix "+w" := word_add (at level 70, no associativity).
+
+(* XXX incr_word always succeeds *)
+(* Definition try_incr_word (n : word) (p : nat) : option word := *)
+(*   match (nat_lt_dec (n + p) word_size) with *)
+(*   | left l => Some (@nat_to_fin (n + p) _ l) *)
+(*   | _ => None *)
+(*   end. *)
+
+Definition incr_word (n : word) (p : nat) :  word :=
+  n +w p.
+
+Lemma fin_max {n : nat} (x y : fin n) : fin n.
+Proof.
+  destruct (Fin.to_nat x);
+    destruct (Fin.to_nat y);
+    destruct (x <? y); auto.
+Defined.
+
+Definition addr_offset (base : addr) (offset : nat) : addr :=
+  incr_word base offset.
 
 Program Definition update_offset_PC (st : state) (dir : bool) (offset : nat) :  state :=
   match ((get_vm_reg_file st (get_current_vm st)) !! PC) with
@@ -240,6 +244,19 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
     in
   (option_state_unpack s comp).
 
+Definition update_memory (st : state) (a : addr) (w : word) : exec_mode * state :=
+  if check_access_addr st (get_current_vm st) a
+  then (ExecI, update_memory_unsafe st a w)
+  else (FailPageFaultI, st).
+
+Definition get_memory (st : state) (a : addr) : option word :=
+  if check_access_addr st (get_current_vm st) a
+  then get_memory_unsafe st a
+  else None.
+
+Definition get_memory_with_offset (st : state) (base : addr) (offset : nat) : option word :=
+  get_memory st (addr_offset base offset).
+
 Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   match (dst, src) with
   | (R _ _, R _ _) =>
@@ -270,7 +287,7 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
   match comp with
   | Some (src', dst') =>
     match (get_mail_boxes s) !!! (get_current_vm s) with
-    | (_, (rx, _, _)) =>
+    | (_, (rx, _)) =>
       match decide (mm_translation dst' = rx) with
       | right _ =>
         update_memory (update_incr_PC s) dst' src'
@@ -419,7 +436,7 @@ Definition get_tx_base_addr_global (st : state) (v : vmid) : word :=
 
 Definition is_rx_ready_global (st : state) (v : vmid) : bool :=
   match get_vm_mail_box st v with
-  | (_, (_, _, Some _)) => true
+  | (_, (_, Some _)) => true
   | _ => false
   end.
 
@@ -428,7 +445,7 @@ Definition is_rx_ready (st : state) : bool :=
 
 Definition get_rx_sender_global (st : state) (v : vmid) : option vmid :=
   match get_vm_mail_box st v with
-  | (_, (_, Some v')) => Some v'
+  | (_, (_, Some (_, v'))) => Some v'
   | _ => None
   end.
 
@@ -437,7 +454,7 @@ Definition get_rx_sender (st : state) : option vmid :=
 
 Definition get_rx_base_addr_global (st : state) (v : vmid) : option word :=
   match get_vm_mail_box st v with
-  | (_, (pid, _, Some _)) => Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
+  | (_, (pid, Some _)) => Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
   | _ => None
   end.
 
@@ -446,9 +463,9 @@ Definition get_rx_base_addr (st : state) : option word :=
 
 Definition empty_rx_global (st : state) (v : vmid) : option state :=
   match get_vm_mail_box st v with
-  | (txAddr, (rxAddr, len, Some _)) =>
+  | (txAddr, (rxAddr, Some(len, _))) =>
     Some (get_reg_files st,
-          vinsert v (txAddr, (rxAddr, len, None)) (get_mail_boxes st),
+          vinsert v (txAddr, (rxAddr,  None)) (get_mail_boxes st),
           get_page_tables st,
           get_current_vm st,
           get_mem st, get_transactions st)
@@ -480,10 +497,10 @@ Program Definition transfer_msg_unsafe (st : state) (l : word) (v : vmid) (r : v
     match get_vm_mail_box st v with
     | (txPid, _) =>
       match get_vm_mail_box st r with
-      | (tx, ((rxPid, _), _)) =>
+      | (tx, (rxPid, _)) =>
         st' <- lift_option (copy_page_unsafe st txPid rxPid) ;;;
         unit (get_reg_files st,
-              vinsert r (tx, (rxPid, _, Some v)) (get_mail_boxes st),
+              vinsert r (tx, (rxPid, Some(_, v))) (get_mail_boxes st),
               get_page_tables st,
               get_current_vm st,
               get_mem st, get_transactions st)
@@ -498,19 +515,21 @@ Defined.
 Definition transfer_msg (st : state) (l : word) (r : vmid) : hvc_result state :=
   transfer_msg_unsafe st l (get_current_vm st) r.
 
+
+(* TODO: pick the least *free* handle *)
 Definition fresh_handle_helper (val : handle) (acc : hvc_result handle) : hvc_result handle :=
-  match (try_incr_word val 1) with
-  | None => throw NoMem
-  | Some val' =>
+  (* match (try_incr_word val 1) with *)
+  (* | None => throw NoMem *)
+  (* | Some val' => *)
+  let val' := incr_word val 1 in
     match acc with
     | inl (inl ()) => unit val
     | inl _ => acc
     | inr acc' => unit (fin_max val' acc')
-    end
+    (* end *)
   end.
 
-(* TODO: pick the least *free* handle *)
-Definition fresh_handle (m : gmap handle transaction) : hvc_result handle := 
+Definition fresh_handle (m : gmap handle transaction) : hvc_result handle :=
   set_fold fresh_handle_helper (inl (inl ())) (@dom (gmap handle transaction) (gset handle) gset_dom m).
 
 Definition memory_region_descriptor : Type :=
@@ -537,7 +556,7 @@ Definition parse_memory_region_descriptor (st : state) (base : addr) : option me
 
 Definition parse_memory_region_descriptors (st : state) (base : addr) (count : nat) : option (listset_nodup memory_region_descriptor) :=
   ls' <- sequence_a (foldl (fun acc v =>
-                     cons (bind (addr_offset base v) (parse_memory_region_descriptor st)) acc) (@nil (option memory_region_descriptor)) (seq 0 count)) ;;;
+                     cons (  (parse_memory_region_descriptor st) (addr_offset base v)) acc) (@nil (option memory_region_descriptor)) (seq 0 count)) ;;;
  (match NoDup_dec ls' with
     | left prf => unit (ListsetNoDup ls' prf)
     | right prf => None
@@ -551,7 +570,7 @@ Definition parse_transaction_descriptor (st : state) (wl : word) (base : addr) (
   wh <- get_memory_with_offset st base 2 ;;;
   wt <- get_memory_with_offset st base 3 ;;;
   wc <- get_memory_with_offset st base 4 ;;;
-  memDescrBase <- addr_offset base 5 ;;;
+  memDescrBase <- Some (addr_offset base 5) ;;;
   memDescrs <- parse_memory_region_descriptors st memDescrBase (fin_to_nat wc) ;;;
   (* Validate length *)
   vs' <- decode_vmid vs ;;;                                             

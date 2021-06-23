@@ -1,81 +1,6 @@
 From iris.algebra Require Import gmap gset.
 From HypVeri Require Import RAs.
 
-  Lemma option_state_unpack_preserve_state_Some σ1 σ2 σ2' :
-   σ2' = Some σ2 ->  (ExecI, σ2) = (option_state_unpack σ1 σ2').
-  Proof.
-    intros.
-    destruct σ2' eqn:Heqn.
-    inversion H; subst.
-    done.
-    done.
-  Qed.
-
-
-  Lemma mov_word_ExecI σ1 r w :
-   PC ≠ r ->  NZ ≠ r -> (mov_word σ1 r w)= (ExecI, (update_incr_PC (update_reg σ1 r w))).
-  Proof.
-    intros.
-    unfold mov_word .
-    destruct r;[contradiction|contradiction|].
-    rewrite <- (option_state_unpack_preserve_state_Some σ1
-                                                        (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
-  Qed.
-
-
-
-  Lemma mov_reg_ExecI σ1 r1 r2 w:
-   PC ≠ r1 ->  NZ ≠ r1 ->
-   PC ≠ r2 -> NZ ≠ r2 ->
-   (get_reg σ1 r2) = Some w ->
-   (mov_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
-  Proof.
-    intros.
-    unfold mov_reg.
-    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
-    unfold bind.
-    simpl.
-    rewrite H3.
-    rewrite <- (option_state_unpack_preserve_state_Some σ1
-                                                        (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
-  Qed.
-
-
-
-  Lemma ldr_ExecI σ1 r1 r2 a w:
-   PC ≠ r1 ->  NZ ≠ r1 ->
-   PC ≠ r2 -> NZ ≠ r2 ->
-   (get_reg σ1 r2) = Some a ->
-   get_memory σ1 a = Some w ->
-   (ldr σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
-  Proof.
-    intros.
-    unfold ldr.
-    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
-    unfold bind.
-    simpl.
-    rewrite H3 H4.
-    rewrite <- (option_state_unpack_preserve_state_Some σ1
-                                                        (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
-  Qed.
-
-
-   Lemma str_ExecI σ1 r1 r2 w a:
-   PC ≠ r1 ->  NZ ≠ r1 ->
-   PC ≠ r2 -> NZ ≠ r2 ->
-   (get_reg σ1 r1) = Some w ->
-   (get_reg σ1 r2) = Some a ->
-   check_access_addr σ1 (get_current_vm σ1) a = true ->
-   (str σ1 r1 r2)= (ExecI, (update_incr_PC (update_memory_unsafe σ1 a w))).
-  Proof.
-    intros.
-    unfold str.
-    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
-    unfold bind.
-    simpl.
-    rewrite H3 H4.
-    rewrite /update_memory H5 //.
-  Qed.
 
 
   Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
@@ -397,6 +322,12 @@ From HypVeri Require Import RAs.
     by rewrite update_memory_unsafe_preserve_rx1 update_memory_unsafe_preserve_rx2 .
   Qed.
 
+  Lemma update_reg_global_preserve_pt σ i i' r w:
+   get_vm_page_table (update_reg_global σ i r w) i' = get_vm_page_table σ i'.
+  Proof.
+    rewrite /update_reg_global /get_vm_page_table /get_page_tables.
+    done.
+  Qed.
 
   Lemma update_reg_global_preserve_owned σ i r w : get_owned_gmap (update_reg_global σ i r w) =
                                                (get_owned_gmap σ).
@@ -434,6 +365,16 @@ From HypVeri Require Import RAs.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
     destruct d; rewrite /update_reg update_reg_global_preserve_access;done.
     done.
+  Qed.
+
+  Lemma update_offset_PC_preserve_check_access σ d o a:
+  check_access_addr (update_offset_PC σ d o) (get_current_vm σ) a = check_access_addr  σ (get_current_vm σ) a.
+  Proof.
+    rewrite /update_offset_PC /check_access_addr /check_access_page.
+    simpl.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC);eauto.
+    destruct d;
+    by rewrite /update_reg  update_reg_global_preserve_pt.
   Qed.
 
   Lemma update_memory_unsafe_preserve_access σ a w : get_access_gmap (update_memory_unsafe σ a w) =
@@ -525,4 +466,91 @@ From HypVeri Require Import RAs.
       inversion Hmem2;subst wi; clear Hmem2.
       (* eliminate Hdecode2 *)
       by rewrite Hdecode in Hdecode2;inversion Hdecode2;subst i0.
+  Qed.
+
+ Lemma option_state_unpack_preserve_state_Some σ1 σ2 σ2' :
+   σ2' = Some σ2 ->  (ExecI, σ2) = (option_state_unpack σ1 σ2').
+  Proof.
+    intros.
+    destruct σ2' eqn:Heqn.
+    inversion H; subst.
+    done.
+    done.
+  Qed.
+
+
+  Lemma mov_word_ExecI σ1 r w :
+   PC ≠ r ->  NZ ≠ r -> (mov_word σ1 r w)= (ExecI, (update_incr_PC (update_reg σ1 r w))).
+  Proof.
+    intros.
+    unfold mov_word .
+    destruct r;[contradiction|contradiction|].
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+                                                        (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
+  Qed.
+
+
+
+  Lemma mov_reg_ExecI σ1 r1 r2 w:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   (get_reg σ1 r2) = Some w ->
+   (mov_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
+  Proof.
+    intros.
+    unfold mov_reg.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    unfold bind.
+    simpl.
+    rewrite H3.
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+                                                        (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
+  Qed.
+
+
+
+  Lemma ldr_ExecI σ1 r1 r2 a w:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   (get_mail_boxes σ1 !!! get_current_vm σ1).1 ≠ (mm_translation a) ->
+   (get_reg σ1 r2) = Some a ->
+   get_memory σ1 a = Some w ->
+   (ldr σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
+  Proof.
+    intros.
+    unfold ldr.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    unfold bind.
+    simpl.
+    rewrite H4 H5.
+    destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+    simpl in H3.
+    destruct (decide (mm_translation a =t)).
+    done.
+    done.
+  Qed.
+
+
+   Lemma str_ExecI σ1 r1 r2 w a:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   (get_mail_boxes σ1 !!! get_current_vm σ1).2.1 ≠ (mm_translation a) ->
+   (get_reg σ1 r1) = Some w ->
+   (get_reg σ1 r2) = Some a ->
+   check_access_addr σ1 (get_current_vm σ1) a = true ->
+   (str σ1 r1 r2)= (ExecI, (update_memory_unsafe (update_incr_PC σ1) a w)).
+  Proof.
+    intros.
+    unfold str.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    unfold bind.
+    simpl.
+    rewrite H4 H5.
+    destruct ((get_mail_boxes σ1 !!! get_current_vm σ1)).
+    destruct p.
+    simpl in H3.
+    destruct (decide(mm_translation a = t0)).
+    done.
+    rewrite /update_memory /update_incr_PC update_offset_PC_preserve_current_vm.
+    rewrite update_offset_PC_preserve_check_access H6 //.
   Qed.
