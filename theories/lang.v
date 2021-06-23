@@ -356,30 +356,35 @@ Ltac solveRegCount :=
   unfold reg_count_lower_bound in G;
   lia.
 
-Program Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : exec_mode * state :=
+Program Definition one_word : word := (@nat_to_fin 1 word_size _).
+Solve Obligations with solveWordSize.
+
+Program Definition zero_word : word := (@nat_to_fin 0 word_size _).
+Solve Obligations with solveWordSize.
+
+
+Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : exec_mode * state :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2)) with
-           | left _ => Some (update_reg s NZ (@nat_to_fin 1 word_size _))
-           | right _ => Some (update_reg s NZ (@nat_to_fin 0 word_size _))
+           | left _ => Some (update_reg s NZ one_word)
+           | right _ => Some (update_reg s NZ zero_word)
            end ;;;
       Some(update_incr_PC m)
   in
   (option_state_unpack s comp).
-Solve Obligations with solveWordSize.
 
-Program Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
+Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2')) with
-           | left _ => Some (update_reg s NZ (@nat_to_fin 1 word_size _))
-           | right _ => Some (update_reg s NZ (@nat_to_fin 0 word_size _))
+           | left _ => Some (update_reg s NZ one_word)
+           | right _ => Some (update_reg s NZ zero_word)
            end ;;;
       Some(update_incr_PC m)
   in
   (option_state_unpack s comp).
-Solve Obligations with solveWordSize.
 
 Definition jnz (s : state) (arg : reg_name) : exec_mode * state :=
   let comp :=

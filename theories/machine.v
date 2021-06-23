@@ -176,7 +176,9 @@ Inductive valid_instruction : instruction -> Prop :=
                       reg_valid_cond src ->
                       dst ≠ src ->
                       valid_instruction (Str dst src)
-| valid_cmp src dst : reg_valid_cond dst ->
+| valid_cmp_imm imm dst : reg_valid_cond dst ->
+                      valid_instruction (Cmp dst (inl imm))
+| valid_cmp_reg src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
                       dst ≠ src ->
                       valid_instruction (Cmp dst (inr src))
