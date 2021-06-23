@@ -142,12 +142,7 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-(* XXX: do we need a separate rule for reading from rx with ldr?
-=======
-(* TODO: do we need a separate rule for reading from rx with ldr?
->>>>>>> 231e836f6942418fa5edd8e144b0e81ec8670d8b
-        - no we don't, just add TX@i = p and p ≠ (mm_translation a) *)
-Lemma ldr_neq {i w1 w2 w3 q s p} ai a ra rb :
+Lemma ldr {i w1 w2 w3 q s p} ai a ra rb :
   decode_instruction w1 = Some(Ldr ra rb) ->
   ai ≠ a ->
   (mm_translation a) ≠ p -> 
@@ -156,103 +151,58 @@ Lemma ldr_neq {i w1 w2 w3 q s p} ai a ra rb :
     ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ TX@ i := p ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                                       ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ) }}%I.
 Proof.
-  iIntros (Hinstr Hdecode HneqPCa HneqNZa HneqPCb HneqNZb Hneqab Hneqaia Hs) "(? & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
+  iIntros (Hdecode Hneqaia Hmm Hs) "(Htx & Htok & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
-  (* valid regs *)
-  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w3 rb a Hcur HneqPCa HneqPCb Hneqab ) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  iDestruct "Hσ" as "(? & Hmem & Hreg & Htxown & ? & ? & Haccess & ?)".
+  pose proof (decode_instruction_valid w1 (Ldr ra rb) Hdecode) as H.
+  inversion H as [| | H1' H2' H3' H4' H5' | | | |]; subst; clear H.
+  inversion H3'; subst; clear H3'.
+  inversion H4'; subst; clear H4'.
+  assert (PCne : PC ≠ ra); auto.
+  assert (NZne : NZ ≠ ra); auto.
+  assert (PCne' : PC ≠ rb); auto.
+  assert (NZne' : NZ ≠ rb); auto.
+  assert (Hneqab : ra ≠ rb); auto.
+  iDestruct ((gen_reg_valid3 σ1 (get_current_vm σ1) PC ai ra w3 rb a eq_refl PCne PCne' Hneqab) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr2 σ1 i q s ai a Hs) with "Haccess Hacc") as "[%Hai %Ha]".
+  remember {[mm_translation ai; mm_translation a]} as s eqn:Hs.
+  iDestruct ((gen_access_valid_addr2 σ1 (get_current_vm σ1) q s ai a Hs) with "Haccess Hacc") as "[%Hai %Ha]".
   (* valid mem *)
   iDestruct (gen_mem_valid2 σ1 ai w1 a w2 Hneqaia with "Hmem Hapc Harb ") as "[%Hmemai %Hmema]".
+  iDestruct (gen_tx_valid σ1 (get_current_vm σ1) p with "Htx Htxown") as %Htx.
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr ai w1);eauto.
+    apply (reducible_normal (get_current_vm σ1) (Ldr ra rb) ai w1);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (ldr_ExecI σ1 ra rb a w2 HneqPCa HneqNZa HneqPCb HneqNZb Hrb _) /update_incr_PC /update_reg in Heqc2.
+    apply (step_ExecI_normal (get_current_vm σ1) (Ldr ra rb) ai w1 ) in HstepP;eauto.
+    remember (exec (Ldr ra rb) σ1) as c2 eqn:Heqc2.
+    rewrite /exec (ldr_ExecI σ1 ra rb a w2 PCne NZne PCne' NZne' Hrb _) /update_incr_PC /update_reg in Heqc2.
     2: {
       unfold get_memory.
-      by rewrite Hcur Ha.
+      by rewrite Ha.
     }
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
     rewrite_reg_all.
-    rewrite Hcur.
     iFrame.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    rewrite -> (update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
-      apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC (get_current_vm σ1) ai (ai +w 1) ra (get_current_vm σ1) w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
+      apply (get_reg_gmap_get_reg_Some _ _ _ (get_current_vm σ1)) in Hra;eauto.
       by iFrame.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
-Qed.
-
-Lemma ldr_eq {i w1 w2 w3 q s instr} ai a ra:
-  instr = Ldr ra ra ->
-  decode_instruction w1 = Some(instr) ->
-  PC ≠ ra ->
-  NZ ≠ ra ->
-  ai ≠ a ->
-  s = {[(mm_translation ai);(mm_translation a)]} ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ ra @@ i ->r a ∗ a ->a w2 ∗ A@i:={q}[s]
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ a ->a w2
-                                      ∗ A@i:={q}[s] ) }}%I.
-Proof.
-  iIntros (Hinstr Hdecode HneqPCa HneqNZa Hneqaia Hs) "(? & Hpc & Hapc & Hra & Hara & Hacc)".
-  iApply (sswp_lift_atomic_step ExecI);[done|].
-  iIntros (σ1) "%Hsche Hσ".
-  inversion Hsche as [ Hcur ]; clear Hsche.
-  apply fin_to_nat_inj in Hcur.
-  iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
-  (* valid regs *)
-  iDestruct ((gen_reg_valid2 σ1 i PC ai ra a Hcur HneqPCa) with "Hreg Hpc Hra ") as "[%HPC %Hra]".
-  (* valid pt *)
-  iDestruct ((gen_access_valid_addr2 σ1 i q s ai a Hs) with "Haccess Hacc") as "[%Hai %Ha]".
-  (* valid mem *)
-  iDestruct (gen_mem_valid2 σ1 ai w1 a w2 Hneqaia with "Hmem Hapc Hara ") as "[%Hmemai %Hmema]".
-  iSplit.
-  - (* reducible *)
-    iPureIntro.
-    apply (reducible_normal i instr ai w1);eauto.
-  - (* step *)
-    iModIntro.
-    iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (ldr_ExecI σ1 ra ra a w2 HneqPCa HneqNZa HneqPCa HneqNZa Hra _) /update_incr_PC /update_reg in Heqc2.
-    2: {
-      unfold get_memory.
-      by rewrite Hcur Ha.
-    }
-    destruct HstepP;subst m2 σ2; subst c2; simpl.
-    rewrite /gen_vm_interp.
-    (* unchanged part *)
-    rewrite_reg_all.
-    rewrite Hcur.
-    iFrame.
-    (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-    + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) ra i a w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
-      apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
-      by iFrame.
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
-      repeat solve_reg_lookup.
-      intros P; symmetry in P;inversion P; contradiction.
+    + simplify_eq; assumption.
 Qed.
 
 (* TODO : add RX@i p and p ≠ (mm_translation a)*)
