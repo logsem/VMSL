@@ -22,14 +22,28 @@ Implicit Type q : Qp.
 Ltac rewrite_reg_all :=
   match goal with
   | |- _ =>
-    rewrite -> update_offset_PC_preserve_current_vm; try rewrite -> update_reg_global_preserve_current_vm;try rewrite -> update_memory_unsafe_preserve_current_vm;
-    rewrite -> update_offset_PC_preserve_mem ; try rewrite -> update_reg_global_preserve_mem;
-    rewrite -> update_offset_PC_preserve_tx ; try rewrite -> update_reg_global_preserve_tx;try rewrite -> update_memory_unsafe_preserve_tx;
-    rewrite -> update_offset_PC_preserve_rx ; try rewrite  -> update_reg_global_preserve_rx;try rewrite -> update_memory_unsafe_preserve_rx;
-    rewrite -> update_offset_PC_preserve_owned  ; try rewrite -> update_reg_global_preserve_owned;try rewrite -> update_memory_unsafe_preserve_owned;
-    rewrite -> update_offset_PC_preserve_access  ; try rewrite -> update_reg_global_preserve_access;try rewrite -> update_memory_unsafe_preserve_access;
-    rewrite -> update_offset_PC_preserve_trans  ; try rewrite -> update_reg_global_preserve_trans;try rewrite -> update_memory_unsafe_preserve_trans;
-    rewrite -> update_offset_PC_preserve_receivers  ; try rewrite -> update_reg_global_preserve_receivers;try rewrite -> update_memory_unsafe_preserve_receivers
+    try rewrite -> update_offset_PC_preserve_current_vm; try rewrite -> update_reg_global_preserve_current_vm;
+    try rewrite -> update_offset_PC_preserve_mem ; try rewrite -> update_reg_global_preserve_mem;
+    try rewrite -> update_offset_PC_preserve_tx ; try rewrite -> update_reg_global_preserve_tx;
+    try rewrite -> update_offset_PC_preserve_rx ; try rewrite  -> update_reg_global_preserve_rx;
+    try rewrite -> update_offset_PC_preserve_owned  ; try rewrite -> update_reg_global_preserve_owned;
+    try rewrite -> update_offset_PC_preserve_access  ; try rewrite -> update_reg_global_preserve_access;
+    try rewrite -> update_offset_PC_preserve_trans  ; try rewrite -> update_reg_global_preserve_trans;
+    try rewrite -> update_offset_PC_preserve_receivers  ; try rewrite -> update_reg_global_preserve_receivers
+  end.
+
+
+Ltac rewrite_mem_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_memory_unsafe_preserve_current_vm;
+    try rewrite -> update_reg_global_preserve_mem;
+    try rewrite -> update_memory_unsafe_preserve_tx;
+    try rewrite -> update_memory_unsafe_preserve_rx;
+    try rewrite -> update_memory_unsafe_preserve_owned;
+    try rewrite -> update_memory_unsafe_preserve_access;
+    try rewrite -> update_memory_unsafe_preserve_trans;
+    try rewrite -> update_memory_unsafe_preserve_receivers
   end.
 
 Ltac solve_reg_lookup :=
@@ -251,33 +265,37 @@ Proof.
 (* Qed. *)
 
 (* TODO : add RX@i p and p ≠ (mm_translation a)*)
-Lemma str {i w1 w2 w3 q s instr} ai a ra rb :
+Lemma str {instr i w1 w2 w3 q s prx} ai a ra rb :
   instr = Str ra rb ->
   decode_instruction w1 = Some(instr) ->
-  PC ≠ ra ->
-  NZ ≠ ra ->
-  PC ≠ rb ->
-  NZ ≠ rb ->
-  ra ≠ rb ->
   ai ≠ a ->
+  prx ≠ (mm_translation a) ->
   s = {[(mm_translation ai);(mm_translation a)]} ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w3 ∗ A@i:={q}[s] ∗ ra @@ i ->r w2
+  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w3 ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ∗ RX@ i := prx
     ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
-                                      ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ) }}%I.
+                                      ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ∗ RX@i := prx ) }}%I.
 Proof.
-  iIntros (Hinstr Hdecode HneqPCa HneqNZa HneqPCb HneqNZb Hneqab Hneqaia Hs) "(? & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
+  iIntros (Hinstr Hdecode Hneqaia Hnotrx Hs) "(? & Hpc & Hapc & Hrb & Harb & Hacc & Hra & HRX)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxpage & ? & Haccess & ?)".
+  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
+  rewrite Hinstr in Hvalidinstr.
+  inversion Hvalidinstr as [ |  | | src dst Hvalidra Hvalidrb Hneqrarb | | |] .
+  subst src dst.
+  inversion Hvalidra as [ HneqPCa HneqNZa ].
+  inversion Hvalidrb as [ HneqPCb HneqNZb ].
   (* valid regs *)
-  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqab ) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqrarb ) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
   iDestruct ((gen_access_valid_addr2 σ1 i q s ai a Hs) with "Haccess Hacc") as "[%Hai %Ha]".
   (* valid mem *)
   iDestruct (gen_mem_valid2 σ1 ai w1 a w3 Hneqaia with "Hmem Hapc Harb ") as "[%Hmemai %Hmema]".
+  (* valid rx *)
+  iDestruct (gen_rx_pid_valid σ1 i prx with "HRX Hrxpage") as %Hprx.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -287,25 +305,30 @@ Proof.
     iIntros (m2 σ2) "%HstepP".
     apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
     remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (str_ExecI σ1 ra rb w2 a HneqPCa HneqNZa HneqPCb HneqNZb Hra Hrb) /update_incr_PC in Heqc2.
+    rewrite /exec Hinstr (str_ExecI σ1 ra rb w2 a HneqPCa HneqNZa HneqPCb HneqNZb _ Hra Hrb) /update_incr_PC in Heqc2.
     2: {
-       by rewrite Hcur Ha.
+      rewrite /get_vm_mail_box -Hcur in Hprx.
+      by rewrite Hprx.
+    }
+    2: {
+      by rewrite Hcur Ha.
     }
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
+    rewrite_mem_all.
     rewrite_reg_all.
     rewrite Hcur.
     iFrame.
     (* updated part *)
+    rewrite update_memory_unsafe_preserve_reg.
+    iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    iDestruct ((gen_mem_update1 σ1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.
+    rewrite (update_memory_unsafe_update_mem _ a w2);eauto;
+    rewrite update_offset_PC_preserve_mem;eauto.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-    + rewrite update_memory_unsafe_preserve_reg.
-      iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
-      iDestruct ((gen_mem_update1 σ1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.
-      rewrite (update_memory_unsafe_update_mem σ1 a w2);eauto.
-      by iFrame.
-    + rewrite update_memory_unsafe_preserve_reg.
-      apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
+    by iFrame.
+    apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
 
 End rules.
