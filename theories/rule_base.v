@@ -553,3 +553,22 @@ From HypVeri Require Import RAs.
     rewrite /update_memory /update_incr_PC update_offset_PC_preserve_current_vm.
     rewrite update_offset_PC_preserve_check_access H6 //.
   Qed.
+
+  Lemma cmp_word_ExecI  σ1 r w1 w2:
+   PC ≠ r ->  NZ ≠ r ->
+   (get_reg σ1 r) = Some w1 ->
+   (cmp_word σ1 r w2)= (ExecI, (update_incr_PC (update_reg σ1 NZ (if (w1 <? w2) then one_word else zero_word)))).
+  Proof.
+    intros.
+    unfold cmp_word .
+    destruct r;[contradiction|contradiction|].
+    rewrite H1.
+    simpl.
+    destruct (nat_lt_dec w1 w2).
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+             (update_incr_PC (update_reg σ1 NZ one_word)));eauto.
+    apply <- (Nat.ltb_lt w1 w2) in l.
+    rewrite l //.
+    apply <- (Nat.ltb_nlt w1 w2) in n0.
+    rewrite n0 //.
+  Qed.

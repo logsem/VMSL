@@ -164,7 +164,7 @@ Proof.
   lia.
   pose proof word_size_at_least.
   lia.
-  Defined.
+Defined.
 
 Infix "+w" := word_add (at level 70, no associativity).
 
@@ -212,8 +212,6 @@ Definition update_incr_PC (st : state) : state :=
 
 Definition is_valid_PC (st : state) : option bool :=
   w <- get_reg st PC ;;;
-  (* w' <- addr_offset w 1 ;;; *)
-  (* Some (andb (check_access_addr st (get_current_vm st) w) (check_access_addr st (get_current_vm st) w')). *)
   Some (check_access_addr st (get_current_vm st) w).
 
 Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mode * state :=
