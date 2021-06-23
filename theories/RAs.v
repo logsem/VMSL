@@ -730,8 +730,56 @@ Lemma gen_mem_update1:
    TX@ i := p -∗ own (gen_tx_name vmG) (get_tx_agree σ) -∗ ⌜ (get_vm_mail_box σ i).1 = p ⌝.
   Proof.
     iIntros "Htx Hσ".
-    rewrite tx_mapsto_eq /mem_mapsto_def.
-    Admitted.
+    rewrite tx_mapsto_eq /tx_mapsto_def.
+    destruct σ as [[[[[? σ'] ?] ?] ?] ?].
+    rewrite /get_tx_agree /get_txrx_auth_agree /get_vm_mail_box /get_mail_boxes.
+    iDestruct (own_valid_2 with "Hσ Htx") as %Hown.
+    simpl in *.
+    apply auth_both_valid_discrete in Hown.
+    destruct Hown as [Hown1 Hown2].
+    iPureIntro.
+    pose proof (@lookup_included vmid _ _
+                                 ((agreeR (leibnizO pid)))
+                                 {[i := to_agree p]}
+                                 (list_to_map (map (λ v : vmid, (v, to_agree (σ' !!! v).1)) list_of_vmids))) as H.
+    rewrite ->H in Hown1.
+    pose proof (Hown1 i) as H1.
+    apply option_included in H1.
+    destruct H1.
+    simplify_map_eq.
+    destruct H0.
+    destruct H0.
+    destruct H0.
+    apply lookup_singleton_Some in H0.
+    destruct H0.
+    simplify_map_eq /=.
+    destruct H1.
+    apply (elem_of_list_to_map_2 _ i x0) in H0.
+    apply elem_of_list_In in H0.
+    apply (in_map_iff ) in H0.
+    destruct H0.
+    destruct H0.
+    inversion H0.
+    simplify_eq /=.
+    destruct H1.
+    - unfold to_agree in H1.
+      destruct (H1 0) as [H1' H1''].
+      simpl in H1', H1''.
+      pose proof (H1' p).
+      assert (p ∈ [p]). apply elem_of_list_here.
+      pose proof (H3 H4).
+      destruct H5 as [b [b1 b2]].
+      inversion b1; subst.
+      + unfold dist in b2.
+        unfold ofe_dist in b2.
+        unfold discrete_dist in b2.
+        rewrite b2.
+        reflexivity.
+      + inversion H7.
+    - apply to_agree_included in H1.
+      rewrite H1.
+      reflexivity.
+  Qed.
 
 
   (* rules for RX *)
