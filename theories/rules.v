@@ -90,7 +90,7 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-Lemma mov_reg_neq {i w1 w3 q} a w2 ra rb :
+Lemma mov_reg {i w1 w3 q} a w2 ra rb :
   decode_instruction w1 = Some(Mov ra (inr rb)) ->
   <<i>> ∗ PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3
     ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (a +w 1)∗ a ->a w1 ∗ A@i:={q} (mm_translation a) ∗ ra @@ i ->r w3 ∗ rb @@ i ->r w3) }}%I.

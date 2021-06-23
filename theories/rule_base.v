@@ -11,6 +11,11 @@ From HypVeri Require Import RAs.
     done.
   Qed.
 
+  Lemma update_incr_PC_preserve_vm_page_table σ : get_vm_page_table (update_incr_PC σ) (get_current_vm (update_incr_PC σ)) = (get_vm_page_table σ (get_current_vm σ)).
+  Proof.
+    rewrite /get_current_vm /get_vm_page_table /update_incr_PC /update_offset_PC //.
+    case_match; auto.
+  Qed.
 
   Lemma mov_word_ExecI σ1 r w :
    PC ≠ r ->  NZ ≠ r -> (mov_word σ1 r w)= (ExecI, (update_incr_PC (update_reg σ1 r w))).
@@ -62,13 +67,14 @@ From HypVeri Require Import RAs.
   Qed.
 
 
-   Lemma str_ExecI σ1 r1 r2 w a:
+  Lemma str_ExecI σ1 r1 r2 w a:
    PC ≠ r1 ->  NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
    (get_reg σ1 r1) = Some w ->
    (get_reg σ1 r2) = Some a ->
    check_access_addr σ1 (get_current_vm σ1) a = true ->
-   (str σ1 r1 r2)= (ExecI, (update_incr_PC (update_memory_unsafe σ1 a w))).
+   (mm_translation a) ≠ (get_mail_boxes σ1 !!! get_current_vm σ1).2.1.1 ->
+   (str σ1 r1 r2)= (ExecI, (update_memory_unsafe (update_incr_PC σ1) a w)).
   Proof.
     intros.
     unfold str.
@@ -76,15 +82,14 @@ From HypVeri Require Import RAs.
     unfold bind.
     simpl.
     rewrite H3 H4.
-    rewrite /update_memory H5 //.
-  Qed.
-
-
-  Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
-  Proof.
-    unfold get_current_vm ,update_reg_global.
-    simpl.
-    unfold get_current_vm.
+    destruct (get_mail_boxes σ1 !!! get_current_vm σ1), p, p.
+    simpl in *.
+    destruct (decide (mm_translation a = t0)); try contradiction.
+    rewrite /update_memory.
+    rewrite /check_access_addr /check_access_page.
+    rewrite update_incr_PC_preserve_vm_page_table.
+    rewrite /check_access_addr /check_access_page in H5.
+    rewrite H5.
     reflexivity.
   Qed.
 
@@ -95,6 +100,14 @@ From HypVeri Require Import RAs.
     destruct (get_vm_reg_file σ σ.1.1.2 !! PC),d;eauto.
   Qed.
 
+  Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
+  Proof.
+    unfold get_current_vm ,update_reg_global.
+    simpl.
+    unfold get_current_vm.
+    reflexivity.
+  Qed.
+  
   Lemma update_memory_unsafe_preserve_current_vm σ a w :(get_current_vm (update_memory_unsafe σ a w)) = (get_current_vm σ).
   Proof.
     unfold get_current_vm ,update_memory_unsafe.
