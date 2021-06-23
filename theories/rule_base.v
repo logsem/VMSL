@@ -1,8 +1,7 @@
 From iris.algebra Require Import gmap gset.
 From HypVeri Require Import RAs.
 
-
-
+(* some preservation properties of the opsem*)
   Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
   Proof.
     unfold get_current_vm ,update_reg_global.

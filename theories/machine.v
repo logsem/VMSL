@@ -157,28 +157,28 @@ Inductive instruction : Type :=
 | Hvc.
 
 Definition reg_valid_cond (r : reg_name) : Prop :=
-  r ≠ PC /\ r ≠ NZ.
+  PC ≠ r /\ NZ ≠ r.
 
 (* Definition double_word : Type := *)
   (* (word * word). *)
 Inductive valid_instruction : instruction -> Prop :=
-| valid_mov_imm src dst : reg_valid_cond dst ->
-                          reg_valid_cond src ->
-                          src ≠ dst ->
-                          valid_instruction (Mov dst (inr src))
-| valid_mov_reg imm dst : reg_valid_cond dst ->
+| valid_mov_imm imm dst : reg_valid_cond dst ->
                           valid_instruction (Mov dst (inl imm))
+| valid_mov_reg  src dst : reg_valid_cond dst ->
+                          reg_valid_cond src ->
+                          dst ≠ src ->
+                          valid_instruction (Mov dst (inr src))
 | valid_ldr src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
-                      src ≠ dst ->
+                      dst ≠ src ->
                       valid_instruction (Ldr dst src)
 | valid_str src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
-                      src ≠ dst ->
+                      dst ≠ src ->
                       valid_instruction (Str dst src)
 | valid_cmp src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
-                      src ≠ dst ->
+                      dst ≠ src ->
                       valid_instruction (Cmp dst (inr src))
 | valid_jnz r : reg_valid_cond r ->
                 valid_instruction (Jnz r)

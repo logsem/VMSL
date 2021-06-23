@@ -222,6 +222,44 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mod
   | Some s => (ExecI, s)
   end.
 
+Lemma option_state_unpack_preserve_state_Some σ1 σ2 σ2' :
+  σ2' = Some σ2 ->  (ExecI, σ2) = (option_state_unpack σ1 σ2').
+Proof.
+  intros.
+  destruct σ2' eqn:Heqn.
+  inversion H; subst.
+  done.
+  done.
+Qed.
+
+Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
+Proof.
+  unfold update_reg_global, get_mem.
+  simpl.
+  reflexivity.
+Qed.
+
+Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
+Proof.
+  unfold   get_current_vm ,update_reg_global.
+  simpl.
+  unfold get_current_vm.
+  reflexivity.
+Qed.
+
+Lemma update_reg_preserve_mem σ r w : get_mem (update_reg σ r w) = get_mem σ.
+Proof.
+  unfold update_reg.
+  apply update_reg_global_preserve_mem.
+Qed.
+
+Lemma update_offset_PC_preserve_mem σ d o : get_mem (update_offset_PC σ d o) = get_mem σ.
+Proof.
+  unfold update_offset_PC.
+  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct d; rewrite -> update_reg_preserve_mem;done.
+  done.
+Qed.
 
 Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * state :=
   let comp :=
@@ -232,6 +270,16 @@ Definition mov_word (s : state) (dst : reg_name) (src : word) : exec_mode * stat
       end
     in
     (option_state_unpack s comp).
+
+Lemma mov_word_ExecI σ1 r w :
+  PC ≠ r ->  NZ ≠ r -> (mov_word σ1 r w)= (ExecI, (update_incr_PC (update_reg σ1 r w))).
+Proof.
+  intros.
+  unfold mov_word .
+  destruct r;[contradiction|contradiction|].
+  rewrite <- (option_state_unpack_preserve_state_Some σ1
+              (update_incr_PC (update_reg σ1 (R n fin) w)) (Some (update_incr_PC (update_reg σ1 (R n fin) w))));eauto.
+Qed.
 
 Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   let comp :=
@@ -244,6 +292,7 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
     in
   (option_state_unpack s comp).
 
+(* XXX: reading from tx page is disallowed. *)
 Definition update_memory (st : state) (a : addr) (w : word) : exec_mode * state :=
   if check_access_addr st (get_current_vm st) a
   then (ExecI, update_memory_unsafe st a w)
