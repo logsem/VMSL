@@ -264,7 +264,6 @@ Proof.
 (*       intros P; symmetry in P;inversion P; contradiction. *)
 (* Qed. *)
 
-(* TODO : add RX@i p and p ≠ (mm_translation a)*)
 Lemma str {instr i w1 w2 w3 q s prx} ai a ra rb :
   instr = Str ra rb ->
   decode_instruction w1 = Some(instr) ->
