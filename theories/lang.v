@@ -360,13 +360,19 @@ Solve Obligations with solveWordSize.
 Program Definition zero_word : word := (@nat_to_fin 0 word_size _).
 Solve Obligations with solveWordSize.
 
+Program Definition two_word : word := (@nat_to_fin 2 word_size _).
+Solve Obligations with solveWordSize.
 
 Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : word) : exec_mode * state :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2)) with
-           | left _ => Some (update_reg s NZ one_word)
-           | right _ => Some (update_reg s NZ zero_word)
+           | left _ => Some (update_reg s NZ two_word)
+           | right _ =>
+             match (nat_lt_dec (fin_to_nat arg2) (fin_to_nat arg1')) with
+             | left _ =>  Some (update_reg s NZ zero_word)
+             | right _ => Some (update_reg s NZ one_word)
+             end
            end ;;;
       Some(update_incr_PC m)
   in
@@ -377,25 +383,29 @@ Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode *
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       m <- match (nat_lt_dec (fin_to_nat arg1') (fin_to_nat arg2')) with
-           | left _ => Some (update_reg s NZ one_word)
-           | right _ => Some (update_reg s NZ zero_word)
+           | left _ => Some (update_reg s NZ two_word)
+           | right _ =>
+             match (nat_lt_dec (fin_to_nat arg2') (fin_to_nat arg1')) with
+             | left _ =>  Some (update_reg s NZ zero_word)
+             | right _ => Some (update_reg s NZ one_word)
+             end
            end ;;;
       Some(update_incr_PC m)
   in
   (option_state_unpack s comp).
 
-Definition jnz (s : state) (arg : reg_name) : exec_mode * state :=
+Definition bne (s : state) (arg : reg_name) : exec_mode * state :=
   let comp :=
       arg' <- get_reg s arg ;;;
       nz <- get_reg s NZ ;;;
       match (fin_to_nat nz) with
-      | 0 => Some (update_reg s PC arg')
-      | _ => Some(update_incr_PC s)
+      | 1 => Some(update_incr_PC s)
+      | _ => Some (update_reg s PC arg')
       end
   in
   (option_state_unpack s comp).
 
-Definition jmp (s : state) (arg : reg_name) : exec_mode * state :=
+Definition br (s : state) (arg : reg_name) : exec_mode * state :=
   let comp := (fun x => update_reg s PC x) <$> (get_reg s arg)
   in
   (option_state_unpack s comp).
@@ -977,8 +987,8 @@ Definition exec (i : instruction) (s : state) : exec_mode * state :=
   | Str src dst => str s src dst
   | Cmp arg1 (inl arg2) => cmp_word s arg1 arg2
   | Cmp arg1 (inr arg2) => cmp_reg s arg1 arg2
-  | Jnz arg => jnz s arg
-  | Jmp arg => jmp s arg
+  | Bne arg => bne s arg
+  | Br arg => br s arg
   | Fail => fail s
   | Halt => halt s
   | Hvc => hvc s

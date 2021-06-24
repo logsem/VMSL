@@ -557,7 +557,8 @@ From HypVeri Require Import RAs.
   Lemma cmp_word_ExecI  σ1 r w1 w2:
    PC ≠ r ->  NZ ≠ r ->
    (get_reg σ1 r) = Some w1 ->
-   (cmp_word σ1 r w2)= (ExecI, (update_incr_PC (update_reg σ1 NZ (if (w1 <? w2) then one_word else zero_word)))).
+   (cmp_word σ1 r w2)= (ExecI, (update_incr_PC (update_reg σ1 NZ
+            (if (w1 <? w2) then two_word else if (w2 <? w1) then zero_word else one_word)))).
   Proof.
     intros.
     unfold cmp_word .
@@ -566,11 +567,19 @@ From HypVeri Require Import RAs.
     simpl.
     destruct (nat_lt_dec w1 w2).
     rewrite <- (option_state_unpack_preserve_state_Some σ1
-             (update_incr_PC (update_reg σ1 NZ one_word)));eauto.
+             (update_incr_PC (update_reg σ1 NZ two_word)));eauto.
     apply <- (Nat.ltb_lt w1 w2) in l.
+    rewrite l //.
+    destruct (nat_lt_dec w2 w1).
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+             (update_incr_PC (update_reg σ1 NZ zero_word)));eauto.
+    apply <- (Nat.ltb_lt w2 w1) in l.
     rewrite l //.
     apply <- (Nat.ltb_nlt w1 w2) in n0.
     rewrite n0 //.
+    apply <- (Nat.ltb_nlt w1 w2) in n0.
+    apply <- (Nat.ltb_nlt w2 w1) in n1.
+    rewrite n0 n1 //.
   Qed.
 
 
@@ -579,7 +588,8 @@ From HypVeri Require Import RAs.
    PC ≠ r2 ->  NZ ≠ r2 ->
    (get_reg σ1 r1) = Some w1 ->
    (get_reg σ1 r2) = Some w2 ->
-   (cmp_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 NZ (if (w1 <? w2) then one_word else zero_word)))).
+   (cmp_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 NZ
+            (if (w1 <? w2) then two_word else if (w2 <? w1) then zero_word else one_word)))).
   Proof.
     intros.
     unfold cmp_reg.
@@ -589,42 +599,52 @@ From HypVeri Require Import RAs.
     simpl.
     destruct (nat_lt_dec w1 w2).
     rewrite <- (option_state_unpack_preserve_state_Some σ1
-             (update_incr_PC (update_reg σ1 NZ one_word)));eauto.
+             (update_incr_PC (update_reg σ1 NZ two_word)));eauto.
     apply <- (Nat.ltb_lt w1 w2) in l.
+    rewrite l //.
+    destruct (nat_lt_dec w2 w1).
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+             (update_incr_PC (update_reg σ1 NZ zero_word)));eauto.
+    apply <- (Nat.ltb_lt w2 w1) in l.
     rewrite l //.
     apply <- (Nat.ltb_nlt w1 w2) in n1.
     rewrite n1 //.
+    apply <- (Nat.ltb_nlt w1 w2) in n1.
+    apply <- (Nat.ltb_nlt w2 w1) in n2.
+    rewrite n1 n2 //.
   Qed.
 
-  Lemma jnz_ExecI  σ1 w1 r w2:
+  Lemma bne_ExecI  σ1 w1 r w2:
    PC ≠ r ->  NZ ≠ r ->
    (get_reg σ1 r) = Some w2 ->
    (get_reg σ1 NZ) = Some w1 ->
-   (jnz σ1 r)= (ExecI, if (w1 =? 0) then (update_reg σ1 PC w2) else  (update_incr_PC σ1)).
+   (bne σ1 r)= (ExecI, if (w1 =? 1) then (update_incr_PC σ1) else (update_reg σ1 PC w2)).
   Proof.
     intros.
-    unfold jnz .
+    unfold bne .
     destruct r;[contradiction|contradiction|].
     rewrite H1 H2.
     simpl.
+    destruct (decide(fin_to_nat w1 = 1)).
+    simpl.
+    rewrite e //.
+    Search "=?".
+    apply Nat.eqb_neq in n0.
+    rewrite n0 //.
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+             (update_reg σ1 PC w2));eauto.
     destruct (fin_to_nat w1).
-    rewrite (Nat.eqb_refl 0).
     done.
-    assert (Hneq: (S n0 =? 0) = false).
-    destruct (decide(S n0 = 0)).
-    inversion e.
-    done.
-    rewrite Hneq //.
+    destruct n1;done.
   Qed.
 
-  Lemma jmp_ExecI  σ1 r w1:
+  Lemma br_ExecI  σ1 r w1:
    PC ≠ r ->  NZ ≠ r ->
    (get_reg σ1 r) = Some w1 ->
-   (jmp σ1 r)= (ExecI,  (update_reg σ1 PC w1)).
+   (br σ1 r)= (ExecI,  (update_reg σ1 PC w1)).
   Proof.
     intros.
-    unfold jmp.
+    unfold br.
     destruct r;[contradiction|contradiction|].
-    rewrite H1.
-    done.
+    rewrite H1 //.
   Qed.

@@ -150,8 +150,8 @@ Inductive instruction : Type :=
 | Ldr (dst : reg_name) (src : reg_name)
 | Str (src : reg_name) (dst : reg_name)
 | Cmp (arg1 : reg_name) (arg2 : word + reg_name)
-| Jnz (arg : reg_name)
-| Jmp (arg : reg_name)
+| Bne (arg : reg_name)
+| Br (arg : reg_name)
 | Halt
 | Fail
 | Hvc.
@@ -182,10 +182,10 @@ Inductive valid_instruction : instruction -> Prop :=
                       reg_valid_cond src ->
                       dst ≠ src ->
                       valid_instruction (Cmp dst (inr src))
-| valid_jnz r : reg_valid_cond r ->
-                valid_instruction (Jnz r)
-| valid_jmp r : reg_valid_cond r ->
-                valid_instruction (Jmp r).
+| valid_bne r : reg_valid_cond r ->
+                valid_instruction (Bne r)
+| valid_br r : reg_valid_cond r ->
+                valid_instruction (Br r).
 
 Class InstructionSerialization := {
   decode_instruction : word -> option instruction;
