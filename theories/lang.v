@@ -404,7 +404,7 @@ Definition fail (s : state) : exec_mode * state :=
   (FailI, s).
 
 Definition halt (s : state) : exec_mode * state :=
-  (HaltI, s).
+  (HaltI, (update_incr_PC s)).
 
 (* Hvc calls *)
 Definition hvc_result : Type -> Type :=

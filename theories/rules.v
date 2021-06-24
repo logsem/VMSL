@@ -286,7 +286,7 @@ Proof.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
 
-Lemma cmp_word {instr i w1 w2 w3 w4 q} ai a ra :
+Lemma cmp_word {instr i w1 w2 w3 w4 q} ai ra :
   instr = Cmp ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
   <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ ra @@ i ->r w3 ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w4
@@ -339,7 +339,7 @@ Proof.
       by simplify_map_eq /=.
 Qed.
 
-Lemma cmp_reg {instr i w1 w2 w3 w4 q} ai a ra rb :
+Lemma cmp_reg {instr i w1 w2 w3 w4 q} ai ra rb :
   instr = Cmp ra (inr rb) ->
   decode_instruction w1 = Some(instr) ->
   <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3 ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w4
@@ -393,6 +393,187 @@ Proof.
       by simplify_map_eq /=.
 Qed.
 
+(* XXX: The usage of NZ deviates from the that in the paper version, since nz=0 merely means w1 >= w2. *)
+Lemma jnz {instr i w1 w2 w3 q} ai ra :
+  instr = Jnz ra ->
+  decode_instruction w1 = Some(instr) ->
+  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w3
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (if w3 =? 0 then w2 else (ai +w 1) )  ∗ ai ->a w1 ∗ ra @@ i ->r w2
+                       ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w3 ) }}%I.
+Proof.
+  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hra & Hacc & Hnz )".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
+  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
+  rewrite Hinstr in Hvalidinstr.
+  inversion Hvalidinstr as [ | | | | | | src Hvalidra|] .
+  subst src .
+  inversion Hvalidra as [ HneqPCa HneqNZa ].
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 NZ w3 Hcur HneqPCa) with "Hreg Hpc Hra Hnz") as "[%HPC [%Hra %HNZ]]";eauto.
+  (* valid pt *)
+  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i instr ai w1);eauto.
+  - (* step *)
+    iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
+    remember (exec instr σ1) as c2 eqn:Heqc2.
+    rewrite /exec Hinstr (jnz_ExecI σ1 w3 ra w2 HneqPCa HneqNZa) /update_incr_PC /update_reg in Heqc2;eauto.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.
+    (* branch here*)
+    destruct (decide ((fin_to_nat w3) = 0)) as [Heqb|Heqb];
+      [apply <- Nat.eqb_eq in Heqb|apply <- Nat.eqb_neq in Heqb];
+      rewrite Heqb;
+    (* unchanged part *)
+    rewrite_reg_all;
+    rewrite Hcur;
+    iFrame.
+    (* updated part *)
+    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+      iDestruct ((gen_reg_update1_global σ1 PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+      by iFrame.
+    + rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+      iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+      by iFrame.
+      apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
+Qed.
+
+Lemma jmp {instr i w1 w2 q} ai  ra :
+  instr = Jmp ra ->
+  decode_instruction w1 = Some(instr) ->
+  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ A@i:={q} (mm_translation ai)
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
+                       ∗ A@i:={q} (mm_translation ai) ) }}%I.
+Proof.
+  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hra & Hacc)".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
+  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
+  rewrite Hinstr in Hvalidinstr.
+  inversion Hvalidinstr as [ | | | | | | |src Hvalidra] .
+  subst src .
+  inversion Hvalidra as [ HneqPCa HneqNZa ].
+  (* valid regs *)
+  iDestruct ((gen_reg_valid2 σ1 i PC ai ra w2 Hcur HneqPCa) with "Hreg Hpc Hra") as "[%HPC %Hra]";eauto.
+  (* valid pt *)
+  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i instr ai w1);eauto.
+  - (* step *)
+    iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
+    remember (exec instr σ1) as c2 eqn:Heqc2.
+    rewrite /exec Hinstr (jmp_ExecI σ1 ra w2 ) /update_incr_PC /update_reg in Heqc2;eauto.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.
+    (* unchanged part *)
+    rewrite_reg_all.
+    rewrite Hcur.
+    iFrame.
+    (* updated part *)
+    rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    iDestruct ((gen_reg_update1_global σ1 PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    by iFrame.
+Qed.
+
+Lemma halt {instr i w1 q} ai :
+  instr = Halt ->
+  decode_instruction w1 = Some(instr) ->
+  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ A@i:={q} (mm_translation ai)
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = HaltI ⌝ ∗ <<i>> ∗ PC @@ i ->r (ai +w 1)  ∗ ai ->a w1
+                       ∗ A@i:={q} (mm_translation ai) ) }}%I.
+Proof.
+  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hacc)".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid1 σ1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
+  (* valid pt *)
+  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i instr ai w1);eauto.
+  - (* step *)
+    iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
+    remember (exec instr σ1) as c2 eqn:Heqc2.
+    rewrite /exec Hinstr /halt /update_incr_PC in Heqc2;eauto.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.
+    (* unchanged part *)
+    rewrite_reg_all.
+    rewrite Hcur.
+    iFrame.
+    (* updated part *)
+    iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    by iFrame.
+    apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
+Qed.
+
+Lemma fail {instr i w1 q} ai :
+  instr = Fail ->
+  decode_instruction w1 = Some(instr) ->
+  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ A@i:={q} (mm_translation ai)
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailI ⌝ ∗ <<i>> ∗ PC @@ i ->r ai  ∗ ai ->a w1
+                       ∗ A@i:={q} (mm_translation ai) ) }}%I.
+Proof.
+  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hacc)".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid1 σ1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
+  (* valid pt *)
+  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i instr ai w1);eauto.
+  - (* step *)
+    iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
+    remember (exec instr σ1) as c2 eqn:Heqc2.
+    rewrite /exec Hinstr /fail in Heqc2;eauto.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.
+    (* unchanged part *)
+    by iFrame.
+Qed.
 
 
 End rules.

@@ -595,3 +595,36 @@ From HypVeri Require Import RAs.
     apply <- (Nat.ltb_nlt w1 w2) in n1.
     rewrite n1 //.
   Qed.
+
+  Lemma jnz_ExecI  σ1 w1 r w2:
+   PC ≠ r ->  NZ ≠ r ->
+   (get_reg σ1 r) = Some w2 ->
+   (get_reg σ1 NZ) = Some w1 ->
+   (jnz σ1 r)= (ExecI, if (w1 =? 0) then (update_reg σ1 PC w2) else  (update_incr_PC σ1)).
+  Proof.
+    intros.
+    unfold jnz .
+    destruct r;[contradiction|contradiction|].
+    rewrite H1 H2.
+    simpl.
+    destruct (fin_to_nat w1).
+    rewrite (Nat.eqb_refl 0).
+    done.
+    assert (Hneq: (S n0 =? 0) = false).
+    destruct (decide(S n0 = 0)).
+    inversion e.
+    done.
+    rewrite Hneq //.
+  Qed.
+
+  Lemma jmp_ExecI  σ1 r w1:
+   PC ≠ r ->  NZ ≠ r ->
+   (get_reg σ1 r) = Some w1 ->
+   (jmp σ1 r)= (ExecI,  (update_reg σ1 PC w1)).
+  Proof.
+    intros.
+    unfold jmp.
+    destruct r;[contradiction|contradiction|].
+    rewrite H1.
+    done.
+  Qed.
