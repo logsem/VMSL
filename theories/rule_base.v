@@ -628,7 +628,6 @@ From HypVeri Require Import RAs.
     destruct (decide(fin_to_nat w1 = 1)).
     simpl.
     rewrite e //.
-    Search "=?".
     apply Nat.eqb_neq in n0.
     rewrite n0 //.
     rewrite <- (option_state_unpack_preserve_state_Some σ1
