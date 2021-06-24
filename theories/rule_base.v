@@ -572,3 +572,26 @@ From HypVeri Require Import RAs.
     apply <- (Nat.ltb_nlt w1 w2) in n0.
     rewrite n0 //.
   Qed.
+
+
+   Lemma cmp_reg_ExecI  σ1 r1 w1 r2 w2:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 ->  NZ ≠ r2 ->
+   (get_reg σ1 r1) = Some w1 ->
+   (get_reg σ1 r2) = Some w2 ->
+   (cmp_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 NZ (if (w1 <? w2) then one_word else zero_word)))).
+  Proof.
+    intros.
+    unfold cmp_reg.
+    destruct r1;[contradiction|contradiction|].
+    destruct r2; [contradiction|contradiction|].
+    rewrite H3 H4.
+    simpl.
+    destruct (nat_lt_dec w1 w2).
+    rewrite <- (option_state_unpack_preserve_state_Some σ1
+             (update_incr_PC (update_reg σ1 NZ one_word)));eauto.
+    apply <- (Nat.ltb_lt w1 w2) in l.
+    rewrite l //.
+    apply <- (Nat.ltb_nlt w1 w2) in n1.
+    rewrite n1 //.
+  Qed.

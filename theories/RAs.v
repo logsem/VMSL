@@ -558,6 +558,59 @@ Proof.
     by rewrite !lookup_insert.
 Qed.
 
+Lemma gen_reg_valid4 (σ : state) i r1 w1 r2 w2 r3 w3 r4 w4:
+    (get_current_vm σ) = i ->
+    r1 ≠ r2->
+    r1 ≠ r3->
+    r2 ≠ r3->
+    r1 ≠ r4->
+    r2 ≠ r4->
+    r3 ≠ r4->
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    r1 @@ i ->r w1 -∗
+    r2 @@ i ->r w2 -∗
+    r3 @@ i ->r w3 -∗
+    r4 @@ i ->r w4 -∗
+    ⌜ (get_reg σ r1) = Some w1 ⌝ ∗ ⌜ (get_reg σ r2) =Some w2 ⌝ ∗ ⌜ (get_reg σ r3) = Some w3⌝ ∗ ⌜(get_reg σ r4) = Some w4⌝.
+Proof.
+  iIntros (Hi Hneq1 Hneq2 Hneq3 Hneq4 Hneq5 Hneq6) "Hreg Hr1 Hr2 Hr3 Hr4".
+  iDestruct ((gen_reg_valid_Sep σ i ({[(r1,i):=w1;(r2,i):=w2;(r3,i):=w3;(r4,i):=w4]}))
+               with "Hreg [Hr1 Hr2 Hr3 Hr4]") as "%Hreg";eauto.
+  rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+  iFrame.
+  apply lookup_insert_None; split;eauto; intros P; by inversion P.
+  apply lookup_insert_None; split;eauto.
+  apply lookup_insert_None; split;eauto; intros P; by inversion P.
+  intros P; by inversion P.
+  apply lookup_insert_None; split;eauto.
+  apply lookup_insert_None; split;eauto.
+  apply lookup_insert_None; split;eauto; intros P; by inversion P.
+  intros P; by inversion P.
+  intros P; by inversion P.
+  iPureIntro.
+  split;[|split;[|split]].
+  - by apply (Hreg (r1, i) w1 (lookup_insert _ (r1, i) w1)).
+  - apply (Hreg (r2, i) w2);eauto.
+    rewrite lookup_insert_Some;right;split;
+    [intros P; inversion P; contradiction|];
+    by rewrite !lookup_insert.
+  - apply (Hreg (r3, i) w3);eauto.
+    rewrite lookup_insert_Some;right;split;
+    [intros P; inversion P; contradiction|].
+    rewrite lookup_insert_Some;right;split;
+    [intros P; inversion P; contradiction|];
+    by rewrite !lookup_insert.
+  - apply (Hreg (r4, i) w4);eauto.
+    rewrite lookup_insert_Some;right;split;
+    [intros P; inversion P; contradiction|].
+    rewrite lookup_insert_Some;right;split;
+    [intros P; inversion P; contradiction|].
+    rewrite lookup_insert_Some;right;split;
+    [intros P; inversion P; contradiction|];
+    by rewrite !lookup_insert.
+Qed.
+
+
 
 Lemma gen_reg_update1_global:
   ∀ (σ : state) r i w w',
