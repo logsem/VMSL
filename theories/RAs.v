@@ -20,11 +20,11 @@ From HypVeri Require Export lang machine.
                       (* gen_owned_preG_inG :> inG Σ (authR (gset_disjUR (leibnizO P))); *)
                       (* gen_access_preG_inG :> inG Σ (authR (gmapUR P (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))); *)
                       gen_owned_preG_inG :> inG Σ (authR (gmapUR V
-                                    (prodR dfracR (gset_disjUR (leibnizO P)))));
+                                    (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
                       (* gen_access_preG_inG :> inG Σ (authR (gmapUR V *)
                                     (* (prodR dfracR (gmapUR P (csumR (agreeR unitO) (exclR unitO)))))); *)
                       gen_access_preG_inG :> inG Σ (authR (gmapUR V
-                                                    (prodR dfracR (gset_disjUR (leibnizO P)))));
+                                                    (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
                       gen_trans_preG_inG :> gen_heapGpreS W (V * W* W*(gmap V (listset_nodup P))*F) Σ;
                       gen_retri_preG_inG :> inG Σ (authR (gmapUR W (gset_disjR (leibnizO V))))
                    }.
@@ -68,7 +68,7 @@ Definition ra_RXBuffer :=
 Definition ra_Accessible:=
   (* (authR (gmapUR vmid (prodR dfracR (gmapUR pid  (csumR (agreeR unitO) (exclR unitO)))))). *)
   (* (authR (gmapUR pid (prodR dfracR (csumR (agreeR unitO) (exclR unitO))))). *)
-  (authR (gmapUR vmid (prodR dfracR (gset_disjUR (leibnizO pid))))).
+  (authR (gmapUR vmid (prodR dfracR (agreeR (gset_disjUR (leibnizO pid)))))).
 
 
 
@@ -82,7 +82,7 @@ Definition gen_VMΣ : gFunctors :=
       gen_heapΣ (reg_name * vmid) word;
       GFunctor ra_TXBuffer;
       GFunctor ra_RXBuffer;
-      GFunctor (authR (gmapUR vmid (prodR dfracR (gset_disjUR (leibnizO pid)))));
+      GFunctor (authR (gmapUR vmid (prodR dfracR (agreeR (gset_disjUR (leibnizO pid))))));
       (* GFunctor (authR (gset_disjUR (leibnizO pid))); *)
       GFunctor ra_Accessible;
       gen_heapΣ word (vmid * word * word * (gmap vmid (listset_nodup pid)) * transaction_type);
@@ -164,9 +164,9 @@ Section definitions.
 
   (* XXX: another attempt: *)
 
-  Definition get_owned_gmap σ : (authR (gmapUR vmid (prodR dfracR (gset_disjUR pid)))) :=
+  Definition get_owned_gmap σ : (authR (gmapUR vmid (prodR dfracR (agreeR (gset_disjUR pid))))) :=
     (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
-        (GSet ((list_to_set (map (λ (p:(pid*permission)), p.1)
+        to_agree (GSet ((list_to_set (map (λ (p:(pid*permission)), p.1)
            (map_to_list (filter (λ p, (is_owned p.2) = true) (get_vm_page_table σ v)))))
                          : gset pid))))) (list_of_vmids)))).
 
@@ -183,7 +183,7 @@ Section definitions.
 
   Definition get_access_gmap σ : ra_Accessible :=
     (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
-        (GSet ((list_to_set (map (λ (p:(pid*permission)), p.1)
+        to_agree (GSet ((list_to_set (map (λ (p:(pid*permission)), p.1)
            (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v)))))
                          : gset pid))))) (list_of_vmids)))).
 
@@ -274,7 +274,7 @@ Section definitions.
   Definition rx_mapsto_eq2 : @rx_mapsto2 = @rx_mapsto_def2 := rx_mapsto_aux2.(seal_eq).
 
   Definition owned_mapsto_def (i:vmid) dq (s: gset_disj pid) : iProp Σ :=
-    own (gen_owned_name vmG) (◯ {[i := (dq, s)]}).
+    own (gen_owned_name vmG) (◯ {[i := (dq, to_agree s)]}).
   (* Definition owned_mapsto_def (s: gset_disj pid) : iProp Σ := *)
     (* own (gen_owned_name vmG) (◯ s). *)
   Definition owned_mapsto_aux : seal (@owned_mapsto_def). Proof. by eexists. Qed.
@@ -296,7 +296,7 @@ Section definitions.
   (*                                                        | ExclusiveAccess => <[p:=(dq, (Cinr (Excl ())))]>acc *)
   (*                                                      end) ∅ m)). *)
   Definition access_mapsto_def (i:vmid) dq (s: gset_disj pid) : iProp Σ :=
-    own (gen_access_name vmG) (◯ {[i := (dq,  s)]}).
+    own (gen_access_name vmG) (◯ {[i := (dq, to_agree s)]}).
   Definition access_mapsto_aux : seal (@access_mapsto_def). Proof. by eexists. Qed.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
@@ -982,7 +982,7 @@ Lemma gen_mem_update1:
     rewrite -Hagree -Hgmap.
     done.
   Qed.
-
+(*
   (* rules for pagetables  *)
   Lemma owned_split_set i q1 q2 (s1 s2 : gset pid):
    s1 ## s2 -> O@i:={(q1+q2)%Qp}[(s1 ∪ s2)] -∗ O@i:={q1}[s1] ∗ O@i:={q2}[s2].
@@ -1025,7 +1025,7 @@ Lemma gen_mem_update1:
     iDestruct (access_split_set i q1 q2 _ _ Hdisj with "HO")  as "HO'".
     done.
   Qed.
-
+*)
 
 Lemma gen_access_valid_Set:
   ∀ (σ : state) i q (s:gset pid),
@@ -1044,13 +1044,13 @@ Proof.
               (λ v : vmid,
                  (v,
                  (DfracOwn 1,
-                 GSet
+                 to_agree (GSet
                    (list_to_set
                       (map (λ p : pid * permission, p.1)
                          (map_to_list
                             (filter (λ p : pid * permission, is_accessible p.2 = true)
-                               (get_vm_page_table σ v)))))))) list_of_vmids)) as m.
-    pose proof (lookup_included {[i := (DfracOwn q, GSet s)]} m).
+                               (get_vm_page_table σ v))))))))) list_of_vmids)) as m.
+    pose proof (lookup_included {[i := (DfracOwn q, to_agree (GSet s))]} m).
     rewrite ->H1 in H.
     clear H1.
     pose proof (H i).
@@ -1063,22 +1063,24 @@ Proof.
     destruct H.
     apply lookup_singleton_Some in H.
     destruct H.
-   simplify_map_eq /=.
+    simplify_map_eq /=.
     destruct H1.
-   apply (elem_of_list_to_map_2 _ i x0) in H.
-   apply elem_of_list_In in H.
-   apply (in_map_iff ) in H.
-   destruct H.
-   destruct H.
-   inversion H.
-   simplify_eq /=.
-   clear H.
-   unfold set_Forall.
-   intros p Hin.
-   destruct H1.
-  - inversion H;clear H.
+    apply (elem_of_list_to_map_2 _ i x0) in H.
+    apply elem_of_list_In in H.
+    apply (in_map_iff ) in H.
+    destruct H.
+    destruct H.
+    inversion H.
+    simplify_eq /=.
+    clear H.
+    unfold set_Forall.
+    intros p Hin.
+    destruct H1.
+    - inversion H;clear H.
       simplify_eq /=.
       unfold check_access_page.
+      apply to_agree_inj in H3.
+      inversion H3; subst; clear H3.
       apply elem_of_list_to_set in Hin.
       apply elem_of_list_In in Hin.
       apply (in_map_iff _ _ p) in Hin.
@@ -1092,7 +1094,8 @@ Proof.
       by rewrite H1 /=.
     - apply pair_included in H.
       destruct H;clear H.
-      apply gset_disj_included in H1.
+      apply to_agree_included in H1.
+      inversion H1; subst; clear H1.
       unfold check_access_page.
       assert ( p ∈ (list_to_set
            (map (λ p : pid * permission, p.1)
@@ -1104,12 +1107,12 @@ Proof.
       apply (in_map_iff _ _ p) in Hin.
       destruct Hin.
       destruct H.
-      rewrite <- elem_of_list_In in H3.
-      apply elem_of_map_to_list' in H3.
-      apply map_filter_lookup_Some in H3.
-      destruct H3.
+      rewrite <- elem_of_list_In in H1.
+      apply elem_of_map_to_list' in H1.
+      apply map_filter_lookup_Some in H1.
+      destruct H1.
       subst p.
-      rewrite H3.
+      rewrite H1.
       done.
 Qed.
 

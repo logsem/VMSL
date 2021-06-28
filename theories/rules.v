@@ -54,7 +54,131 @@ Ltac solve_reg_lookup :=
     rewrite lookup_insert_ne; eauto
   end.
 
+From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
+From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset frac_agree.
+From iris.proofmode Require Import tactics.
+From stdpp Require Import listset_nodup.
+Lemma gen_no_access_valid:
+  ∀ (σ : state) i q p s,
+    ⌜p ∉ s⌝ -∗
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+        (A@ i :={1}[s]) -∗
+        ( ⌜(check_access_page σ i p)= false ⌝).
+Proof.
+  iIntros (??????) "Hσ Hacc".
+  rewrite access_mapsto_eq /access_mapsto_def /get_access_gmap.
+  iDestruct (own_valid_2 with "Hσ Hacc") as %Hvalid.
+  iPureIntro.
+  remember (list_to_map
+                (map
+                   (λ v : vmid,
+                          (v,
+                           (DfracOwn 1,
+                            to_agree (gset.GSet
+                              (list_to_set
+                                 (map (λ p0 : pid * permission, p0.1)
+                                      (map_to_list
+                                         (filter
+                                            (λ p0 : pid * permission, is_accessible p0.2 = true)
+                                            (get_vm_page_table σ v))))))))) list_of_vmids)) as m.
+  apply auth_both_valid_discrete in Hvalid.
+  destruct Hvalid.
+  pose proof (lookup_included {[i := (DfracOwn 1, to_agree (GSet s))]} m).
+  rewrite ->H2 in H0.
+  clear H2.
+  pose proof (H0 i) as H2.
+  apply option_included in H2.
+  destruct H2.
+  - simplify_map_eq.
+  - rewrite /check_access_page.
+    destruct H2 as [a [b [H2 [H2' H2'']]]].
+    apply lookup_singleton_Some in H2.
+    destruct H2; simplify_map_eq.
+    destruct H2''.
+    + inversion H2; subst; clear H2.
+      apply (elem_of_list_to_map_2 _ i b) in H2'.
+      apply elem_of_list_In in H2'.
+      apply (in_map_iff ) in H2'.
+      destruct H2' as [x [H2' H2'']].
+      inversion H2'; subst.
+      rewrite /get_vm_page_table.
+      clear H2'.
+      simpl in H4.
+      apply to_agree_inj in H4.
+      inversion H4; subst; clear H4.
+      apply not_elem_of_list_to_set in H.
+      rewrite /get_page_tables.
+      rewrite /get_vm_page_table /get_page_tables in H.
+      clear H2'' H3 H0.
+      destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
+      destruct (is_accessible p0) eqn:Heqn'; try done.
+      exfalso.
+      apply H.
+      apply elem_of_list_In.
+      apply in_map_iff.
+      exists (p, p0).
+      split; eauto.
+      rewrite <-elem_of_list_In.
+      rewrite elem_of_map_to_list.
+      apply map_filter_lookup_Some.
+      split; auto.
+      reflexivity.
+    + apply prod_included in H2.
+      destruct H2 as [_ H2].
+      simpl in H2.
+      apply (elem_of_list_to_map_2 _ i b) in H2'.
+      apply elem_of_list_In in H2'.
+      apply (in_map_iff ) in H2'.
+      destruct H2' as [x' [H2' H2'']].
+      inversion H2'; subst.
+      simpl in H2.
+      apply to_agree_included in H2.
+      inversion H2; subst; clear H2.
+      rewrite /get_vm_page_table /get_page_tables in H.
+      destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
+      destruct (is_accessible p0) eqn:Heqn'; try done.
+      exfalso.
+      apply not_elem_of_list_to_set in H.
+      apply H.
+      apply elem_of_list_In.
+      apply in_map_iff.
+      exists (p, p0).
+      split; eauto.
+      rewrite <-elem_of_list_In.
+      rewrite elem_of_map_to_list.
+      apply map_filter_lookup_Some.
+      split; auto.
+      rewrite /get_vm_page_table /get_page_tables.
+      rewrite Heq.
+      assumption.
+      rewrite /get_vm_page_table /get_page_tables.
+      rewrite Heq.
+      reflexivity.
+Qed.
+  
 
+Lemma not_valid_pc {a i s q} :
+  s = {[(mm_translation a)]} ->
+  PC @@ i ->r a ∗ (A@i:={q}[s] -∗ False)
+  ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailI⌝ ∗ PC @@ i ->r a ∗ (A@i:={q}[s] -∗ False)) }}%I.
+Proof.
+  iIntros (Hmm) "(Hpc & Ha)".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ1".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ1" as "(? & ? & Hreg & ? & ? & ? & Haccess & ?)".
+  iDestruct (gen_reg_valid1 σ1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
+  (* TODO
+  iDestruct (gen_access_valid_addr σ1 i q a with "Haccess Ha") as "%Hacc".
+  iSplit.
+  - iPureIntro.
+    apply (reducible_normal i instr a w1);eauto.
+*)
+Qed.
+
+                                      
 Lemma mov_word {instr i w1 w3 q} a w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
