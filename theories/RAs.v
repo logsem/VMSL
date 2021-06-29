@@ -409,6 +409,25 @@ Section hyp_lang_rules.
     split;done.
   Qed.
 
+   Lemma gen_token_valid_neq{σ} i j:
+   i ≠ j ->
+   << i >> -∗
+   own (gen_token_name vmG) (get_token (get_current_vm σ)) -∗
+   ⌜ ¬ scheduler σ j ⌝.
+  Proof.
+    iIntros (Hne) "Htok Hstate".
+    rewrite token_agree_eq /token_agree_def.
+     iDestruct (own_valid_2  with "Htok Hstate") as %Hvalid.
+    rewrite /get_token in Hvalid.
+    apply frac_agree_op_valid_L in Hvalid.
+    destruct Hvalid.
+    iPureIntro.
+    rewrite /scheduler -H0.
+    intro.
+    apply fin_to_nat_inj in H1.
+    done.
+    Qed.
+
   (* rules for register points-to *)
 
   Lemma reg_dupl_false r i w1 w2 :
