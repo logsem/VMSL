@@ -55,10 +55,18 @@ Ltac solve_reg_lookup :=
   end.
   
 
+Lemma check_access_page_mem_eq {σ i a} :
+  check_access_page σ i (mm_translation a) =
+  check_access_addr σ i a.
+Proof.
+  rewrite /check_access_addr; done.
+Qed.
+
+    
 Lemma not_valid_pc {a i s} :
   (mm_translation a) ∉ s ->
   PC @@ i ->r a ∗ A@i:={1}[s]
-  ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailI⌝ ∗ PC @@ i ->r a ∗ (A@i:={q}[s] -∗ False)) }}%I.
+  ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailI⌝ ∗ PC @@ i ->r a ∗ A@i:={1}[s]) }}%I.
 Proof.
   iIntros (Hmm) "(Hpc & Ha)".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -68,12 +76,32 @@ Proof.
   iModIntro.
   iDestruct "Hσ1" as "(? & ? & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 σ1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  (* TODO
-  iDestruct (gen_access_valid_addr σ1 i q a with "Haccess Ha") as "%Hacc".
+  iDestruct (gen_no_access_valid σ1 i (mm_translation a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.
   - iPureIntro.
-    apply (reducible_normal i instr a w1);eauto.
-*)
+    rewrite /reducible.
+    exists FailI, σ1.
+    apply step_exec_fail.
+    rewrite /is_valid_PC Hpc Hcur.
+    simpl.
+    rewrite check_access_page_mem_eq in Hnacc.
+    rewrite Hnacc.
+    done.
+  - iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    iModIntro.
+    inversion HstepP; subst.
+    + simpl.
+      rewrite /gen_vm_interp.
+      iFrame.
+      iPureIntro.
+      done.
+    + simplify_eq.
+      rewrite /is_valid_PC Hpc in H.      
+      simpl in H.
+      rewrite check_access_page_mem_eq in Hnacc.
+      rewrite Hnacc in H.
+      inversion H.
 Qed.
 
                                       

@@ -1163,7 +1163,7 @@ Qed.
 
 Lemma gen_no_access_valid:
   ∀ (σ : state) i p s,
-    ⌜p ∉ s⌝ -∗
+    p ∉ s ->
     own (gen_access_name vmG) (get_access_gmap σ)  -∗
         (A@ i :={1}[s]) -∗
         ( ⌜(check_access_page σ i p)= false ⌝).
