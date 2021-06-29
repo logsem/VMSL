@@ -1141,6 +1141,22 @@ Proof.
 Qed.
 
 
+Lemma gen_access_valid_addr_elem:
+  ∀ (σ : state) i q s a,
+    mm_translation a ∈ s ->
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+        (A@ i :={q}[s] ) -∗
+        ⌜(check_access_addr σ i a)= true ⌝.
+Proof.
+  iIntros (??????) "Haccess Hacc".
+  iDestruct (gen_access_valid_Set σ i q s with "Haccess Hacc") as %Hacc.
+  iPureIntro.
+  pose proof (Hacc (mm_translation a)) as H'.
+  apply H'.
+  set_solver.
+Qed.        
+
+
 Lemma gen_access_valid_addr2:
   ∀ (σ : state) i q s a1 a2,
       s= {[(mm_translation a1); (mm_translation a2)]} ->
