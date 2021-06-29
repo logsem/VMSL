@@ -337,7 +337,10 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
     | (_, (rx, _)) =>
       match decide (mm_translation dst' = rx) with
       | right _ =>
-        update_memory (update_incr_PC s) dst' src'
+        match update_memory s dst' src' with
+        | (ExecI, s') => (ExecI, update_incr_PC s')
+        | _ => (FailPageFaultI, s)
+        end
       | left _ => (FailPageFaultI, s)
       end
     end

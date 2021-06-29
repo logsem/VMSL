@@ -537,7 +537,7 @@ From HypVeri Require Import RAs.
    (get_reg σ1 r1) = Some w ->
    (get_reg σ1 r2) = Some a ->
    check_access_addr σ1 (get_current_vm σ1) a = true ->
-   (str σ1 r1 r2)= (ExecI, (update_memory_unsafe (update_incr_PC σ1) a w)).
+   (str σ1 r1 r2)= (ExecI, (update_offset_PC (update_memory_unsafe σ1 a w) true 1)).
   Proof.
     intros.
     unfold str.
@@ -550,8 +550,8 @@ From HypVeri Require Import RAs.
     simpl in H3.
     destruct (decide(mm_translation a = t0)).
     done.
-    rewrite /update_memory /update_incr_PC update_offset_PC_preserve_current_vm.
-    rewrite update_offset_PC_preserve_check_access H6 //.
+    rewrite /update_memory /update_incr_PC /update_memory H6.
+    done.
   Qed.
 
   Lemma cmp_word_ExecI  σ1 r w1 w2:

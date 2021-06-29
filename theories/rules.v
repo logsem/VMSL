@@ -276,14 +276,13 @@ Qed.
 Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
   instr = Ldr ra rb ->
   decode_instruction w1 = Some(instr) ->
-  (mm_translation a) ≠ p -> 
-  mm_translation a ∉ s ->
+  (mm_translation a ∉ s \/ (mm_translation a) = p) ->
   mm_translation ai ∈ s ->
   TX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={1}[s]∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ TX@ i := p ∗ PC @@ i ->r (ai +w 1)                                               ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
-                             ∗ A@i:={1}[s] ∗ ra @@ i ->r w2 ) }}%I.
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ TX@ i := p ∗ PC @@ i ->r ai                                               ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+                             ∗ A@i:={1}[s] ∗ ra @@ i ->r w3 ) }}%I.
 Proof.
-  iIntros (Hinstr Hdecode Hs Has Hais) "(Htx & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
+  iIntros (Hinstr Hdecode Hs Hais) "(Htx & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -296,36 +295,105 @@ Proof.
   destruct H3' as [HneqPCa HneqNZa].
   destruct H4' as [HneqPCb HneqNZb].
   iDestruct ((gen_reg_valid3 σ1 i PC ai ra w3 rb a Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
-  (* valid pt *)
-  iDestruct ((gen_no_access_valid σ1 i (mm_translation a) s Has) with "Haccess Hacc") as "%Ha".
   iDestruct ((gen_mem_valid σ1 ai w1) with "Hmem Hapc") as "%Hpc".
   iDestruct ((gen_access_valid_addr_elem σ1 i 1 s ai Hais) with "Haccess Hacc") as "%Hai".
   iDestruct (gen_tx_valid σ1 i p with "Htx Htxown") as %Htx.
-  iSplit.
-  - iPureIntro.
-    rewrite /reducible.
-    exists FailPageFaultI, σ1.
-    simplify_eq.
-    apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
-    + rewrite /is_valid_PC HPC.
-      simpl.
-      rewrite check_access_page_mem_eq in Ha.
-      rewrite Hai.
-      reflexivity.
-    + rewrite /get_memory Hai /get_memory_unsafe; done.
-    + rewrite /exec /lang.ldr.
-      destruct ra; try done.
-      destruct rb; try done.
-      rewrite Hrb.
-      rewrite /get_vm_mail_box in Hs.
-      destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
-      simpl in *.
-      destruct (decide (mm_translation a = t)); try done.
-      rewrite /get_memory.
-  - iModIntro.
-    iIntros (m2 σ2) "%HstepP".
-    iModIntro.
-    
+  destruct Hs as [Hs | Hs]; [
+    iDestruct ((gen_no_access_valid σ1 i (mm_translation a) s Hs) with "Haccess Hacc") as "%Ha" |].
+  - iSplit.
+    + iPureIntro.
+      rewrite /reducible.
+      exists FailPageFaultI, σ1.
+      simplify_eq.
+      apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
+      * rewrite /is_valid_PC HPC.
+        simpl.
+        rewrite check_access_page_mem_eq in Ha.
+        rewrite Hai.
+        reflexivity.
+      * rewrite /get_memory Hai /get_memory_unsafe; done.
+      * rewrite /exec /lang.ldr.
+        destruct ra; try done.
+        destruct rb; try done.
+        rewrite Hrb.
+        rewrite /get_vm_mail_box in Hs.
+        destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
+        simpl in *.
+        destruct (decide (mm_translation a = t)); try done.
+        rewrite /get_memory.
+        rewrite check_access_page_mem_eq in Ha.
+        rewrite Ha.
+        reflexivity.
+    + iModIntro.
+      iIntros (m2 σ2) "%HstepP".
+      iModIntro.
+      inversion HstepP; subst.
+      * rewrite /is_valid_PC HPC in H.
+        simpl in H.
+        rewrite Hai in H.
+        done.
+      * simplify_eq.
+        iFrame.
+        rewrite /get_memory Hai /get_memory_unsafe in H1.
+        simplify_eq.
+        rewrite /exec /lang.ldr.
+        destruct ra; try done.
+        destruct rb; try done.
+        rewrite Hrb.
+        rewrite /get_vm_mail_box in Hs.
+        destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+        simpl in *.
+        rewrite check_access_page_mem_eq in Ha.
+        destruct (decide (mm_translation a = t));
+          rewrite /get_memory;          
+          try (rewrite Ha);
+          simpl;
+          iFrame;
+          done.
+  - iSplit.
+    + iPureIntro.
+      rewrite /reducible.
+      exists FailPageFaultI, σ1.
+      simplify_eq.
+      apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
+      * rewrite /is_valid_PC HPC.
+        simpl.
+        rewrite Hai.
+        reflexivity.
+      * rewrite /get_memory Hai /get_memory_unsafe; done.
+      * rewrite /exec /lang.ldr.
+        destruct ra; try done.
+        destruct rb; try done.
+        rewrite Hrb.
+        rewrite /get_vm_mail_box in Htx.
+        destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
+        simpl in *.
+        destruct (decide (mm_translation a = t)); done.        
+    + iModIntro.
+      iIntros (m2 σ2) "%HstepP".
+      iModIntro.
+      inversion HstepP; subst.
+      * rewrite /is_valid_PC HPC in H.
+        simpl in H.
+        rewrite Hai in H.
+        done.
+      * simplify_eq.
+        iFrame.
+        rewrite /get_memory Hai /get_memory_unsafe in H1.
+        simplify_eq.
+        rewrite /exec /lang.ldr.
+        destruct ra; try done.
+        destruct rb; try done.
+        rewrite Hrb.
+        rewrite /get_vm_mail_box in Htx.
+        destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+        simpl in *.
+        destruct (decide (mm_translation a = t));
+          rewrite /get_memory;          
+          try (rewrite Ha);
+          simpl;
+          iFrame;
+          done.
 Qed.
 
 
@@ -388,15 +456,102 @@ Proof.
     rewrite Hcur.
     iFrame.
     (* updated part *)
-    rewrite update_memory_unsafe_preserve_reg.
+    rewrite update_memory_unsafe_preserve_current_vm.
     iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
-    iDestruct ((gen_mem_update1 σ1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.
-    rewrite (update_memory_unsafe_update_mem _ a w2);eauto;
-    rewrite update_offset_PC_preserve_mem;eauto.
+    iDestruct ((gen_mem_update1 σ1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.    
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    rewrite Hcur.
     by iFrame.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
+
+
+Lemma str_error {instr i w1 w2 w3 s p} ai a ra rb :
+  instr = Str ra rb ->
+  decode_instruction w1 = Some(instr) ->
+  (mm_translation a) ≠ p ->
+  (mm_translation a ∉ s \/ (mm_translation a) = p) ->
+  mm_translation ai ∈ s ->
+  RX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w3 ∗ A@i:={1}[s]∗ ra @@ i ->r w2
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ RX@ i := p ∗ PC @@ i ->r ai                                               ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w3
+                             ∗ A@i:={1}[s] ∗ ra @@ i ->r w2 ) }}%I.
+Proof.
+  iIntros (Hinstr Hdecode Hs Has Hais) "(Hrx & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxown & ? & Haccess & ?)".
+  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
+  rewrite Hinstr in Hvalidinstr.
+  inversion Hvalidinstr as [| | | src dst H3' H4' Hneqrarb | | | |]; subst src dst; clear Hvalidinstr.
+  destruct H3' as [HneqPCa HneqNZa].
+  destruct H4' as [HneqPCb HneqNZb].
+  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  iDestruct ((gen_mem_valid σ1 ai w1) with "Hmem Hapc") as "%Hpc".
+  iDestruct ((gen_access_valid_addr_elem σ1 i 1 s ai Hais) with "Haccess Hacc") as "%Hai".
+  iDestruct (gen_rx_pid_valid σ1 i p with "Hrx Hrxown") as %Hrx.
+  destruct Has as [Has | Has].
+  - iDestruct ((gen_no_access_valid σ1 i (mm_translation a) s Has) with "Haccess Hacc") as "%Ha".
+    iSplit.
+    + iPureIntro.
+      rewrite /reducible.
+      exists FailPageFaultI, σ1.
+      simplify_eq.
+      apply (step_exec_normal σ1 ai w1 (Str ra rb) (FailPageFaultI, σ1)); auto.
+      * rewrite /is_valid_PC HPC.
+        simpl.
+        rewrite check_access_page_mem_eq in Ha.
+        rewrite Hai.
+        reflexivity.
+      * rewrite /get_memory Hai /get_memory_unsafe; done.
+      * rewrite /exec /lang.str.
+        destruct ra; try done.
+        destruct rb; try done.
+        rewrite Hra.
+        simpl.
+        rewrite Hrb.
+        rewrite /get_vm_mail_box in Hs.
+        destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t [r1 r2]].
+        simpl in *.
+        destruct (decide (mm_translation a = r1)); try done.
+        rewrite check_access_page_mem_eq in Ha.
+        rewrite /update_memory Ha.
+        reflexivity.
+    + iModIntro.
+      iIntros (m2 σ2) "%HstepP".
+      iModIntro.
+      inversion HstepP; subst.
+      * rewrite /is_valid_PC HPC in H.
+        simpl in H.
+        rewrite Hai in H.
+        done.
+      * simplify_eq.
+        iFrame.
+        rewrite /get_memory Hai /get_memory_unsafe in H1.
+        simplify_eq.
+        rewrite /exec /lang.str Hra.
+        simpl.
+        rewrite Hrb.
+        rewrite /get_vm_mail_box in Hs.
+        destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t [r1 r2]].
+        destruct (decide (mm_translation a = r1)); try done.
+        rewrite /update_memory.
+        rewrite check_access_page_mem_eq in Ha.
+        rewrite /update_memory Ha.
+        simpl.
+          by iFrame.
+  - iSplit.
+    + iPureIntro.
+      exists FailPageFaultI, σ1.
+      simplify_eq.
+    + iModIntro.
+      iIntros (m2 σ2) "%HstepP".
+      iModIntro.
+      inversion HstepP; subst; simplify_eq.
+Qed.
+
 
 Lemma cmp_word {instr i w1 w2 w3 w4 q} ai ra :
   instr = Cmp ra (inl w2) ->
