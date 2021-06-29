@@ -1160,6 +1160,105 @@ Proof.
   set_solver.
 Qed.
 
+
+Lemma gen_no_access_valid:
+  ∀ (σ : state) i p s,
+    ⌜p ∉ s⌝ -∗
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+        (A@ i :={1}[s]) -∗
+        ( ⌜(check_access_page σ i p)= false ⌝).
+Proof.
+  iIntros (?????) "Hσ Hacc".
+  rewrite access_mapsto_eq /access_mapsto_def /get_access_gmap.
+  iDestruct (own_valid_2 with "Hσ Hacc") as %Hvalid.
+  iPureIntro.
+  remember (list_to_map
+                (map
+                   (λ v : vmid,
+                          (v,
+                           (DfracOwn 1,
+                            to_agree (gset.GSet
+                              (list_to_set
+                                 (map (λ p0 : pid * permission, p0.1)
+                                      (map_to_list
+                                         (filter
+                                            (λ p0 : pid * permission, is_accessible p0.2 = true)
+                                            (get_vm_page_table σ v))))))))) list_of_vmids)) as m.
+  apply auth_both_valid_discrete in Hvalid.
+  destruct Hvalid.
+  pose proof (lookup_included {[i := (DfracOwn 1, to_agree (GSet s))]} m).
+  rewrite ->H2 in H0.
+  clear H2.
+  pose proof (H0 i) as H2.
+  apply option_included in H2.
+  destruct H2.
+  - simplify_map_eq.
+  - rewrite /check_access_page.
+    destruct H2 as [a [b [H2 [H2' H2'']]]].
+    apply lookup_singleton_Some in H2.
+    destruct H2; simplify_map_eq.
+    destruct H2''.
+    + inversion H2; subst; clear H2.
+      apply (elem_of_list_to_map_2 _ i b) in H2'.
+      apply elem_of_list_In in H2'.
+      apply (in_map_iff ) in H2'.
+      destruct H2' as [x [H2' H2'']].
+      inversion H2'; subst.
+      rewrite /get_vm_page_table.
+      clear H2'.
+      simpl in H4.
+      apply to_agree_inj in H4.
+      inversion H4; subst; clear H4.
+      apply not_elem_of_list_to_set in H.
+      rewrite /get_page_tables.
+      rewrite /get_vm_page_table /get_page_tables in H.
+      clear H2'' H3 H0.
+      destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
+      destruct (is_accessible p0) eqn:Heqn'; try done.
+      exfalso.
+      apply H.
+      apply elem_of_list_In.
+      apply in_map_iff.
+      exists (p, p0).
+      split; eauto.
+      rewrite <-elem_of_list_In.
+      rewrite elem_of_map_to_list.
+      apply map_filter_lookup_Some.
+      split; auto.
+      reflexivity.
+    + apply prod_included in H2.
+      destruct H2 as [_ H2].
+      simpl in H2.
+      apply (elem_of_list_to_map_2 _ i b) in H2'.
+      apply elem_of_list_In in H2'.
+      apply (in_map_iff ) in H2'.
+      destruct H2' as [x' [H2' H2'']].
+      inversion H2'; subst.
+      simpl in H2.
+      apply to_agree_included in H2.
+      inversion H2; subst; clear H2.
+      rewrite /get_vm_page_table /get_page_tables in H.
+      destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
+      destruct (is_accessible p0) eqn:Heqn'; try done.
+      exfalso.
+      apply not_elem_of_list_to_set in H.
+      apply H.
+      apply elem_of_list_In.
+      apply in_map_iff.
+      exists (p, p0).
+      split; eauto.
+      rewrite <-elem_of_list_In.
+      rewrite elem_of_map_to_list.
+      apply map_filter_lookup_Some.
+      split; auto.
+      rewrite /get_vm_page_table /get_page_tables.
+      rewrite Heq.
+      assumption.
+      rewrite /get_vm_page_table /get_page_tables.
+      rewrite Heq.
+      reflexivity.
+Qed.
+
   (* TODO : gen_access_valid_Sep*)
 
   (* rules for transactions *)
