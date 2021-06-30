@@ -199,12 +199,25 @@ From HypVeri Require Import RAs.
   Qed.
 
 
+  Lemma update_current_vmid_preserve_reg σ i :
+    get_reg_gmap (update_current_vmid σ i) = get_reg_gmap σ.
+  Proof.
+    rewrite /get_reg_gmap /update_memory_unsafe //.
+  Qed.
+
   Lemma update_memory_unsafe_preserve_reg σ a w:
    get_reg_gmap (update_memory_unsafe σ a w) = get_reg_gmap σ.
   Proof.
     rewrite /get_reg_gmap /update_memory_unsafe //.
   Qed.
 
+  Lemma update_current_vmid_preserve_mem σ i : get_mem (update_current_vmid σ i) = get_mem σ.
+  Proof.
+    unfold update_reg_global, get_mem.
+    simpl.
+    reflexivity.
+  Qed.
+  
   Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
   Proof.
     unfold update_reg_global, get_mem.
@@ -234,6 +247,13 @@ From HypVeri Require Import RAs.
   Qed.
 
 
+  Lemma update_current_vmid_preserve_tx σ i : get_tx_agree (update_current_vmid σ i) =
+                                               (get_tx_agree σ).
+  Proof.
+    rewrite /get_tx_agree /get_txrx_auth_agree.
+    f_equal.
+  Qed.
+
   Lemma update_reg_global_preserve_tx σ i r w : get_tx_agree (update_reg_global σ i r w) =
                                                (get_tx_agree σ).
   Proof.
@@ -255,6 +275,13 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
+  Lemma update_current_vmid_preserve_rx1 σ i : get_rx_agree (update_current_vmid σ i) =
+                                               (get_rx_agree σ).
+  Proof.
+    rewrite /get_rx_agree /get_txrx_auth_agree.
+    f_equal.
+  Qed.
+  
  Lemma update_reg_global_preserve_rx1 σ i r w : get_rx_agree (update_reg_global σ i r w) =
                                                (get_rx_agree σ).
   Proof.
@@ -277,6 +304,13 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
+  Lemma update_current_vmid_preserve_rx2 σ i : get_rx_gmap (update_current_vmid σ i) =
+                                                 (get_rx_gmap σ).
+  Proof.
+    rewrite /get_rx_gmap /get_txrx_auth_agree.
+    f_equal.
+  Qed.
+  
    Lemma update_reg_global_preserve_rx2 σ i r w : get_rx_gmap (update_reg_global σ i r w) =
                                                (get_rx_gmap σ).
   Proof.
@@ -302,6 +336,12 @@ From HypVeri Require Import RAs.
 
   (* TODO: the proofs above are identical *)
 
+  Lemma update_current_vmid_preserve_rx σ i : (get_rx_agree (update_current_vmid σ i), get_rx_gmap (update_current_vmid σ i)) =
+                                               (get_rx_agree σ, get_rx_gmap σ).
+  Proof.
+    by rewrite update_current_vmid_preserve_rx1 update_current_vmid_preserve_rx2.
+  Qed.
+  
   Lemma update_reg_global_preserve_rx σ i r w : (get_rx_agree (update_reg_global σ i r w), get_rx_gmap (update_reg_global σ i r w)) =
                                                (get_rx_agree σ, get_rx_gmap σ).
   Proof.
@@ -321,6 +361,13 @@ From HypVeri Require Import RAs.
     by rewrite update_memory_unsafe_preserve_rx1 update_memory_unsafe_preserve_rx2 .
   Qed.
 
+  Lemma update_current_vmid_preserve_pt σ i i':
+   get_vm_page_table (update_current_vmid σ i) i' = get_vm_page_table σ i'.
+  Proof.
+    rewrite /update_reg_global /get_vm_page_table /get_page_tables.
+    done.
+  Qed.
+  
   Lemma update_reg_global_preserve_pt σ i i' r w:
    get_vm_page_table (update_reg_global σ i r w) i' = get_vm_page_table σ i'.
   Proof.
@@ -328,6 +375,13 @@ From HypVeri Require Import RAs.
     done.
   Qed.
 
+  Lemma update_current_vmid_preserve_owned σ i : get_owned_gmap (update_current_vmid σ i) =
+                                               (get_owned_gmap σ).
+  Proof.
+    rewrite /get_owned_gmap.
+    f_equal.
+  Qed.
+  
   Lemma update_reg_global_preserve_owned σ i r w : get_owned_gmap (update_reg_global σ i r w) =
                                                (get_owned_gmap σ).
   Proof.
@@ -350,6 +404,12 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
+  Lemma update_current_vmid_preserve_access σ i : get_access_gmap (update_current_vmid σ i) =
+                                               (get_access_gmap σ).
+  Proof.
+    rewrite /get_access_gmap.
+    f_equal.
+  Qed.
 
   Lemma update_reg_global_preserve_access σ i r w : get_access_gmap (update_reg_global σ i r w) =
                                                (get_access_gmap σ).
@@ -383,6 +443,13 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
+  Lemma update_current_vmid_preserve_trans σ i : get_trans_gmap (update_current_vmid σ i) =
+                                               (get_trans_gmap σ).
+  Proof.
+    rewrite /get_trans_gmap.
+    f_equal.
+  Qed.
+  
   Lemma update_reg_global_preserve_trans σ i r w : get_trans_gmap (update_reg_global σ i r w) =
                                                (get_trans_gmap σ).
   Proof.
@@ -405,6 +472,13 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
+  Lemma update_current_vmid_preserve_receivers σ i : get_receivers_gmap (update_current_vmid σ i) =
+                                               (get_receivers_gmap σ).
+  Proof.
+    rewrite /get_receivers_gmap.
+    f_equal.
+  Qed.
+  
   Lemma update_reg_global_preserve_receivers σ i r w : get_receivers_gmap (update_reg_global σ i r w) =
                                                (get_receivers_gmap σ).
   Proof.

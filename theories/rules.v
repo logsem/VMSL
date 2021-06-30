@@ -852,6 +852,177 @@ Proof.
     (* unchanged part *)
     by iFrame.
 Qed.
+Search fin.
 
+
+Lemma eliminate_wrong_token {i j} :
+  j ≠ i ->
+  <<j>> ⊢ SSWP ExecI @ i {{ (λ m, ⌜False⌝) }}%I.
+Proof.
+  iIntros (Hne) "Htok".
+  iApply (sswp_lift_atomic_step ExecI) ;[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  iDestruct "Hσ" as "(Htokown & ? & ? & ? & ? & ? & ? & ?)".
+  iDestruct (gen_token_valid_neq j i Hne with "Htok Htokown") as "%Hnsch".
+  by exfalso.
+Qed.
+
+
+Lemma R0Av : 0 < reg_count.
+Proof.
+  solveRegCount.
+Qed.
+
+Lemma R1Av : 1 < reg_count.
+Proof.
+  solveRegCount.
+Qed.
+
+Lemma R2Av : 2 < reg_count.
+Proof.
+  solveRegCount.
+Qed.
+
+Lemma run {z i w1 w2 w3 q} ai :
+  decode_instruction w1 = Some Hvc ->
+  fin_to_nat z = 0 -> 
+  decode_hvc_func w2 = Some Run ->
+  decode_vmid w3 = Some i ->
+  <<z>> ∗ PC @@ z ->r ai ∗ ai ->a w1 ∗ A@z :={q} (mm_translation ai)
+  ∗ R 0 R0Av @@ z ->r w2
+  ∗ R 1 R1Av @@ z ->r w3
+  ⊢ SSWP ExecI @ z {{ (λ m, ⌜m = ExecI⌝ ∗
+  <<i>> ∗ PC @@ z ->r (ai +w 1) ∗ ai ->a w1 ∗ A@z :={q} (mm_translation ai)
+  ∗ R 0 R0Av @@ z ->r w2
+  ∗ R 1 R1Av @@ z ->r w3) }}%I.
+Proof.
+  iIntros (Hinstr Hz Hhvc Hvmid) "(Htok & Hpc & Hapc & Hacc & Hr0 & Hr1)".
+  iApply (sswp_lift_atomic_step ExecI); [done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & ? & ? & ? & Haccessown & ?)".
+  (* valid regs *)
+  iDestruct (gen_reg_valid1 σ1 PC z ai Hcur with "Hregown Hpc") as "%Hpc".
+  iDestruct (gen_reg_valid1 σ1 (R 0 R0Av) z w2 Hcur with "Hregown Hr0") as "%Hr0".
+  iDestruct (gen_reg_valid1 σ1 (R 1 R1Av) z w3 Hcur with "Hregown Hr1") as "%Hr1".
+  (* valid pt *)
+  iDestruct (gen_access_valid_addr σ1 z q ai with "Haccessown Hacc") as %Hacc.
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai w1 with "Hmemown Hapc") as "%Hmem".
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal z Hvc ai w1);eauto.
+  - iModIntro.
+    iIntros (m2 σ2 Hstep).
+    apply (step_ExecI_normal z Hvc ai w1) in Hstep; eauto.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc in Heqc2; eauto.
+    rewrite (nat_lt_pi 0 reg_count lang.hvc_obligation_1 R0Av) Hr0 Hhvc /run
+      (nat_lt_pi 1 reg_count lang.run_obligation_1 R1Av) Hr1 in Heqc2.
+    simpl in Heqc2.
+    rewrite /unpack_hvc_result_yield Hvmid in Heqc2.
+    simpl in Heqc2.
+    rewrite /is_primary Hcur Hz in Heqc2.
+    destruct (0 =? 0) eqn:Hvmz; [|done].
+    destruct Hstep as [Hstep1 Hstep2].
+    simplify_eq.
+    simpl.
+    rewrite /gen_vm_interp.
+    rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_receivers.
+    rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_receivers.
+    iFrame.
+    iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai +w 1)) with "Hregown Hpc") as "HpcUpd".
+    iDestruct (token_update (get_current_vm σ1) i with "Htok") as "HtokUpd".
+    rewrite token_agree_eq /token_agree_def.
+    iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
+    rewrite /get_current_vm /update_current_vmid /update_incr_PC.
+    simpl.
+    rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
+    + iMod "HpcUpd".
+      iMod "Htok'".
+      iModIntro.
+      iDestruct "Htok'" as "[Htok1 Htok2]".
+      iDestruct "HpcUpd" as "[? ?]".
+      by iFrame.
+    + apply get_reg_gmap_get_reg_Some; auto.
+Qed.
+
+
+Lemma yield {z i w1 w2 a_ b_ q} ai :
+  decode_instruction w1 = Some Hvc ->
+  fin_to_nat z = 0 -> 
+  z ≠ i ->
+  decode_hvc_func w2 = Some Yield ->
+  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ A@i :={q} (mm_translation ai)
+  ∗ R 0 R0Av @@ i ->r w2
+  ∗ R 0 R0Av @@ z ->r a_
+  ∗ R 1 R1Av @@ z ->r b_                                       
+  ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI⌝ ∗
+  <<z>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ A@i :={q} (mm_translation ai)
+  ∗ R 0 R0Av @@ i ->r w2
+  ∗ R 0 R0Av @@ z ->r w2
+  ∗ R 1 R1Av @@ z ->r (encode_vmid i)) }}%I.
+Proof.
+  iIntros (Hinstr Hz Hzi Hhvc) "(Htok & Hpc & Hapc & Hacc & Hr0 & Hr1' & Hr2')".
+  iApply (sswp_lift_atomic_step ExecI); [done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcur ]; clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & ? & ? & ? & Haccessown & ?)".
+  (* valid regs *)
+  iDestruct (gen_reg_valid1 σ1 PC i ai Hcur with "Hregown Hpc") as "%Hpc".
+  iDestruct (gen_reg_valid1 σ1 (R 0 R0Av) i w2 Hcur with "Hregown Hr0") as "%Hr0".
+  (* valid pt *)
+  iDestruct (gen_access_valid_addr σ1 i q ai with "Haccessown Hacc") as %Hacc.
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai w1 with "Hmemown Hapc") as "%Hmem".
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai w1);eauto.
+  - iModIntro.
+    iIntros (m2 σ2 Hstep).
+    apply (step_ExecI_normal i Hvc ai w1) in Hstep; eauto.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc in Heqc2; eauto.
+    rewrite (nat_lt_pi 0 reg_count lang.hvc_obligation_1 R0Av) Hr0 Hhvc /yield
+      in Heqc2.
+    rewrite (nat_lt_pi 0 reg_count lang.yield_obligation_1 R0Av)
+            (nat_lt_pi 1 reg_count lang.yield_obligation_2 R1Av) in Heqc2.
+    rewrite /is_primary /update_reg update_reg_global_preserve_current_vm Hcur in Heqc2.
+    destruct (i =? 0) eqn:Hi0.
+    + rewrite <-(reflect_iff (fin_to_nat i = 0) (i =? 0) (Nat.eqb_spec (fin_to_nat i) 0)) in Hi0.
+      exfalso.
+      apply Hzi.
+      apply fin_to_nat_inj.
+      rewrite Hz Hi0.
+      reflexivity.
+    + destruct Hstep as [Hstep1 Hstep2].
+      simplify_eq.
+      simpl.
+      rewrite /gen_vm_interp.
+      rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_receivers.
+      rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_receivers.
+      iFrame.
+      iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai +w 1)) with "Hregown Hpc") as "HpcUpd".
+      iDestruct (token_update (get_current_vm σ1) z with "Htok") as "HtokUpd".
+      rewrite token_agree_eq /token_agree_def.
+      iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
+      rewrite /get_current_vm /update_current_vmid /update_incr_PC.
+      simpl.
+      rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
+      * iMod "HpcUpd".
+        iMod "Htok'".
+        iModIntro.
+        iDestruct "Htok'" as "[Htok1 Htok2]".
+        iDestruct "HpcUpd" as "[? ?]".
+        admit.
+      * apply get_reg_gmap_get_reg_Some; auto.
+        admit.
+Admitted.
 
 End rules.
