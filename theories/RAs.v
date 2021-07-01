@@ -769,6 +769,70 @@ Proof.
     by simplify_map_eq.
  Qed.
 
+Program Definition p0 := (@nat_to_fin 0 page_size _).
+Program Definition p1 := (@nat_to_fin 1 page_size _).
+Program Definition p2 := (@nat_to_fin 2 page_size _).
+Program Definition p3 := (@nat_to_fin 3 page_size _).
+Program Definition p4 := (@nat_to_fin 4 page_size _).
+Program Definition p5 := (@nat_to_fin 5 page_size _).
+Program Definition p6 := (@nat_to_fin 6 page_size _).
+Program Definition p7 := (@nat_to_fin 7 page_size _).
+Solve All Obligations with
+    (intros;pose proof (page_size_at_least);assert(H': page_size_lower_bound=15);first done;lia).
+
+Program Definition new_transaction_descriptor11 p v wf wh wt wc rcvr p' :=
+ ((page_offset_to_addr p p0) ->a encode_vmid v ∗
+ (page_offset_to_addr p p1)->a wf ∗
+ (page_offset_to_addr p p2)->a wh ∗
+ (page_offset_to_addr p p3)->a wt ∗
+ (page_offset_to_addr p p4)->a wc ∗
+ (page_offset_to_addr p p5)->a one_word ∗
+ (page_offset_to_addr p p6)->a encode_vmid rcvr ∗
+ (page_offset_to_addr p p7)->a encode_pid p')%I.
+
+Lemma gen_mem_valid_td11:
+  ∀ (σ : state) ptx i wf wh wt j pd,
+    new_transaction_descriptor11 ptx i wf wh wt one_word j pd -∗
+    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ⌜ (get_mem σ) !! (page_offset_to_addr ptx p0) = Some (encode_vmid i) ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p1) = Some wf ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p2)  = Some wh ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p3) = Some wt ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p4)  = Some one_word ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p5)  = Some one_word ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p6) = Some (encode_vmid j) ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p7) = Some (encode_pid pd) ⌝.
+Proof.
+  iIntros (????????) "Htd Hσ".
+  rewrite /new_transaction_descriptor11 .
+  iDestruct (gen_mem_valid_Sep _ {[(page_offset_to_addr ptx p0):=encode_vmid i;
+                                   (page_offset_to_addr ptx p1):=wf;
+                                   (page_offset_to_addr ptx p2):= wh;
+                                   (page_offset_to_addr ptx p3):= wt;
+                                   (page_offset_to_addr ptx p4):= one_word ;
+                                   (page_offset_to_addr ptx p5):= one_word ;
+                                   (page_offset_to_addr ptx p6):= encode_vmid j;
+                                   (page_offset_to_addr ptx p7):= encode_pid pd]} with "Hσ [Htd]") as "%";eauto.
+  rewrite !big_sepM_insert ?big_sepM_empty;eauto;first
+  (iDestruct "Htd" as "(?&?&?&?&?&?&?&?)";
+  iFrame);
+  repeat rewrite lookup_insert_ne;first done;repeat (apply  page_offset_to_addr_neq;eauto);done.
+  iPureIntro.
+  remember {[(page_offset_to_addr ptx p0):=encode_vmid i;
+                                   (page_offset_to_addr ptx p1):=wf;
+                                   (page_offset_to_addr ptx p2):= wh;
+                                   (page_offset_to_addr ptx p3):= wt;
+                                   (page_offset_to_addr ptx p4):= one_word ;
+                                   (page_offset_to_addr ptx p5):= one_word ;
+                                   (page_offset_to_addr ptx p6):= encode_vmid j;
+                                   (page_offset_to_addr ptx p7):= encode_pid pd]} as m.
+  repeat (try split);
+  apply (map_Forall_lookup_1 (λ (k : addr) (x : word), get_mem σ !! k = Some x) m );eauto;
+  simplify_eq /=; repeat try (simplify_map_eq;try done;try (rewrite lookup_insert_ne; simplify_map_eq;try done));
+  apply page_offset_to_addr_neq;eauto;done.
+Qed.
+
+
 Lemma gen_mem_update1:
   ∀ (σ : state) a w w',
     ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
@@ -1146,6 +1210,26 @@ Qed.
      set_solver.
   Qed.
 
+  Lemma gen_access_valid2:
+  ∀ (σ : state) i q s p1 p2,
+    {[p1;p2]} ⊆ s ->
+    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    (A@ i :={q}[s] ) -∗
+          ( ⌜(check_access_page σ i p1)= true⌝ ∗ ⌜(check_access_page σ i p2)= true ⌝).
+  Proof.
+     iIntros (?????? Hsubset) "Hσ Hacc".
+     iDestruct (gen_access_valid_Set _ _ _ s with "Hσ Hacc") as %Hcheck;eauto.
+     iPureIntro.
+     split.
+     - pose proof (Hcheck p8).
+       simpl in H.
+       apply H.
+       set_solver.
+     - pose proof (Hcheck p9).
+       simpl in H.
+       apply H.
+       set_solver.
+  Qed.
 
 Lemma gen_access_valid_addr:
   ∀ (σ : state) i q a,
@@ -1249,12 +1333,12 @@ Proof.
       rewrite /get_vm_page_table /get_page_tables in H.
       clear H2'' H3 H0.
       destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
-      destruct (is_accessible p0) eqn:Heqn'; try done.
+      destruct (is_accessible p8) eqn:Heqn'; try done.
       exfalso.
       apply H.
       apply elem_of_list_In.
       apply in_map_iff.
-      exists (p, p0).
+      exists (p, p8).
       split; eauto.
       rewrite <-elem_of_list_In.
       rewrite elem_of_map_to_list.
@@ -1274,13 +1358,13 @@ Proof.
       inversion H2; subst; clear H2.
       rewrite /get_vm_page_table /get_page_tables in H.
       destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
-      destruct (is_accessible p0) eqn:Heqn'; try done.
+      destruct (is_accessible p8) eqn:Heqn'; try done.
       exfalso.
       apply not_elem_of_list_to_set in H.
       apply H.
       apply elem_of_list_In.
       apply in_map_iff.
-      exists (p, p0).
+      exists (p, p8).
       split; eauto.
       rewrite <-elem_of_list_In.
       rewrite elem_of_map_to_list.

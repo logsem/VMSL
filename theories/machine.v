@@ -34,6 +34,7 @@ Class MachineParameters := {
       In addr (mm_translation_inv (mm_translation addr));
   mm_translation_inv_mm_translation : forall (pid : fin page_count),
       Forall (fun x => x = pid) (map mm_translation (mm_translation_inv pid));
+  mm_translation_inv_nodup : forall (pid: fin page_count), NoDup (mm_translation_inv pid);
   }.
 
 Context `(MachineParams : MachineParameters).

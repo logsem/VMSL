@@ -279,7 +279,7 @@ Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
   (mm_translation a ∉ s \/ (mm_translation a) = p) ->
   mm_translation ai ∈ s ->
   TX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={1}[s]∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ TX@ i := p ∗ PC @@ i ->r ai                                               ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ TX@ i := p ∗ PC @@ i ->r ai  ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                              ∗ A@i:={1}[s] ∗ ra @@ i ->r w3 ) }}%I.
 Proof.
   iIntros (Hinstr Hdecode Hs Hais) "(Htx & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
@@ -306,12 +306,10 @@ Proof.
       exists FailPageFaultI, σ1.
       simplify_eq.
       apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
-      * rewrite /is_valid_PC HPC.
-        simpl.
+      * rewrite /is_valid_PC HPC /=.
         rewrite check_access_page_mem_eq in Ha.
-        rewrite Hai.
-        reflexivity.
-      * rewrite /get_memory Hai /get_memory_unsafe; done.
+        rewrite Hai //.
+      * rewrite /get_memory Hai /get_memory_unsafe //.
       * rewrite /exec /lang.ldr.
         destruct ra; try done.
         destruct rb; try done.
@@ -322,16 +320,13 @@ Proof.
         destruct (decide (mm_translation a = t)); try done.
         rewrite /get_memory.
         rewrite check_access_page_mem_eq in Ha.
-        rewrite Ha.
-        reflexivity.
+        by rewrite Ha.
     + iModIntro.
       iIntros (m2 σ2) "%HstepP".
       iModIntro.
       inversion HstepP; subst.
-      * rewrite /is_valid_PC HPC in H.
-        simpl in H.
-        rewrite Hai in H.
-        done.
+      * rewrite /is_valid_PC HPC /= in H.
+        by rewrite Hai in H.
       * simplify_eq.
         iFrame.
         rewrite /get_memory Hai /get_memory_unsafe in H1.
@@ -356,10 +351,7 @@ Proof.
       exists FailPageFaultI, σ1.
       simplify_eq.
       apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
-      * rewrite /is_valid_PC HPC.
-        simpl.
-        rewrite Hai.
-        reflexivity.
+      * rewrite /is_valid_PC HPC /= Hai //.
       * rewrite /get_memory Hai /get_memory_unsafe; done.
       * rewrite /exec /lang.ldr.
         destruct ra; try done.
@@ -373,10 +365,7 @@ Proof.
       iIntros (m2 σ2) "%HstepP".
       iModIntro.
       inversion HstepP; subst.
-      * rewrite /is_valid_PC HPC in H.
-        simpl in H.
-        rewrite Hai in H.
-        done.
+      * rewrite /is_valid_PC HPC /= Hai // in H.
       * simplify_eq.
         iFrame.
         rewrite /get_memory Hai /get_memory_unsafe in H1.
@@ -473,7 +462,7 @@ Lemma str_error {instr i w1 w2 w3 s p} ai a ra rb :
   (mm_translation a ∉ s \/ (mm_translation a) = p) ->
   mm_translation ai ∈ s ->
   RX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w3 ∗ A@i:={1}[s]∗ ra @@ i ->r w2
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ RX@ i := p ∗ PC @@ i ->r ai                                               ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w3
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ RX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w3
                              ∗ A@i:={1}[s] ∗ ra @@ i ->r w2 ) }}%I.
 Proof.
   iIntros (Hinstr Hdecode Hs Has Hais) "(Hrx & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
@@ -853,5 +842,43 @@ Proof.
     by iFrame.
 Qed.
 
+
+(* TODO: Excl *)
+Lemma hvc_mem_donate11 {instr i wi r2 ptx so q sa wf wt} ai r0 r1 j pd :
+  instr = Hvc ->
+  decode_instruction wi = Some(instr) ->
+  decode_hvc_func r0 = Some(Donate) ->
+  (fin_to_nat r1) ≤ page_size ->
+  {[pd; (mm_translation ai)]} ⊆ sa ->
+  pd ∈ so ->
+  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a wi
+  ∗ O@i:={q}[so] ∗ A@i:={1}[sa]
+  ∗ R0 @@ i ->r r0 ∗ R1 @@ i ->r r1 ∗ R2 @@i ->r r2 ∗ TX@ i := ptx
+  ∗ new_transaction_descriptor11 ptx i wf zero_word wt one_word j pd
+    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = HaltI ⌝ ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a wi
+  ∗ O@i:={q}[so] ∗ A@i:={1}[sa∖{[pd]}]
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗ TX@ i := ptx
+  ∗ ∃wh, (R2 @@ i ->r wh ∗ wh ->t{1}(i,wf, wt, {[j := {[pd]}]},Donation) ∗ wh ->re j)
+  ∗ new_transaction_descriptor11 ptx i zero_word zero_word zero_word one_word j pd)}}%I.
+Proof.
+  iIntros (Hinstr Hdecodei Hdecodef Hvalidlen Hsa Hso) "(Htok & HPC & Hai & Hown & Haccess & HR0 & HR1 & HR2 & HTX & Htd)".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcureq ]; clear Hsche.
+  apply fin_to_nat_inj in Hcureq.
+  iModIntro.
+  iDestruct "Hσ" as "(Hcur & Hmem & Hreg & Htxpage & ? & Hownedpt & Haccesspt & Htrans & Hrcv)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 r1 R2 r2 Hcureq ) with "Hreg HPC HR0 HR1 HR2 ")
+    as "[%HPC [%HR0 [%HR1 %HR2]]]";eauto.
+  (* valid pt *)
+  iDestruct ((gen_access_valid2 σ1 i 1 sa pd (mm_translation ai)) with "Haccesspt Haccess") as %[Haccpd Haccai];eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai wi with "Hmem Hai") as %Hmem.
+  iDestruct (gen_mem_valid_td11 σ1 _ _ _ _ _ _ with "Htd Hmem") as %Htd.
+  iSplit.
+  - admit.
+  - admit.
+ Admitted.
 
 End rules.
