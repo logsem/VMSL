@@ -481,6 +481,33 @@ Proof.
 Qed.
 
 
+Lemma gen_reg_valid_global1:
+  ∀ (σ : state) r i w,
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    r @@ i ->r w -∗
+          ⌜ (get_reg_global σ i r) = Some w ⌝.
+Proof.
+  iIntros (????) "Hσ Hr".
+  rewrite reg_mapsto_eq /reg_mapsto_def.
+  iDestruct (ghost_map_lookup with "Hσ Hr") as "%".
+  iPureIntro.
+  rewrite /get_reg /get_reg_global.
+  unfold get_reg_gmap in H.
+  apply elem_of_list_to_map_2 in H.
+  apply elem_of_list_In in H.
+  apply in_flat_map in H.
+  inversion H; clear H.
+  destruct H0.
+  apply in_map_iff in H0.
+  inversion H0;clear H0.
+  inversion H1;clear H1.
+  inversion H0.
+  apply elem_of_list_In in H2.
+  apply elem_of_map_to_list' in H2.
+  by simplify_eq /=.
+Qed.
+
+
 (* TODO : quite ugly... *)
 Lemma gen_reg_valid_Sep:
   ∀ (σ : state) i (regs: gmap (reg_name * vmid) word) ,
