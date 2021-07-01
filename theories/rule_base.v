@@ -2,7 +2,7 @@ From iris.algebra Require Import gmap gset.
 From HypVeri Require Import RAs.
 
 (* some preservation properties of the opsem*)
-  Lemma update_reg_global_preserve_current_vm σ r w :(get_current_vm (update_reg_global σ (get_current_vm σ) r w)) = (get_current_vm σ).
+  Lemma update_reg_global_preserve_current_vm σ i r w :(get_current_vm (update_reg_global σ i r w)) = (get_current_vm σ).
   Proof.
     unfold get_current_vm ,update_reg_global.
     simpl.
@@ -25,6 +25,16 @@ From HypVeri Require Import RAs.
     reflexivity.
   Qed.
 
+  Lemma get_reg_global_update_reg_global_ne_vmid {σ i j R1 R2 A B} :
+    i ≠ j ->
+    get_reg_global σ j R2 = Some B ->
+    get_reg_global (update_reg_global σ i R1 A) j R2 = Some B.
+  Proof.
+    intros Hne Hlk.
+    rewrite /get_reg_global /get_vm_reg_file /get_reg_files /update_reg_global.
+    simpl.
+    rewrite vlookup_insert_ne; auto.
+  Qed.
 
   Lemma get_reg_gmap_lookup_Some σ i r w : (get_reg_gmap σ) !! (r,i)= Some w <->  get_vm_reg_file σ i !! r = Some w.
     Proof.
@@ -132,7 +142,6 @@ From HypVeri Require Import RAs.
     rewrite get_reg_gmap_get_vm_reg_file.
     unfold get_reg,get_reg_global;subst;done.
   Qed.
-
 
   Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
                                              <[(r,i) := w]>(get_reg_gmap σ).

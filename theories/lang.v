@@ -714,16 +714,16 @@ Program Definition run (s : state) : exec_mode * state :=
   in
   unpack_hvc_result_yield s comp.
 Solve Obligations with solveRegCount.
-  
+
 Program Definition yield (s : state) : exec_mode * state :=
   let comp :=
-      let s' := (update_reg s (R 0 _) (encode_hvc_ret_code Succ))
+      let s' := (update_reg_global s (@nat_to_fin 0 vm_count vm_count_pos) (R 0 _) (encode_hvc_ret_code Succ))
       in
       if is_primary s'
       then
         unit (s', (@nat_to_fin 0 vm_count vm_count_pos))
       else
-        unit ((update_reg s' (R 1 _) (encode_vmid (get_current_vm s'))), (@nat_to_fin 0 vm_count vm_count_pos))
+        unit ((update_reg_global s' (@nat_to_fin 0 vm_count vm_count_pos) (R 1 _) (encode_vmid (get_current_vm s'))), (@nat_to_fin 0 vm_count vm_count_pos))
   in
   unpack_hvc_result_yield s comp.
 Solve Obligations with solveRegCount.
