@@ -808,7 +808,7 @@ Solve All Obligations with
     (intros;pose proof (page_size_at_least);assert(H': page_size_lower_bound=15);first done;lia).
 
 Program Definition new_transaction_descriptor11 p v wf wh wt wc rcvr p' :=
- ((page_offset_to_addr p p0) ->a encode_vmid v ∗
+ ((page_offset_to_addr p p0)->a encode_vmid v ∗
  (page_offset_to_addr p p1)->a wf ∗
  (page_offset_to_addr p p2)->a wh ∗
  (page_offset_to_addr p p3)->a wt ∗
@@ -823,17 +823,17 @@ Lemma gen_mem_valid_td11:
     ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
     ⌜ (get_mem σ) !! (page_offset_to_addr ptx p0) = Some (encode_vmid i) ⌝
     ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p1) = Some wf ⌝
-    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p2)  = Some wh ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p2) = Some wh ⌝
     ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p3) = Some wt ⌝
-    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p4)  = Some one_word ⌝
-    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p5)  = Some one_word ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p4) = Some one_word ⌝
+    ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p5) = Some one_word ⌝
     ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p6) = Some (encode_vmid j) ⌝
     ∗ ⌜ (get_mem σ) !! (page_offset_to_addr ptx p7) = Some (encode_pid pd) ⌝.
 Proof.
   iIntros (????????) "Htd Hσ".
   rewrite /new_transaction_descriptor11 .
-  iDestruct (gen_mem_valid_Sep _ {[(page_offset_to_addr ptx p0):=encode_vmid i;
-                                   (page_offset_to_addr ptx p1):=wf;
+  iDestruct (gen_mem_valid_Sep _ {[(page_offset_to_addr ptx p0):= encode_vmid i;
+                                   (page_offset_to_addr ptx p1):= wf;
                                    (page_offset_to_addr ptx p2):= wh;
                                    (page_offset_to_addr ptx p3):= wt;
                                    (page_offset_to_addr ptx p4):= one_word ;

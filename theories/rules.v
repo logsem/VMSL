@@ -846,14 +846,16 @@ Qed.
 
 Lemma eliminate_wrong_token {i j} :
   j ≠ i ->
-  <<j>> ⊢ SSWP ExecI @ i {{ (λ m, ⌜False⌝) }}%I.
+  <<j>> ⊢ SSWP ExecI @ i {{ (λ m, False) }}%I.
 Proof.
   iIntros (Hne) "Htok".
   iApply (sswp_lift_atomic_step ExecI) ;[done|].
   iIntros (σ1) "%Hsche Hσ".
   iDestruct "Hσ" as "(Htokown & ? & ? & ? & ? & ? & ? & ?)".
   iDestruct (gen_token_valid_neq j i Hne with "Htok Htokown") as "%Hnsch".
-  by exfalso.
+  iExFalso.
+  iPureIntro.
+  done.
 Qed.
 
 
