@@ -1066,3 +1066,114 @@ Lemma page_offset_to_addr_neq p o1 (H1: o1 < page_size) o2 (H2:o2 < page_size) :
     pose proof (mm_translation_inv_nodup p).
     apply (NoDup_lookup (mm_translation_inv p) _ _ (mm_translation_inv p !!! nat_to_fin H1));eauto.
 Qed.
+
+Program Fixpoint seq_fin{size} (start: nat) (len:nat) (Hstart: start < size) (Hend: start+len < size) : list (fin size):=
+  match len with
+  | 0 => nil
+  | S len' =>  (nat_to_fin Hstart):: (seq_fin (S start) len' _ _)
+  end.
+Next Obligation.
+  Proof.
+    intros.
+    lia.
+  Defined.
+Next Obligation.
+  Proof.
+    intros.
+    lia.
+  Defined.
+
+ Lemma in_seq_fin{size} len start  (Hstart: start < size) (Hend: start+len < size) (f:fin size) :
+    In f (seq_fin start len Hstart Hend)  <-> start <= (fin_to_nat f) < start+len.
+  Proof.
+    generalize dependent start.
+    induction len.
+    split.
+    intro.
+    exfalso.
+    apply H.
+    intro.
+    lia.
+    split.
+    intro.
+    inversion H.
+    rewrite <- H0.
+    rewrite fin_to_nat_to_fin.
+    lia.
+    assert (H': ( S start ) <= (fin_to_nat f) < (S start) + len).
+    {
+      pose proof (IHlen (S start) (seq_fin_obligation_1 size start (S len) Hstart Hend len eq_refl) (seq_fin_obligation_2 size start (S len) Hstart Hend len eq_refl)).
+      destruct  H1.
+      apply H1.
+      done.
+    }
+    lia.
+    intro.
+    simpl.
+    destruct (decide  ((fin_to_nat f) = start)).
+    left.
+    apply fin_to_nat_inj.
+    rewrite fin_to_nat_to_fin.
+    done.
+    right.
+    assert (H': ( S start ) <= (fin_to_nat f) < (S start) + len).
+    {
+      lia.
+    }
+    pose proof (IHlen (S start) (seq_fin_obligation_1 size start (S len) Hstart Hend len eq_refl) (seq_fin_obligation_2 size start (S len) Hstart Hend len eq_refl)).
+    destruct H0.
+    apply H1.
+    done.
+Qed.
+
+
+Lemma seq_fin_NoDup{size} len start  (Hstart: start < size) (Hend: start+len < size) : NoDup (seq_fin start len Hstart Hend).
+Proof.
+    generalize dependent start.
+    induction len.
+    intros.
+    constructor.
+    intros.
+    apply NoDup_cons_2.
+    intro.
+  apply elem_of_list_In in H.
+  apply in_seq_fin in H.
+  rewrite fin_to_nat_to_fin in H.
+  lia.
+  apply IHlen.
+  Qed.
+
+
+Lemma seq_fin_nth{size} len start (Hstart: start < size) (Hend: start+len < size) n d:
+  n < len -> fin_to_nat (nth n (seq_fin start len Hstart Hend) d) = start+n.
+Proof.
+  intros.
+  generalize dependent start .
+  generalize dependent n.
+  induction len.
+  intros.
+  destruct n.
+  lia.
+  lia.
+  intros.
+  simpl.
+  destruct n.
+  rewrite fin_to_nat_to_fin.
+  lia.
+  assert(H':  n< len).
+  { lia.  }
+  pose proof (IHlen n H' (S start)(seq_fin_obligation_1 size start (S len) Hstart Hend len eq_refl)
+                    (seq_fin_obligation_2 size start (S len) Hstart Hend len eq_refl)).
+  rewrite H0.
+  lia.
+Qed.
+
+
+Lemma seq_fin_length{size} len start (Hstart: start < size) (Hend: start+len < size) : len = length (seq_fin start len Hstart Hend).
+Proof.
+  generalize dependent start.
+  induction len;eauto.
+  intros.
+  pose proof (IHlen (S start) (seq_fin_obligation_1 size start (S len) Hstart Hend len eq_refl) (seq_fin_obligation_2 size start (S len) Hstart Hend len eq_refl)).
+  simpl. by rewrite <- H.
+Qed.
