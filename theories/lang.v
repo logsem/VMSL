@@ -1177,3 +1177,72 @@ Proof.
   pose proof (IHlen (S start) (seq_fin_obligation_1 size start (S len) Hstart Hend len eq_refl) (seq_fin_obligation_2 size start (S len) Hstart Hend len eq_refl)).
   simpl. by rewrite <- H.
 Qed.
+
+Definition addr_seq (p: pid) (base: fin page_size) len (Hlt: (fin_to_nat base) + len < page_size):=
+   (λ o , (page_offset_to_addr p o)) <$> (seq_fin (fin_to_nat base) len (fin_to_nat_lt base) Hlt).
+
+Lemma addr_seq_NoDup (p: pid) (base: fin page_size) len (Hlt: (fin_to_nat base) + len < page_size):
+  NoDup (addr_seq p base len Hlt).
+Proof.
+ unfold addr_seq.
+ apply NoDup_fmap_2.
+ - unfold Inj.
+   intros.
+   destruct (decide (x=y)).
+   done.
+   exfalso.
+   apply (page_offset_to_addr_neq p (fin_to_nat x) (fin_to_nat_lt x) (fin_to_nat y) (fin_to_nat_lt y)).
+   intro.
+   apply fin_to_nat_inj in H0.
+   apply n.
+   done.
+   rewrite !nat_to_fin_to_nat .
+   done.
+ - apply seq_fin_NoDup.
+Qed.
+
+Lemma addr_seq_length(p: pid) (base: fin page_size) len (Hlt: (fin_to_nat base) + len < page_size):
+  len = length (addr_seq p base len Hlt).
+Proof.
+  unfold addr_seq.
+ rewrite  fmap_length.
+ apply seq_fin_length.
+Qed.
+
+
+Definition instr_seq_gmap (instrs: list instruction) (p: pid) (base: fin page_size) (Hlt: (fin_to_nat base) + length(instrs) < page_size):
+  gmap addr word:=
+  let len := (length instrs) in
+  let addr_seq := addr_seq p base len Hlt in
+  let instr_seq :=  (λ i, (encode_instruction i)) <$> instrs in
+  let ziplist := zip  addr_seq instr_seq in
+  list_to_map ziplist.
+
+Program Definition p0 := (@nat_to_fin 0 page_size _).
+Program Definition p1 := (@nat_to_fin 1 page_size _).
+Program Definition p2 := (@nat_to_fin 2 page_size _).
+Program Definition p3 := (@nat_to_fin 3 page_size _).
+Program Definition p4 := (@nat_to_fin 4 page_size _).
+Program Definition p5 := (@nat_to_fin 5 page_size _).
+Program Definition p6 := (@nat_to_fin 6 page_size _).
+Program Definition p7 := (@nat_to_fin 7 page_size _).
+Solve All Obligations with
+    (intros;pose proof (page_size_at_least);assert(H': page_size_lower_bound=15);first done;lia).
+
+Definition fin_safe_add{size} (x y : fin size) (Hlt: (fin_to_nat x)+(fin_to_nat y) < size):= (@nat_to_fin ((fin_to_nat x)+(fin_to_nat y)) size Hlt).
+
+Lemma instr_seq_gmap_lookup_Some{i} (instrs: list instruction) (base: fin page_size) (offset : fin page_size)(Hlt: (fin_to_nat base) + (fin_to_nat offset) < page_size):
+ forall (p: pid) (Hlt': (fin_to_nat base) + (length instrs) < page_size),
+    (instrs !! (fin_to_nat offset)) = Some i ->
+    ((instr_seq_gmap instrs p base Hlt') !! (page_offset_to_addr p (fin_safe_add base offset Hlt))) =  Some (encode_instruction i).
+  Proof.
+    intros.
+    apply elem_of_list_lookup_2 in H.
+    apply elem_of_list_to_map_1.
+    -  rewrite fst_zip.
+       + apply addr_seq_NoDup.
+       + rewrite <-addr_seq_length.
+         rewrite  fmap_length.
+         lia.
+    - admit.
+    Admitted.
