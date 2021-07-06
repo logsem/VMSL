@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 From stdpp Require Import gmap fin_maps list countable fin mapset fin_map_dom listset_nodup vector.
 From HypVeri Require Export machine monad.
 

@@ -10,8 +10,8 @@ default: $(VFILES:.v=.vo)
 test: $(TEST_VFILES:.v=.vo) $(VFILES:.v=.vo)
 
 _CoqProject:
-	@echo "-R theories HypVeri" > $@
-	@echo "-R vendor/machine_program_logic/theories machine_program_logic" >> $@;
+	@echo "-Q theories HypVeri" > $@
+	@echo "-Q vendor/machine_program_logic/theories machine_program_logic" >> $@;
 	@echo "_CoqProject:"
 	@cat $@
 

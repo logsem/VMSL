@@ -34,6 +34,7 @@ Class MachineParameters := {
       In addr (mm_translation_inv (mm_translation addr));
   mm_translation_inv_mm_translation : forall (pid : fin page_count),
       Forall (fun x => x = pid) (map mm_translation (mm_translation_inv pid));
+  mm_translation_inv_nodup : forall (pid: fin page_count), NoDup (mm_translation_inv pid);
   }.
 
 Section machine.
@@ -152,15 +153,42 @@ Inductive instruction : Type :=
 | Ldr (dst : reg_name) (src : reg_name)
 | Str (src : reg_name) (dst : reg_name)
 | Cmp (arg1 : reg_name) (arg2 : word + reg_name)
-| Jnz (arg : reg_name)
-| Jmp (arg : reg_name)
+| Bne (arg : reg_name)
+| Br (arg : reg_name)
 | Halt
 | Fail
 | Hvc.
 
+Definition reg_valid_cond (r : reg_name) : Prop :=
+  PC ≠ r /\ NZ ≠ r.
+
 (* Definition double_word : Type := *)
   (* (word * word). *)
-
+Inductive valid_instruction : instruction -> Prop :=
+| valid_mov_imm imm dst : reg_valid_cond dst ->
+                          valid_instruction (Mov dst (inl imm))
+| valid_mov_reg  src dst : reg_valid_cond dst ->
+                          reg_valid_cond src ->
+                          dst ≠ src ->
+                          valid_instruction (Mov dst (inr src))
+| valid_ldr src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      dst ≠ src ->
+                      valid_instruction (Ldr dst src)
+| valid_str src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      dst ≠ src ->
+                      valid_instruction (Str dst src)
+| valid_cmp_imm imm dst : reg_valid_cond dst ->
+                      valid_instruction (Cmp dst (inl imm))
+| valid_cmp_reg src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      dst ≠ src ->
+                      valid_instruction (Cmp dst (inr src))
+| valid_bne r : reg_valid_cond r ->
+                valid_instruction (Bne r)
+| valid_br r : reg_valid_cond r ->
+                valid_instruction (Br r).
 
 Definition addr : Type := word.
 
