@@ -6,7 +6,10 @@ Import Option.
 Import Sum.
 Open Scope monad_scope.
 
-Context `(HypervisorParams : HypervisorParameters).
+Section lang.
+Context `{MachineParams : !MachineParameters}.
+Context `(HypervisorParams : !HypervisorParameters).
+Context `{InstrSerial :!InstructionSerialization}.
 (* State *)
 
 Definition mem : Type :=
@@ -945,3 +948,5 @@ Qed.
 
 Definition scheduler : state → nat → Prop :=
 λ σ i,  (fin_to_nat (get_current_vm σ)) = i.
+
+End lang.

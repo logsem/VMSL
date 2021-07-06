@@ -36,17 +36,19 @@ Class MachineParameters := {
       Forall (fun x => x = pid) (map mm_translation (mm_translation_inv pid));
   }.
 
-Context `(MachineParams : MachineParameters).
+Section machine.
+
+Context `{MachineParams : MachineParameters}.
 
 Definition word : Type :=
   fin word_size.
 
-Instance eq_decision_word : EqDecision word.
+Global Instance eq_decision_word : EqDecision word.
 Proof.
   solve_decision.
 Qed.
 
-Instance countable_word : Countable word.
+Global Instance countable_word : Countable word.
 Proof.
   refine {| encode := _;
             decode := _;
@@ -59,7 +61,7 @@ Inductive reg_name : Type :=
 | NZ
 | R (n : nat) (fin : n < reg_count).
 
-Instance eq_decision_reg_name : EqDecision reg_name.
+Global Instance eq_decision_reg_name : EqDecision reg_name.
 Proof.
   intros x y. destruct x as [| | n fin], y as [| | n' fin']; try (by left); try (by right).
   destruct (nat_eq_dec n n').
@@ -73,7 +75,7 @@ Next Obligation.
   auto.
 Defined.
 
-Instance countable_reg_name : Countable reg_name.
+Global Instance countable_reg_name : Countable reg_name.
 Proof.
   refine {| encode r := encode match r with
                                | PC => inl false
@@ -99,7 +101,7 @@ Inductive ownership : Type :=
 | Owned
 | NotOwned.
 
-Instance eq_decision_ownership : EqDecision ownership.
+Global Instance eq_decision_ownership : EqDecision ownership.
 Proof.
   solve_decision.
 Qed.
@@ -109,7 +111,7 @@ Inductive access : Type :=
 | SharedAccess
 | ExclusiveAccess.
 
-Instance eq_decision_access : EqDecision access.
+Global Instance eq_decision_access : EqDecision access.
 Proof.
   solve_decision.
 Qed.
@@ -130,7 +132,7 @@ Definition is_owned (p : permission) : bool :=
   | _ => false
   end.
 
-Instance eq_decision_permission : EqDecision permission.
+Global Instance eq_decision_permission : EqDecision permission.
 Proof.
   solve_decision.
 Qed.
@@ -140,7 +142,7 @@ Inductive transaction_type : Type :=
 | Sharing
 | Lending.
 
-Instance eq_decision_transaction_type : EqDecision transaction_type.
+Global Instance eq_decision_transaction_type : EqDecision transaction_type.
 Proof.
   solve_decision.
 Qed.
@@ -159,40 +161,15 @@ Inductive instruction : Type :=
 (* Definition double_word : Type := *)
   (* (word * word). *)
 
-Class InstructionSerialization := {
-  decode_instruction : word -> option instruction;
-  encode_instruction : instruction -> word;
-  decode_encode_instruction : forall (i : instruction), decode_instruction (encode_instruction i) = Some i;
-                                 }.
-
-Context `(InstrSer : InstructionSerialization).
-
-Instance eq_decision_instruction : EqDecision instruction.
-Proof.
-  solve_decision.
-Qed.
-
-Instance countable_instruction : Countable instruction.
-Proof.
-  refine {| encode := fun i => encode (encode_instruction i);
-            decode := fun p => match decode p with
-                               | None => None
-                               | Some p' => decode_instruction p'
-                               end;
-            decode_encode := _ |}.
-  intros x.
-  rewrite decode_encode.
-  apply decode_encode_instruction.
-Qed.
 
 Definition addr : Type := word.
 
-Instance eq_decision_addr : EqDecision addr.
+Global Instance eq_decision_addr : EqDecision addr.
 Proof.
   solve_decision.
 Qed.
 
-Instance countable_addr : Countable addr.
+Global Instance countable_addr : Countable addr.
 Proof.
   refine {| encode := _;
             decode := _;
@@ -223,6 +200,8 @@ Inductive hvc_error : Type :=
 | Ready
 | NoMem.
 
+
+
 Class HypervisorParameters := {
   vm_count : nat;
   vm_count_pos : 0 < vm_count;
@@ -247,3 +226,33 @@ Class HypervisorParameters := {
   decode_encode_transaction_type : forall (ty : transaction_type),
       decode_transaction_type (encode_transaction_type ty) = Some ty
                              }.
+
+Class InstructionSerialization := {
+  decode_instruction : word -> option instruction;
+  encode_instruction : instruction -> word;
+  decode_encode_instruction : forall (i : instruction), decode_instruction (encode_instruction i) = Some i;
+                                 }.
+
+
+End machine.
+
+
+Context `(InstrSer : InstructionSerialization).
+
+Global Instance eq_decision_instruction : EqDecision instruction.
+Proof.
+  solve_decision.
+Qed.
+
+Global Instance countable_instruction : Countable instruction.
+Proof.
+  refine {| encode := fun i => encode (encode_instruction i);
+            decode := fun p => match decode p with
+                               | None => None
+                               | Some p' => decode_instruction p'
+                               end;
+            decode_encode := _ |}.
+  intros x.
+  rewrite decode_encode.
+  apply decode_encode_instruction.
+Qed.
