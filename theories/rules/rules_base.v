@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_base lifting.
+From HypVeri Require Import RAs rule_misc lifting.
 From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.

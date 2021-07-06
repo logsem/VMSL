@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_base lifting.
+From HypVeri Require Import RAs rule_misc lifting.
 From iris.proofmode Require Import tactics.
 
 Global Instance hyp_irisG `{gen_VMG Σ}: irisG hyp_machine Σ:=
