@@ -21,10 +21,10 @@ Class MachineParameters := {
   
   page_count : nat;
   
-  decode_pid : fin word_size -> option (fin page_count);
+  decode_pid : fin word_size -> fin page_count;
   encode_pid : fin page_count -> fin word_size;
   decode_encode_pid : forall (pid : fin page_count),
-      decode_pid (encode_pid pid) = Some pid;
+      decode_pid (encode_pid pid) =  pid;
   
   page_size_sanity : page_size * page_count = word_size;
   
