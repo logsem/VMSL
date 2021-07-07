@@ -1,59 +1,135 @@
 From stdpp Require Import countable fin vector.
-From Coq Require Import ssreflect Bool Eqdep_dec.
+From Coq Require Import ssreflect Bool Eqdep_dec ZArith.
 From ExtLib Require Import Structures.Monads.
+From machine_utils Require Export finz.
 
 Open Scope general_if_scope.
 
-Definition reg_count_lower_bound := 30.
-Definition word_size_lower_bound := 15. (*TODO: Now a word is 64-bit long, how should I change this? *)
-Definition page_size_lower_bound := 15.
-
-(* TODO: ZArith seems to be much more convenient *)
-Class MachineParameters := {
-  word_size : nat;
-  word_size_at_least : word_size_lower_bound < word_size;
-  
-  reg_count : nat;
-  reg_count_at_least : reg_count_lower_bound < reg_count;
-  
-  page_size : nat; (* in words *)
-  page_size_at_least : page_size_lower_bound < page_size;
-  
-  page_count : nat;
-  
-  decode_pid : fin word_size -> fin page_count;
-  encode_pid : fin page_count -> fin word_size;
-  decode_encode_pid : forall (pid : fin page_count),
-      decode_pid (encode_pid pid) =  pid;
-  
-  page_size_sanity : page_size * page_count = word_size;
-  
-  mm_translation : fin word_size -> fin page_count;
-  mm_translation_inv : fin page_count -> vec (fin word_size) page_size;
-  mm_translation_mm_translation_inv : forall (addr : fin word_size),
-      In addr (mm_translation_inv (mm_translation addr));
-  mm_translation_inv_mm_translation : forall (pid : fin page_count),
-      Forall (fun x => x = pid) (map mm_translation (mm_translation_inv pid));
-  mm_translation_inv_nodup : forall (pid: fin page_count), NoDup (mm_translation_inv pid);
-  }.
-
-Context `(MachineParams : MachineParameters).
-
-Definition word : Type :=
-  fin word_size.
-
-Instance eq_decision_word : EqDecision word.
+Definition reg_count : nat := 31.
+Definition word_size : Z := 2000000. (*TODO: Now a word is 64-bit long, how should I change this? *)
+Definition page_size : Z := 1000.
+Definition page_count : Z := 2000.
+Definition imm_size : Z := 1000000.
+Lemma page_size_sanity : Z.mul page_size page_count = word_size.
 Proof.
-  solve_decision.
+  unfold page_size.
+  unfold page_count.
+  unfold word_size.
+  by compute.
 Qed.
 
-Instance countable_word : Countable word.
+Definition Word := (finz word_size).
+
+Definition Addr : Type := Word.
+
+Inductive PID: Type :=
+| P (z : Addr) (align: Z.eqb (z `mod` page_size)%Z 0 = true) .
+
+Definition of_pid (p: PID): Word :=
+  match p with
+  | P a _ => a
+  end.
+
+Coercion of_pid: PID >-> Word.
+
+Program Definition to_pid (w: Word): option PID :=
+  match (Z_eq_dec (w `mod` page_size)%Z 0%Z) with
+                | left H => Some (P w _)
+                | right _ => None
+  end.
+Next Obligation.
+intros.
+by apply Z.eqb_eq.
+Defined.
+
+Program Definition to_pid_aligned (w: Word): PID:=
+  let z:=(w - (w `mod` page_size))%Z in
+  let wr:= (finz.FinZ z _ _) in
+  P wr _.
+Next Obligation.
+intros.
+destruct w.
+pose finz_lt.
+apply -> (Z.ltb_lt z0 word_size ) in e.
+apply  (Z.ltb_lt z word_size ).
+subst z.
+simpl.
+apply -> (Z.leb_le 0 z0 ) in finz_nonneg.
+assert (Hrem': (0 ≤ z0 `mod` page_size)%Z).
+apply Z_mod_pos.
+unfold page_size.
+lia.
+lia.
+Defined.
+Next Obligation.
+intros.
+destruct w.
+subst z.
+simpl.
+apply -> (Z.leb_le 0 z0) in finz_nonneg.
+apply Z.leb_le .
+assert (Hlt: (z0 `mod` page_size ≤ z0)%Z).
+apply Z.mod_le;eauto.
+unfold page_size.
+lia.
+lia.
+Qed.
+Next Obligation.
+intros.
+subst wr.
+simpl.
+subst z.
+apply Z.eqb_eq.
+rewrite <- Zminus_mod_idemp_l.
+simpl.
+assert (Heq0: (w mod page_size - w mod page_size)%Z = 0%Z).
+apply (Zminus_diag (w mod page_size)%Z).
+rewrite Heq0.
+apply Zmod_0_l.
+Defined.
+
+
+Inductive Imm: Type :=
+| I (w : Word) (fin: Z.ltb w imm_size = true) .
+
+Definition of_imm (im: Imm): Word :=
+  match im with
+  | I w fin => w
+  end.
+
+Coercion of_imm: Imm >-> Word.
+
+Global Instance pid_eq_dec: EqDecision PID.
+intros x y.
+destruct x,y .
+destruct (finz_eq_dec word_size z z0).
+- left. subst z0. f_equal. apply eq_proofs_unicity; decide equality.
+- right. inversion 1. contradiction.
+Defined.
+
+Global Instance imm_eq_dec: EqDecision Imm.
+intros x y. destruct x,y.
+destruct (finz_eq_dec word_size w w0).
+- left. subst w0. f_equal. apply eq_proofs_unicity; decide equality.
+- right. inversion 1. contradiction.
+Defined.
+
+
+Global Instance pid_countable : Countable PID.
 Proof.
-  refine {| encode := _;
-            decode := _;
+  refine {| encode r := encode (of_pid r) ;
+            decode n := match (decode n) with
+                        | Some w => to_pid w
+                        | None => None
+                        end ;
             decode_encode := _ |}.
-  apply fin_countable.
-Qed.
+  intro r. destruct r; auto.
+  rewrite decode_encode.
+  unfold to_pid. simpl.
+  destruct (Z_eq_dec (z mod page_size)%Z 0%Z).
+  - repeat f_equal; apply eq_proofs_unicity; decide equality.
+  - exfalso. by apply Z.eqb_eq in align.
+Defined.
 
 Inductive reg_name : Type :=
 | PC
@@ -147,10 +223,10 @@ Proof.
 Qed.
 
 Inductive instruction : Type :=
-| Mov (dst : reg_name) (src : word + reg_name)
+| Mov (dst : reg_name) (src : Imm + reg_name)
 | Ldr (dst : reg_name) (src : reg_name)
 | Str (src : reg_name) (dst : reg_name)
-| Cmp (arg1 : reg_name) (arg2 : word + reg_name)
+| Cmp (arg1 : reg_name) (arg2 : Imm + reg_name)
 | Bne (arg : reg_name)
 | Br (arg : reg_name)
 | Halt
@@ -160,8 +236,6 @@ Inductive instruction : Type :=
 Definition reg_valid_cond (r : reg_name) : Prop :=
   PC ≠ r /\ NZ ≠ r.
 
-(* Definition double_word : Type := *)
-  (* (word * word). *)
 Inductive valid_instruction : instruction -> Prop :=
 | valid_mov_imm imm dst : reg_valid_cond dst ->
                           valid_instruction (Mov dst (inl imm))
@@ -189,13 +263,13 @@ Inductive valid_instruction : instruction -> Prop :=
                 valid_instruction (Br r).
 
 Class InstructionSerialization := {
-  decode_instruction : word -> option instruction;
+  decode_instruction : Word -> option instruction;
   decode_instruction_valid : forall w i, decode_instruction w = Some i -> valid_instruction i;
-  encode_instruction : instruction -> word;
+  encode_instruction : instruction -> Word;
   decode_encode_instruction : forall (i : instruction), decode_instruction (encode_instruction i) = Some i;
                                  }.
 
-Context `(InstrSer : InstructionSerialization).
+Context `{InstrSer : InstructionSerialization}.
 
 Instance eq_decision_instruction : EqDecision instruction.
 Proof.
@@ -215,31 +289,26 @@ Proof.
   apply decode_encode_instruction.
 Qed.
 
-Definition addr : Type := word.
+(* TODO: ZArith seems to be much more convenient *)
 
-Instance eq_decision_addr : EqDecision addr.
-Proof.
-  solve_decision.
-Qed.
+Class HypervisorConstants := {
+  vm_count : nat;
+  vm_count_pos : 0 < vm_count;
+ }.
 
-Instance countable_addr : Countable addr.
-Proof.
-  refine {| encode := _;
-            decode := _;
-            decode_encode := _ |}.
-  apply fin_countable.
-Qed.
+Section hyp_def.
+Context `{_: HypervisorConstants}.
 
 Inductive hvc_func : Type :=
   Run
 | Yield
 | Share
-| Lend 
+| Lend
 | Donate
 | Retrieve
 | Relinquish
 | Reclaim
-| Send 
+| Send
 | Wait.
 
 Inductive hvc_ret_code : Type :=
@@ -253,27 +322,30 @@ Inductive hvc_error : Type :=
 | Ready
 | NoMem.
 
+
+Definition VMID : Type := fin vm_count.
+
+
 Class HypervisorParameters := {
-  vm_count : nat;
-  vm_count_pos : 0 < vm_count;
-  decode_vmid : word -> option (fin vm_count);
-  encode_vmid : (fin vm_count)  -> word;
-  decode_encode_vmid : forall (vmid : fin vm_count),
+  decode_vmid : Word -> option VMID;
+  encode_vmid : VMID -> Word;
+  decode_encode_vmid : forall (vmid : VMID),
       decode_vmid (encode_vmid vmid) = Some vmid;
-  decode_hvc_func : word -> option hvc_func;
-  encode_hvc_func : hvc_func -> word;
+  decode_hvc_func : Word -> option hvc_func;
+  encode_hvc_func : hvc_func -> Word;
   decode_encode_hvc_func : forall (hvc : hvc_func),
       decode_hvc_func (encode_hvc_func hvc) = Some hvc;
-  decode_hvc_error : word -> option hvc_error;
-  encode_hvc_error : hvc_error -> word;
+  decode_hvc_error : Word -> option hvc_error;
+  encode_hvc_error : hvc_error -> Word;
   decode_encode_hvc_error : forall (hvc : hvc_error),
       decode_hvc_error (encode_hvc_error hvc) = Some hvc;
-  decode_hvc_ret_code : word -> option hvc_ret_code;
-  encode_hvc_ret_code : hvc_ret_code -> word;
+  decode_hvc_ret_code : Word -> option hvc_ret_code;
+  encode_hvc_ret_code : hvc_ret_code -> Word;
   decode_encode_hvc_ret_code : forall (hvc : hvc_ret_code),
       decode_hvc_ret_code (encode_hvc_ret_code hvc) = Some hvc;
-  decode_transaction_type : word -> option transaction_type;
-  encode_transaction_type : transaction_type -> word;
+  decode_transaction_type : Word -> option transaction_type;
+  encode_transaction_type : transaction_type -> Word;
   decode_encode_transaction_type : forall (ty : transaction_type),
       decode_transaction_type (encode_transaction_type ty) = Some ty
-                             }.
+                                                                }.
+End hyp_def.

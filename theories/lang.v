@@ -6,54 +6,47 @@ Import Option.
 Import Sum.
 Open Scope monad_scope.
 
-Context `(HypervisorParams : HypervisorParameters).
+Context `{HyperConst : !HypervisorConstants}.
+Context `{HyperParams : !HypervisorParameters}.
 (* State *)
 
 Definition mem : Type :=
-  gmap addr word.
+  gmap Addr Word.
 
 Definition reg_file : Type :=
-  gmap reg_name word.
-
-Definition vmid : Type :=
-  fin vm_count.
-
-Definition pid : Type :=
-  fin page_count.
+  gmap reg_name Word.
 
 Definition page_table : Type :=
-  gmap pid permission.
+  gmap PID permission.
 
 Definition tx_buffer : Type :=
-  pid.
+  PID.
 
 Definition rx_buffer : Type :=
-  (pid * option(fin page_size * vmid)).
+  (PID * option(Word * VMID)).
 
 Definition mail_box : Type :=
   (tx_buffer * rx_buffer).
 
-Definition current_vm := vmid.
-
 Definition transaction : Type :=
-  vmid (* sender *)
-  * word (*flag *)
-  * word (* tag *)
-  * gset vmid
-  * vec (listset_nodup pid) vm_count
+  VMID (* sender *)
+  * Word (*flag *)
+  * Word (* tag *)
+  * gset VMID
+  * vec (listset_nodup PID) vm_count
   * transaction_type.
 
-Definition handle := word.
+Definition handle := Word.
 
 Definition transactions : Type :=
   gmap handle (option transaction).
 
 Definition state : Type :=
-  vec reg_file vm_count * vec mail_box vm_count * vec page_table vm_count * current_vm * mem * transactions.
+  vec reg_file vm_count * vec mail_box vm_count * vec page_table vm_count * VMID * mem * transactions.
 
 (* Getters *)
 
-Definition get_current_vm (st : state) : current_vm :=
+Definition get_current_vm (st : state) : VMID :=
   snd (fst (fst st)).
 
 Definition get_mem (st : state) : mem :=
@@ -65,19 +58,19 @@ Definition get_transactions (st : state) : transactions :=
 Definition get_reg_files (st : state) : vec reg_file vm_count :=
   fst (fst (fst (fst (fst st)))).
 
-Definition get_vm_reg_file (st : state) (v : vmid) : reg_file :=
+Definition get_vm_reg_file (st : state) (v : VMID) : reg_file :=
   (get_reg_files st) !!! v.
 
 Definition get_mail_boxes (st : state) : vec mail_box vm_count :=
   snd (fst (fst (fst (fst st)))).
 
-Definition get_vm_mail_box (st : state) (v : vmid) : mail_box :=
+Definition get_vm_mail_box (st : state) (v : VMID) : mail_box :=
   (get_mail_boxes st) !!! v.
 
 Definition get_page_tables (st : state) : vec page_table vm_count :=
   snd (fst (fst (fst st))).
 
-Definition get_vm_page_table (st : state) (v : vmid) : page_table :=
+Definition get_vm_page_table (st : state) (v : VMID) : page_table :=
   (get_page_tables st) !!! v.
 
 (* Conf *)
@@ -90,7 +83,7 @@ Inductive exec_mode : Type :=
 
 (* Aux funcs *)
 
-Definition check_perm_page (st : state) (v : vmid) (p : pid) (pm : permission) : bool :=
+Definition check_perm_page (st : state) (v : VMID) (p : PID) (pm : permission) : bool :=
   match (get_vm_page_table st v) !! p with
   | Some p' =>
     match (decide (pm = p')) with
@@ -100,26 +93,27 @@ Definition check_perm_page (st : state) (v : vmid) (p : pid) (pm : permission) :
   | _ => false
   end.
 
-Definition check_perm_addr (st : state) (v : vmid) (a : addr) (p : permission) : bool :=
-  check_perm_page st v (mm_translation a) p.
+Definition check_perm_addr (st : state) (v : VMID) (a : Addr) (p : permission) : bool :=
+  check_perm_page st v (to_pid_aligned a) p.
 
-Definition check_access_page (st : state) (v : vmid) (p : pid) : bool :=
+Definition check_access_page (st : state) (v : VMID) (p : PID) : bool :=
   match (get_vm_page_table st v) !! p with
   | Some p' => is_accessible p'
   | _ => false
   end.
 
-Definition check_access_addr (st : state) (v : vmid) (a : addr) : bool :=
-  check_access_page st v (mm_translation a).
+Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
+  check_access_page st v (to_pid_aligned a).
 
-Definition check_ownership_page (st : state) (v : vmid) (p : pid) : bool :=
+Definition check_ownership_page (st : state) (v : VMID) (p : PID) : bool :=
   match (get_vm_page_table st v) !! p with
   | Some p' => is_owned p'
   | _ => false
   end.
 
+(* TODO *)
 Definition check_ownership_addr (st : state) (v : vmid) (a : addr) : bool :=
-  check_ownership_page st v (mm_translation a).
+  check_ownership_page st v (to_pid a).
 
 Definition update_reg_global (st : state) (v : vmid) (r : reg_name) (w : word) : state :=
   (vinsert v (<[r:=w]>(get_vm_reg_file st v)) (get_reg_files st), (get_mail_boxes st), (get_page_tables st),
@@ -222,7 +216,7 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
     | Some src' =>
       match (get_mail_boxes s) !!! (get_current_vm s) with
       | (tx, _) =>
-        match decide (mm_translation src' = tx) with
+        match decide (to_pid src' = tx) with
         | right _ =>
           match get_memory s src' with
           | Some v => (ExecI, update_incr_PC (update_reg s dst v))
@@ -246,7 +240,7 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
   | Some (src', dst') =>
     match (get_mail_boxes s) !!! (get_current_vm s) with
     | (_, (rx, _)) =>
-      match decide (mm_translation dst' = rx) with
+      match decide (to_pid dst' = rx) with
       | right _ =>
         match update_memory s dst' src' with
         | (ExecI, s') => (ExecI, update_incr_PC s')
@@ -366,21 +360,21 @@ Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * vmid)) :
 
 (* ! depends on a constant ! *)
 (* TODO *)
-Lemma at_least_one_addr_in_page (p : pid) : vec word (S (page_size - 1)).
-Proof.
-  pose proof page_size_sanity as H.
-  pose proof word_size_at_least as H'.
-  pose proof (mm_translation_inv p) as H''.
-  destruct page_size.
-  - simpl in H. 
-    unfold word_size_lower_bound in H'.
-    rewrite <- H in H'.
-    exfalso.
-    apply (Nat.nlt_0_r 15 H').
-  - simpl in *.
-    rewrite <- minus_n_O.
-    exact H''.
-Qed.
+(* Lemma at_least_one_addr_in_page (p : pid) : vec word (S (page_size - 1)). *)
+(* Proof. *)
+(*   pose proof page_size_sanity as H. *)
+(*   pose proof word_size_at_least as H'. *)
+(*   pose proof (mm_translation_inv p) as H''. *)
+(*   destruct page_size. *)
+(*   - simpl in H.  *)
+(*     unfold word_size_lower_bound in H'. *)
+(*     rewrite <- H in H'. *)
+(*     exfalso. *)
+(*     apply (Nat.nlt_0_r 15 H'). *)
+(*   - simpl in *. *)
+(*     rewrite <- minus_n_O. *)
+(*     exact H''. *)
+(* Qed. *)
 
 Definition get_tx_pid_global (st : state) (v : vmid) : pid :=
   match get_vm_mail_box st v with
@@ -404,15 +398,6 @@ Definition get_rx_sender_global (st : state) (v : vmid) : option vmid :=
 
 Definition get_rx_sender (st : state) : option vmid :=
   get_rx_sender_global st (get_current_vm st).
-
-Definition get_rx_base_addr_global (st : state) (v : vmid) : option word :=
-  match get_vm_mail_box st v with
-  | (_, (pid, Some _)) => Some (@Vector.hd word (page_size - 1) (at_least_one_addr_in_page pid))
-  | _ => None
-  end.
-
-Definition get_rx_base_addr (st : state) : option word :=
-  get_rx_base_addr_global st (get_current_vm st).
 
 Definition empty_rx_global (st : state) (v : vmid) : option state :=
   match get_vm_mail_box st v with
@@ -439,7 +424,8 @@ Definition copy_page_unsafe (st : state) (src dst : pid) : option state :=
              (@bind option _ _ _ state state s (fun y => copy_from_addr_to_addr_unsafe y a b))
            end)
         (Some st)
-        (vzip_with (fun x y => (x, y)) (mm_translation_inv src) (mm_translation_inv dst)).
+        (zip (mm_region (of_pid src) ((of_pid src) ^+w page_size))
+                   (mm_region (of_pid dst) ((of_pid dst) ^+w page_size))).
 
 Definition fin_coerce {n m : nat} (i : fin n) (lt : fin_to_nat i < m) : fin m :=
   Fin.of_nat_lt lt.  
@@ -501,7 +487,9 @@ Definition parse_memory_region_descriptor (st : state) (b:addr) (o:nat) : option
   l <- get_memory_with_offset st b o ;;;
   r <- get_memory_with_offset st b (o+1) ;;;
   r' <- decode_vmid r ;;;
-  ls' <- sequence_a (foldl (fun acc v => cons (bind (get_memory_with_offset st b (o+ 2 + v)) decode_pid) acc) nil (seq 0 (fin_to_nat l))) ;;;
+  ls' <- sequence_a
+    (foldl (fun acc v => cons (bind (get_memory_with_offset st b (o+ 2 + v)) decode_pid) acc) nil
+           (seq 0 (fin_to_nat l))) ;;;
   unit (r', ls').
 
 Definition parse_memory_region_descriptors (st : state) (b : addr) (o:nat) (count : nat) : option (listset_nodup memory_region_descriptor) :=

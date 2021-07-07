@@ -3,10 +3,6 @@ From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset 
 From iris.proofmode Require Import tactics.
 From stdpp Require Import listset_nodup.
 From HypVeri Require Export lang machine.
-(* From machine_program_logic.program_logic Require Import weakestpre. *)
-
-
-  (* Context{A V W R P F:Type} `{Countable A, Countable V, Countable W, Countable R, Countable P}. *)
 
   Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
