@@ -12,6 +12,7 @@ test: $(TEST_VFILES:.v=.vo) $(VFILES:.v=.vo)
 _CoqProject:
 	@echo "-R theories HypVeri" > $@
 	@echo "-R vendor/machine_program_logic/theories machine_program_logic" >> $@;
+	@echo "-R vendor/machine_utils/theories machine_utils" >> $@;
 	@echo "_CoqProject:"
 	@cat $@
 
