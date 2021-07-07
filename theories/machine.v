@@ -1,6 +1,7 @@
 From stdpp Require Import countable fin vector.
 From Coq Require Import ssreflect Bool Eqdep_dec.
 From ExtLib Require Import Structures.Monads.
+From machine_utils Require Import finz.
 
 Open Scope general_if_scope.
 
