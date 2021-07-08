@@ -38,8 +38,12 @@ Definition transaction : Type :=
 
 Definition handle := Word.
 
+
+Definition hpool := gset handle.
+
 Definition transactions : Type :=
-  gmap handle (option transaction).
+  gmap handle transaction  * hpool.
+
 
 Definition state : Type :=
   vec reg_file vm_count * vec mail_box vm_count * vec page_table vm_count * VMID * mem * transactions.
@@ -416,10 +420,10 @@ Program Definition transfer_msg_unsafe (st : state) (l : Word) (v : VMID) (r : V
 Definition transfer_msg (st : state) (l : Word) (r : VMID) : hvc_result state :=
   transfer_msg_unsafe st l (get_current_vm st) r.
 
-
+Print transactions.
 
 Definition get_fresh_handles (trans: transactions): list handle:=
-  (map_to_list (filter (λ prod, prod.2 = None) trans)).*1 .
+  (elements trans.2).
 
 (* TODO: pick the least *free* handle *)
 
@@ -493,7 +497,7 @@ Definition validate_transaction_descriptor (wl : Word) (ty : transaction_type)
 
 Definition insert_transaction (st : state) (h : handle) (t : transaction) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, get_mem st,
-   <[h:=Some t]>(get_transactions st)).
+   (<[h:=t]>(get_transactions st).1 , (get_transactions st).2 ∖ {[h]})).
 
 Program Definition new_transaction (st : state) (vid : VMID)
            (tt : transaction_type)
@@ -511,12 +515,11 @@ Program Definition new_transaction (st : state) (vid : VMID)
   else throw Denied.
 
 Definition get_transaction (st : state) (h : handle) : option transaction :=
-  opt <- (get_transactions st) !! h;;;
-  opt.
+  ((get_transactions st).1) !! h.
 
 Definition remove_transaction (s : state) (h : handle) : state :=
   (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
-    <[h:=None]>(get_transactions s)).
+    (delete h (get_transactions s).1, union (get_transactions s).2 {[h]})).
 
 Definition new_transaction_from_descriptor (st : state) (ty : transaction_type) (td : transaction_descriptor) : hvc_result state :=
   match td with
@@ -654,7 +657,7 @@ Definition toggle_transaction_retrieve (s : state) (h : handle) (v : VMID) : hvc
       | _ => if decide (v ∈ sr)
              then throw Denied
              else unit (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
-                        <[h:= Some (vs, w1, w2, union sr (singleton v), vr, ty)]>(get_transactions s))
+                        (<[h:=(vs, w1, w2, union sr (singleton v), vr, ty)]>(get_transactions s).1, (get_transactions s).2 ))
       end
   | _ => throw InvParam
   end.
@@ -667,7 +670,7 @@ Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : h
       | None => throw Denied
       | _ => if decide (v ∈ sr)
              then unit (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
-                        <[h:=Some (vs, w1, w2, difference sr (singleton v), vr, ty)]>(get_transactions s))
+                        (<[h:=(vs, w1, w2, difference sr (singleton v), vr, ty)]>(get_transactions s).1, (get_transactions s).2 ))
              else throw Denied
     end
   | _ => throw InvParam
