@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section str.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma str {instr i w1 w2 w3 q s prx} ai a ra rb :
   instr = Str ra rb ->
   decode_instruction w1 = Some(instr) ->
@@ -163,3 +167,4 @@ Proof.
       iModIntro.
       inversion HstepP; subst; simplify_eq.
 Qed.
+End str.

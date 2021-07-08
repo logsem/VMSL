@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section halt.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma halt {instr i w1 q} ai :
   instr = Halt ->
   decode_instruction w1 = Some(instr) ->
@@ -49,3 +53,4 @@ Proof.
     by iFrame.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
+End halt.

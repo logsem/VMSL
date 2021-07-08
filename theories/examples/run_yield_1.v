@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
 From HypVeri Require Import RAs rule_misc lifting.
-From HypVeri.rules Require Import rules_base mov ldr str halt run yield.
+From HypVeri.rules Require Import rules_base mov run yield.
 From iris.proofmode Require Import tactics.
 From iris.base_logic.lib Require Export invariants.
 Require Import iris.base_logic.lib.ghost_map iris.bi.big_op iris.algebra.lib.frac_agree.
@@ -47,7 +47,7 @@ Section RunYield1.
   Definition is_tok γ i :=
     inv tokN ((<<Fin.of_nat_lt vm_count_pos>>) ∨ ∃j, tokI γ j ∗ ⌜j = i⌝ ∗ <<i>>)%I.
   
-  Lemma spec1 {γ z i q1 q2 pr1page pr2page pr1base pr2base} :
+  Lemma spec1 {γ z i q1 q2 pr1page pr2page pr1base pr2base r0_} :
       addrs_to_page pr1base 6 pr1page ->
       addrs_to_page pr2base 4 pr2page ->
       fin_to_nat z = 0 ->
@@ -56,25 +56,38 @@ Section RunYield1.
       ([∗ list] aw ∈ (program2 pr2base), (aw.1 ->a aw.2))%I ∗
       is_tok γ i ∗                                                           
       A@z :={q1} pr1page ∗ A@i :={q2} pr2page
-            ∗ PC @@ z ->r pr1base ∗ PC @@ i ->r pr2base
-                                                ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝) }}%I)
-                                                ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝) }}%I).
+                                      ∗ PC @@ z ->r pr1base ∗ PC @@ i ->r pr2base
+                                      ∗ r0 @@ z ->r r0_                                    
+                                                ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝) }})
+                                                ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝) }}).
   Proof.
-    iIntros (addrM1 addrM2 zP neH) "((p_1 & p_2 & p_3 & p_4 & _) & (p_1' & p_2' & _) & #Hinv & Hacc1 & Hacc2 & PCz & PCi)".
+    iIntros (addrM1 addrM2 zP neH) "((p_1 & p_2 & p_3 & p_4 & _) & (p_1' & p_2' & _) & #Hinv & Hacc1 & Hacc2 & PCz & PCi & Hr0_)".
     simpl.
-    iSplitL "p_1 p_2 p_3 p_4 Hacc1 PCz".
+    iSplitL "p_1 p_2 p_3 p_4 Hacc1 PCz Hr0_".
     - rewrite wp_sswp.
-      iApply sswp_fupd_around.
+      iApply (sswp_fupd_around ⊤ ⊤ ⊤).
       iInv tokN as ">S" "HClose".
       iDestruct "S" as "[S | S]".
-      + admit.
+      + iDestruct ((@mov_word _ _ (Mov r0 (inl run_I)) z (mov_word_I r0 run_I) r0_ q1 pr1base run_I r0) with "[> S]") as "J"; eauto.
+        * by rewrite decode_encode_instruction.          
+        * admit.
       + iDestruct "S" as "[%j (S1 & %S2 & S3)]".
         simplify_eq.
         iDestruct (sswp_mono z _ ExecI (λ _, False%I) _) as "H".
         * iIntros; iExFalso; done.
         * iModIntro.
           iApply "H".
+          assert (neH' : i ≠ z).
+          {
+            intros contra.
+            apply neH.
+            symmetry.
+            assumption.
+          }
           iApply eliminate_wrong_token.
+          apply neH'.
+          iModIntro. iFrame.
+    - admit.
 Admitted.
 
 End RunYield1.

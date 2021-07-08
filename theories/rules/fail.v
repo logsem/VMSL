@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section fail.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma fail {instr i w1 q} ai :
   instr = Fail ->
   decode_instruction w1 = Some(instr) ->
@@ -42,3 +46,4 @@ Proof.
     iApply "Hϕ".
     by iFrame.
 Qed.
+End fail.
