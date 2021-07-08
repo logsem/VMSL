@@ -1008,7 +1008,7 @@ Lemma gen_mem_update1:
   Qed.
 
 
-  Lemma gen_rx_PID_valid σ i p:
+  Lemma gen_rx_pid_valid σ i p:
    RX@ i := p -∗ own (gen_rx_name vmG) ((get_rx_agree σ), (get_rx_gmap σ) )-∗ ⌜ (get_vm_mail_box σ i).2.1 = p ⌝.
   Proof.
     iIntros "Hrx Hσ".

@@ -316,7 +316,6 @@ Definition undef {B : Type} : hvc_result B := inl (inl ()).
 
 Definition throw {B : Type} (e : hvc_error) : hvc_result B := inl (inr e).
 
-
 Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) : exec_mode * state :=
   match q with
   | inl err =>
@@ -419,8 +418,6 @@ Program Definition transfer_msg_unsafe (st : state) (l : Word) (v : VMID) (r : V
 
 Definition transfer_msg (st : state) (l : Word) (r : VMID) : hvc_result state :=
   transfer_msg_unsafe st l (get_current_vm st) r.
-
-Print transactions.
 
 Definition get_fresh_handles (trans: transactions): list handle:=
   (elements trans.2).

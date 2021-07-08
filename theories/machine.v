@@ -136,7 +136,7 @@ Inductive reg_name : Type :=
 | NZ
 | R (n : nat) (fin : n < reg_count).
 
-Instance eq_decision_reg_name : EqDecision reg_name.
+Global Instance eq_decision_reg_name : EqDecision reg_name.
 Proof.
   intros x y. destruct x as [| | n fin], y as [| | n' fin']; try (by left); try (by right).
   destruct (nat_eq_dec n n').
@@ -150,7 +150,7 @@ Next Obligation.
   auto.
 Defined.
 
-Instance countable_reg_name : Countable reg_name.
+Global Instance countable_reg_name : Countable reg_name.
 Proof.
   refine {| encode r := encode match r with
                                | PC => inl false
@@ -176,7 +176,7 @@ Inductive ownership : Type :=
 | Owned
 | NotOwned.
 
-Instance eq_decision_ownership : EqDecision ownership.
+Global Instance eq_decision_ownership : EqDecision ownership.
 Proof.
   solve_decision.
 Qed.
@@ -186,7 +186,7 @@ Inductive access : Type :=
 | SharedAccess
 | ExclusiveAccess.
 
-Instance eq_decision_access : EqDecision access.
+Global Instance eq_decision_access : EqDecision access.
 Proof.
   solve_decision.
 Qed.
@@ -207,7 +207,7 @@ Definition is_owned (p : permission) : bool :=
   | _ => false
   end.
 
-Instance eq_decision_permission : EqDecision permission.
+Global Instance eq_decision_permission : EqDecision permission.
 Proof.
   solve_decision.
 Qed.
@@ -217,7 +217,7 @@ Inductive transaction_type : Type :=
 | Sharing
 | Lending.
 
-Instance eq_decision_transaction_type : EqDecision transaction_type.
+Global Instance eq_decision_transaction_type : EqDecision transaction_type.
 Proof.
   solve_decision.
 Qed.
@@ -322,9 +322,7 @@ Inductive hvc_error : Type :=
 | Ready
 | NoMem.
 
-
 Definition VMID : Type := fin vm_count.
-
 
 Class HypervisorParameters := {
   decode_vmid : Word -> option VMID;
