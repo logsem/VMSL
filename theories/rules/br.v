@@ -7,11 +7,11 @@ Require Import stdpp.fin.
 Lemma br {instr i w1 w2 q} ai  ra :
   instr = Br ra ->
   decode_instruction w1 = Some(instr) ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ A@i:={q} (mm_translation ai)
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
-                       ∗ A@i:={q} (mm_translation ai) ) }}%I.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (mm_translation ai))}}} ExecI @ i
+                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
+                       ∗ A@i:={q} (mm_translation ai) }}}.
 Proof.
-  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hra & Hacc)".
+  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -48,5 +48,8 @@ Proof.
     (* updated part *)
     rewrite update_reg_global_update_reg;[|solve_reg_lookup].
     iDestruct ((gen_reg_update1_global σ1 PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    iModIntro.
+    iFrame.
+    iApply "Hϕ".
     by iFrame.
 Qed.

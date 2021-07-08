@@ -9,15 +9,14 @@ Lemma run {z i w1 w2 w3 q} ai :
   fin_to_nat z = 0 -> 
   decode_hvc_func w2 = Some Run ->
   decode_vmid w3 = Some i ->
-  <<z>> ∗ PC @@ z ->r ai ∗ ai ->a w1 ∗ A@z :={q} (mm_translation ai)
+  {SS{{ ▷ (<<z>>) ∗ ▷ (PC @@ z ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@z :={q} (mm_translation ai))
+  ∗ ▷ (R0 @@ z ->r w2)
+  ∗ ▷ (R1 @@ z ->r w3)}}} ExecI @ z
+                                  {{{ RET ExecI; <<i>> ∗ PC @@ z ->r (ai +w 1) ∗ ai ->a w1 ∗ A@z :={q} (mm_translation ai)
   ∗ R0 @@ z ->r w2
-  ∗ R1 @@ z ->r w3
-  ⊢ SSWP ExecI @ z {{ (λ m, ⌜m = ExecI⌝ ∗
-  <<i>> ∗ PC @@ z ->r (ai +w 1) ∗ ai ->a w1 ∗ A@z :={q} (mm_translation ai)
-  ∗ R0 @@ z ->r w2
-  ∗ R1 @@ z ->r w3) }}%I.
+  ∗ R1 @@ z ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hz Hhvc Hvmid) "(Htok & Hpc & Hapc & Hacc & Hr0 & Hr1)".
+  iIntros (Hinstr Hz Hhvc Hvmid ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1) Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -66,6 +65,8 @@ Proof.
       iModIntro.
       iDestruct "Htok'" as "[Htok1 Htok2]".
       iDestruct "HpcUpd" as "[? ?]".
+      iFrame.
+      iApply "Hϕ".
       by iFrame.
     + apply get_reg_gmap_get_reg_Some; auto.
 Qed.

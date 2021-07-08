@@ -10,11 +10,12 @@ Lemma ldr {instr i w1 w2 w3 q s p} ai a ra rb :
   ai ≠ a ->
   (mm_translation a) ≠ p -> 
   {[(mm_translation ai);(mm_translation a)]} ⊆ s ->
-  TX@ i := p ∗ <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={q}[s] ∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ TX@ i := p ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
-                                      ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ) }}%I.
+  {SS{{ ▷ (TX@ i := p) ∗ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
+          ∗ ▷ (a ->a w2) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
+                                  {{{ RET ExecI; TX@ i := p ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+                                      ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hneqaia Hmm Hs) "(Htx & Htok & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
+  iIntros (Hinstr Hdecode Hneqaia Hmm Hs ϕ) "(>Htx & >Htok & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -65,7 +66,10 @@ Proof.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
-        by iFrame.
+      iModIntro.
+      iFrame.
+      iApply "Hϕ".
+      iFrame.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
@@ -77,11 +81,12 @@ Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
   decode_instruction w1 = Some(instr) ->
   (mm_translation a ∉ s \/ (mm_translation a) = p) ->
   mm_translation ai ∈ s ->
-  TX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={1}[s]∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailPageFaultI⌝ ∗ TX@ i := p ∗ PC @@ i ->r ai  ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
-                             ∗ A@i:={1}[s] ∗ ra @@ i ->r w3 ) }}%I.
+  {SS{{ ▷ (TX@ i := p) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
+          ∗ ▷ (a ->a w2) ∗ ▷ (A@i:={1}[s]) ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
+    {{{ RET FailPageFaultI; TX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1
+       ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={1}[s] ∗ ra @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hs Hais) "(Htx & Hpc & Hapc & Hrb & Harb & Hacc & Hra )".
+  iIntros (Hinstr Hdecode Hs Hais ϕ) "(>Htx & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -142,8 +147,7 @@ Proof.
           rewrite /get_memory;          
           try (rewrite Ha);
           simpl;
-          iFrame;
-          done.
+          iFrame; iApply "Hϕ"; iFrame.
   - iSplit.
     + iPureIntro.
       rewrite /reducible.
@@ -180,6 +184,8 @@ Proof.
           rewrite /get_memory;          
           try (rewrite Ha);
           simpl;
-          iFrame;
-          done.
+          iFrame.
+        -- iApply "Hϕ".
+           iFrame.
+        -- simplify_eq.
 Qed.

@@ -7,11 +7,11 @@ Require Import stdpp.fin.
 Lemma bne {instr i w1 w2 w3 q} ai ra :
   instr = Bne ra ->
   decode_instruction w1 = Some(instr) ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (if w3 =? 1 then  (ai +w 1) else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
-                       ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w3 ) }}%I.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (mm_translation ai)) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
+                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (if w3 =? 1 then  (ai +w 1) else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
+                       ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hra & Hacc & Hnz )".
+  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -52,9 +52,15 @@ Proof.
     (* updated part *)
     + rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
       iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+      iModIntro.
+      iFrame.
+      iApply "Hϕ".
       by iFrame.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       iDestruct ((gen_reg_update1_global σ1 PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+      iModIntro.
+      iFrame.
+      iApply "Hϕ".
       by iFrame.
 Qed.

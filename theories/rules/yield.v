@@ -9,17 +9,16 @@ Lemma yield {z i w1 w2 a_ b_ q} ai :
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ A@i :={q} (mm_translation ai)
-  ∗ R0 @@ i ->r w2
-  ∗ R0 @@ z ->r a_
-  ∗ R1 @@ z ->r b_
-  ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI⌝ ∗
-  <<z>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ A@i :={q} (mm_translation ai)
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i :={q} (mm_translation ai))
+  ∗ ▷ (R0 @@ i ->r w2)
+  ∗ ▷ (R0 @@ z ->r a_)
+  ∗ ▷ (R1 @@ z ->r b_)}}} ExecI @ i
+                                  {{{ RET ExecI; <<z>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ A@i :={q} (mm_translation ai)
   ∗ R0 @@ i ->r w2
   ∗ R0 @@ z ->r (encode_hvc_ret_code Succ)
-  ∗ R1 @@ z ->r (encode_vmid i)) }}%I.
+  ∗ R1 @@ z ->r (encode_vmid i) }}}.
 Proof.
-  iIntros (Hinstr Hz Hzi Hhvc) "(Htok & Hpc & Hapc & Hacc & Hr0 & Hr1' & Hr2')".
+  iIntros (Hinstr Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -88,26 +87,32 @@ Proof.
            iModIntro.
            iDestruct "Htok'" as "[Htok1 Htok2]".
            iFrame.
-           iSplit; [| done].
-           rewrite 2!update_reg_global_update_reg.
-           rewrite !insert_union_singleton_l.
-           rewrite (map_union_comm {[(R1, z) := encode_vmid σ1.1.1.2]} {[(PC, σ1.1.1.2) := ai +w 1]}).
-           rewrite map_union_assoc.
-           rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]} {[(PC, σ1.1.1.2) := ai +w 1]}).
-           rewrite <-(map_union_assoc {[(PC, σ1.1.1.2) := ai +w 1]}
-                                      {[(R0 , z) := encode_hvc_ret_code Succ]}
-                                      {[(R1 , z) := encode_vmid σ1.1.1.2]}).
-           rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]}
-                                   {[(R1 , z) := encode_vmid σ1.1.1.2]}).
-           rewrite !map_union_assoc.
-           iAssumption.
-           by rewrite map_disjoint_singleton_r lookup_singleton_None.
-           by rewrite map_disjoint_singleton_r lookup_singleton_None.
-           by rewrite map_disjoint_singleton_r lookup_singleton_None.
-           eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
-           eapply mk_is_Some; rewrite lookup_insert_Some;
-             right; split; [done | rewrite get_reg_gmap_lookup_Some; eauto].
-           eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
+           iSplitL "Hreg".
+           2 : {
+             iApply "Hϕ".
+             iFrame.
+           }
+           {
+             rewrite 2!update_reg_global_update_reg.
+             rewrite !insert_union_singleton_l.
+             rewrite (map_union_comm {[(R1, z) := encode_vmid σ1.1.1.2]} {[(PC, σ1.1.1.2) := ai +w 1]}).
+             rewrite map_union_assoc.
+             rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]} {[(PC, σ1.1.1.2) := ai +w 1]}).
+             rewrite <-(map_union_assoc {[(PC, σ1.1.1.2) := ai +w 1]}
+                                        {[(R0 , z) := encode_hvc_ret_code Succ]}
+                                        {[(R1 , z) := encode_vmid σ1.1.1.2]}).
+             rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]}
+                                     {[(R1 , z) := encode_vmid σ1.1.1.2]}).
+             rewrite !map_union_assoc.
+             iAssumption.
+               by rewrite map_disjoint_singleton_r lookup_singleton_None.
+                 by rewrite map_disjoint_singleton_r lookup_singleton_None.
+                   by rewrite map_disjoint_singleton_r lookup_singleton_None.
+                   eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
+                   eapply mk_is_Some; rewrite lookup_insert_Some;
+                     right; split; [done | rewrite get_reg_gmap_lookup_Some; eauto].
+                   eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
+           }
         -- apply get_reg_gmap_get_reg_Some; auto.
            apply get_reg_global_update_reg_global_ne_vmid.
            rewrite update_reg_global_preserve_current_vm; auto.
