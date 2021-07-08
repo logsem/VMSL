@@ -10,11 +10,11 @@ From HypVeri Require Import RAs.
     reflexivity.
   Qed.
 
-  Lemma update_offset_PC_preserve_current_vm σ d o :(get_current_vm (update_offset_PC σ d o )) = (get_current_vm σ).
+  Lemma update_offset_PC_preserve_current_vm σ o :(get_current_vm (update_offset_PC σ o )) = (get_current_vm σ).
   Proof.
     unfold get_current_vm ,update_offset_PC.
     unfold get_current_vm.
-    destruct (get_vm_reg_file σ σ.1.1.2 !! PC),d;eauto.
+    destruct (get_vm_reg_file σ σ.1.1.2 !! PC);eauto.
   Qed.
 
   Lemma update_memory_unsafe_preserve_current_vm σ a w :(get_current_vm (update_memory_unsafe σ a w)) = (get_current_vm σ).
@@ -125,7 +125,7 @@ From HypVeri Require Import RAs.
     Qed.
 
 
-  Lemma get_reg_gmap_get_vm_reg_file σ (r:reg_name) (i:vmid) :
+  Lemma get_reg_gmap_get_vm_reg_file σ (r:reg_name) (i:VMID) :
    (get_reg_gmap σ) !! (r,i) = (get_vm_reg_file σ i) !! r.
     Proof.
       destruct (get_reg_gmap σ !! (r, i)) eqn:Heqn.
@@ -134,7 +134,7 @@ From HypVeri Require Import RAs.
     Qed.
 
 
-  Lemma get_reg_gmap_get_reg_Some σ (r:reg_name) (w:word) (i:vmid) : i= (get_current_vm σ)->
+  Lemma get_reg_gmap_get_reg_Some σ (r:reg_name) (w:Word) (i:VMID) : i= (get_current_vm σ)->
                                                                    (get_reg_gmap σ) !! (r,i) = Some w <->
                                                                    ((get_reg σ r) = Some w).
   Proof.
@@ -180,9 +180,9 @@ From HypVeri Require Import RAs.
        + by rewrite vlookup_insert_ne ;[|done].
   Qed.
 
-  Lemma update_offset_PC_update_PC1 σ i (w:word) (o:nat):
+  Lemma update_offset_PC_update_PC1 σ i (w:Word) (o:Z):
    i=get_current_vm σ -> ((get_reg_gmap σ) !! (PC,i) = Some w)
-   ->get_reg_gmap (update_offset_PC σ true o) = <[(PC,i) := (w +w o)]>(get_reg_gmap σ).
+   ->get_reg_gmap (update_offset_PC σ o) = <[(PC,i) := (w ^+ o)%f]>(get_reg_gmap σ).
   Proof.
     intros.
     rewrite /update_offset_PC.
@@ -240,11 +240,11 @@ From HypVeri Require Import RAs.
     apply update_reg_global_preserve_mem.
   Qed.
 
-  Lemma update_offset_PC_preserve_mem σ d o : get_mem (update_offset_PC σ d o) = get_mem σ.
+  Lemma update_offset_PC_preserve_mem σ o : get_mem (update_offset_PC σ o) = get_mem σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite -> update_reg_preserve_mem;done.
+    rewrite -> update_reg_preserve_mem;done.
     done.
   Qed.
 
@@ -270,11 +270,11 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_tx σ d o : get_tx_agree (update_offset_PC σ d o) = get_tx_agree σ.
+  Lemma update_offset_PC_preserve_tx σ o : get_tx_agree (update_offset_PC σ o) = get_tx_agree σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_tx;done.
+    rewrite /update_reg update_reg_global_preserve_tx;done.
     done.
   Qed.
 
@@ -298,11 +298,11 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_rx1 σ d o : get_rx_agree (update_offset_PC σ d o) = get_rx_agree σ.
+  Lemma update_offset_PC_preserve_rx1 σ o : get_rx_agree (update_offset_PC σ o) = get_rx_agree σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_rx1;done.
+    rewrite /update_reg update_reg_global_preserve_rx1;done.
     done.
   Qed.
 
@@ -327,11 +327,11 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_rx2 σ d o : get_rx_gmap (update_offset_PC σ d o) = get_rx_gmap σ.
+  Lemma update_offset_PC_preserve_rx2 σ o : get_rx_gmap (update_offset_PC σ o) = get_rx_gmap σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_rx2;done.
+    rewrite /update_reg update_reg_global_preserve_rx2;done.
     done.
   Qed.
 
@@ -357,7 +357,7 @@ From HypVeri Require Import RAs.
     by rewrite update_reg_global_preserve_rx1 update_reg_global_preserve_rx2.
   Qed.
 
-  Lemma update_offset_PC_preserve_rx  σ d o : (get_rx_agree (update_offset_PC σ d o), get_rx_gmap (update_offset_PC σ d o) ) =
+  Lemma update_offset_PC_preserve_rx  σ o : (get_rx_agree (update_offset_PC σ o), get_rx_gmap (update_offset_PC σ o) ) =
                                                (get_rx_agree σ, get_rx_gmap σ).
   Proof.
     by rewrite update_offset_PC_preserve_rx1 update_offset_PC_preserve_rx2 .
@@ -398,11 +398,11 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_owned σ d o : get_owned_gmap (update_offset_PC σ d o) = get_owned_gmap σ.
+  Lemma update_offset_PC_preserve_owned σ o : get_owned_gmap (update_offset_PC σ o) = get_owned_gmap σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_owned;done.
+    rewrite /update_reg update_reg_global_preserve_owned;done.
     done.
   Qed.
 
@@ -427,22 +427,20 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_access σ d o : get_access_gmap (update_offset_PC σ d o) = get_access_gmap σ.
+  Lemma update_offset_PC_preserve_access σ o : get_access_gmap (update_offset_PC σ o) = get_access_gmap σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_access;done.
+    rewrite /update_reg update_reg_global_preserve_access;done.
     done.
   Qed.
 
-  Lemma update_offset_PC_preserve_check_access σ d o a:
-  check_access_addr (update_offset_PC σ d o) (get_current_vm σ) a = check_access_addr  σ (get_current_vm σ) a.
+  Lemma update_offset_PC_preserve_check_access σ o a:
+  check_access_addr (update_offset_PC σ o) (get_current_vm σ) a = check_access_addr  σ (get_current_vm σ) a.
   Proof.
     rewrite /update_offset_PC /check_access_addr /check_access_page.
     simpl.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC);eauto.
-    destruct d;
-    by rewrite /update_reg  update_reg_global_preserve_pt.
   Qed.
 
   Lemma update_memory_unsafe_preserve_access σ a w : get_access_gmap (update_memory_unsafe σ a w) =
@@ -466,11 +464,11 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_trans σ d o : get_trans_gmap (update_offset_PC σ d o) = get_trans_gmap σ.
+  Lemma update_offset_PC_preserve_trans σ o : get_trans_gmap (update_offset_PC σ o) = get_trans_gmap σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_trans;done.
+     rewrite /update_reg update_reg_global_preserve_trans;done.
     done.
   Qed.
 
@@ -495,11 +493,11 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_receivers σ d o : get_receivers_gmap (update_offset_PC σ d o) = get_receivers_gmap σ.
+  Lemma update_offset_PC_preserve_receivers σ o : get_receivers_gmap (update_offset_PC σ o) = get_receivers_gmap σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    destruct d; rewrite /update_reg update_reg_global_preserve_receivers;done.
+    rewrite /update_reg update_reg_global_preserve_receivers;done.
     done.
   Qed.
 
@@ -594,7 +592,7 @@ From HypVeri Require Import RAs.
   Lemma ldr_ExecI σ1 r1 r2 a w:
    PC ≠ r1 ->  NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
-   (get_mail_boxes σ1 !!! get_current_vm σ1).1 ≠ (mm_translation a) ->
+   (get_mail_boxes σ1 !!! get_current_vm σ1).1 ≠ (to_pid_aligned a) ->
    (get_reg σ1 r2) = Some a ->
    get_memory σ1 a = Some w ->
    (ldr σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
@@ -607,7 +605,7 @@ From HypVeri Require Import RAs.
     rewrite H4 H5.
     destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
     simpl in H3.
-    destruct (decide (mm_translation a =t)).
+    destruct (decide (to_pid_aligned a = p)).
     done.
     done.
   Qed.
@@ -616,11 +614,11 @@ From HypVeri Require Import RAs.
    Lemma str_ExecI σ1 r1 r2 w a:
    PC ≠ r1 ->  NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
-   (get_mail_boxes σ1 !!! get_current_vm σ1).2.1 ≠ (mm_translation a) ->
+   (get_mail_boxes σ1 !!! get_current_vm σ1).2.1 ≠ (to_pid_aligned a) ->
    (get_reg σ1 r1) = Some w ->
    (get_reg σ1 r2) = Some a ->
    check_access_addr σ1 (get_current_vm σ1) a = true ->
-   (str σ1 r1 r2)= (ExecI, (update_offset_PC (update_memory_unsafe σ1 a w) true 1)).
+   (str σ1 r1 r2)= (ExecI, (update_offset_PC (update_memory_unsafe σ1 a w) 1)).
   Proof.
     intros.
     unfold str.
@@ -631,7 +629,7 @@ From HypVeri Require Import RAs.
     destruct ((get_mail_boxes σ1 !!! get_current_vm σ1)).
     destruct p.
     simpl in H3.
-    destruct (decide(mm_translation a = t0)).
+    destruct (decide(to_pid_aligned a = p)).
     done.
     rewrite /update_memory /update_incr_PC /update_memory H6.
     done.
@@ -641,28 +639,20 @@ From HypVeri Require Import RAs.
    PC ≠ r ->  NZ ≠ r ->
    (get_reg σ1 r) = Some w1 ->
    (cmp_word σ1 r w2)= (ExecI, (update_incr_PC (update_reg σ1 NZ
-            (if (w1 <? w2) then two_word else if (w2 <? w1) then zero_word else one_word)))).
+            (if (w1 <? w2)%f then W2 else if (w2 <? w1)%f then W0 else W1)))).
   Proof.
     intros.
     unfold cmp_word .
     destruct r;[contradiction|contradiction|].
     rewrite H1.
     simpl.
-    destruct (nat_lt_dec w1 w2).
+    destruct ((w1 <? w2)%f).
     rewrite <- (option_state_unpack_preserve_state_Some σ1
-             (update_incr_PC (update_reg σ1 NZ two_word)));eauto.
-    apply <- (Nat.ltb_lt w1 w2) in l.
-    rewrite l //.
-    destruct (nat_lt_dec w2 w1).
+             (update_incr_PC (update_reg σ1 NZ W2)));eauto.
+    destruct (w2 <? w1)%f.
     rewrite <- (option_state_unpack_preserve_state_Some σ1
-             (update_incr_PC (update_reg σ1 NZ zero_word)));eauto.
-    apply <- (Nat.ltb_lt w2 w1) in l.
-    rewrite l //.
-    apply <- (Nat.ltb_nlt w1 w2) in n0.
-    rewrite n0 //.
-    apply <- (Nat.ltb_nlt w1 w2) in n0.
-    apply <- (Nat.ltb_nlt w2 w1) in n1.
-    rewrite n0 n1 //.
+             (update_incr_PC (update_reg σ1 NZ W0)));eauto.
+    done.
   Qed.
 
 
@@ -672,7 +662,7 @@ From HypVeri Require Import RAs.
    (get_reg σ1 r1) = Some w1 ->
    (get_reg σ1 r2) = Some w2 ->
    (cmp_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 NZ
-            (if (w1 <? w2) then two_word else if (w2 <? w1) then zero_word else one_word)))).
+            (if (w1 <? w2)%f then W2 else if (w2 <? w1)%f then W0 else W1)))).
   Proof.
     intros.
     unfold cmp_reg.
@@ -680,44 +670,27 @@ From HypVeri Require Import RAs.
     destruct r2; [contradiction|contradiction|].
     rewrite H3 H4.
     simpl.
-    destruct (nat_lt_dec w1 w2).
+    destruct ((w1 <? w2)%f).
     rewrite <- (option_state_unpack_preserve_state_Some σ1
-             (update_incr_PC (update_reg σ1 NZ two_word)));eauto.
-    apply <- (Nat.ltb_lt w1 w2) in l.
-    rewrite l //.
-    destruct (nat_lt_dec w2 w1).
+             (update_incr_PC (update_reg σ1 NZ W2)));eauto.
+    destruct (w2 <? w1)%f.
     rewrite <- (option_state_unpack_preserve_state_Some σ1
-             (update_incr_PC (update_reg σ1 NZ zero_word)));eauto.
-    apply <- (Nat.ltb_lt w2 w1) in l.
-    rewrite l //.
-    apply <- (Nat.ltb_nlt w1 w2) in n1.
-    rewrite n1 //.
-    apply <- (Nat.ltb_nlt w1 w2) in n1.
-    apply <- (Nat.ltb_nlt w2 w1) in n2.
-    rewrite n1 n2 //.
+             (update_incr_PC (update_reg σ1 NZ W0)));eauto.
+    done.
   Qed.
 
   Lemma bne_ExecI  σ1 w1 r w2:
    PC ≠ r ->  NZ ≠ r ->
    (get_reg σ1 r) = Some w2 ->
    (get_reg σ1 NZ) = Some w1 ->
-   (bne σ1 r)= (ExecI, if (w1 =? 1) then (update_incr_PC σ1) else (update_reg σ1 PC w2)).
+   (bne σ1 r)= (ExecI, if (w1 =? W1)%f then (update_incr_PC σ1) else (update_reg σ1 PC w2)).
   Proof.
     intros.
     unfold bne .
     destruct r;[contradiction|contradiction|].
     rewrite H1 H2.
     simpl.
-    destruct (decide(fin_to_nat w1 = 1)).
-    simpl.
-    rewrite e //.
-    apply Nat.eqb_neq in n0.
-    rewrite n0 //.
-    rewrite <- (option_state_unpack_preserve_state_Some σ1
-             (update_reg σ1 PC w2));eauto.
-    destruct (fin_to_nat w1).
-    done.
-    destruct n1;done.
+    destruct (w1 =? W1)%f;eauto.
   Qed.
 
   Lemma br_ExecI  σ1 r w1:
