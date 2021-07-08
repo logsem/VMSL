@@ -7,9 +7,9 @@ Require Import stdpp.fin.
 Lemma bne {instr i w1 w2 w3 q} ai ra :
   instr = Bne ra ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (mm_translation ai)) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (if w3 =? 1 then  (ai +w 1) else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
-                       ∗ A@i:={q} (mm_translation ai) ∗ NZ @@ i ->r w3 }}}.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai)%f) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
+                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (if (w3 =? W1)%f then  (ai ^+ 1)%f else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
+                       ∗ A@i:={q} (to_pid_aligned ai) ∗ NZ @@ i ->r w3 }}}.
 Proof.
   iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -42,16 +42,14 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* branch here*)
-    destruct (decide ((fin_to_nat w3) = 1)) as [Heqb|Heqb];
-      [apply <- Nat.eqb_eq in Heqb|apply <- Nat.eqb_neq in Heqb];
-      rewrite Heqb;
+    destruct  (w3 =? W1)%f;
     (* unchanged part *)
     rewrite_reg_all;
     rewrite Hcur;
     iFrame.
     (* updated part *)
     + rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-      iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+      iDestruct ((gen_reg_update1_global σ1 PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".

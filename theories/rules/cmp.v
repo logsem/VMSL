@@ -7,10 +7,10 @@ Require Import stdpp.fin.
 Lemma cmp_word {instr i w1 w2 w3 w4 q} ai ra :
   instr = Cmp ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w3) ∗ ▷ (A@i:={q} (mm_translation ai)) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ ra @@ i ->r w3
-                       ∗ A@i:={q} (mm_translation ai)
-                       ∗ NZ @@ i ->r (if (w3 <? w2) then two_word else if (w2 <? w3) then zero_word else one_word) }}}.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w3) ∗ ▷ (A@i:={q} (to_pid_aligned ai)) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
+                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ ra @@ i ->r w3
+                       ∗ A@i:={q} (to_pid_aligned ai)
+                       ∗ NZ @@ i ->r (if (w3 <? (of_imm w2))%f then W2 else if ((of_imm w2) <? w3)%f then W0 else W1) }}}.
 Proof.
   iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -49,23 +49,22 @@ Proof.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     rewrite update_reg_global_update_reg;[|solve_reg_lookup].
-    + destruct (w3 <? w2),  (w2 <? w3).
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 two_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+    + destruct (w3 <? (of_imm w2))%f,  ((of_imm w2) <? w3)%f.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 two_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 zero_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
-      iModIntro.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W0 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.      iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 one_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W1 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
@@ -78,10 +77,10 @@ Qed.
 Lemma cmp_reg {instr i w1 w2 w3 w4 q} ai ra rb :
   instr = Cmp ra (inr rb) ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (rb @@ i ->r w3) ∗ ▷ (A@i:={q} (mm_translation ai)) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3
-                       ∗ A@i:={q} (mm_translation ai)
-                       ∗ NZ @@ i ->r (if (w2 <? w3) then two_word else if (w3 <? w2) then zero_word else one_word) }}}.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (rb @@ i ->r w3) ∗ ▷ (A@i:={q} (to_pid_aligned ai)) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
+                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3
+                       ∗ A@i:={q} (to_pid_aligned ai)
+                       ∗ NZ @@ i ->r (if (w2 <? w3)%f then W2 else if (w3 <? w2)%f then W0 else W1) }}}.
 Proof.
   iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hrb & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -121,23 +120,23 @@ Proof.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     rewrite update_reg_global_update_reg;[|solve_reg_lookup].
-    + destruct (w2 <? w3),  (w3 <? w2).
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 two_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+    + destruct (w2 <? w3)%f,  (w3 <? w2)%f.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 two_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 zero_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W0 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) NZ i w4 one_word ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W1 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".

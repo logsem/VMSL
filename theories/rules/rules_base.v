@@ -11,10 +11,10 @@ Global Instance hyp_irisG `{gen_VMG Σ}: irisG hyp_machine Σ:=
   }.
 
 Context `{vmG: !gen_VMG Σ}.
-Implicit Type a : addr.
-Implicit Type i : vmid.
+Implicit Type a : Addr.
+Implicit Type i : VMID.
 Implicit Type ra rb : reg_name.
-Implicit Type w: word.
+Implicit Type w: Word.
 Implicit Type q : Qp.
 
 
@@ -28,6 +28,7 @@ Ltac rewrite_reg_all :=
     try rewrite -> update_offset_PC_preserve_owned  ; try rewrite -> update_reg_global_preserve_owned;
     try rewrite -> update_offset_PC_preserve_access  ; try rewrite -> update_reg_global_preserve_access;
     try rewrite -> update_offset_PC_preserve_trans  ; try rewrite -> update_reg_global_preserve_trans;
+    try rewrite -> update_offset_PC_preserve_hpool  ; try rewrite -> update_reg_global_preserve_hpool;
     try rewrite -> update_offset_PC_preserve_receivers  ; try rewrite -> update_reg_global_preserve_receivers
   end.
 
@@ -55,14 +56,14 @@ Ltac solve_reg_lookup :=
   
 
 Lemma check_access_page_mem_eq {σ i a} :
-  check_access_page σ i (mm_translation a) =
+  check_access_page σ i (to_pid_aligned a) =
   check_access_addr σ i a.
 Proof.
   rewrite /check_access_addr; done.
 Qed.
 
 Lemma not_valid_pc {a i s} :
-  (mm_translation a) ∉ s ->
+  (to_pid_aligned a) ∉ s ->
   {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ A@i:={1}[s] }}} ExecI @ i {{{ RET FailI; PC @@ i ->r a ∗ A@i:={1}[s] }}}.
 Proof.
   simpl.
@@ -74,7 +75,7 @@ Proof.
   iModIntro.
   iDestruct "Hσ1" as "(? & ? & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 σ1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  iDestruct (gen_no_access_valid σ1 i (mm_translation a) s Hmm with "Haccess Ha") as "%Hnacc".
+  iDestruct (gen_no_access_valid σ1 i (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.
   - iPureIntro.
     rewrite /reducible.

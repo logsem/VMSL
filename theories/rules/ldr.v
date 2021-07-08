@@ -8,11 +8,11 @@ Lemma ldr {instr i w1 w2 w3 q s p} ai a ra rb :
   instr = Ldr ra rb ->
   decode_instruction w1 = Some(instr) ->
   ai ≠ a ->
-  (mm_translation a) ≠ p -> 
-  {[(mm_translation ai);(mm_translation a)]} ⊆ s ->
+  (to_pid_aligned a) ≠ p ->
+  {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
   {SS{{ ▷ (TX@ i := p) ∗ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
           ∗ ▷ (a ->a w2) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
-                                  {{{ RET ExecI; TX@ i := p ∗ <<i>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+                                  {{{ RET ExecI; TX@ i := p ∗ <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                                       ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 }}}.
 Proof.
   iIntros (Hinstr Hdecode Hneqaia Hmm Hs ϕ) "(>Htx & >Htok & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra ) Hϕ".
@@ -29,8 +29,8 @@ Proof.
   destruct H4' as [HneqPCb HneqNZb].
   iDestruct ((gen_reg_valid3 σ1 i PC ai ra w3 rb a Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  assert (Hais : mm_translation ai ∈ s). set_solver.
-  assert (Has : mm_translation a ∈ s). set_solver.
+  assert (Hais : to_pid_aligned ai ∈ s). set_solver.
+  assert (Has : to_pid_aligned a ∈ s). set_solver.
   iDestruct ((gen_access_valid_addr_elem σ1 i q s a Has) with "Haccess Hacc") as "%Ha".
   iDestruct ((gen_access_valid_addr_elem σ1 i q s ai Hais) with "Haccess Hacc") as "%Hai".
   (* valid mem *)
@@ -64,7 +64,7 @@ Proof.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai +w 1) ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
       iModIntro.
       iFrame.
@@ -79,8 +79,8 @@ Qed.
 Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
   instr = Ldr ra rb ->
   decode_instruction w1 = Some(instr) ->
-  (mm_translation a ∉ s \/ (mm_translation a) = p) ->
-  mm_translation ai ∈ s ->
+  (to_pid_aligned a ∉ s \/ (to_pid_aligned a) = p) ->
+  to_pid_aligned ai ∈ s ->
   {SS{{ ▷ (TX@ i := p) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
           ∗ ▷ (a ->a w2) ∗ ▷ (A@i:={1}[s]) ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
     {{{ RET FailPageFaultI; TX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1
@@ -103,7 +103,7 @@ Proof.
   iDestruct ((gen_access_valid_addr_elem σ1 i 1 s ai Hais) with "Haccess Hacc") as "%Hai".
   iDestruct (gen_tx_valid σ1 i p with "Htx Htxown") as %Htx.
   destruct Hs as [Hs | Hs]; [
-    iDestruct ((gen_no_access_valid σ1 i (mm_translation a) s Hs) with "Haccess Hacc") as "%Ha" |].
+    iDestruct ((gen_no_access_valid σ1 i (to_pid_aligned a) s Hs) with "Haccess Hacc") as "%Ha" |].
   - iSplit.
     + iPureIntro.
       rewrite /reducible.
@@ -121,7 +121,7 @@ Proof.
         rewrite /get_vm_mail_box in Hs.
         destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
         simpl in *.
-        destruct (decide (mm_translation a = t)); try done.
+        destruct (decide (to_pid_aligned a = t)); try done.
         rewrite /get_memory.
         rewrite check_access_page_mem_eq in Ha.
         by rewrite Ha.
@@ -143,7 +143,7 @@ Proof.
         destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
         simpl in *.
         rewrite check_access_page_mem_eq in Ha.
-        destruct (decide (mm_translation a = t));
+        destruct (decide (to_pid_aligned a = p));
           rewrite /get_memory;          
           try (rewrite Ha);
           simpl;
@@ -163,7 +163,7 @@ Proof.
         rewrite /get_vm_mail_box in Htx.
         destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
         simpl in *.
-        destruct (decide (mm_translation a = t)); done.        
+        destruct (decide (to_pid_aligned a = t)); done.
     + iModIntro.
       iIntros (m2 σ2) "%HstepP".
       iModIntro.
@@ -180,7 +180,7 @@ Proof.
         rewrite /get_vm_mail_box in Htx.
         destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
         simpl in *.
-        destruct (decide (mm_translation a = t));
+        destruct (decide (to_pid_aligned a = p));
           rewrite /get_memory;          
           try (rewrite Ha);
           simpl;

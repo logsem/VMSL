@@ -9,11 +9,11 @@ Lemma yield {z i w1 w2 a_ b_ q} ai :
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i :={q} (mm_translation ai))
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i :={q} (to_pid_aligned ai))
   ∗ ▷ (R0 @@ i ->r w2)
   ∗ ▷ (R0 @@ z ->r a_)
   ∗ ▷ (R1 @@ z ->r b_)}}} ExecI @ i
-                                  {{{ RET ExecI; <<z>> ∗ PC @@ i ->r (ai +w 1) ∗ ai ->a w1 ∗ A@i :={q} (mm_translation ai)
+                                  {{{ RET ExecI; <<z>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ A@i :={q} (to_pid_aligned ai)
   ∗ R0 @@ i ->r w2
   ∗ R0 @@ z ->r (encode_hvc_ret_code Succ)
   ∗ R1 @@ z ->r (encode_vmid i) }}}.
@@ -62,8 +62,8 @@ Proof.
       rewrite <-Hzeq.
       simpl.
       rewrite /gen_vm_interp.
-      rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_receivers.
-      rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_receivers.
+      rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_hpool update_current_vmid_preserve_receivers.
+      rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_hpool update_offset_PC_preserve_receivers.
       iFrame.
       iDestruct (gen_reg_update_Sep σ1
                                     {[(R0 , z) := a_;
@@ -71,7 +71,7 @@ Proof.
                                       (PC, get_current_vm σ1) := ai]}
                                     {[(R0, z):= encode_hvc_ret_code Succ;
                                       (R1, z):= (encode_vmid (get_current_vm σ1));
-                                      (PC, get_current_vm σ1) := ai +w 1]} with "Hregown [Hr1' Hr2' Hpc]") as ">[Hreg Hr12pc]"; [set_solver | |].
+                                      (PC, get_current_vm σ1) := (ai ^+ 1)%f]} with "Hregown [Hr1' Hr2' Hpc]") as ">[Hreg Hr12pc]"; [set_solver | |].
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto; [iFrame | |].
         apply lookup_insert_None; split; eauto; intros P; by inversion P.
         apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
@@ -87,32 +87,30 @@ Proof.
            iModIntro.
            iDestruct "Htok'" as "[Htok1 Htok2]".
            iFrame.
-           iSplitL "Hreg".
+        iSplitL "Hreg".
            2 : {
              iApply "Hϕ".
              iFrame.
            }
-           {
-             rewrite 2!update_reg_global_update_reg.
-             rewrite !insert_union_singleton_l.
-             rewrite (map_union_comm {[(R1, z) := encode_vmid σ1.1.1.2]} {[(PC, σ1.1.1.2) := ai +w 1]}).
-             rewrite map_union_assoc.
-             rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]} {[(PC, σ1.1.1.2) := ai +w 1]}).
-             rewrite <-(map_union_assoc {[(PC, σ1.1.1.2) := ai +w 1]}
-                                        {[(R0 , z) := encode_hvc_ret_code Succ]}
-                                        {[(R1 , z) := encode_vmid σ1.1.1.2]}).
-             rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]}
-                                     {[(R1 , z) := encode_vmid σ1.1.1.2]}).
-             rewrite !map_union_assoc.
-             iAssumption.
-               by rewrite map_disjoint_singleton_r lookup_singleton_None.
-                 by rewrite map_disjoint_singleton_r lookup_singleton_None.
-                   by rewrite map_disjoint_singleton_r lookup_singleton_None.
-                   eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
-                   eapply mk_is_Some; rewrite lookup_insert_Some;
-                     right; split; [done | rewrite get_reg_gmap_lookup_Some; eauto].
-                   eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
-           }
+           rewrite 2!update_reg_global_update_reg.
+           rewrite !insert_union_singleton_l.
+           rewrite (map_union_comm {[(R1, z) := encode_vmid σ1.1.1.2]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
+           rewrite map_union_assoc.
+           rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
+           rewrite <-(map_union_assoc {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}
+                                      {[(R0 , z) := encode_hvc_ret_code Succ]}
+                                      {[(R1 , z) := encode_vmid σ1.1.1.2]}).
+           rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]}
+                                   {[(R1 , z) := encode_vmid σ1.1.1.2]}).
+           rewrite !map_union_assoc.
+           iAssumption.
+           by rewrite map_disjoint_singleton_r lookup_singleton_None.
+           by rewrite map_disjoint_singleton_r lookup_singleton_None.
+           by rewrite map_disjoint_singleton_r lookup_singleton_None.
+           eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
+           eapply mk_is_Some; rewrite lookup_insert_Some;
+             right; split; [done | rewrite get_reg_gmap_lookup_Some; eauto].
+           eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
         -- apply get_reg_gmap_get_reg_Some; auto.
            apply get_reg_global_update_reg_global_ne_vmid.
            rewrite update_reg_global_preserve_current_vm; auto.

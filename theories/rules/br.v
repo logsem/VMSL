@@ -7,9 +7,9 @@ Require Import stdpp.fin.
 Lemma br {instr i w1 w2 q} ai  ra :
   instr = Br ra ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (mm_translation ai))}}} ExecI @ i
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
                                   {{{ RET ExecI; <<i>> ∗ PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
-                       ∗ A@i:={q} (mm_translation ai) }}}.
+                       ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
   iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].

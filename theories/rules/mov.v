@@ -8,12 +8,12 @@ Lemma mov_word {instr i w1 w3 q} a w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
   {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r a)
-          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} (mm_translation a))
+          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned a))
           ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
                                   {{{ RET ExecI; <<i>>
-                                                   ∗ PC @@ i ->r (a +w 1)
+                                                   ∗ PC @@ i ->r (a ^+ 1)%f
                                                    ∗ a ->a w1
-                                                   ∗ A@i:={q} (mm_translation a)
+                                                   ∗ A@i:={q} (to_pid_aligned a)
                                                    ∗ ra @@ i ->r w2 }}}.
 Proof.
   iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
@@ -52,7 +52,7 @@ Proof.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global σ1 PC i a (a +w 1) ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i a (a ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
@@ -67,13 +67,13 @@ Lemma mov_reg {instr i w1 w3 q} a w2 ra rb :
   instr = Mov ra (inr rb)->
   decode_instruction w1 = Some(instr) ->
   {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r a)
-          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} (mm_translation a))
+          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned a))
           ∗ ▷ (ra @@ i ->r w2)
           ∗ ▷ (rb @@ i ->r w3) }}} ExecI @ i
                                   {{{ RET ExecI; <<i>>
-                                                   ∗ PC @@ i ->r (a +w 1)
+                                                   ∗ PC @@ i ->r (a ^+ 1)%f
                                                    ∗ a ->a w1
-                                                   ∗ A@i:={q} (mm_translation a)
+                                                   ∗ A@i:={q} (to_pid_aligned a)
                                                    ∗ ra @@ i ->r w3
                                                    ∗ rb @@ i ->r w3}}}.
 Proof.
@@ -114,7 +114,7 @@ Proof.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global σ1 PC i a (a +w 1) ra i w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+      iDestruct ((gen_reg_update2_global σ1 PC i a (a ^+ 1)%f ra i w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".

@@ -7,9 +7,9 @@ Require Import stdpp.fin.
 Lemma halt {instr i w1 q} ai :
   instr = Halt ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (mm_translation ai))}}} ExecI @ i
-                                  {{{ RET HaltI; <<i>> ∗ PC @@ i ->r (ai +w 1)  ∗ ai ->a w1
-                       ∗ A@i:={q} (mm_translation ai) }}}.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
+                                  {{{ RET HaltI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f  ∗ ai ->a w1
+                       ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
   iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -41,7 +41,7 @@ Proof.
     rewrite Hcur.
     iFrame.
     (* updated part *)
-    iDestruct ((gen_reg_update1_global σ1 PC i ai (ai +w 1)) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    iDestruct ((gen_reg_update1_global σ1 PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     iModIntro.
     iFrame.

@@ -7,9 +7,9 @@ Require Import stdpp.fin.
 Lemma fail {instr i w1 q} ai :
   instr = Fail ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (mm_translation ai))}}} ExecI @ i
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
                                   {{{ RET FailI; <<i>> ∗ PC @@ i ->r ai  ∗ ai ->a w1
-                       ∗ A@i:={q} (mm_translation ai) }}}.
+                       ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
   iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].

@@ -9,10 +9,10 @@ Lemma run {z i w1 w2 w3 q} ai :
   fin_to_nat z = 0 -> 
   decode_hvc_func w2 = Some Run ->
   decode_vmid w3 = Some i ->
-  {SS{{ ▷ (<<z>>) ∗ ▷ (PC @@ z ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@z :={q} (mm_translation ai))
+  {SS{{ ▷ (<<z>>) ∗ ▷ (PC @@ z ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@z :={q} (to_pid_aligned ai))
   ∗ ▷ (R0 @@ z ->r w2)
   ∗ ▷ (R1 @@ z ->r w3)}}} ExecI @ z
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ z ->r (ai +w 1) ∗ ai ->a w1 ∗ A@z :={q} (mm_translation ai)
+                                  {{{ RET ExecI; <<i>> ∗ PC @@ z ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ A@z :={q} (to_pid_aligned ai)
   ∗ R0 @@ z ->r w2
   ∗ R1 @@ z ->r w3 }}}.
 Proof.
@@ -50,10 +50,11 @@ Proof.
     simplify_eq.
     simpl.
     rewrite /gen_vm_interp.
-    rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_receivers.
-    rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_receivers.
+    rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_hpool update_current_vmid_preserve_receivers.
+    rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_hpool update_offset_PC_preserve_receivers.
+    rewrite_reg_all.
     iFrame.
-    iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai +w 1)) with "Hregown Hpc") as "HpcUpd".
+    iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
     iDestruct (token_update (get_current_vm σ1) i with "Htok") as "HtokUpd".
     rewrite token_agree_eq /token_agree_def.
     iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
