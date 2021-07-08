@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section yield.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma yield {z i w1 w2 a_ b_ q} ai :
   decode_instruction w1 = Some Hvc ->
   fin_to_nat z = 0 -> 
@@ -122,3 +126,4 @@ Proof.
         -- apply lookup_insert_None; split; eauto; intros P; by inversion P.
         -- apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
 Qed.
+End yield.

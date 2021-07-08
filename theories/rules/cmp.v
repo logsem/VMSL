@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section cmp.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma cmp_word {instr i w1 w2 w3 w4 q} ai ra :
   instr = Cmp ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
@@ -146,3 +150,4 @@ Proof.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
       by simplify_map_eq /=.
 Qed.
+End cmp.

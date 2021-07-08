@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section mov.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma mov_word {instr i w1 w3 q} a w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
@@ -123,3 +127,4 @@ Proof.
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
+End mov.

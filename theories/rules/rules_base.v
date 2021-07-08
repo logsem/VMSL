@@ -4,20 +4,6 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
-Global Instance hyp_irisG `{gen_VMG Σ}: irisG hyp_machine Σ:=
-  {
-  iris_invG := gen_invG;
-  state_interp := gen_vm_interp
-  }.
-
-Context `{vmG: !gen_VMG Σ}.
-Implicit Type a : addr.
-Implicit Type i : vmid.
-Implicit Type ra rb : reg_name.
-Implicit Type w: word.
-Implicit Type q : Qp.
-
-
 Ltac rewrite_reg_all :=
   match goal with
   | |- _ =>
@@ -52,6 +38,20 @@ Ltac solve_reg_lookup :=
   | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
     rewrite lookup_insert_ne; eauto
   end.
+
+Section rules_base.
+Global Instance hyp_irisG `{gen_VMG Σ}: irisG hyp_machine Σ:=
+  {
+  iris_invG := gen_invG;
+  state_interp := gen_vm_interp
+  }.
+
+Context `{vmG: !gen_VMG Σ}.
+Implicit Type a : addr.
+Implicit Type i : vmid.
+Implicit Type ra rb : reg_name.
+Implicit Type w: word.
+Implicit Type q : Qp.
   
 
 Lemma check_access_page_mem_eq {σ i a} :
@@ -104,9 +104,10 @@ Qed.
 
 Lemma eliminate_wrong_token {i j E} :
   j ≠ i ->
-  {SS{{ ▷ <<j>> }}} ExecI @ i; E {{{ m, RET m; False }}}.
+  ▷ (<<j>>) ⊢
+  SSWP ExecI @ i ; E {{ _, False }}.
 Proof.
-  iIntros (Hne ϕ) ">Htok Hϕ".
+  iIntros (Hne) ">Htok".
   iApply (sswp_lift_atomic_step ExecI) ;[done|].
   iIntros (σ1) "%Hsche Hσ".
   iDestruct "Hσ" as "(Htokown & ? & ? & ? & ? & ? & ? & ?)".
@@ -116,3 +117,4 @@ Proof.
   done.
 Qed.
 
+End rules_base.

@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section donate.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma hvc_mem_donate11 {instr i wi r2 ptx so q sa wf wt} ai r0 r1 j pd :
   instr = Hvc ->
   decode_instruction wi = Some(instr) ->
@@ -40,3 +44,4 @@ Proof.
   - admit.
   - admit.
  Admitted.
+End donate.

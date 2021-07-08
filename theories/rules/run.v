@@ -4,6 +4,10 @@ From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
 
+Section run.
+
+Context `{vmG: !gen_VMG Σ}.
+  
 Lemma run {z i w1 w2 w3 q} ai :
   decode_instruction w1 = Some Hvc ->
   fin_to_nat z = 0 -> 
@@ -70,3 +74,4 @@ Proof.
       by iFrame.
     + apply get_reg_gmap_get_reg_Some; auto.
 Qed.
+End run.
