@@ -45,7 +45,7 @@ Section RunYield1.
   Definition tokN := nroot .@ "tok".
   
   Definition is_tok γ i :=
-    inv tokN ((<<Fin.of_nat_lt vm_count_pos>>) ∨ ∃j, tokI γ j ∧ ⌜j = i⌝ ∗ <<i>>)%I.
+    inv tokN ((<<Fin.of_nat_lt vm_count_pos>>) ∨ ∃j, tokI γ j ∗ ⌜j = i⌝ ∗ <<i>>)%I.
   
   Lemma spec1 {γ z i q1 q2 pr1page pr2page pr1base pr2base} :
       addrs_to_page pr1base 6 pr1page ->
@@ -65,7 +65,16 @@ Section RunYield1.
     iSplitL "p_1 p_2 p_3 p_4 Hacc1 PCz".
     - rewrite wp_sswp.
       iApply sswp_fupd_around.
-      iInv tokN as "S" "HClose".
+      iInv tokN as ">S" "HClose".
+      iDestruct "S" as "[S | S]".
+      + admit.
+      + iDestruct "S" as "[%j (S1 & %S2 & S3)]".
+        simplify_eq.
+        iDestruct (sswp_mono z _ ExecI (λ _, False%I) _) as "H".
+        * iIntros; iExFalso; done.
+        * iModIntro.
+          iApply "H".
+          iApply eliminate_wrong_token.
 Admitted.
 
 End RunYield1.
