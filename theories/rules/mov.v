@@ -7,10 +7,16 @@ Require Import stdpp.fin.
 Lemma mov_word {instr i w1 w3 q} a w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
-  <<i>> ∗ PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (to_pid_aligned a) ∗ ra @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (a ^+ 1)%f ∗ a ->a w1 ∗ A@i:={q} (to_pid_aligned a) ∗ ra @@ i ->r w2) }}%I.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r a)
+          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned a))
+          ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
+                                  {{{ RET ExecI; <<i>>
+                                                   ∗ PC @@ i ->r (a ^+ 1)%f
+                                                   ∗ a ->a w1
+                                                   ∗ A@i:={q} (to_pid_aligned a)
+                                                   ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hacc & Hra)".
+  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -47,7 +53,11 @@ Proof.
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
       iDestruct ((gen_reg_update2_global σ1 PC i a (a ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
-        by iFrame.
+      iModIntro.
+      iFrame.
+      iApply "Hϕ".
+      iFrame.
+      iFrame.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
@@ -56,10 +66,18 @@ Proof.
 Lemma mov_reg {instr i w1 w3 q} a w2 ra rb :
   instr = Mov ra (inr rb)->
   decode_instruction w1 = Some(instr) ->
-  <<i>> ∗ PC @@ i ->r a ∗ a ->a w1 ∗ A@i:={q} (to_pid_aligned a) ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI ⌝ ∗ <<i>> ∗ PC @@ i ->r (a ^+ 1)%f ∗ a ->a w1 ∗ A@i:={q} (to_pid_aligned a) ∗ ra @@ i ->r w3 ∗ rb @@ i ->r w3) }}%I.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r a)
+          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned a))
+          ∗ ▷ (ra @@ i ->r w2)
+          ∗ ▷ (rb @@ i ->r w3) }}} ExecI @ i
+                                  {{{ RET ExecI; <<i>>
+                                                   ∗ PC @@ i ->r (a ^+ 1)%f
+                                                   ∗ a ->a w1
+                                                   ∗ A@i:={q} (to_pid_aligned a)
+                                                   ∗ ra @@ i ->r w3
+                                                   ∗ rb @@ i ->r w3}}}.
 Proof.
-  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hacc & Hra & Hrb)".
+  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -97,6 +115,9 @@ Proof.
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
       iDestruct ((gen_reg_update2_global σ1 PC i a (a ^+ 1)%f ra i w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+      iModIntro.
+      iFrame.
+      iApply "Hϕ".
       by iFrame.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.

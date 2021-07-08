@@ -7,11 +7,11 @@ Require Import stdpp.fin.
 Lemma halt {instr i w1 q} ai :
   instr = Halt ->
   decode_instruction w1 = Some(instr) ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ A@i:={q} (to_pid_aligned ai)
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = HaltI ⌝ ∗ <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f  ∗ ai ->a w1
-                       ∗ A@i:={q} (to_pid_aligned ai) ) }}%I.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
+                                  {{{ RET HaltI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f  ∗ ai ->a w1
+                       ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
-  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hacc)".
+  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -43,6 +43,9 @@ Proof.
     (* updated part *)
     iDestruct ((gen_reg_update1_global σ1 PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    iModIntro.
+    iFrame.
+    iApply "Hϕ".
     by iFrame.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.

@@ -9,17 +9,16 @@ Lemma yield {z i w1 w2 a_ b_ q} ai :
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ A@i :={q} (to_pid_aligned ai)
-  ∗ R0 @@ i ->r w2
-  ∗ R0 @@ z ->r a_
-  ∗ R1 @@ z ->r b_
-  ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = ExecI⌝ ∗
-  <<z>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ A@i :={q} (to_pid_aligned ai)
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i :={q} (to_pid_aligned ai))
+  ∗ ▷ (R0 @@ i ->r w2)
+  ∗ ▷ (R0 @@ z ->r a_)
+  ∗ ▷ (R1 @@ z ->r b_)}}} ExecI @ i
+                                  {{{ RET ExecI; <<z>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ A@i :={q} (to_pid_aligned ai)
   ∗ R0 @@ i ->r w2
   ∗ R0 @@ z ->r (encode_hvc_ret_code Succ)
-  ∗ R1 @@ z ->r (encode_vmid i)) }}%I.
+  ∗ R1 @@ z ->r (encode_vmid i) }}}.
 Proof.
-  iIntros (Hinstr Hz Hzi Hhvc) "(Htok & Hpc & Hapc & Hacc & Hr0 & Hr1' & Hr2')".
+  iIntros (Hinstr Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -88,7 +87,11 @@ Proof.
            iModIntro.
            iDestruct "Htok'" as "[Htok1 Htok2]".
            iFrame.
-           iSplit; [| done].
+        iSplitL "Hreg".
+           2 : {
+             iApply "Hϕ".
+             iFrame.
+           }
            rewrite 2!update_reg_global_update_reg.
            rewrite !insert_union_singleton_l.
            rewrite (map_union_comm {[(R1, z) := encode_vmid σ1.1.1.2]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).

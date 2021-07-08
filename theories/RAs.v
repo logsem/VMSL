@@ -1439,5 +1439,37 @@ Qed.
     done.
   Qed.
 
+  Global Instance token_timeless i : Timeless (<<i>>).
+  Proof. rewrite token_agree_eq /token_agree_def. apply _. Qed.
 
+  Global Instance mem_mapsto_timeless a q w : Timeless ((a ->a{q} w)).
+  Proof. rewrite mem_mapsto_eq /mem_mapsto_def. apply _. Qed.
+  
+  Global Instance reg_mapsto_timeless r i a : Timeless ((r @@ i ->r a)).
+  Proof. rewrite reg_mapsto_eq /reg_mapsto_def. apply _. Qed.
+
+  Global Instance access_mapsto_timeless i q s : Timeless (A@i:={q}[s]).
+  Proof. rewrite access_mapsto_eq /access_mapsto_def. apply _. Qed.
+
+  Global Instance owned_mapsto_timeless i q s : Timeless (O@i:={q}[s]).
+  Proof. rewrite owned_mapsto_eq /owned_mapsto_def. apply _. Qed.
+
+  Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).
+  Proof. rewrite tx_mapsto_eq /tx_mapsto_def. apply _. Qed.
+
+  Global Instance rx_mapsto_timeless1 i p n (r:VMID) : Timeless (RX@ i :=(p ! n , r )).
+  Proof. rewrite rx_mapsto_eq1 /rx_mapsto_def1. apply _. Qed.
+
+  Global Instance rx_mapsto_timeless2 i p : Timeless (RX@ i :=(p !)).
+  Proof. rewrite rx_mapsto_eq1 /rx_mapsto_def1. apply _. Qed.
+  
+  Global Instance rx_mapsto_timeless3 i p : Timeless (RX@ i :=p).
+  Proof. rewrite rx_mapsto_eq2 /rx_mapsto_def2. apply _. Qed.
+
+  Global Instance trans_mapsto_timeless w q v x y m f : Timeless (w ->t{ q }( v , x , y , m , f )).
+  Proof. rewrite trans_mapsto_eq /trans_mapsto_def. apply _. Qed.
+
+  Global Instance retri_mapsto_timeless w s : Timeless (w ->re[ s ]).
+  Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
+  
 End hyp_lang_rules.

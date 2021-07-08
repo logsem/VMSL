@@ -7,11 +7,11 @@ Require Import stdpp.fin.
 Lemma fail {instr i w1 q} ai :
   instr = Fail ->
   decode_instruction w1 = Some(instr) ->
-  <<i>> ∗ PC @@ i ->r ai ∗ ai ->a w1 ∗ A@i:={q} (to_pid_aligned ai)
-    ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailI ⌝ ∗ <<i>> ∗ PC @@ i ->r ai  ∗ ai ->a w1
-                       ∗ A@i:={q} (to_pid_aligned ai) ) }}%I.
+  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
+                                  {{{ RET FailI; <<i>> ∗ PC @@ i ->r ai  ∗ ai ->a w1
+                       ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
-  iIntros (Hinstr Hdecode) "(? & Hpc & Hapc & Hacc)".
+  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -36,6 +36,9 @@ Proof.
     rewrite /exec Hinstr /fail in Heqc2;eauto.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
-    (* unchanged part *)
+      (* unchanged part *)
+    iModIntro.
+    iFrame.
+    iApply "Hϕ".
     by iFrame.
 Qed.
