@@ -326,19 +326,20 @@ Definition VMID : Type := fin vm_count.
 
 Class HypervisorParameters := {
   decode_vmid : Word -> option VMID;
-  encode_vmid : VMID -> Word;
+  encode_vmid : VMID -> Imm;
   decode_encode_vmid : forall (vmid : VMID),
       decode_vmid (encode_vmid vmid) = Some vmid;
   decode_hvc_func : Word -> option hvc_func;
-  encode_hvc_func : hvc_func -> Word;
+  encode_hvc_func : hvc_func -> Imm;
+  (* we use Imm because it is more convenient to write programs.. *)
   decode_encode_hvc_func : forall (hvc : hvc_func),
       decode_hvc_func (encode_hvc_func hvc) = Some hvc;
   decode_hvc_error : Word -> option hvc_error;
-  encode_hvc_error : hvc_error -> Word;
+  encode_hvc_error : hvc_error -> Imm;
   decode_encode_hvc_error : forall (hvc : hvc_error),
       decode_hvc_error (encode_hvc_error hvc) = Some hvc;
   decode_hvc_ret_code : Word -> option hvc_ret_code;
-  encode_hvc_ret_code : hvc_ret_code -> Word;
+  encode_hvc_ret_code : hvc_ret_code -> Imm;
   decode_encode_hvc_ret_code : forall (hvc : hvc_ret_code),
       decode_hvc_ret_code (encode_hvc_ret_code hvc) = Some hvc;
   decode_transaction_type : Word -> option transaction_type;

@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting.
-From HypVeri.rules Require Import rules_base mov run yield.
+From HypVeri Require Import reg_addr RAs rule_misc lifting.
+From HypVeri.rules Require Import rules_base mov ldr str halt run yield.
 From iris.proofmode Require Import tactics.
 From iris.base_logic.lib Require Export invariants.
 Require Import iris.base_logic.lib.ghost_map iris.bi.big_op iris.algebra.lib.frac_agree.
@@ -16,68 +16,65 @@ Section RunYield1.
   Definition run_I := encode_hvc_func Run.
   Definition yield_I := encode_hvc_func Yield.
   
-  Definition r0 := R 0 ltac:(solveRegCount).
-  Definition r1 := R 1 ltac:(solveRegCount).
-  
-  Definition program1 (i : vmid) (b : addr) : list (addr * word) :=
+
+   Definition program1 (i : VMID) : list Word :=
     [
-    (b +w 0, mov_word_I r0 run_I);
-    (b +w 1, mov_word_I r1 (encode_vmid i));
-    (b +w 2, hvc_I);
-    (b +w 3, halt_I)
+    mov_word_I R0 run_I;
+    mov_word_I R1 (encode_vmid i);
+    hvc_I;
+    halt_I
     ].
 
-  Definition program2 (b : addr) : list (addr * word) :=
+  Definition program2 : list Word :=
     [
-    (b +w 0, mov_word_I r0 yield_I);
-    (b +w 1, hvc_I)
+    mov_word_I R0 yield_I;
+    hvc_I
     ].
   
-  Definition addrs_to_page (b : addr) (off : nat) (p : pid) :=
-    Forall (fun n => mm_translation (b +w n) = p) (seq 0 off).
-
   Class tokG Σ := tok_G :> inG Σ (frac_agreeR (leibnizO vmid)).
 
   Context `{gen_VMG Σ, tokG Σ}.
-  
+
+  Definition program (instr: list Word) (b:Addr):=
+    ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
+
   Definition tokI γ i := own γ (to_frac_agree (1/2)%Qp i).
   
   Definition tokN := nroot .@ "tok".
-  
-  Definition is_tok γ i :=
-    inv tokN ((<<Fin.of_nat_lt vm_count_pos>>) ∨ ∃j, tokI γ j ∗ ⌜j = i⌝ ∗ <<i>>)%I.
-  
-  Lemma spec1 {γ z i q1 q2 pr1page pr2page pr1base pr2base r0_} :
-      addrs_to_page pr1base 6 pr1page ->
-      addrs_to_page pr2base 4 pr2page ->
+
+  Definition is_tok γ (z i:VMID) :=
+    inv tokN ((<<z>>) ∨ ∃j, tokI γ j ∗ ⌜j = i⌝ ∗ <<i>>)%I.
+
+  (* Definition seq_in_a_page (b e: Addr) (p:PID) := *)
+  (*   ((of_pid p) <=? b)%f ∧ (e <? ((of_pid p) ^+ page_size))%f. *)
+
+  Lemma spec1 {γ z i q1 q2 prog1page prog2page r0_} :
       fin_to_nat z = 0 ->
       z ≠ i ->
-      ([∗ list] aw ∈ (program1 i pr1base), (aw.1 ->a aw.2))%I ∗
-      ([∗ list] aw ∈ (program2 pr2base), (aw.1 ->a aw.2))%I ∗
-      is_tok γ i ∗                                                           
-      A@z :={q1} pr1page ∗ A@i :={q2} pr2page
-                                      ∗ PC @@ z ->r pr1base ∗ PC @@ i ->r pr2base
-                                      ∗ r0 @@ z ->r r0_                                    
-                                                ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝) }})
-                                                ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝) }}).
+      program (program1 i) (of_pid prog1page) ∗
+      program (program2) (of_pid prog2page) ∗
+      is_tok γ z i ∗
+      A@z :={q1} prog1page ∗ A@i :={q2} prog2page
+      ∗ PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page)
+      ∗ R0 @@ z ->r r0_
+      ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝) }}%I)
+       ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝) }}%I).
   Proof.
-    iIntros (addrM1 addrM2 zP neH) "((p_1 & p_2 & p_3 & p_4 & _) & (p_1' & p_2' & _) & #Hinv & Hacc1 & Hacc2 & PCz & PCi & Hr0_)".
-    simpl.
+    iIntros (zP neH) "((p_1 & p_2 & p_3 & p_4 & _) & (p_1' & p_2' & _) & #Hinv & Hacc1 & Hacc2 & PCz & PCi & Hr0_)".
     iSplitL "p_1 p_2 p_3 p_4 Hacc1 PCz Hr0_".
     - rewrite wp_sswp.
       iApply (sswp_fupd_around ⊤ ⊤ ⊤).
       iInv tokN as ">S" "HClose".
       iDestruct "S" as "[S | S]".
-      + iDestruct ((@mov_word _ _ (Mov r0 (inl run_I)) z (mov_word_I r0 run_I) r0_ q1 pr1base run_I r0) with "[> S]") as "J"; eauto.
+      + iDestruct ((@mov_word _ _ (Mov R0 (inl run_I)) z (mov_word_I R0 run_I) r0_ q1 (of_pid prog1page) run_I R0) with "[> S]") as "J"; eauto.
         * by rewrite decode_encode_instruction.          
+        * admit.
         * admit.
       + iDestruct "S" as "[%j (S1 & %S2 & S3)]".
         simplify_eq.
-        iDestruct (sswp_mono z _ ExecI (λ _, False%I) _) as "H".
-        * iIntros; iExFalso; done.
-        * iModIntro.
-          iApply "H".
-          assert (neH' : i ≠ z).
+        iApply (sswp_mono z _ ExecI (λ _, False %I) _).
+        * iIntros;iExFalso; done.
+        * assert (neH' : i ≠ z).
           {
             intros contra.
             apply neH.
@@ -85,8 +82,10 @@ Section RunYield1.
             assumption.
           }
           iApply eliminate_wrong_token.
+          (* TODO eliminate_wrong_token consumes the token, so we cannot close the invariant! *)
           apply neH'.
-          iModIntro. iFrame.
+          iFrame.
+          admit.
     - admit.
 Admitted.
 

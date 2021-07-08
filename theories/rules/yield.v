@@ -70,12 +70,12 @@ Proof.
       rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_hpool update_offset_PC_preserve_receivers.
       iFrame.
       iDestruct (gen_reg_update_Sep σ1
-                                    {[(R0 , z) := a_;
-                                      (R1, z):= b_;
-                                      (PC, get_current_vm σ1) := ai]}
-                                    {[(R0, z):= encode_hvc_ret_code Succ;
-                                      (R1, z):= (encode_vmid (get_current_vm σ1));
-                                      (PC, get_current_vm σ1) := (ai ^+ 1)%f]} with "Hregown [Hr1' Hr2' Hpc]") as ">[Hreg Hr12pc]"; [set_solver | |].
+                  {[(R0, z):= a_;
+                    (R1, z):= b_;
+                    (PC, get_current_vm σ1) := ai]}
+                  {[(R0, z):= of_imm (encode_hvc_ret_code Succ);
+                    (R1, z):= of_imm (encode_vmid (get_current_vm σ1));
+                    (PC, get_current_vm σ1) := (ai ^+ 1)%f]} with "Hregown [Hr1' Hr2' Hpc]") as ">[Hreg Hr12pc]"; [set_solver | |].
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto; [iFrame | |].
         apply lookup_insert_None; split; eauto; intros P; by inversion P.
         apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
@@ -98,14 +98,14 @@ Proof.
            }
            rewrite 2!update_reg_global_update_reg.
            rewrite !insert_union_singleton_l.
-           rewrite (map_union_comm {[(R1, z) := encode_vmid σ1.1.1.2]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
+           rewrite (map_union_comm {[(R1, z) := of_imm (encode_vmid σ1.1.1.2)]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
            rewrite map_union_assoc.
-           rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
+           rewrite (map_union_comm {[(R0, z) := of_imm (encode_hvc_ret_code Succ)]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
            rewrite <-(map_union_assoc {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}
-                                      {[(R0 , z) := encode_hvc_ret_code Succ]}
-                                      {[(R1 , z) := encode_vmid σ1.1.1.2]}).
-           rewrite (map_union_comm {[(R0, z) := encode_hvc_ret_code Succ]}
-                                   {[(R1 , z) := encode_vmid σ1.1.1.2]}).
+                                      {[(R0, z) := of_imm (encode_hvc_ret_code Succ)]}
+                                      {[(R1, z) := of_imm (encode_vmid σ1.1.1.2)]}).
+           rewrite (map_union_comm {[(R0, z) := of_imm (encode_hvc_ret_code Succ)]}
+                                   {[(R1, z) := of_imm (encode_vmid σ1.1.1.2)]}).
            rewrite !map_union_assoc.
            iAssumption.
            by rewrite map_disjoint_singleton_r lookup_singleton_None.
