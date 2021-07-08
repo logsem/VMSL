@@ -61,13 +61,12 @@ Proof.
   rewrite /check_access_addr; done.
 Qed.
 
-    
 Lemma not_valid_pc {a i s} :
   (mm_translation a) ∉ s ->
-  PC @@ i ->r a ∗ A@i:={1}[s]
-  ⊢ SSWP ExecI @ i {{ (λ m, ⌜m = FailI⌝ ∗ PC @@ i ->r a ∗ A@i:={1}[s]) }}%I.
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ A@i:={1}[s] }}} ExecI @ i {{{ RET FailI; PC @@ i ->r a ∗ A@i:={1}[s] }}}.
 Proof.
-  iIntros (Hmm) "(Hpc & Ha)".
+  simpl.
+  iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ1".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -93,8 +92,8 @@ Proof.
     + simpl.
       rewrite /gen_vm_interp.
       iFrame.
-      iPureIntro.
-      done.
+      iApply "Hϕ".
+      iFrame.
     + simplify_eq.
       rewrite /is_valid_PC Hpc in H.      
       simpl in H.
@@ -105,9 +104,9 @@ Qed.
 
 Lemma eliminate_wrong_token {i j} :
   j ≠ i ->
-  <<j>> ⊢ SSWP ExecI @ i {{ (λ m, False) }}%I.
+  {SS{{ ▷ <<j>> }}} ExecI @ i {{{ m, RET m; False }}}.
 Proof.
-  iIntros (Hne) "Htok".
+  iIntros (Hne ϕ) ">Htok Hϕ".
   iApply (sswp_lift_atomic_step ExecI) ;[done|].
   iIntros (σ1) "%Hsche Hσ".
   iDestruct "Hσ" as "(Htokown & ? & ? & ? & ? & ? & ? & ?)".
