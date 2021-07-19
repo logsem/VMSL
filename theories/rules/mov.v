@@ -8,11 +8,11 @@ Section mov.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma mov_word {instr i w1 w3 q} a w2 ra :
+Lemma mov_word {instr i w1 w3 q} a p w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
   {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r a)
-          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned a))
+          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} p) ∗ ▷ ⌜ addr_in_page a p ⌝
           ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
                                   {{{ RET ExecI; <<i>>
                                                    ∗ PC @@ i ->r (a ^+ 1)%f
@@ -20,7 +20,7 @@ Lemma mov_word {instr i w1 w3 q} a w2 ra :
                                                    ∗ A@i:={q} (to_pid_aligned a)
                                                    ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc & >%Hin & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.

@@ -1257,16 +1257,17 @@ Qed.
        set_solver.
   Qed.
 
-Lemma gen_access_valid_addr:
-  ∀ (σ : state) i q a,
+Lemma gen_access_valid_addr {σ i q} a p:
+    addr_in_page a p ->
     own (gen_access_name vmG) (get_access_gmap σ)  -∗
-    (A@ i :={q} (to_pid_aligned a) ) -∗
+    (A@ i :={q} p ) -∗
           ( ⌜(check_access_addr σ i a)= true ⌝).
 Proof.
-  iIntros (????) "Haccess Hacc".
-  iDestruct (gen_access_valid σ i q (to_pid_aligned a) with "Haccess Hacc") as %Hacc.
+  iIntros (HIn) "Haccess Hacc".
+  iDestruct (gen_access_valid σ i q p with "Haccess Hacc") as %Hacc.
   iPureIntro.
-  by unfold check_access_page.
+  unfold check_access_addr.
+
 Qed.
 
 

@@ -23,7 +23,7 @@ Definition Word := (finz word_size).
 Definition Addr : Type := Word.
 
 Inductive PID: Type :=
-| P (z : Addr) (align: Z.eqb (z `mod` page_size)%Z 0 = true) .
+| P (z : Addr) (align: (Z.rem z page_size = 0)%Z) .
 
 Definition of_pid (p: PID): Word :=
   match p with
@@ -32,18 +32,14 @@ Definition of_pid (p: PID): Word :=
 
 Coercion of_pid: PID >-> Word.
 
-Program Definition to_pid (w: Word): option PID :=
-  match (Z_eq_dec (w `mod` page_size)%Z 0%Z) with
-                | left H => Some (P w _)
+Program Definition to_pid (w: Addr): option PID :=
+  match (decide ((Z.rem w page_size) = 0)%Z) with
+                | left H => Some (P w H)
                 | right _ => None
   end.
-Next Obligation.
-intros.
-by apply Z.eqb_eq.
-Defined.
 
 Program Definition to_pid_aligned (w: Word): PID:=
-  let z:=(w - (w `mod` page_size))%Z in
+  let z:=(page_size * (w / page_size) )%Z in
   let wr:= (finz.FinZ z _ _) in
   P wr _.
 Next Obligation.
@@ -55,8 +51,8 @@ apply  (Z.ltb_lt z word_size ).
 subst z.
 simpl.
 apply -> (Z.leb_le 0 z0 ) in finz_nonneg.
-assert (Hrem': (0 ≤ z0 `mod` page_size)%Z).
-apply Z_mod_pos.
+assert (Hlt' : ( page_size * (z0 / page_size)  <= z0)%Z).
+apply Z_mult_div_ge.
 unfold page_size.
 lia.
 lia.
@@ -68,8 +64,12 @@ subst z.
 simpl.
 apply -> (Z.leb_le 0 z0) in finz_nonneg.
 apply Z.leb_le .
-assert (Hlt: (z0 `mod` page_size ≤ z0)%Z).
-apply Z.mod_le;eauto.
+assert (Hlt' : (0 <= (z0 / page_size) * page_size )%Z).
+apply Zmult_gt_0_le_0_compat.
+unfold page_size.
+lia.
+apply Z.div_pos.
+lia.
 unfold page_size.
 lia.
 lia.
@@ -79,14 +79,59 @@ intros.
 subst wr.
 simpl.
 subst z.
-apply Z.eqb_eq.
-rewrite <- Zminus_mod_idemp_l.
-simpl.
-assert (Heq0: (w mod page_size - w mod page_size)%Z = 0%Z).
-apply (Zminus_diag (w mod page_size)%Z).
-rewrite Heq0.
-apply Zmod_0_l.
+unfold Z.divide.
+apply Z.rem_divide.
+unfold page_size.
+lia.
+exists (w / page_size)%Z.
+lia.
 Defined.
+
+(* Program Definition to_pid_aligned (w: Word): PID:= *)
+(*   let z:=(w - (w `mod` page_size))%Z in *)
+(*   let wr:= (finz.FinZ z _ _) in *)
+(*   P wr _. *)
+(* Next Obligation. *)
+(* intros. *)
+(* destruct w. *)
+(* pose finz_lt. *)
+(* apply -> (Z.ltb_lt z0 word_size ) in e. *)
+(* apply  (Z.ltb_lt z word_size ). *)
+(* subst z. *)
+(* simpl. *)
+(* apply -> (Z.leb_le 0 z0 ) in finz_nonneg. *)
+(* assert (Hrem': (0 ≤ z0 `mod` page_size)%Z). *)
+(* apply Z_mod_pos. *)
+(* unfold page_size. *)
+(* lia. *)
+(* lia. *)
+(* Defined. *)
+(* Next Obligation. *)
+(* intros. *)
+(* destruct w. *)
+(* subst z. *)
+(* simpl. *)
+(* apply -> (Z.leb_le 0 z0) in finz_nonneg. *)
+(* apply Z.leb_le . *)
+(* assert (Hlt: (z0 `mod` page_size ≤ z0)%Z). *)
+(* apply Z.mod_le;eauto. *)
+(* unfold page_size. *)
+(* lia. *)
+(* lia. *)
+(* Qed. *)
+(* Next Obligation. *)
+(* intros. *)
+(* subst wr. *)
+(* simpl. *)
+(* subst z. *)
+(* apply Z.eqb_eq. *)
+(* rewrite <- Zminus_mod_idemp_l. *)
+(* simpl. *)
+(* assert (Heq0: (w mod page_size - w mod page_size)%Z = 0%Z). *)
+(* apply (Zminus_diag (w mod page_size)%Z). *)
+(* rewrite Heq0. *)
+(* apply Zmod_0_l. *)
+(* Defined. *)
 
 
 Inductive Imm: Type :=
@@ -103,7 +148,7 @@ Global Instance pid_eq_dec: EqDecision PID.
 intros x y.
 destruct x,y .
 destruct (finz_eq_dec word_size z z0).
-- left. subst z0. f_equal. apply eq_proofs_unicity; decide equality.
+- left. subst z0. f_equal. apply eq_proofs_unicity; decide equality; decide equality.
 - right. inversion 1. contradiction.
 Defined.
 
@@ -126,9 +171,9 @@ Proof.
   intro r. destruct r; auto.
   rewrite decode_encode.
   unfold to_pid. simpl.
-  destruct (Z_eq_dec (z mod page_size)%Z 0%Z).
-  - repeat f_equal; apply eq_proofs_unicity; decide equality.
-  - exfalso. by apply Z.eqb_eq in align.
+  destruct (decide ((z `rem` page_size)%Z=0%Z)).
+  - repeat f_equal; apply eq_proofs_unicity; decide equality; decide equality.
+  - exfalso. done.
 Defined.
 
 Inductive reg_name : Type :=
