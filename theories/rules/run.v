@@ -8,19 +8,27 @@ Section run.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma run {z i w1 w2 w3 q} ai :
+Lemma run {z i w1 w2 w3 q p E} ai :
   decode_instruction w1 = Some Hvc ->
+  addr_in_page ai p ->
   fin_to_nat z = 0 -> 
   decode_hvc_func w2 = Some Run ->
   decode_vmid w3 = Some i ->
-  {SS{{ ▷ (<<z>>) ∗ ▷ (PC @@ z ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@z :={q} (to_pid_aligned ai))
-  ∗ ▷ (R0 @@ z ->r w2)
-  ∗ ▷ (R1 @@ z ->r w3)}}} ExecI @ z
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ z ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ A@z :={q} (to_pid_aligned ai)
-  ∗ R0 @@ z ->r w2
-  ∗ R1 @@ z ->r w3 }}}.
+  {SS{{ ▷ (<<z>>)
+          ∗ ▷ (PC @@ z ->r ai)
+          ∗ ▷ (ai ->a w1)
+          ∗ ▷ (A@z :={q} p)
+          ∗ ▷ (R0 @@ z ->r w2)
+          ∗ ▷ (R1 @@ z ->r w3)}}}
+    ExecI @ z ;E
+    {{{ RET ExecI; <<i>>
+                     ∗ PC @@ z ->r (ai ^+ 1)%f
+                     ∗ ai ->a w1
+                     ∗ A@z :={q} p
+                     ∗ R0 @@ z ->r w2
+                     ∗ R1 @@ z ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hz Hhvc Hvmid ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1) Hϕ".
+  iIntros (Hinstr Hin Hz Hhvc Hvmid ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1) Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -32,7 +40,7 @@ Proof.
   iDestruct (gen_reg_valid1 σ1 R0 z w2 Hcur with "Hregown Hr0") as "%Hr0".
   iDestruct (gen_reg_valid1 σ1 R1 z w3 Hcur with "Hregown Hr1") as "%Hr1".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr σ1 z q ai with "Haccessown Hacc") as %Hacc.
+  iDestruct (gen_access_valid_addr ai _ Hin with "Haccessown Hacc") as %Hacc.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.

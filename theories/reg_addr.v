@@ -38,6 +38,9 @@ Solve Obligations with solveRegCount.
   Definition seq_in_page (b :Addr) (l: nat) (p:PID) :=
     ((of_pid p) <=? b)%Z ∧ is_Some (b + (Z.of_nat l))%f ∧ ((b ^+ (Z.of_nat l))%f <=? ((of_pid p) ^+ (page_size-1))%f)%Z.
 
+
+
+      
   Lemma last_addr_in_bound (p:PID):
     is_Some ((of_pid p) + (page_size -1)%Z)%f.
     Proof.
@@ -83,13 +86,49 @@ Solve Obligations with solveRegCount.
       lia.
   Qed.
 
-    Lemma last_addr_in_bound' p f : ((of_pid p) + (page_size -1)%Z)%f = Some f ->
-                                    ((of_pid p) ^+ (page_size -1)%Z)%f = f.
+     Lemma incr_default_incr{fb} (f1 f2: finz.finz fb) z : (f1 + z)%f = Some f2 ->
+                                    (f1 ^+ z)%f = f2.
       Proof.
         intro.
         unfold finz.incr_default.
         by rewrite H.
       Qed.
+
+ Lemma finz_incr_z_plus{b} (f1 f2 : (finz.finz b)) z : (f1 + z)%f = Some f2 <->
+                                    (f1 + z)%Z = (finz.to_z f2).
+      Proof.
+        split;solve_finz.
+  Qed.
+
+       Lemma finz_incr_z_plus'{b} (f1 : (finz.finz b)) z : (f1 + z)%f = None <->
+                                    (b <= (f1 + z))%Z ∨ ((f1 +z) < 0)%Z .
+      Proof.
+        split.
+       intro.
+       unfold finz.incr in H.
+           destruct (Z_lt_dec ((finz.to_z f1) + z )%Z b).
+      destruct (Z_le_dec 0%Z ((finz.to_z f1) + z )%Z).
+      inversion H.
+      right.
+        solve_finz.
+        left.
+        lia.
+        intro.
+        destruct H.
+ unfold finz.incr.
+           destruct (Z_lt_dec ((finz.to_z f1) + z )%Z b).
+      destruct (Z_le_dec 0%Z ((finz.to_z f1) + z )%Z).
+      lia.
+      lia.
+      done.
+
+      unfold finz.incr.
+           destruct (Z_lt_dec ((finz.to_z f1) + z )%Z b).
+      destruct (Z_le_dec 0%Z ((finz.to_z f1) + z )%Z).
+      lia.
+      done.
+      done.
+  Qed.
 
 
   Lemma to_pid_aligned_in_page (a:Addr) (p:PID) :
@@ -101,7 +140,7 @@ Solve Obligations with solveRegCount.
       destruct H.
       pose proof (last_addr_in_bound p).
       destruct H1.
-      rewrite (last_addr_in_bound' p x) in H0;eauto.
+      rewrite (incr_default_incr (of_pid p) x (page_size -1)%Z) in H0;eauto.
       destruct p.
       destruct z.
       f_equal /=.
@@ -109,28 +148,31 @@ Solve Obligations with solveRegCount.
       {
         destruct a.
         simplify_eq /=.
-        destruct (decide (z = z0 )%Z);eauto.
-        rewrite -e.
-         apply Z.rem_mod_eq_0 in align.
-          apply Z_div_exact_2.
-          unfold page_size;lia.
-          lia.
-          unfold page_size;lia.
-
         unfold finz.leb in H.
         simpl in H.
         unfold finz.ltb in H0.
         simpl in H0.
         apply Is_true_eq_true in H, H0.
         apply Z.leb_le in H.
-        assert (Heq : (z < z0)%Z).
-        {
-          lia.
-        }
         apply Z.leb_le in H0.
-        simpl in H0 ,H1 .
+
+        apply finz_incr_z_plus in H1.
+        simpl in H1.
+        rewrite -H1 in H0.
+        simpl in H0.
         apply Z.rem_divide in align;[|unfold page_size;lia].
-        admit.
+        destruct align.
+        subst z.
+       apply (fast_Zmult_comm page_size x0) in H.
+        apply Z.quot_le_lower_bound in H;[|unfold page_size;lia].
+       assert (H0': (z0 < page_size* (x0+1) )%Z).
+       lia.
+       apply Z.quot_lt_upper_bound in H0';[|lia|unfold page_size;lia].
+       assert (Heq: (z0 `quot` page_size = x0)%Z).
+       lia.
+       rewrite Z.quot_div_nonneg in Heq;[lia|unfold page_size;lia| ].
+       rewrite Heq.
+       lia.
       }
       subst z.
       remember (machine.to_pid_aligned_obligation_3 a) as Ha'.
@@ -150,4 +192,100 @@ Solve Obligations with solveRegCount.
       apply eq_proofs_unicity; decide equality; decide equality.
       rewrite Heqiv''.
       done.
+Qed.
+
+    Lemma finz_seq_notin2{b} (f f' : finz.finz b) n :
+      (f' ^+ ((Z.of_nat n)-1) < f)%f -> f ∉ finz.seq f' n.
+    Proof.
+      revert f f'. induction n; cbn.
+      { intros. inversion 1. }
+      { intros. apply not_elem_of_cons. split. solve_finz. eapply IHn. solve_finz. }
+     Qed.
+
+    Lemma finz_seq_in2{b} (f f' : finz.finz b) n :
+     f ∈ finz.seq f' n ->  (f <= f' ^+ ((Z.of_nat n)-1))%f.
+    Proof.
+      revert f f'. induction n; cbn.
+      { intros. inversion H. }
+      { intros. apply  elem_of_cons in H.
+        destruct H.
+        solve_finz.
+        eapply IHn in H. solve_finz. }
+     Qed.
+
+    Definition seq_in_page_forall (b: Addr) (l:nat) (p:PID) :
+    seq_in_page b l p -> Forall  (λ a, addr_in_page a p) (finz.seq b l).
+    Proof.
+      intros.
+      apply Forall_forall.
+      intros a H0.
+      unfold addr_in_page.
+      destruct H.
+      split.
+      - unfold finz.leb.
+        unfold Is_true.
+        destruct (decide (b <= a)%f).
+        unfold Is_true in H.
+        assert (Hap: ((of_pid p) <= a)%Z).
+        destruct ((((of_pid p) <=? b))%Z) eqn:Heqn.
+        apply Z.leb_le in Heqn.
+        solve_finz.
+        congruence.
+        apply Z.leb_le in Hap.
+        rewrite Hap //=.
+        exfalso.
+        assert (Hlt: (a < b )%f).
+        solve_finz.
+        apply (finz_seq_notin _ _ _ l )in Hlt.
+        contradiction.
+      - destruct l.
+        inversion H0.
+        destruct H1.
+        destruct H1.
+        rewrite (incr_default_incr b x _ ) in H2;eauto.
+        pose proof (last_addr_in_bound p).
+        destruct H3.
+        rewrite (incr_default_incr (of_pid p) x0 _ ) in H2;eauto.
+        rewrite (incr_default_incr (of_pid p) x0 _ );eauto.
+        apply  finz_incr_z_plus in H3.
+        apply finz_seq_in2 in H0.
+        apply  finz_incr_z_plus in H1.
+        assert (H1': (b + (Z.of_nat l))%Z = (x-1)%Z ).
+        lia.
+        assert(Hl : ((Z.of_nat (S l) - 1)%Z = (Z.of_nat l))%Z).  by lia.
+        rewrite Hl  in H0 H1.
+        rewrite -H3 in H2.
+        rewrite -H1 in H2.
+        unfold finz.leb.
+        rewrite -H3.
+        unfold finz.le in H0.
+        assert (H0': (a <= b + (Z.of_nat l))%Z).
+        destruct ((b +(Z.of_nat l))%f) eqn:Heqn.
+        rewrite (incr_default_incr b f _ ) in H0;eauto.
+        apply finz_incr_z_plus in Heqn.
+        rewrite -Heqn in H0.
+        done.
+        apply finz_incr_z_plus' in Heqn.
+        destruct Heqn.
+        solve_finz.
+        assert (Hbnneg: (b >=0 )%Z).
+        destruct b.
+        simpl.
+        lia.
+        lia.
+        rewrite -H1 in H1'.
+        assert (H0'': (a < b + (Z.of_nat (S l)))%Z).
+        lia.
+        destruct (decide (a <= (of_pid p) + (page_size - 1)))%Z.
+        apply Z.leb_le in l0.
+        unfold Is_true.
+        by rewrite l0.
+        exfalso.
+        assert (Hn' : ((of_pid p) + (page_size - 1) < a)%Z).
+        lia.
+        unfold Is_true in H2.
+        destruct ((b + Z.of_nat (S l) <=? (of_pid p) + (page_size - 1))%Z) eqn:Heqn.
+        apply Z.leb_le in Heqn.
+        lia.
+        done.
 Qed.

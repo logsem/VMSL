@@ -105,10 +105,9 @@ Qed.
 
 Lemma eliminate_wrong_token {i j E} :
   j ≠ i ->
-  ▷ (<<j>>) ⊢
-  SSWP ExecI @ i ; E {{ _, False }}.
+  {SS{{ ▷ (<<j>>)}}} ExecI @ i ; E {{{ RET ExecI ; <<j>> ∗ False }}}.
 Proof.
-  iIntros (Hne) "> Htok".
+  iIntros (Hne Φ ) "> Htok HΦ".
   iApply (sswp_lift_atomic_step ExecI) ;[done|].
   iIntros (σ1) "%Hsche Hσ".
   iDestruct "Hσ" as "(Htokown & ? & ? & ? & ? & ? & ? & ?)".
@@ -117,5 +116,6 @@ Proof.
   iPureIntro.
   done.
 Qed.
+
 
 End rules_base.

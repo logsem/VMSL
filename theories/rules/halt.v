@@ -2,20 +2,26 @@ From machine_program_logic.program_logic Require Import machine weakestpre.
 From HypVeri Require Import RAs rule_misc lifting rules.rules_base.
 From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
-Require Import stdpp.fin.
 
 Section halt.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma halt {instr i w1 q} ai :
+Lemma halt {E instr i w1 q p} ai :
   instr = Halt ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
-                                  {{{ RET HaltI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f  ∗ ai ->a w1
-                       ∗ A@i:={q} (to_pid_aligned ai) }}}.
+  addr_in_page ai p ->
+  {SS{{ ▷ (<<i>>)
+          ∗ ▷ (PC @@ i ->r ai)
+          ∗ ▷ (ai ->a w1)
+          ∗ ▷ (A@i:={q} p)}}}
+    ExecI @ i ;E
+ {{{ RET HaltI; <<i>>
+                  ∗ PC @@ i ->r (ai ^+ 1)%f
+                  ∗ ai ->a w1
+                  ∗ A@i:={q} p }}}.
 Proof.
-  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hinstr Hdecode Hin ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -25,7 +31,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid1 σ1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  iDestruct ((gen_access_valid_addr ai _ Hin ) with "Haccess Hacc") as %Hacc.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.

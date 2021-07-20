@@ -8,21 +8,29 @@ Section yield.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma yield {z i w1 w2 a_ b_ q} ai :
+Lemma yield {z i w1 w2 a_ b_ q p} ai :
   decode_instruction w1 = Some Hvc ->
+  addr_in_page ai p ->
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i :={q} (to_pid_aligned ai))
-  ∗ ▷ (R0 @@ i ->r w2)
-  ∗ ▷ (R0 @@ z ->r a_)
-  ∗ ▷ (R1 @@ z ->r b_)}}} ExecI @ i
-                                  {{{ RET ExecI; <<z>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ A@i :={q} (to_pid_aligned ai)
-  ∗ R0 @@ i ->r w2
-  ∗ R0 @@ z ->r (encode_hvc_ret_code Succ)
-  ∗ R1 @@ z ->r (encode_vmid i) }}}.
+  {SS{{ ▷ (<<i>>)
+          ∗ ▷ (PC @@ i ->r ai)
+          ∗ ▷ (ai ->a w1)
+          ∗ ▷ (A@i :={q} p)
+          ∗ ▷ (R0 @@ i ->r w2)
+          ∗ ▷ (R0 @@ z ->r a_)
+          ∗ ▷ (R1 @@ z ->r b_)}}}
+    ExecI @ i
+    {{{ RET ExecI; <<z>>
+                     ∗ PC @@ i ->r (ai ^+ 1)%f
+                     ∗ ai ->a w1
+                     ∗ A@i :={q} p
+                     ∗ R0 @@ i ->r w2
+                     ∗ R0 @@ z ->r (encode_hvc_ret_code Succ)
+                     ∗ R1 @@ z ->r (encode_vmid i) }}}.
 Proof.
-  iIntros (Hinstr Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
+  iIntros (Hinstr Hin Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -35,7 +43,7 @@ Proof.
   iDestruct (gen_reg_valid_global1 σ1 R0 z a_ with "Hregown Hr1'") as "%Hr1'".
   iDestruct (gen_reg_valid_global1 σ1 R1 z b_ with "Hregown Hr2'") as "%Hr2'".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr σ1 i q ai with "Haccessown Hacc") as %Hacc.
+  iDestruct (gen_access_valid_addr ai _ Hin with "Haccessown Hacc") as %Hacc.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.

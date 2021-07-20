@@ -1267,7 +1267,8 @@ Proof.
   iDestruct (gen_access_valid σ i q p with "Haccess Hacc") as %Hacc.
   iPureIntro.
   unfold check_access_addr.
-
+  apply to_pid_aligned_in_page in HIn.
+  rewrite HIn //=.
 Qed.
 
 
