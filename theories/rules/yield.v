@@ -8,7 +8,7 @@ Section yield.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma yield {z i w1 w2 a_ b_ q p} ai :
+Lemma yield {E z i w1 w2 a_ b_ q p} ai :
   decode_instruction w1 = Some Hvc ->
   addr_in_page ai p ->
   fin_to_nat z = 0 -> 
@@ -21,7 +21,7 @@ Lemma yield {z i w1 w2 a_ b_ q p} ai :
           ∗ ▷ (R0 @@ i ->r w2)
           ∗ ▷ (R0 @@ z ->r a_)
           ∗ ▷ (R1 @@ z ->r b_)}}}
-    ExecI @ i
+    ExecI @ i;E
     {{{ RET ExecI; <<z>>
                      ∗ PC @@ i ->r (ai ^+ 1)%f
                      ∗ ai ->a w1
