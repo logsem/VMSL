@@ -27,7 +27,7 @@ Lemma yield {E z i w1 w2 a_ b_ q p} ai :
                      ∗ ai ->a w1
                      ∗ A@i :={q} p
                      ∗ R0 @@ i ->r w2
-                     ∗ R0 @@ z ->r (encode_hvc_ret_code Succ)
+                     ∗ R0 @@ z ->r (encode_hvc_func Yield)
                      ∗ R1 @@ z ->r (encode_vmid i) }}}.
 Proof.
   iIntros (Hinstr Hin Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
@@ -81,7 +81,7 @@ Proof.
                   {[(R0, z):= a_;
                     (R1, z):= b_;
                     (PC, get_current_vm σ1) := ai]}
-                  {[(R0, z):= of_imm (encode_hvc_ret_code Succ);
+                  {[(R0, z):= of_imm (encode_hvc_func Yield);
                     (R1, z):= of_imm (encode_vmid (get_current_vm σ1));
                     (PC, get_current_vm σ1) := (ai ^+ 1)%f]} with "Hregown [Hr1' Hr2' Hpc]") as ">[Hreg Hr12pc]"; [set_solver | |].
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto; [iFrame | |].
@@ -108,11 +108,11 @@ Proof.
            rewrite !insert_union_singleton_l.
            rewrite (map_union_comm {[(R1, z) := of_imm (encode_vmid σ1.1.1.2)]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
            rewrite map_union_assoc.
-           rewrite (map_union_comm {[(R0, z) := of_imm (encode_hvc_ret_code Succ)]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
+           rewrite (map_union_comm {[(R0, z) := of_imm (encode_hvc_func Yield)]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
            rewrite <-(map_union_assoc {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}
-                                      {[(R0, z) := of_imm (encode_hvc_ret_code Succ)]}
+                                      {[(R0, z) := of_imm (encode_hvc_func Yield)]}
                                       {[(R1, z) := of_imm (encode_vmid σ1.1.1.2)]}).
-           rewrite (map_union_comm {[(R0, z) := of_imm (encode_hvc_ret_code Succ)]}
+           rewrite (map_union_comm {[(R0, z) := of_imm (encode_hvc_func Yield )]}
                                    {[(R1, z) := of_imm (encode_vmid σ1.1.1.2)]}).
            rewrite !map_union_assoc.
            iAssumption.

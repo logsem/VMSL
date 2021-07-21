@@ -552,7 +552,7 @@ Definition run (s : state) : exec_mode * state :=
 
 Program Definition yield (s : state) : exec_mode * state :=
   let comp :=
-      let s' := (update_reg_global s (@nat_to_fin 0 vm_count vm_count_pos) R0 (encode_hvc_ret_code Succ))
+      let s' := (update_reg_global s (@nat_to_fin 0 vm_count vm_count_pos) R0 (encode_hvc_func Yield))
       in
       if is_primary s'
       then

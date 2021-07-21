@@ -50,42 +50,42 @@ Section RunYield1.
 
   Definition invN := nroot .@ "tok".
 
-  Definition inv γ1  (z i:VMID) :=
-    ((<<z>>)  ∨  <<i>> ∗ tokI γ1)%I.
-  (* TODO: put R0@z and R1@z into the invariant *)
+  Definition inv γ1 γ2 γ3 (z i:VMID) :=
+    ((∃ w0 w1, <<z>>  ∗ tokI γ1 ∗ tokI γ3 ∗ R0 @@ z ->r w0 ∗ R1 @@ z ->r w1) ∨
+     (<<z>> ∗ tokI γ2 ∗ R0 @@ z ->r yield_I ∗ R1 @@ z ->r (encode_vmid i)) ∨
+     (<<i>> ∗ tokI γ1 ∗ tokI γ2 ∗ R0 @@ z ->r run_I ∗ R1 @@ z ->r (encode_vmid i)))%I.
 
-  Lemma mach_zero {γ1 z i q1 prog1page r0_ r1_} :
+  Lemma mach_zero {γ1 γ2 γ3 z i q1 prog1page} :
       fin_to_nat z = 0 ->
       z ≠ i ->
       seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
       program (program1 i) (of_pid prog1page) ∗
-      nainv invN (inv γ1 z i) ∗ tokI γ1 ∗
+      nainv invN (inv γ1 γ2 γ3 z i) ∗ tokI γ2 ∗
       nainv_closed ⊤ ∗
       A@z :={q1} prog1page
       ∗ PC @@ z ->r (of_pid prog1page)
-      ∗ R0 @@ z ->r r0_
-      ∗ R1 @@ z ->r r1_
       ⊢ (WP ExecI @ z
             {{ (λ m, ⌜m = HaltI⌝
-            ∗ nainv_closed ⊤
+            ∗ nainv_closed ⊤ ∗ tokI γ3
             ∗ program (program1 i) (of_pid prog1page)
             ∗ A@z :={q1} prog1page
-            ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f
-            ∗ R0 @@ z ->r run_I
-            ∗ R1 @@ z ->r (encode_vmid i)) }}%I).
+            ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f)}}%I).
   Proof.
-    iIntros (zP neH HIn) "((p_1 & p_2 & p_3 & p_4 & _) & #Hinv  & Hgtok & Hown & Hacc & PCz & R0z &R1z)".
+    iIntros (zP neH HIn) "((p_1 & p_2 & p_3 & p_4 & _) & #Hinv  & Hgtok2 & Hown & Hacc & PCz )".
     apply seq_in_page_forall in HIn.
     (* mov_word_I R0 run_I *)
     rewrite wp_sswp.
-    (* iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑invN) ⊤). *)
     iApply (sswp_fupd_around z ⊤ ⊤ ⊤).
-    iMod (na_inv_acc with "Hinv Hown") as "(>S & Hown & HClose)";auto.
+    iMod (na_inv_acc with "Hinv Hown") as "(>[HInv | [[Htok [Hgtok2' ?]] | (Htok & Hgtok1' & Hgtok2' & ?)]] & Hown & HClose)";auto.
     iModIntro.
-    iDestruct "S" as "[Htok | [Htok Hgtok2] ]".
+    iDestruct "HInv" as (w0 w1) "( Htok & Hgtok1' & Hgtok3' & R0z & R1z )".
     2: {
       iExFalso.
-      iApply (tokI_excl with "Hgtok Hgtok2").
+      iApply (tokI_excl with "Hgtok2 Hgtok2'").
+    }
+    2: {
+    iExFalso.
+      iApply (tokI_excl with "Hgtok2 Hgtok2'").
     }
     iDestruct
       ((mov_word (of_pid prog1page) run_I R0) with "[Htok p_1 PCz Hacc R0z]") as "J";eauto.
@@ -95,22 +95,9 @@ Section RunYield1.
     iApply "J".
     iNext.
     iIntros "(Htok & PCz & p_1 & Hacc & R0z)".
-    (* iDestruct ("HClose" with "[Htok]") as "HClose". *)
-    (* iNext. *)
-    (* iLeft. *)
-    (* iFrame. *)
-    (* iMod "HClose" as %_. *)
     iModIntro.
     (* mov_word_I R1 (encode_vmid i) *)
     rewrite wp_sswp.
-    (* iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑invN) ⊤). *)
-    (* iInv invN as ">S" "HClose". *)
-    (* iModIntro. *)
-    (* iDestruct "S" as "[Htok | [Htok Hgtok2] ]". *)
-    (* 2: { *)
-    (*   iExFalso. *)
-    (*   iApply (tokI_excl with "Hgtok Hgtok2"). *)
-    (* } *)
     iDestruct
       ((mov_word ((of_pid prog1page) ^+ 1)%f  (encode_vmid i) R1)
          with "[Htok p_2 PCz Hacc R1z]") as "J"; eauto.
@@ -120,22 +107,8 @@ Section RunYield1.
     iApply "J".
     iNext.
     iIntros "(Htok & PCz & p_2 & Hacc & R1z)".
-    (* iDestruct ("HClose" with "[Htok]") as "HClose". *)
-    (* iNext. *)
-    (* iLeft. *)
-    (* iFrame. *)
-    (* iMod "HClose" as %_. *)
-    (* iModIntro. *)
     (* hvc_I *)
     rewrite wp_sswp.
-    (* iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑invN) ⊤). *)
-    (* iInv invN as ">S" "HClose". *)
-    (* iModIntro. *)
-    (* iDestruct "S" as "[Htok | [Htok Hgtok2] ]". *)
-    (* 2: { *)
-    (*    iExFalso. *)
-    (*   iApply (tokI_excl with "Hgtok Hgtok2"). *)
-    (* } *)
     iDestruct
       ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f)
          with "[Htok PCz p_3 Hacc R0z R1z]") as "J"; eauto.
@@ -147,37 +120,42 @@ Section RunYield1.
     iApply "J".
     iNext.
     iIntros "(Htok & PCz & p_3 & Hacc & R0z & R1z)".
-    iDestruct ("HClose" with "[Htok Hgtok Hown]") as "Hown".
+    iDestruct ("HClose" with "[Htok Hgtok1' Hgtok2 R0z R1z Hown]") as "Hown".
     iFrame.
     iNext.
     iRight.
+    iRight.
     iFrame.
-    (* iModIntro. *)
     (* halt_I *)
     rewrite wp_sswp.
-    (* iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑invN) ⊤). *)
     iApply (sswp_fupd_around z ⊤ ⊤ ⊤).
     iMod "Hown".
-    iMod (na_inv_acc with "Hinv Hown") as "(>S & Hown & HClose)";auto.
-    (* iInv invN as ">S" "HClose". *)
+    iMod (na_inv_acc with "Hinv Hown") as "(>[HInv | [ (Htok & Hrest) | [Htok [Hgtok2 Hrest]]]] & Hown & HClose)";auto.
     iModIntro.
-    iDestruct "S" as "[Htok | [Htok Hgtok2] ]".
+    1: {
+      iDestruct "HInv" as (? ?) "(_ & Hgtok1' & Hgtok3 & _ )".
+      iExFalso.
+      iApply (tokI_excl with "Hgtok3 Hgtok3'").
+    }
     2: {
       iDestruct (eliminate_wrong_token) as "J".
       assert (Hne: i ≠ z). { intro.  apply neH. symmetry. done. }
       apply Hne.
       iApply ("J" with "Htok").
+      iModIntro.
       iNext.
       iIntros "(Htok & HFALSE)".
-      iDestruct ("HClose" with "[Htok Hgtok2 Hown]") as "Hown".
+      iDestruct ("HClose" with "[Htok Hgtok2 Hrest Hown]") as "Hown".
       iFrame.
     iNext.
+    iRight.
     iRight.
     iFrame.
     iModIntro.
     iExFalso.
     done.
     }
+    iModIntro.
     iDestruct
       ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f)
          with "[Htok PCz p_4 Hacc]") as "J"; eauto.
@@ -187,7 +165,10 @@ Section RunYield1.
     iApply "J".
     iNext.
     iIntros "(Htok & PCz & p_4 & Hacc )".
-    iDestruct ("HClose" with "[Htok Hown]") as "Hown".
+    iDestruct ("HClose" with "[Htok Hrest Hown]") as "Hown".
+    iFrame.
+    iNext.
+    iRight;iLeft.
     iFrame.
     iMod "Hown".
     iModIntro.
@@ -203,41 +184,61 @@ Section RunYield1.
     iSplitL;done.
   Qed.
 
-    Lemma mach_i {γ1 z i q1 prog2page r0_} :
+    Lemma mach_i {γ1 γ2 γ3 z i q1 prog2page r0_} :
       fin_to_nat z = 0 ->
       z ≠ i ->
       seq_in_page (of_pid prog2page) (length program2) prog2page ->
       program program2 (of_pid prog2page) ∗
-      inv γ1 z i ∗
+      nainv invN (inv γ1 γ2 γ3 z i) ∗
+      nainv_closed ⊤ ∗
       A@i :={q1} prog2page
       ∗ PC @@ i ->r (of_pid prog2page)
       ∗ R0 @@ i ->r r0_
       ⊢ (WP ExecI @ i
-            {{ (λ m, ⌜m = HaltI⌝
+            {{ (λ m, ⌜m = ExecI⌝
+            ∗ nainv_closed ⊤
             ∗ program (program1 i) (of_pid prog2page)
             ∗ A@i :={q1} prog2page
             ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
             ∗ R0 @@ i ->r yield_I)}}%I).
   Proof.
-    iIntros (zP neH HIn) "((p_1 & p_2) & #Hinv & Hacc & PCi & R0i)".
+    iIntros (zP neH HIn) "((p_1 & p_2 & _) & #Hinv & Hown & Hacc & PCi & R0i)".
     apply seq_in_page_forall in HIn.
     (* mov_word_I R0 yield_I *)
     rewrite wp_sswp.
-    iApply (sswp_fupd_around i ⊤ (⊤ ∖ ↑invN) ⊤).
-    iInv invN as ">S" "HClose".
+    iApply (sswp_fupd_around i ⊤ ⊤ ⊤).
+    iMod (na_inv_acc with "Hinv Hown") as "(>[HInv | [[Htok Hrest] | (Htok & Hgtok1 & Hgtok2 & R0z & R1z)]] & Hown & HClose)";auto.
     iModIntro.
-    iDestruct "S" as "[Htok | [Htok Hgtok2] ]".
-    1: {
-       iDestruct (eliminate_wrong_token) as "J".
+    1: { iDestruct "HInv" as (w0 w1) "( Htok & Hrest )".
+         iDestruct (eliminate_wrong_token) as "J".
       apply neH.
       iApply ("J" with "Htok").
-      iNext.
+      iModIntro.
       iIntros "(Htok & HFALSE)".
-      iDestruct ("HClose" with "[Htok]") as "HClose".
+      iDestruct ("HClose" with "[Htok Hrest Hown ]") as "HClose".
+      iFrame.
     iNext.
     iLeft.
+    iExists w0, w1.
     iFrame.
-    iMod "HClose" as %_.
+    iMod "HClose".
+    iModIntro.
+    iExFalso.
+    done.
+      }
+    1: {
+    iDestruct (eliminate_wrong_token) as "J".
+      apply neH.
+      iApply ("J" with "Htok").
+      iModIntro.
+      iNext.
+      iIntros "(Htok & HFALSE)".
+      iDestruct ("HClose" with "[Htok Hrest Hown ]") as "HClose".
+      iFrame.
+    iNext.
+    iRight;iLeft.
+    iFrame.
+    iMod "HClose".
     iModIntro.
     iExFalso.
     done.
@@ -248,69 +249,102 @@ Section RunYield1.
     by rewrite decode_encode_instruction.
     by inversion HIn.
     iApply "J".
+    iModIntro.
     iNext.
-    iIntros "(Htok & PCz & p_1 & Hacc & R0i)".
-    iDestruct ("HClose" with "[Htok Hgtok2]") as "HClose".
-    iNext.
-    iRight.
-    iFrame.
-    iMod "HClose" as %_.
+    iIntros "(Htok & PCi & p_1 & Hacc & R0i)".
     iModIntro.
     (* hvc_I *)
     rewrite wp_sswp.
-    iApply (sswp_fupd_around i ⊤ (⊤ ∖ ↑invN) ⊤).
-    iInv invN as ">S" "HClose".
+    iDestruct
+      ((yield ((of_pid prog2page) ^+ 1) %f)
+         with "[Htok PCi p_2 Hacc R0i R0z R1z]") as "J"; eauto.
+    4: { iFrame. }
+    by rewrite decode_encode_instruction.
+    by inversion HIn;inversion H4.
+    by rewrite decode_encode_hvc_func.
+    iApply "J".
+    iNext.
+    iIntros "(Htok & PCi & p_2 & Hacc & R0i & R0z & R1z)".
+    iDestruct ("HClose" with "[Htok Hgtok2 R0z R1z Hown]") as "Hown".
+    iFrame.
+    iNext.
+    iRight;iLeft.
+    iFrame.
+    rewrite wp_sswp.
+    iApply (sswp_fupd_around i ⊤ ⊤ ⊤).
+    iMod "Hown".
+    iMod (na_inv_acc with "Hinv Hown") as "(>[HInv | [[Htok Hrest] | (Htok & Hgtok1' & Hrest)]] & Hown & HClose)";auto.
     iModIntro.
-    iDestruct "S" as "[Htok | [Htok Hgtok2] ]".
-   1: {
-       iDestruct (eliminate_wrong_token) as "J".
+    1: { iDestruct "HInv" as (w0 w1) "( Htok & Hrest )".
+         iDestruct (eliminate_wrong_token) as "J".
       apply neH.
       iApply ("J" with "Htok").
-      iNext.
+      iModIntro.
       iIntros "(Htok & HFALSE)".
-      iDestruct ("HClose" with "[Htok]") as "HClose".
+      iDestruct ("HClose" with "[Htok Hrest Hown ]") as "HClose".
+      iFrame.
     iNext.
     iLeft.
+    iExists w0, w1.
     iFrame.
-    iMod "HClose" as %_.
+    iMod "HClose".
+    iModIntro.
+    iExFalso.
+    done.
+      }
+    1: {
+    iDestruct (eliminate_wrong_token) as "J".
+      apply neH.
+      iApply ("J" with "Htok").
+      iModIntro.
+      iNext.
+      iIntros "(Htok & HFALSE)".
+      iDestruct ("HClose" with "[Htok Hrest Hown ]") as "HClose".
+      iFrame.
+    iNext.
+    iRight;iLeft.
+    iFrame.
+    iMod "HClose".
     iModIntro.
     iExFalso.
     done.
     }
-    (* iDestruct *)
-    (*   ((yield ((of_pid prog1page) ^+ 1) %f) *)
-    (*      with "[Htok PCz p_3 Hacc R0z R1z]") as "J"; eauto. *)
-   (* TODO: need R0z and R1z *)
+    1: {
+      iExFalso.
+      iApply (tokI_excl with "Hgtok1 Hgtok1'").
+    }
+Qed.
 
 
 
-
-  Lemma spec1 {γ1 γ2 z i q1 q2 prog1page prog2page r0_} :
+  Lemma spec1 {γ1 γ2 γ3 z i q1 q2 prog1page prog2page r0_} :
       fin_to_nat z = 0 ->
       z ≠ i ->
+      prog1page ≠ prog2page ->
+      seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
+      seq_in_page (of_pid prog2page) (length program2) prog2page ->
       program (program1 i) (of_pid prog1page) ∗
       program (program2) (of_pid prog2page) ∗
-      inv γ1 γ2 z i ∗ tokI γ1 ∗ tokI γ2 ∗
-      A@z :={q1} prog1page ∗ A@i :={q2} prog2page
-      ∗ PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page)
-      ∗ R0 @@ z ->r r0_
-      ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝) }}%I)
-       ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝) }}%I).
+      nainv invN (inv γ1 γ2 γ3 z i) ∗ tokI γ2 ∗
+      nainv_closed ⊤ ∗
+      A@z :={q1} prog1page ∗ A@i :={q2} prog2page ∗
+      PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page) ∗
+      R0 @@ i ->r r0_
+        ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝
+            ∗ nainv_closed ⊤ ∗ tokI γ3
+            ∗ program (program1 i) (of_pid prog1page)
+            ∗ A@z :={q1} prog1page
+            ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f) }}%I)
+       ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝
+            ∗ nainv_closed ⊤
+            ∗ program (program1 i) (of_pid prog2page)
+            ∗ A@i :={q1} prog2page
+            ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
+            ∗ R0 @@ i ->r yield_I) }}%I).
   Proof.
-    iIntros (zP neH) "((p_1 & p_2 & p_3 & p_4 & _) & (p_1' & p_2' & _) & #Hinv & Hgtok1 & Hgtok2 & Hacc1 & Hacc2 & PCz & PCi & Hr0_)".
-    iSplitL "p_1 p_2 p_3 p_4 Hgtok2 Hacc1 PCz Hr0_".
-    - rewrite wp_sswp.
-      iApply (sswp_fupd_around ⊤ ⊤ ⊤).
-      iInv invN as ">S" "HClose".
-      iDestruct "S" as "[S | S]".
-      + iDestruct ((@mov_word _ _ (Mov R0 (inl run_I)) z (mov_word_I R0 run_I) r0_ q1 (of_pid prog1page) run_I R0) with "[> S]") as "J"; eauto.
-        * by rewrite decode_encode_instruction.          
-        * admit.
-        * admit.
-      + iDestruct "S" as "(Hgtok & Htok)".
-        iExFalso.
-        iApply (tokI_excl with "Hgtok2 Hgtok").
-    - admit.
-Admitted.
+    iIntros (Z Hvne Hpne HInz HIni) "(Hprogz & Hprogi & #Hinv &  Hgtok2 & Hown & Haccz & Hacci & PCz & PCi & R0i)".
+ Admitted.
 
+  (* XXX: na_invariants can only be opened by a single thread, so we have to switch back to regular invariants... *)
+  (* we may need a new wp... *)
 End RunYield1.
