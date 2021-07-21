@@ -82,7 +82,7 @@ From HypVeri Require Import RAs.
   Lemma get_reg_gmap_lookup_None σ i r : (get_reg_gmap σ) !! (r,i)= None <->  get_vm_reg_file σ i !! r = None.
     Proof.
       split.
-      - destruct (get_vm_reg_file σ i !! r) eqn:Heqn;[|done].
+      - destruct (get_vm_reg_file σ i !! r) as [w|]  eqn:Heqn;[|done].
         intro HNone.
         apply not_elem_of_list_to_map_2 in HNone.
         exfalso.

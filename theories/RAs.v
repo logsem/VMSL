@@ -43,7 +43,6 @@ From HypVeri Require Export lang machine.
                       gen_hpool_name : gname;
                       gen_retri_name : gname
                     }.
-
 Global Arguments gen_nainv_name {Σ} _.
 (* Global Arguments gen_num_name {Σ} _. *)
 Global Arguments gen_token_name {Σ} _.
@@ -312,6 +311,11 @@ Section definitions.
   Definition retri_mapsto_aux : seal (@retri_mapsto_def). Proof. by eexists. Qed.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
   Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
+
+
+  Definition nainv_closed E := na_own (gen_nainv_name vmG) E.
+
+  Definition nainv γ P := na_inv (gen_nainv_name vmG) γ P.
 
 End definitions.
 

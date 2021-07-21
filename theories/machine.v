@@ -18,9 +18,9 @@ Proof.
   by compute.
 Qed.
 
-Definition Word := (finz word_size).
+Notation Word := (finz word_size).
 
-Definition Addr : Type := Word.
+Notation Addr := Word.
 
 Inductive PID: Type :=
 | P (z : Addr) (align: (Z.rem z page_size = 0)%Z) .
