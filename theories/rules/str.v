@@ -8,14 +8,14 @@ Section str.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma str {instr i w1 w2 w3 q s prx} ai a ra rb :
+Lemma str {instr i qi w1 w2 w3 q s prx} ai a ra rb :
   instr = Str ra rb ->
   decode_instruction w1 = Some(instr) ->
   ai ≠ a ->
   prx ≠ (to_pid_aligned a) ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a) ∗ ▷ (a ->a w3) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (RX@ i := prx)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+  {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a) ∗ ▷ (a ->a w3) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (RX@ i := prx)}}} ExecI @ i
+                                  {{{ RET ExecI; <<i>>{ qi } ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                                       ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ∗ RX@i := prx }}}.
 Proof.
   iIntros (Hinstr Hdecode Hneqaia Hnotrx Hs ϕ) "(? & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra & >HRX) Hϕ".
@@ -79,7 +79,7 @@ Proof.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
 
-
+(* TODO: add token*)
 Lemma str_error {instr i w1 w2 w3 s p} ai a ra rb :
   instr = Str ra rb ->
   decode_instruction w1 = Some(instr) ->

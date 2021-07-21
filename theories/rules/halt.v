@@ -7,16 +7,16 @@ Section halt.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma halt {E instr i w1 q p} ai :
+Lemma halt {E instr i qi w1 q p} ai :
   instr = Halt ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page ai p ->
-  {SS{{ ▷ (<<i>>)
+  {SS{{ ▷ (<<i>>{ qi })
           ∗ ▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@i:={q} p)}}}
     ExecI @ i ;E
- {{{ RET HaltI; <<i>>
+ {{{ RET HaltI; <<i>>{ qi }
                   ∗ PC @@ i ->r (ai ^+ 1)%f
                   ∗ ai ->a w1
                   ∗ A@i:={q} p }}}.

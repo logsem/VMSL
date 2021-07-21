@@ -14,14 +14,14 @@ Lemma run {z i w1 w2 w3 q p E} ai :
   fin_to_nat z = 0 -> 
   decode_hvc_func w2 = Some Run ->
   decode_vmid w3 = Some i ->
-  {SS{{ ▷ (<<z>>)
+  {SS{{ ▷ (<<z>>{ 1%Qp })
           ∗ ▷ (PC @@ z ->r ai)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@z :={q} p)
           ∗ ▷ (R0 @@ z ->r w2)
           ∗ ▷ (R1 @@ z ->r w3)}}}
     ExecI @ z ;E
-    {{{ RET ExecI; <<i>>
+    {{{ RET ExecI; <<i>>{ 1%Qp }
                      ∗ PC @@ z ->r (ai ^+ 1)%f
                      ∗ ai ->a w1
                      ∗ A@z :={q} p
@@ -67,7 +67,7 @@ Proof.
     rewrite_reg_all.
     iFrame.
     iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
-    iDestruct (token_update (get_current_vm σ1) i with "Htok") as "HtokUpd".
+    iDestruct (token_update (get_current_vm σ1) (get_current_vm σ1) i with "Htok") as "HtokUpd".
     rewrite token_agree_eq /token_agree_def.
     iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
     rewrite /get_current_vm /update_current_vmid /update_incr_PC.

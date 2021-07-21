@@ -8,15 +8,15 @@ Section ldr.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma ldr {instr i w1 w2 w3 q s p} ai a ra rb :
+Lemma ldr {instr i qi w1 w2 w3 q s p} ai a ra rb :
   instr = Ldr ra rb ->
   decode_instruction w1 = Some(instr) ->
   ai ≠ a ->
   (to_pid_aligned a) ≠ p ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
-  {SS{{ ▷ (TX@ i := p) ∗ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
+  {SS{{ ▷ (TX@ i := p) ∗ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
           ∗ ▷ (a ->a w2) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
-                                  {{{ RET ExecI; TX@ i := p ∗ <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+                                  {{{ RET ExecI; TX@ i := p ∗ <<i>>{ qi} ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                                       ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 }}}.
 Proof.
   iIntros (Hinstr Hdecode Hneqaia Hmm Hs ϕ) "(>Htx & >Htok & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra ) Hϕ".
@@ -79,7 +79,7 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
 
-
+(* TODO: add token*)
 Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
   instr = Ldr ra rb ->
   decode_instruction w1 = Some(instr) ->

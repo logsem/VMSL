@@ -8,15 +8,15 @@ Section mov.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma mov_word {E instr i w1 w3 q p} a w2 ra :
+Lemma mov_word {E instr i qi w1 w3 q p} a w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page a p ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r a)
+  {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r a)
           ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} p)
           ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
-  {{{ RET ExecI; <<i>>
+  {{{ RET ExecI; <<i>>{ qi }
                    ∗ PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
                    ∗ A@i:={q} p
@@ -69,16 +69,16 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-Lemma mov_reg {E instr i w1 w3 q p} a w2 ra rb :
+Lemma mov_reg {E instr i qi w1 w3 q p} a w2 ra rb :
   instr = Mov ra (inr rb)->
   decode_instruction w1 = Some(instr) ->
   addr_in_page a p ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r a)
+  {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r a)
           ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} p)
           ∗ ▷ (ra @@ i ->r w2)
           ∗ ▷ (rb @@ i ->r w3) }}}
     ExecI @ i ;E
-  {{{ RET ExecI; <<i>>
+  {{{ RET ExecI; <<i>>{ qi }
                    ∗ PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
                    ∗ A@i:={q} p

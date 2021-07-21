@@ -14,7 +14,7 @@ Lemma yield {E z i w1 w2 a_ b_ q p} ai :
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  {SS{{ ▷ (<<i>>)
+  {SS{{ ▷ (<<i>>{ 1%Qp })
           ∗ ▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@i :={q} p)
@@ -22,7 +22,7 @@ Lemma yield {E z i w1 w2 a_ b_ q p} ai :
           ∗ ▷ (R0 @@ z ->r a_)
           ∗ ▷ (R1 @@ z ->r b_)}}}
     ExecI @ i;E
-    {{{ RET ExecI; <<z>>
+    {{{ RET ExecI; <<z>>{ 1%Qp }
                      ∗ PC @@ i ->r (ai ^+ 1)%f
                      ∗ ai ->a w1
                      ∗ A@i :={q} p
@@ -89,7 +89,7 @@ Proof.
         apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto.
         iDestruct "Hr12pc" as "(? & ? & ? & _)".
-        iDestruct (token_update (get_current_vm σ1) z with "Htok") as "HtokUpd".
+        iDestruct (token_update (get_current_vm σ1) (get_current_vm σ1) z with "Htok") as "HtokUpd".
         rewrite token_agree_eq /token_agree_def.
         iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
         rewrite /get_current_vm /update_current_vmid /update_incr_PC.

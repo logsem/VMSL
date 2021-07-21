@@ -103,9 +103,9 @@ Proof.
       inversion H.
 Qed.
 
-Lemma eliminate_wrong_token {i j E} :
+Lemma eliminate_wrong_token {i j q E} :
   j ≠ i ->
-  {SS{{ ▷ (<<j>>)}}} ExecI @ i ; E {{{ RET ExecI ; <<j>> ∗ False }}}.
+  {SS{{ ▷ (<<j>>{ q })}}} ExecI @ i ; E {{{ RET ExecI ; <<j>>{ q } ∗ False }}}.
 Proof.
   iIntros (Hne Φ ) "> Htok HΦ".
   iApply (sswp_lift_atomic_step ExecI) ;[done|].

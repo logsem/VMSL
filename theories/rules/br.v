@@ -11,11 +11,12 @@ Context `{vmG: !gen_VMG Σ}.
 Lemma br {instr i w1 w2 q} ai  ra :
   instr = Br ra ->
   decode_instruction w1 = Some(instr) ->
+  addr_in_page ai (to_pid_aligned ai) ->
   {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
                                   {{{ RET ExecI; <<i>> ∗ PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
                        ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
-  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc) Hϕ".
+  iIntros (Hinstr Hdecode HIn ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -30,7 +31,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid2 σ1 i PC ai ra w2 Hcur HneqPCa) with "Hreg Hpc Hra") as "[%HPC %Hra]";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  iDestruct ((gen_access_valid_addr ai) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.
