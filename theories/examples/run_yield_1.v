@@ -51,12 +51,12 @@ Section RunYield1.
   Definition invN := nroot .@ "tok".
 
   Definition na_inv γ1 γ2 γ3 (z i:VMID) :=
-    ((∃ w0 w1, <<z>>{ (1/2)%Qp }  ∗ tokI γ1 ∗ tokI γ3 ∗ R0 @@ z ->r w0 ∗ R1 @@ z ->r w1) ∨
-     (<<z>>{ (1/2)%Qp } ∗ tokI γ2 ∗ R0 @@ z ->r yield_I ∗ R1 @@ z ->r (encode_vmid i)) ∨
-     (<<i>>{ (1/2)%Qp } ∗ tokI γ1 ∗ tokI γ2 ∗ R0 @@ z ->r run_I ∗ R1 @@ z ->r (encode_vmid i)))%I.
+    ((∃ w0 w1,   tokI γ1 ∗ tokI γ3 ∗ R0 @@ z ->r w0 ∗ R1 @@ z ->r w1) ∨
+     ( tokI γ2 ∗ R0 @@ z ->r yield_I ∗ R1 @@ z ->r (encode_vmid i)) ∨
+     ( tokI γ1 ∗ tokI γ2 ∗ R0 @@ z ->r run_I ∗ R1 @@ z ->r (encode_vmid i)))%I.
 
   Definition inv' :=
-    ( (∃ i, <<i>>{ (1/2)%Qp } )∨ nainv_closed ⊤ )%I.
+    ( (∃ i, <<i>>{ (1/2)%Qp }) ∨ nainv_closed ⊤ )%I.
 
   Lemma mach_zero {γ1 γ2 γ3 z i q1 prog1page ι ι1} :
       ι ## ι1 ->
@@ -97,9 +97,9 @@ Section RunYield1.
     iModIntro.
     (* mov_word_I R0 run_I *)
     iApply (sswp_fupd_around z ⊤ ⊤ _).
-    iMod (na_inv_acc with "Hnainv Hown") as "(>[HInv | [[Htok'' [Hgtok2' ?]] | (Htok'' & Hgtok1' & Hgtok2' & ?)]] & Hown & HClose)";auto.
+    iMod (na_inv_acc with "Hnainv Hown") as "(>[HInv | [[Hgtok2' ?] | ( Hgtok1' & Hgtok2' & ?)]] & Hown & HClose)";auto.
     (* set_solver. *)
-    iDestruct "HInv" as (w0 w1) "( Htok' & Hgtok1' & Hgtok3' & R0z & R1z )".
+    iDestruct "HInv" as (w0 w1) "(  Hgtok1' & Hgtok3' & R0z & R1z )".
     2: {
       iExFalso.
       iApply (tokI_excl with "Hgtok2 Hgtok2'").
@@ -132,8 +132,11 @@ Section RunYield1.
     iIntros "(Htok & PCz & p_2 & Hacc & R1z)".
     (* hvc_I *)
     rewrite wp_sswp.
+    (* XXX:  to apply the rule for hvc run, a full token has to be provided. But to get it we need to
+       close the na_inv and open the invariant. But after closing na_inv, we would lose the registers...
+     *)
     iDestruct
-      ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f)
+      ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f i)
          with "[Htok Htok' PCz p_3 Hacc R0z R1z]") as "J"; eauto.
     5: { iFrame. iNext. iApply ((token_frag_merge z (1/2)%Qp (1/2)%Qp) with "Htok Htok'"). compute_done. }
     by rewrite decode_encode_instruction.
@@ -179,10 +182,6 @@ Section RunYield1.
     iExFalso.
     done.
     }
-    (* XXX: we cannot continue since we have
-       "Htok'" : <<i>>{1 / 2 }
-       "Htok" : <<z>>{1 / 2 }
-     *)
     iModIntro.
     iDestruct
       ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f)
