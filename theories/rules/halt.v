@@ -7,21 +7,19 @@ Section halt.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma halt {E instr i qi w1 q p} ai :
+Lemma halt {E instr i w1 q p} ai :
   instr = Halt ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page ai p ->
-  {SS{{ ▷ (<<i>>{ qi })
-          ∗ ▷ (PC @@ i ->r ai)
+  {SS{{▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@i:={q} p)}}}
     ExecI @ i ;E
- {{{ RET HaltI; <<i>>{ qi }
-                  ∗ PC @@ i ->r (ai ^+ 1)%f
+ {{{ RET HaltI;  PC @@ i ->r (ai ^+ 1)%f
                   ∗ ai ->a w1
                   ∗ A@i:={q} p }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hinstr Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.

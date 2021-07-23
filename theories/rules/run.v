@@ -8,7 +8,7 @@ Section run.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma run {z i w1 w2 w3 q p E} ai :
+Lemma run {z w1 w2 w3 q p E} ai i :
   decode_instruction w1 = Some Hvc ->
   addr_in_page ai p ->
   fin_to_nat z = 0 -> 
