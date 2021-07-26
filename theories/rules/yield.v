@@ -73,9 +73,9 @@ Proof.
       }
       rewrite <-Hzeq.
       simpl.
-      rewrite /gen_vm_interp.
-      rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_hpool update_current_vmid_preserve_receivers.
-      rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_hpool update_offset_PC_preserve_receivers.
+      rewrite /gen_vm_interp /update_incr_PC.
+      rewrite_vmid_all.
+      rewrite_reg_all.
       iFrame.
       iDestruct (gen_reg_update_Sep σ1
                   {[(R0, z):= a_;

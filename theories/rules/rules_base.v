@@ -13,6 +13,7 @@ Ltac rewrite_reg_all :=
     try rewrite -> update_offset_PC_preserve_rx ; try rewrite  -> update_reg_global_preserve_rx;
     try rewrite -> update_offset_PC_preserve_owned  ; try rewrite -> update_reg_global_preserve_owned;
     try rewrite -> update_offset_PC_preserve_access  ; try rewrite -> update_reg_global_preserve_access;
+    try rewrite -> update_offset_PC_preserve_excl  ; try rewrite -> update_reg_global_preserve_excl;
     try rewrite -> update_offset_PC_preserve_trans  ; try rewrite -> update_reg_global_preserve_trans;
     try rewrite -> update_offset_PC_preserve_hpool  ; try rewrite -> update_reg_global_preserve_hpool;
     try rewrite -> update_offset_PC_preserve_receivers  ; try rewrite -> update_reg_global_preserve_receivers
@@ -23,14 +24,33 @@ Ltac rewrite_mem_all :=
   match goal with
   | |- _ =>
     try rewrite -> update_memory_unsafe_preserve_current_vm;
+    try rewrite -> update_memory_unsafe_preserve_reg;
     try rewrite -> update_reg_global_preserve_mem;
     try rewrite -> update_memory_unsafe_preserve_tx;
     try rewrite -> update_memory_unsafe_preserve_rx;
     try rewrite -> update_memory_unsafe_preserve_owned;
     try rewrite -> update_memory_unsafe_preserve_access;
+    try rewrite -> update_memory_unsafe_preserve_excl;
     try rewrite -> update_memory_unsafe_preserve_trans;
+    try rewrite -> update_memory_unsafe_preserve_hpool;
     try rewrite -> update_memory_unsafe_preserve_receivers
   end.
+
+Ltac rewrite_vmid_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_current_vmid_preserve_reg;
+    try rewrite -> update_current_vmid_preserve_mem;
+    try rewrite -> update_current_vmid_preserve_tx;
+    try rewrite -> update_current_vmid_preserve_rx;
+    try rewrite -> update_current_vmid_preserve_owned;
+    try rewrite -> update_current_vmid_preserve_access;
+    try rewrite -> update_current_vmid_preserve_excl;
+    try rewrite -> update_current_vmid_preserve_trans;
+    try rewrite -> update_current_vmid_preserve_hpool;
+    try rewrite -> update_current_vmid_preserve_receivers
+  end.
+
 
 Ltac solve_reg_lookup :=
   match goal with

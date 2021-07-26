@@ -61,16 +61,15 @@ Proof.
     destruct Hstep as [Hstep1 Hstep2].
     simplify_eq.
     simpl.
-    rewrite /gen_vm_interp.
-    rewrite update_current_vmid_preserve_mem update_current_vmid_preserve_reg update_current_vmid_preserve_tx update_current_vmid_preserve_rx update_current_vmid_preserve_owned update_current_vmid_preserve_access update_current_vmid_preserve_trans update_current_vmid_preserve_hpool update_current_vmid_preserve_receivers.
-    rewrite update_offset_PC_preserve_mem update_offset_PC_preserve_tx update_offset_PC_preserve_rx update_offset_PC_preserve_owned update_offset_PC_preserve_access update_offset_PC_preserve_trans update_offset_PC_preserve_hpool update_offset_PC_preserve_receivers.
+    rewrite /gen_vm_interp /update_incr_PC.
+    rewrite_vmid_all.
     rewrite_reg_all.
     iFrame.
     iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
     iDestruct (token_update (get_current_vm σ1) (get_current_vm σ1) i with "Htok") as "HtokUpd".
     rewrite token_agree_eq /token_agree_def.
     iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
-    rewrite /get_current_vm /update_current_vmid /update_incr_PC.
+    rewrite /get_current_vm /update_current_vmid.
     simpl.
     rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
     + iMod "HpcUpd".

@@ -450,6 +450,37 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
+  Lemma update_current_vmid_preserve_excl σ i : get_excl_gmap (update_current_vmid σ i) =
+                                               (get_excl_gmap σ).
+  Proof.
+    rewrite /get_excl_gmap.
+    f_equal.
+  Qed.
+
+  Lemma update_reg_global_preserve_excl σ i r w : get_excl_gmap (update_reg_global σ i r w) =
+                                               (get_excl_gmap σ).
+  Proof.
+    rewrite /get_excl_gmap.
+    f_equal.
+  Qed.
+
+  Lemma update_offset_PC_preserve_excl σ o : get_excl_gmap (update_offset_PC σ o) = get_excl_gmap σ.
+  Proof.
+    unfold update_offset_PC.
+    destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+    rewrite /update_reg update_reg_global_preserve_excl;done.
+    done.
+  Qed.
+
+
+  Lemma update_memory_unsafe_preserve_excl σ a w : get_excl_gmap (update_memory_unsafe σ a w) =
+                                               (get_excl_gmap σ).
+  Proof.
+    rewrite /get_excl_gmap.
+    f_equal.
+  Qed.
+
+
   Lemma update_current_vmid_preserve_trans σ i : get_trans_gmap (update_current_vmid σ i) =
                                                (get_trans_gmap σ).
   Proof.
@@ -502,6 +533,12 @@ From HypVeri Require Import RAs.
     done.
   Qed.
 
+  Lemma update_memory_unsafe_preserve_hpool σ a w : get_trans_gset (update_memory_unsafe σ a w) =
+                                               (get_trans_gset σ).
+  Proof.
+    rewrite /get_trans_gset.
+    f_equal.
+  Qed.
 
 
   Lemma update_current_vmid_preserve_receivers σ i : get_receivers_gmap (update_current_vmid σ i) =
