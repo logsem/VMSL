@@ -18,7 +18,7 @@ From HypVeri Require Export lang machine.
                       gen_excl_preG_inG :> inG Σ (authR (gmapUR V
                                                     (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
                       gen_trans_preG_inG :> gen_heapGpreS W (V * W* W*(gmap V (gset P))*F) Σ;
-                      gen_hpool_preG_inG :> inG Σ (frac_agreeR (gset_disjR (leibnizO W)));
+                      gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
                       gen_retri_preG_inG :> inG Σ (authR (gmapUR W (gset_disjR (leibnizO V))))
                    }.
 
@@ -77,7 +77,7 @@ Definition gen_VMΣ : gFunctors :=
       GFunctor page_table_ra;
       GFunctor page_table_ra;
       gen_heapΣ Word (VMID * Word * Word * (gmap VMID (gset PID)) * transaction_type);
-      GFunctor (frac_agreeR (gset_disjR (leibnizO Word)));
+      GFunctor (frac_authR (gset_disjR (leibnizO Word)));
       GFunctor (authR (gmapUR Word (gset_disjR (leibnizO VMID))))
    ].
 
@@ -152,7 +152,7 @@ Section definitions.
                          (p.1,((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.1.2),  trans.1.2), trans.2))
                      )  (map_to_list (get_transactions σ).1)).
   Definition get_trans_gset σ :=
-    (to_frac_agree (1/2) (GSet (get_transactions σ).2)).
+    (frac_auth_auth  (GSet (get_transactions σ).2)).
 
   Definition get_receivers_gmap σ : authR (gmapUR Word (gset_disjR (leibnizO VMID))) :=
     ● (list_to_map (map (λ (p:Word * transaction) ,
@@ -248,6 +248,12 @@ Section definitions.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
   Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
 
+  Definition hpool_mapsto_def q (s: gset_disj handle) : iProp Σ :=
+    own (gen_hpool_name vmG) (frac_auth_frag q s).
+  Definition hpool_mapsto_aux : seal (@hpool_mapsto_def). Proof. by eexists. Qed.
+  Definition hpool_mapsto := hpool_mapsto_aux.(unseal).
+  Definition hpool_mapsto_eq : @hpool_mapsto = @hpool_mapsto_def := hpool_mapsto_aux.(seal_eq).
+
 
   Definition nainv_closed E := na_own (gen_nainv_name vmG) E.
 
@@ -296,8 +302,6 @@ Notation "E@ i :={ q }[ s ] " := (excl_mapsto i (DfracOwn q) (GSet s))
 Notation "E@ i :={ q } p " := (excl_mapsto  i (DfracOwn q) (GSet {[p]}))
                                            (at level 20, format "E@ i :={ q } p "):bi_scope.
 
-
-
 (* predicates for transactions *)
 Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v x y m f)
                                                    (at level 20, format "w ->t{ q }( v , x , y , m , f )"):bi_scope.
@@ -306,6 +310,9 @@ Notation "w ->re[ s ]" := (retri_mapsto w (GSet s))
 Notation "w ->re v" := (retri_mapsto w (GSet {[v]}))
                           (at level 20, format "w ->re v"):bi_scope.
 
+(* predicates for hpool *)
+Notation "hp{ q }[ s ]" := (hpool_mapsto q s)
+                                                   (at level 20, format "hp{ q }[ s ]"):bi_scope.
 Section hyp_lang_rules.
 
   Context `{vmG :!gen_VMG Σ}.
@@ -1390,5 +1397,16 @@ Qed.
 
   Global Instance retri_mapsto_timeless w s : Timeless (w ->re[ s ]).
   Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
-  
+
+  (* predicates for descriptors *)
+
+  Definition serialized_transaction_descriptor (v r:VMID) (wf wt l : Word) (ps: list PID) (h : handle ): list Word :=
+    [(of_imm (encode_vmid v)); wf; h;wt; W1%f; l; (of_imm (encode_vmid r))]++ (map (λ pid, (of_pid pid)) ps).
+
+  Definition mem_region (instr: list Word) (b:Addr):=
+    ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
+
+  Definition transaction1 (v r:VMID) (wf wt l : Word) (rs: list VMID) (ps: list PID)  (ty: transaction_type): transaction :=
+    (v,wf,wt,(list_to_set rs),{[r := (list_to_set ps)]},ty).
+
 End hyp_lang_rules.

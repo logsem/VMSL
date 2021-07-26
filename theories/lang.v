@@ -641,12 +641,12 @@ Definition relinquish_transaction (s : state)
 
 Definition get_receivers (t : transaction) : gmap VMID (gset PID) :=
   match t with
-  | (_, _, _, m, _) => m
+  | (_, _, _, _, m, _) => m
   end.
 
 Definition get_type (t : transaction) : transaction_type :=
   match t with
-  | (_, _, _, _, ty) => ty
+  | (_, _, _, _,  _, ty) => ty
   end.
 Definition retrieve (s : state) : exec_mode * state :=
   let comp :=
