@@ -606,9 +606,10 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   in
   unpack_hvc_result_normal s comp.
 
-Definition toggle_transaction_retrieve (s : state) (h : handle) (v : VMID) : hvc_result state :=
-  match get_transaction s h with
-  | Some (vs, w1, w2, sr, vr, ty) =>
+Definition toggle_transaction_retrieve (s : state) (h : handle) (trn: transaction) : hvc_result state :=
+  let v := (get_current_vm s) in
+  match trn with
+   (vs, w1, w2, sr, vr, ty) =>
       match (vr !! v) with
       | None => throw Denied
       | _ => if decide (v ∈ sr)
@@ -616,9 +617,7 @@ Definition toggle_transaction_retrieve (s : state) (h : handle) (v : VMID) : hvc
              else unit (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
                         (<[h:=(vs, w1, w2, union sr (singleton v), vr, ty)]>(get_transactions s).1, (get_transactions s).2 ))
       end
-  | _ => throw InvParam
   end.
-
 
 Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : hvc_result state :=
   match get_transaction s h with
@@ -631,33 +630,6 @@ Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : h
              else throw Denied
     end
   | _ => throw InvParam
-  end.
-
-Definition retrieve_transaction (s : state)
-           (h : handle)
-           (type : transaction_type)
-           (receiversMap : gmap VMID (gset PID)) : hvc_result state :=
-  m <- toggle_transaction_retrieve s h (get_current_vm s) ;;;
-  l <- lift_option (receiversMap !! (get_current_vm s));;;
-  match type with
-  | Sharing =>
-    unit (set_fold (fun v' acc' =>
-                   update_page_table acc' v' (NotOwned, SharedAccess))
-                m l)
-  | Lending =>
-    (* if decide (1 < foldr (fun v acc => acc + size v) 0 receiversMap) *)
-    (* then unit (set_fold (fun v' acc' => *)
-    (*                     update_page_table acc' v' (NotOwned, SharedAccess)) *)
-    (*                  m l) *)
-    (* else *)
-    (* TODO : it is not correct *)
-      unit (set_fold (fun v' acc' =>
-                        update_page_table acc' v' (NotOwned, ExclusiveAccess))
-                     m l)
-  | Donation =>
-    unit (set_fold (fun v' acc' =>
-                   update_page_table acc' v' (Owned, ExclusiveAccess))
-                m l)
   end.
 
 Definition relinquish_transaction (s : state)
@@ -676,12 +648,33 @@ Definition get_type (t : transaction) : transaction_type :=
   match t with
   | (_, _, _, _, ty) => ty
   end.
-
 Definition retrieve (s : state) : exec_mode * state :=
   let comp :=
+ (* TODO: get the descriptor from tx and validate it *)
       handle <- lift_option (get_reg s R1) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-      retrieve_transaction s handle (get_type trn) (get_receivers trn)
+      (let gm := get_receivers trn in
+       let ty := get_type trn in
+       (* add receiver(caller) into the list of the transaction *)
+          s' <- toggle_transaction_retrieve s handle trn ;;;
+       (* for all pages of the trancation ... (change the page table of the caller according to the type)*)
+          l <- lift_option (gm !! (get_current_vm s));;;
+  match ty with
+  | Sharing =>
+    unit (set_fold (fun v' acc' =>
+                   update_page_table acc' v' (NotOwned, SharedAccess))
+                s' l)
+  | Lending =>
+    (* it is fine because we only allow at most one receiver *)
+      unit (set_fold (fun v' acc' =>
+                        update_page_table acc' v' (NotOwned, ExclusiveAccess))
+                     s' l)
+  | Donation =>
+    unit (set_fold (fun v' acc' =>
+                   update_page_table acc' v' (Owned, ExclusiveAccess))
+                s' l)
+  end)
+  (* TODO: put a descriptor into rx *)
   in
   unpack_hvc_result_normal s comp.
 

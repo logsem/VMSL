@@ -246,6 +246,12 @@ Definition is_accessible (p : permission) : bool :=
   | _ => false
   end.
 
+Definition is_exclusive (p : permission) : bool :=
+  match p with
+  | (_, ExclusiveAccess) => true
+  | _ => false
+  end.
+
 Definition is_owned (p : permission) : bool :=
   match p with
   | (Owned, _) => true

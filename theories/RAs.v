@@ -15,6 +15,8 @@ From HypVeri Require Export lang machine.
                                     (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
                       gen_access_preG_inG :> inG Σ (authR (gmapUR V
                                                     (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
+                      gen_excl_preG_inG :> inG Σ (authR (gmapUR V
+                                                    (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
                       gen_trans_preG_inG :> gen_heapGpreS W (V * W* W*(gmap V (gset P))*F) Σ;
                       gen_hpool_preG_inG :> inG Σ (frac_agreeR (gset_disjR (leibnizO W)));
                       gen_retri_preG_inG :> inG Σ (authR (gmapUR W (gset_disjR (leibnizO V))))
@@ -33,6 +35,7 @@ From HypVeri Require Export lang machine.
                       gen_rx_name : gname;
                       gen_owned_name : gname;
                       gen_access_name : gname;
+                      gen_excl_name : gname;
                       gen_trans_name : gname;
                       gen_hpool_name : gname;
                       gen_retri_name : gname
@@ -45,6 +48,7 @@ Global Arguments gen_rx_name {Σ} _.
 Global Arguments gen_tx_name {Σ} _.
 Global Arguments gen_owned_name {Σ} _.
 Global Arguments gen_access_name {Σ} _.
+Global Arguments gen_excl_name {Σ} _.
 Global Arguments gen_trans_name {Σ} _.
 Global Arguments gen_hpool_name {Σ} _.
 Global Arguments gen_retri_name {Σ} _.
@@ -55,7 +59,7 @@ Definition ra_TXBuffer :=
 Definition ra_RXBuffer :=
   (prodR ra_TXBuffer
          (optionR (gmap_viewR VMID (optionO (prodO (leibnizO Word) (leibnizO VMID)))))).
-Definition ra_Accessible:=
+Definition page_table_ra:=
   (authR (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID)))))).
 
 
@@ -69,8 +73,9 @@ Definition gen_VMΣ : gFunctors :=
       gen_heapΣ (reg_name * VMID) Word;
       GFunctor ra_TXBuffer;
       GFunctor ra_RXBuffer;
-      GFunctor (authR (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID))))));
-      GFunctor ra_Accessible;
+      GFunctor page_table_ra;
+      GFunctor page_table_ra;
+      GFunctor page_table_ra;
       gen_heapΣ Word (VMID * Word * Word * (gmap VMID (gset PID)) * transaction_type);
       GFunctor (frac_agreeR (gset_disjR (leibnizO Word)));
       GFunctor (authR (gmapUR Word (gset_disjR (leibnizO VMID))))
@@ -120,20 +125,24 @@ Section definitions.
                                       | None => (v,None)
                                     end) (list_of_vmids))): (gmap VMID (optionO (prodO (leibnizO Word) (leibnizO VMID))) )))).
 
-  Definition get_owned_gmap σ : (authR (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR PID))))) :=
+  Definition get_owned_gmap σ : page_table_ra :=
     (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
         to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
            (map_to_list (filter (λ p, (is_owned p.2) = true) (get_vm_page_table σ v)))))
                          : gset PID))))) (list_of_vmids)))).
 
 
-  Definition get_access_gmap σ : ra_Accessible :=
+  Definition get_access_gmap σ : page_table_ra :=
     (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
         to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
            (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v)))))
                          : gset PID))))) (list_of_vmids)))).
 
-  (* TODO: a new exclusive ra*)
+    Definition get_excl_gmap σ : page_table_ra :=
+    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
+        to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
+           (map_to_list (filter (λ p, (is_exclusive p.2) = true) (get_vm_page_table σ v)))))
+                         : gset PID))))) (list_of_vmids)))).
 
 
   (* TODO we need getters for transations.. *)
@@ -158,6 +167,7 @@ Section definitions.
       own (gen_rx_name vmG) ((get_rx_agree σ), (get_rx_gmap σ) )∗
       own (gen_owned_name vmG) (get_owned_gmap σ) ∗
       own (gen_access_name vmG) (get_access_gmap σ) ∗
+      own (gen_excl_name vmG) (get_excl_gmap σ) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
       own (gen_hpool_name vmG) (get_trans_gset σ) ∗
       own (gen_retri_name vmG) (get_receivers_gmap σ).
@@ -218,6 +228,13 @@ Section definitions.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
 
+    Definition excl_mapsto_def (i:VMID) dq (s: gset_disj PID) : iProp Σ :=
+    own (gen_excl_name vmG) (◯ {[i := (dq, to_agree s)]}).
+  Definition excl_mapsto_aux : seal (@excl_mapsto_def). Proof. by eexists. Qed.
+  Definition excl_mapsto := excl_mapsto_aux.(unseal).
+  Definition excl_access_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
+
+
   Definition trans_mapsto_def(wh : Word) dq (v: VMID) (wf: Word) (wt: Word) (pgs : gmap VMID (gset PID)) (fid : transaction_type) : iProp Σ :=
     own (gen_trans_name vmG) (gmap_view_frag wh dq
                           (((((v, wf) , wt), pgs), fid): (leibnizO (VMID * Word * Word * (gmap VMID (gset PID)) * transaction_type)))).
@@ -273,6 +290,12 @@ Notation "A@ i :={ q }[ s ] " := (access_mapsto i (DfracOwn q) (GSet s))
                                           (at level 20, format "A@ i :={ q }[ s ] "):bi_scope.
 Notation "A@ i :={ q } p " := (access_mapsto  i (DfracOwn q) (GSet {[p]}))
                                            (at level 20, format "A@ i :={ q } p "):bi_scope.
+
+Notation "E@ i :={ q }[ s ] " := (excl_mapsto i (DfracOwn q) (GSet s))
+                                          (at level 20, format "E@ i :={ q }[ s ] "):bi_scope.
+Notation "E@ i :={ q } p " := (excl_mapsto  i (DfracOwn q) (GSet {[p]}))
+                                           (at level 20, format "E@ i :={ q } p "):bi_scope.
+
 
 
 (* predicates for transactions *)
@@ -1300,6 +1323,7 @@ Proof.
 Qed.
 
   (* TODO : gen_access_valid_Sep*)
+
 
   (* rules for transactions *)
   Lemma trans_split wh q1 q2 i wf wt m f:
