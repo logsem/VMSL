@@ -103,6 +103,30 @@ Solve Obligations with solveRegCount.
     split; solve_finz.
   Qed.
 
+  Lemma finz_plus_Z_lt{b} (f: (finz.finz b)) z1 z2:
+    (is_Some (f + z1)%f) -> (is_Some (f + z2)%f) ->
+  ((f ^+ z1)%f < (f ^+ z2)%f)%Z -> (z1 < z2)%Z.
+    Proof.
+      intros H1 H2 Hlt.
+      destruct H1 as [f1 H1].
+      destruct H2 as [f2 H2].
+      rewrite (incr_default_incr f f1 z1) in Hlt;eauto.
+      rewrite (incr_default_incr f f2 z2) in Hlt;eauto.
+      solve_finz.
+    Qed.
+
+  Lemma finz_plus_Z_le{b} (f: (finz.finz b)) z1 z2:
+    (is_Some (f + z1)%f) -> (is_Some (f + z2)%f) ->
+  ((f ^+ z1)%f <= (f ^+ z2)%f)%Z -> (z1 <= z2)%Z.
+    Proof.
+      intros H1 H2 Hlt.
+      destruct H1 as [f1 H1].
+      destruct H2 as [f2 H2].
+      rewrite (incr_default_incr f f1 z1) in Hlt;eauto.
+      rewrite (incr_default_incr f f2 z2) in Hlt;eauto.
+      solve_finz.
+    Qed.
+
 
   Lemma to_pid_aligned_in_page (a:Addr) (p:PID) :
     addr_in_page a p -> (to_pid_aligned a ) = p.

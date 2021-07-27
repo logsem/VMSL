@@ -79,7 +79,6 @@ Proof.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
 
-(* TODO: add token*)
 Lemma str_error {instr i w1 w2 w3 s p} ai a ra rb :
   instr = Str ra rb ->
   decode_instruction w1 = Some(instr) ->

@@ -24,6 +24,8 @@ Lemma hvc_donate {instr i wi r2 pi ptx sown q sacc sexcl q' wf wt des qh sh} {l 
   des = serialized_transaction_descriptor i j wf wt l psd W0 ->
   (* the whole descriptor resides in the TX page *)
   seq_in_page (of_pid ptx) (length des) ptx ->
+  (* r1 equals the length of the descriptor *)
+  (finz.to_z r1) = (Z.of_nat (length des)) ->
   (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   (* pi and pages in spsd are accessible for VM i *)
@@ -46,7 +48,7 @@ Lemma hvc_donate {instr i wi r2 pi ptx sown q sacc sexcl q' wf wt des qh sh} {l 
   ∗ wh ->re j ∗ R2 @@ i ->r wh ∗ hp{qh}[(GSet (sh∖{[wh]}))] )
   ∗ mem_region des ptx}}}.
 Proof.
-  iIntros (Hinstr Hdecodei Hini Hdecodef Hlenpsd Hdesc Hindesc Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
+  iIntros (Hinstr Hdecodei Hini Hdecodef Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
   iIntros "(>PC & >Hai & >Hown & >Hacc & >Hexcl & >R0 & >R1 & >R2 & >TX & >Hadesc & >Hhp ) HΦ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -65,6 +67,41 @@ Proof.
   unfold mem_region.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
   { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
-  Admitted.
+  (* valid tx *)
+  iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i instr ai wi);eauto.
+  - (* step *)
+    iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    apply (step_ExecI_normal i instr ai wi) in HstepP;eauto.
+    remember (exec instr σ1) as c2 eqn:Heqc2.
+    assert (Hlendesclt :((Z.of_nat (length des)) <= (page_size-1))%Z).
+    {  destruct Hindesc as [? [HisSome Hltpagesize]]. apply (finz_plus_Z_le (of_pid ptx));eauto.
+       apply last_addr_in_bound.  apply Z.leb_le. destruct (((ptx ^+ length des)%f <=? (ptx ^+ (page_size - 1))%f)%Z). done. contradiction. }
+    rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
+    destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
+    rewrite Hcureq /get_tx_pid_global Htx in Heqc2.
+
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.    (* unchanged part *)
+    rewrite_reg_all.
+    rewrite Hcur.
+    iFrame.
+    (* updated part *)
+    rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
+    + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
+      iDestruct ((gen_reg_update2_global σ1 PC i a (a ^+ 1)%f ra i w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+      iModIntro.
+      iFrame.
+      iApply "Hϕ".
+      by iFrame.
+    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+      repeat solve_reg_lookup.
+      intros P; symmetry in P;inversion P; contradiction.
+
+Admitted.
 
 End donate.

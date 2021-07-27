@@ -204,7 +204,7 @@ Definition get_memory (st : state) (a : Addr) : option Word :=
 
 Definition get_memory_with_offset (st : state) (base : Addr) (offset : Z) : option Word :=
   a <- (base + offset)%f ;;;
-  (get_memory st a).
+  (get_mem st) !! a.
 
 Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state :=
   match (dst, src) with
@@ -347,9 +347,7 @@ Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * VMID)) :
   end.
 
 Definition get_tx_pid_global (st : state) (v : VMID) : PID:=
-  match get_vm_mail_box st v with
-    | (pid, _) => pid
-  end.
+   (get_vm_mail_box st v).1.
 
 Definition is_rx_ready_global (st : state) (v : VMID) : bool :=
   match get_vm_mail_box st v with
@@ -440,7 +438,7 @@ Definition transaction_descriptor : Type :=
   * Word(* Counter *)
   * gmap VMID (gset PID) (* Receivers *).
 
-Definition memory_regions_to_vec (md : list memory_region_descriptor) : gmap VMID (gset PID):=
+Definition memory_regions_to_gmap (md : list memory_region_descriptor) : gmap VMID (gset PID):=
   foldr (fun v acc => match decide (NoDup v.2) with
                          | left l =>  <[v.1:=(list_to_set v.2)]> acc
                          | right r => acc (* XXX throw InvalidParam ? *)
@@ -463,7 +461,7 @@ Definition parse_memory_region_descriptors (st : state) (b : Addr) (o:Z) (count 
 
 (* TODO: Prop version, reflection *)
 
-Definition parse_transaction_descriptor (st : state) (wl : Word) (b: Addr) : option transaction_descriptor :=
+Definition parse_transaction_descriptor (st : state) (b: Addr) : option transaction_descriptor :=
   (* Main fields *)
   vs <- get_memory_with_offset st b 0 ;;;
   wf <- get_memory_with_offset st b 1 ;;;
@@ -471,9 +469,8 @@ Definition parse_transaction_descriptor (st : state) (wl : Word) (b: Addr) : opt
   wt <- get_memory_with_offset st b 3 ;;;
   wc <- get_memory_with_offset st b 4 ;;;
   memDescrs <- parse_memory_region_descriptors st b 5 (finz.to_z wc);;;
-  (* Validate length *)
-  vs' <- decode_vmid W0 ;;;
-  unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wt , wf, wc, memory_regions_to_vec memDescrs).
+  vs' <- decode_vmid vs ;;;
+  unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wt , wf, wc, memory_regions_to_gmap memDescrs).
 
 (*TODO: more things to be checked ...*)
 Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transaction_type)
@@ -587,7 +584,7 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
       m <- (if (page_size <? r)%Z
             then throw InvParam
             else
-              td <- lift_option (parse_transaction_descriptor s r (of_pid (get_tx_pid_global s (get_current_vm s)))) ;;;
+              td <- lift_option (parse_transaction_descriptor s (of_pid (get_tx_pid_global s (get_current_vm s)))) ;;;
               _ <- validate_transaction_descriptor s r ty td ;;;
               if (check_transition_transaction s td)
               then bind (new_transaction_from_descriptor s ty td)
