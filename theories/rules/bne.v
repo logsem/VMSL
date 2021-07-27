@@ -12,11 +12,11 @@ Lemma bne {instr i w1 w2 w3 q} ai ra :
   instr = Bne ra ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page ai (to_pid_aligned ai) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai)%f) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (if (w3 =? W1)%f then  (ai ^+ 1)%f else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
+  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai)%f) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
+                                  {{{ RET ExecI; PC @@ i ->r (if (w3 =? W1)%f then  (ai ^+ 1)%f else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
                        ∗ A@i:={q} (to_pid_aligned ai) ∗ NZ @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hdecode HIn ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
+  iIntros (Hinstr Hdecode HIn ϕ) "(>Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.

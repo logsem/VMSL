@@ -12,11 +12,11 @@ Lemma fail {instr i w1 q} ai :
   instr = Fail ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page ai (to_pid_aligned ai) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
-                                  {{{ RET FailI; <<i>> ∗ PC @@ i ->r ai  ∗ ai ->a w1
+  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
+                                  {{{ RET FailI; PC @@ i ->r ai  ∗ ai ->a w1
                        ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
-  iIntros (Hinstr Hdecode HIn ϕ) "(? & >Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hinstr Hdecode HIn ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.

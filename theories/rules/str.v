@@ -36,8 +36,8 @@ Proof.
   (* valid pt *)
   assert (Hais : to_pid_aligned ai ∈ s). set_solver.
   assert (Has : to_pid_aligned a ∈ s). set_solver.
-  iDestruct ((gen_access_valid_addr_elem σ1 i q s a Has) with "Haccess Hacc") as "%Ha".
-  iDestruct ((gen_access_valid_addr_elem σ1 i q s ai Hais) with "Haccess Hacc") as "%Hai".
+  iDestruct ((gen_access_valid_addr_elem a s Has) with "Haccess Hacc") as "%Ha".
+  iDestruct ((gen_access_valid_addr_elem ai s Hais) with "Haccess Hacc") as "%Hai".
   (* valid mem *)
   iDestruct (gen_mem_valid2 σ1 ai w1 a w3 Hneqaia with "Hmem Hapc Harb ") as "[%Hmemai %Hmema]".
   (* valid rx *)
@@ -104,7 +104,7 @@ Proof.
   destruct H4' as [HneqPCb HneqNZb].
   iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   iDestruct ((gen_mem_valid σ1 ai w1) with "Hmem Hapc") as "%Hpc".
-  iDestruct ((gen_access_valid_addr_elem σ1 i 1 s ai Hais) with "Haccess Hacc") as "%Hai".
+  iDestruct ((gen_access_valid_addr_elem ai s Hais) with "Haccess Hacc") as "%Hai".
   iDestruct (gen_rx_pid_valid σ1 i p with "Hrx Hrxown") as %Hrx.
   destruct Has as [Has | Has].
   - iDestruct ((gen_no_access_valid σ1 i (to_pid_aligned a) s Has) with "Haccess Hacc") as "%Ha".

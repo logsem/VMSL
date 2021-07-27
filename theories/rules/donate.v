@@ -46,19 +46,25 @@ Lemma hvc_donate {instr i wi r2 pi ptx sown q sacc sexcl q' wf wt des qh sh} {l 
   ∗ wh ->re j ∗ R2 @@ i ->r wh ∗ hp{qh}[(GSet (sh∖{[wh]}))] )
   ∗ mem_region des ptx}}}.
 Proof.
+  iIntros (Hinstr Hdecodei Hini Hdecodef Hlenpsd Hdesc Hindesc Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
+  iIntros "(>PC & >Hai & >Hown & >Hacc & >Hexcl & >R0 & >R1 & >R2 & >TX & >Hadesc & >Hhp ) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcureq ]; clear Hsche.
+  apply fin_to_nat_inj in Hcureq.
+  iModIntro.
+  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & ? & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & Hrcv)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 r1 R2 r2 Hcureq ) with "Hσreg PC R0 R1 R2 ")
+    as "[%HPC [%HR0 [%HR1 %HR2]]]";eauto.
+  (* valid pt *)
+  iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess Hacc") as %Haccai;eauto.
+  { rewrite (to_pid_aligned_in_page _ pi);eauto. set_solver. }
+  (* valid mem *)
+  iDestruct (gen_mem_valid σ1 ai wi with "Hσmem Hai") as %Hai.
+  unfold mem_region.
+  iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
+  { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
   Admitted.
-  (* iIntros (Hinstr Hdecodei Hdecodef Hvalidlen Hsa Hso) "(Htok & HPC & Hai & Hown & Haccess & HR0 & HR1 & HR2 & HTX & Htd)". *)
-  (* iApply (sswp_lift_atomic_step ExecI);[done|]. *)
-  (* iIntros (σ1) "%Hsche Hσ". *)
-  (* inversion Hsche as [ Hcureq ]; clear Hsche. *)
-  (* apply fin_to_nat_inj in Hcureq. *)
-  (* iModIntro. *)
-  (* iDestruct "Hσ" as "(Hcur & Hmem & Hreg & Htxpage & ? & Hownedpt & Haccesspt & Htrans & Hrcv)". *)
-  (* (* valid regs *) *)
-  (* iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 r1 R2 r2 Hcureq ) with "Hreg HPC HR0 HR1 HR2 ") *)
-  (*   as "[%HPC [%HR0 [%HR1 %HR2]]]";eauto. *)
-  (* (* valid pt *) *)
-  (* iDestruct ((gen_access_valid2 σ1 i 1 sa pd (to_pid_aligned ai)) with "Haccesspt Haccess") as %[Haccpd Haccai];eauto. *)
-  (* (* valid mem *) *)
-  (* iDestruct (gen_mem_valid σ1 ai wi with "Hmem Hai") as %Hmem. *)
-  (* iDestruct (gen_mem_valid_td11 σ1 _ _ _ _ _ _ with "Htd Hmem") as %Htd. *)
+
+End donate.

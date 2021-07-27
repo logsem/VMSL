@@ -8,15 +8,16 @@ Section cmp.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma cmp_word {instr i w1 w2 w3 w4 q} ai ra :
+Lemma cmp_word {instr i w1 w2 w3 w4 q pi} ai ra :
   instr = Cmp ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w3) ∗ ▷ (A@i:={q} (to_pid_aligned ai)) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ ra @@ i ->r w3
-                       ∗ A@i:={q} (to_pid_aligned ai)
+  addr_in_page ai pi ->
+  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w3) ∗ ▷ (A@i:={q} pi) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
+                                  {{{ RET ExecI; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ ra @@ i ->r w3
+                       ∗ A@i:={q} pi
                        ∗ NZ @@ i ->r (if (w3 <? (of_imm w2))%f then W2 else if ((of_imm w2) <? w3)%f then W0 else W1) }}}.
 Proof.
-  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
+  iIntros (Hinstr Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -31,7 +32,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid3 σ1 i PC ai ra w3 NZ w4 Hcur HneqPCa) with "Hreg Hpc Hra Hnz") as "[%HPC [%Hra %HNZ]]";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  iDestruct ((gen_access_valid_addr ai pi) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.
@@ -78,15 +79,16 @@ Proof.
       by simplify_map_eq /=.
 Qed.
 
-Lemma cmp_reg {instr i w1 w2 w3 w4 q} ai ra rb :
+Lemma cmp_reg {instr i w1 w2 w3 w4 q pi} ai ra rb :
   instr = Cmp ra (inr rb) ->
   decode_instruction w1 = Some(instr) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (rb @@ i ->r w3) ∗ ▷ (A@i:={q} (to_pid_aligned ai)) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3
-                       ∗ A@i:={q} (to_pid_aligned ai)
+  addr_in_page ai pi ->
+  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (rb @@ i ->r w3) ∗ ▷ (A@i:={q} pi) ∗ ▷ (NZ @@ i ->r w4)}}} ExecI @ i
+                                  {{{ RET ExecI;  PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3
+                       ∗ A@i:={q} pi
                        ∗ NZ @@ i ->r (if (w2 <? w3)%f then W2 else if (w3 <? w2)%f then W0 else W1) }}}.
 Proof.
-  iIntros (Hinstr Hdecode ϕ) "(? & >Hpc & >Hapc & >Hra & >Hrb & >Hacc & >Hnz ) Hϕ".
+  iIntros (Hinstr Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hra & >Hrb & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -102,7 +104,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid4 σ1 i PC ai ra w2 rb w3 NZ w4 Hcur) with "Hreg Hpc Hra Hrb Hnz") as "[%HPC [%Hra [%Hrb %HNZ]]]";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr σ1 i q ai) with "Haccess Hacc") as %Hacc.
+  iDestruct ((gen_access_valid_addr ai pi) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.

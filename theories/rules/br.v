@@ -12,11 +12,11 @@ Lemma br {instr i w1 w2 q} ai  ra :
   instr = Br ra ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page ai (to_pid_aligned ai) ->
-  {SS{{ ▷ (<<i>>) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>> ∗ PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
+  {SS{{  ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
+                                  {{{ RET ExecI;  PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
                        ∗ A@i:={q} (to_pid_aligned ai) }}}.
 Proof.
-  iIntros (Hinstr Hdecode HIn ϕ) "(? & >Hpc & >Hapc & >Hra & >Hacc) Hϕ".
+  iIntros (Hinstr Hdecode HIn ϕ) "( >Hpc & >Hapc & >Hra & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.

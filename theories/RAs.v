@@ -232,7 +232,7 @@ Section definitions.
     own (gen_excl_name vmG) (◯ {[i := (dq, to_agree s)]}).
   Definition excl_mapsto_aux : seal (@excl_mapsto_def). Proof. by eexists. Qed.
   Definition excl_mapsto := excl_mapsto_aux.(unseal).
-  Definition excl_access_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
+  Definition excl_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
 
 
   Definition trans_mapsto_def(wh : Word) dq (v: VMID) (wf: Word) (wt: Word) (pgs : gmap VMID (gset PID)) (fid : transaction_type) : iProp Σ :=
@@ -746,13 +746,12 @@ Proof.
   done.
  Qed.
 
-Lemma gen_mem_valid_Sep:
-  ∀ (σ : state) mem,
+Lemma gen_mem_valid_SepM {σ} mem:
     ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
     ([∗ map] a↦w ∈ mem,  a ->a w)-∗
          ([∗ map] a↦w ∈ mem, ⌜ (get_mem σ) !! a = Some w ⌝).
 Proof.
-  iIntros (??) "Hσ Hmem".
+  iIntros  "Hσ Hmem".
   rewrite mem_mapsto_eq /mem_mapsto_def.
   iDestruct ((ghost_map_lookup_big mem) with "Hσ Hmem") as "%Hincl".
   iApply big_sepM_pure.
@@ -760,6 +759,37 @@ Proof.
   iPureIntro.
   apply (lookup_weaken  mem (get_mem σ) _ _ a1 Hincl) .
 Qed.
+
+Lemma gen_mem_valid_SepL {σ} al ml:
+    NoDup al ->
+    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ([∗ list] a;w ∈ al;ml,  a ->a w)-∗
+         ( [∗ list] a;w ∈ al;ml, ⌜ (get_mem σ) !! a = Some w ⌝) .
+Proof.
+  iIntros (Hnodup) "Hσ Hmem".
+  iDestruct (big_sepL2_alt with "Hmem") as "[% Hmem]".
+  iApply big_sepL2_alt.
+  iSplitR;eauto.
+  rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word (zip al ml)).
+  2: { rewrite fst_zip;try lia;eauto.  }
+  rewrite -(big_opM_map_to_list (λ a w,  ⌜ (get_mem σ) !! a = Some w ⌝%I) _ ).
+  rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ).
+  iApply (gen_mem_valid_SepM with "Hσ Hmem").
+Qed.
+
+Lemma gen_mem_valid_SepL_pure {σ} al ml:
+    NoDup al ->
+    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ([∗ list] a;w ∈ al;ml,  a ->a w)-∗
+         ⌜ ∀ (k : nat) (y1 y2 : Addr),
+             al !! k = Some y1 → ml !! k = Some y2 → get_mem σ !! y1 = Some y2 ⌝ .
+Proof.
+  iIntros (Hnodup) "Hσ Hmem".
+  iDestruct (gen_mem_valid_SepL with "Hσ Hmem") as "H";eauto.
+  iDestruct ( big_sepL2_pure_1 with "H") as %Hadesc.
+  iPureIntro;done.
+Qed.
+
 
 Lemma gen_mem_valid2:
   ∀ (σ : state) a1 w1 a2 w2,
@@ -770,7 +800,7 @@ Lemma gen_mem_valid2:
           ⌜ (get_mem σ) !! a1 = Some w1 ⌝ ∗ ⌜ (get_mem σ) !! a2 = Some w2 ⌝.
 Proof.
   iIntros (????? Hneq) "Hσ Ha1 Ha2".
-  iDestruct (gen_mem_valid_Sep _ {[a1:=w1;a2:=w2]} with "Hσ [Ha1 Ha2]") as "%";eauto.
+  iDestruct (gen_mem_valid_SepM {[a1:=w1;a2:=w2]} with "Hσ [Ha1 Ha2]") as "%";eauto.
   rewrite !big_sepM_insert ?big_sepM_empty;eauto.
   iFrame.
   by simplify_map_eq.
@@ -1195,14 +1225,13 @@ Proof.
 Qed.
 
 
-Lemma gen_access_valid_addr_elem:
-  ∀ (σ : state) i q s a,
+Lemma gen_access_valid_addr_elem{ σ i q } a s:
     to_pid_aligned a ∈ s ->
     own (gen_access_name vmG) (get_access_gmap σ)  -∗
         (A@ i :={q}[s] ) -∗
         ⌜(check_access_addr σ i a)= true ⌝.
 Proof.
-  iIntros (??????) "Haccess Hacc".
+  iIntros (?) "Haccess Hacc".
   iDestruct (gen_access_valid_Set σ i q s with "Haccess Hacc") as %Hacc.
   iPureIntro.
   pose proof (Hacc (to_pid_aligned a)) as H'.
@@ -1211,14 +1240,13 @@ Proof.
 Qed.        
 
 
-Lemma gen_access_valid_addr2:
-  ∀ (σ : state) i q s a1 a2,
-      s= {[(to_pid_aligned a1); (to_pid_aligned a2)]} ->
+Lemma gen_access_valid_addr2 {σ i q } a1 a2 s:
+    s= {[(to_pid_aligned a1); (to_pid_aligned a2)]} ->
     own (gen_access_name vmG) (get_access_gmap σ)  -∗
     (A@ i :={q}[s] ) -∗
           ( ⌜(check_access_addr σ i a1)= true ⌝ ∗ ⌜(check_access_addr σ i a2)= true ⌝).
 Proof.
-  iIntros (???????) "Haccess Hacc".
+  iIntros (?) "Haccess Hacc".
   iDestruct (gen_access_valid_Set σ i q s with "Haccess Hacc") as %Hacc.
   iPureIntro.
   split.
@@ -1380,6 +1408,9 @@ Qed.
   Global Instance owned_mapsto_timeless i q s : Timeless (O@i:={q}[s]).
   Proof. rewrite owned_mapsto_eq /owned_mapsto_def. apply _. Qed.
 
+  Global Instance excl_mapsto_timeless i q s : Timeless (E@i:={q}[s]).
+  Proof. rewrite excl_mapsto_eq /excl_mapsto_def. apply _. Qed.
+
   Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).
   Proof. rewrite tx_mapsto_eq /tx_mapsto_def. apply _. Qed.
 
@@ -1394,6 +1425,9 @@ Qed.
 
   Global Instance trans_mapsto_timeless w q v x y m f : Timeless (w ->t{ q }( v , x , y , m , f )).
   Proof. rewrite trans_mapsto_eq /trans_mapsto_def. apply _. Qed.
+
+  Global Instance hpool_mapsto_timeless q sh : Timeless (hp{ q }[ sh ]).
+  Proof. rewrite hpool_mapsto_eq /hpool_mapsto_def. apply _. Qed.
 
   Global Instance retri_mapsto_timeless w s : Timeless (w ->re[ s ]).
   Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
