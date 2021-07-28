@@ -439,24 +439,23 @@ Definition transaction_descriptor : Type :=
   * gmap VMID (gset PID) (* Receivers *).
 
 Definition memory_regions_to_gmap (md : list memory_region_descriptor) : gmap VMID (gset PID):=
-  foldr (fun v acc => match decide (NoDup v.2) with
-                         | left l =>  <[v.1:=(list_to_set v.2)]> acc
-                         | right r => acc (* XXX throw InvalidParam ? *)
-                         end) ∅ md.
+  list_to_map (map (λ p, (p.1, (list_to_set p.2))) md).
+
+
+Definition parse_list_of_pids st (b : Addr) l : option (list PID) :=
+   @sequence_a list _ _ _ PID option _ _ (map (λ v, (w <- ((get_mem st) !! v) ;;; unit(to_pid_aligned w) ))
+                      (finz.seq b l)).
 
 Definition parse_memory_region_descriptor (st : state) (b:Addr) (o:Z) : option memory_region_descriptor :=
   l <- get_memory_with_offset st b o ;;;
   r <- get_memory_with_offset st b (o + 1) ;;;
   r' <- decode_vmid r ;;;
-  ls' <- sequence_a (foldl (fun acc (v:Z) =>
-                              (bind (get_memory_with_offset st b (o + 2 + v)) to_pid) :: acc) nil (seqZ 0 (finz.to_z l))) ;;;
+  ls' <- parse_list_of_pids st (b^+(o+2))%f (Z.to_nat (finz.to_z l));;;
   unit (r', ls').
 
-
-
-Definition parse_memory_region_descriptors (st : state) (b : Addr) (o:Z) (count : Z) : option (list memory_region_descriptor) :=
-  ls' <- sequence_a (foldl (fun acc v =>  ((parse_memory_region_descriptor st) b (o+v)) :: acc)
-                          (@nil (option memory_region_descriptor)) (seqZ 0 count)) ;;;
+Definition parse_memory_region_descriptors (st : state) (b : Addr)  (count : Z) : option (list memory_region_descriptor) :=
+  ls' <- sequence_a (map (fun v => (parse_memory_region_descriptor st b v))
+                           (seqZ 0 count)) ;;;
   unit (ls').
 
 (* TODO: Prop version, reflection *)
@@ -468,7 +467,7 @@ Definition parse_transaction_descriptor (st : state) (b: Addr) : option transact
   wh <- get_memory_with_offset st b 2 ;;;
   wt <- get_memory_with_offset st b 3 ;;;
   wc <- get_memory_with_offset st b 4 ;;;
-  memDescrs <- parse_memory_region_descriptors st b 5 (finz.to_z wc);;;
+  memDescrs <- parse_memory_region_descriptors st (b^+5)%f (finz.to_z wc);;;
   vs' <- decode_vmid vs ;;;
   unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wt , wf, wc, memory_regions_to_gmap memDescrs).
 
@@ -491,7 +490,7 @@ Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transa
              (* sender is the caller *)
         _ <- @bool_check_option True ((get_current_vm st) =? vs');;;
              (* none of the receivers is the caller  *)
-        _ <- @bool_check_option True (map_fold (λ (k: VMID) v acc, (andb (vs' =? k) acc)) true gm);;;
+        _ <- @bool_check_option True (map_fold (λ (k: VMID) v acc, (andb (negb (vs' =? k)) acc)) true gm);;;
              (* clear is not allowed for mem sharing *)
         _ <- @bool_check_option True (match ty with
                                      | Sharing => (negb (finz.to_z wf =? 1)%Z)
@@ -500,7 +499,10 @@ Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transa
              (* no other flags are supported *)
         _ <- @bool_check_option True (finz.to_z wf <=? 1)%Z;;;
              (* h equals 0*)
-        h
+        @bool_check_option True (match h with
+                                      | None => true
+                                      | Some _ => false
+                                     end)
            ) InvParam ;;;
     unit tt
   end.
@@ -572,10 +574,9 @@ Program Definition yield (s : state) : exec_mode * state :=
 Definition check_transition_transaction (s : state) (td : transaction_descriptor) : bool :=
   let p := (Owned, ExclusiveAccess) in
   match td with
-  | (_, _, _, _, m) => map_fold
-                         (fun _ v acc  => andb acc (set_fold (fun v' acc' => andb acc'
-                           (check_perm_page s (get_current_vm s) v' p)) true v))
-                       true m
+  | (_, _, _, _, m) =>  bool_decide(map_Forall
+                         (fun _ v  => (set_Forall (fun v' =>
+                           (check_perm_page s (get_current_vm s) v' p) = true) v)) m)
   end.
 
 Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=

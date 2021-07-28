@@ -1,6 +1,7 @@
 From iris.base_logic.lib Require Import gen_heap ghost_map invariants na_invariants.
 From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset frac_agree frac_auth.
 From iris.proofmode Require Import tactics.
+From HypVeri Require Import monad.
 From HypVeri Require Export lang machine.
 
   Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
@@ -1452,11 +1453,79 @@ Qed.
   Qed.
 
 
+  Lemma mem_desc_valid{ b psd σ}l ps:
+    l =  (length ps) ->
+   psd =  (map (λ pid, (of_pid pid)) ps) ->
+   (∀ (k : nat) (y1 y2 : Addr),
+   finz.seq b (length psd) !! k = Some y1 → psd !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
+   map (λ v : Addr,(bind ((get_mem σ) !! v) (λ w, unit(to_pid_aligned w)))) (finz.seq b l)
+   = map (λ pid, unit (to_pid_aligned (of_pid pid))) ps.
+  Proof.
+    intros.
+    generalize dependent b.
+    generalize dependent ps.
+    generalize dependent psd.
+    induction l.
+    intros.
+    destruct ps .
+    rewrite H //=.
+    simplify_eq.
+    intros.
+    destruct ps .
+    done.
+    simpl in H.
+    inversion H.
+    simpl.
+    unfold omap in IHl.
+    destruct psd.
+    done.
+    rewrite -(IHl psd _ _ _ (b^+1)%f).
+    pose proof (H1 0 b (of_pid p)).
+    rewrite H2.
+    rewrite H3 //.
+    done.
+    rewrite H0.
+    rewrite -> list_lookup_fmap.
+    done.
+    done.
+    rewrite -> fmap_cons in H0.
+    inversion H0.
+    done.
+    intros.
+    apply (H1 (k+1)).
+    simpl.
+    rewrite lookup_cons_ne_0.
+    rewrite -H2 //=.
+    f_equal.
+    lia.
+    lia.
+    rewrite -H4.
+    rewrite lookup_cons_ne_0.
+    f_equal.
+    lia.
+    lia.
+  Qed.
+    
+
   Definition mem_region (instr: list Word) (b:Addr):=
     ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
 
   Definition transaction1 (v r:VMID) (wf wt l : Word) (rs: list VMID) (ps: list PID)  (ty: transaction_type): transaction :=
     (v,wf,wt,(list_to_set rs),{[r := (list_to_set ps)]},ty).
+
+  Lemma sequence_a_map_unit{A} (l:list A) :
+  @sequence_a list _ _ _ A option _ _ (map (λ e , unit e ) l) = Some l.
+    Proof.
+      unfold sequence_a.
+      simpl.
+      unfold monad.List.sequence_a_list.
+      induction l.
+      done.
+      simpl.
+
+      simpl in IHl.
+      rewrite IHl //.
+Qed.
 
   Lemma transaction_descriptor_valid{i j wf wt l psd σ} des p :
     (finz.to_z l) = (Z.of_nat (length psd)) ->
@@ -1464,7 +1533,7 @@ Qed.
     seq_in_page (of_pid p) (length des) p ->
    (∀ (k : nat) (y1 y2 : Addr),
              finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-   parse_transaction_descriptor σ p = Some (i ,  None, wt , wf, W1, ∅).
+   parse_transaction_descriptor σ p = Some (i , None, wt , wf, W1, {[j:= list_to_set ((λ pid : PID, to_pid_aligned pid) <$> psd)]}).
   Proof.
     intros.
     rewrite /parse_transaction_descriptor /get_memory_with_offset.
@@ -1500,22 +1569,53 @@ Qed.
     rewrite (H2 4 ((of_pid p) ^+ 4)%f W1).
     2: { apply finz_seq_lookup. lia. solve_finz. }
     2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    rewrite /parse_memory_region_descriptors //= /parse_memory_region_descriptor /get_memory_with_offset.
-    assert (HpSome: ((of_pid p) + (5 + (0%nat + 0)))%f = Some ((of_pid p) ^+ 5)%f).
+    rewrite /parse_memory_region_descriptors //=  /parse_memory_region_descriptor /get_memory_with_offset.
+    assert (HpSome: ((of_pid p) ^+ 5 + (0%nat + 0))%f = Some ((of_pid p) ^+ 5)%f).
     solve_finz.
     rewrite HpSome //=;clear HpSome.
     rewrite (H2 5 ((of_pid p) ^+ 5)%f l).
     2: { apply finz_seq_lookup. lia. solve_finz. }
     2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    assert (HpSome: ((of_pid p) + (5 + (0%nat + 0)+1))%f = Some ((of_pid p) ^+ 6)%f).
+    assert (HpSome: ((of_pid p) ^+ 5 + (0%nat + 1))%f = Some ((of_pid p) ^+ 6)%f).
     solve_finz.
     rewrite HpSome //=;clear HpSome.
     rewrite (H2 6 ((of_pid p) ^+ 6)%f (encode_vmid j)).
     2: { apply finz_seq_lookup. lia. solve_finz. }
     2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    rewrite !decode_encode_vmid.
-    (* TODO: need a helper lemma. *)
-    Admitted.
-  
+    rewrite !decode_encode_vmid /parse_list_of_pids /= .
+    rewrite (@mem_desc_valid _ (map (λ pid, (of_pid pid)) psd) _ _ psd );eauto.
+    2: { lia. }
+    2: { intros.
+         apply (H2 (k+7) _).
+         assert (Hlenmapeq: length ( map (λ pid : PID, (of_pid pid)) psd) = length psd).
+        apply fmap_length.
+         apply (finz_seq_lookup _ _ y1).
+         assert (Hklt: k < length ( map (λ pid : PID, (of_pid pid)) psd)).
+         rewrite <-(finz_seq_length _ ((p ^+ 5) ^+ (0%nat + 0 + 2))%f).
+         apply lookup_lt_is_Some.
+         by exists y1.
+        rewrite Hlenmapeq in Hklt.
+        lia.
+        apply (finz_seq_lookup'  _ y1 k _ ) in H3.
+        2: { rewrite Hlenmapeq. solve_finz. }
+        destruct H3.
+        rewrite Hlenmapeq in H3.
+        solve_finz.
+        rewrite H0 /serialized_transaction_descriptor.
+        simpl.
+        rewrite !lookup_cons_ne_0; try lia.
+        rewrite -H4.
+        f_equal.
+        lia.
+       }
+    assert (Hcomp: ((@unit option _ _ PID) ∘ (λ pid : PID, to_pid_aligned pid)) =  (λ pid : PID, unit( to_pid_aligned (of_pid pid)))).
+    f_equal.
+    rewrite -Hcomp.
+    rewrite -> (list_fmap_compose (λ pid, (to_pid_aligned (of_pid pid))) unit psd).
+    rewrite -> sequence_a_map_unit.
+    simpl.
+    unfold memory_regions_to_gmap.
+    done.
+ Qed.
 
 End hyp_lang_rules.

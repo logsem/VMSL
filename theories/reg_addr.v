@@ -262,3 +262,21 @@ Qed.
         lia.
         contradiction.
 Qed.
+
+
+Lemma finz_seq_lookup'{b} (f0 fi:(finz.finz b)) (i n : nat) :
+   is_Some(f0 + (Z.of_nat n))%f ->
+   finz.seq f0 n !! i = Some fi ->
+  i < n ∧ (f0 + (Z.of_nat i))%f = Some fi.
+Proof using.
+  revert i fi f0. induction n.
+  { intros. done. }
+  { intros i fi f0 Hsafe HSome.
+    destruct i as [|i].
+    { split. solve_finz. simpl in HSome. inversion HSome. solve_finz. }
+    { simpl in HSome.
+      apply IHn in HSome.
+      destruct HSome.
+      split.
+      lia. rewrite -H0. solve_finz. solve_finz. } }
+Qed.

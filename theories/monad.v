@@ -196,7 +196,7 @@ Module List.
     | nil => b
     | cons x xs => f x (foldr_list f b xs)
     end.
-  
+
   Local Fixpoint fold_map_list {A M : Type} `{Monoid M} (f : A -> M) (l : list A) : M :=
     match l with
     | nil => neutral
@@ -209,8 +209,9 @@ Module List.
               fold_map := @fold_map_list ;|}.
   Defined.
   
-  Local Fixpoint sequence_a_list {A : Type} {F : Type -> Type} `{Applicative F} (l : list (F A)) : F (list A) :=
+  Local Definition sequence_a_list {A : Type} {F : Type -> Type} `{Applicative F} (l : list (F A)) : F (list A) :=
     foldr (fun val acc => ap (fmap cons val) acc) (unit nil) l.
+
 
   Local Definition traverse_list {A B : Type} {F : Type -> Type} `{Applicative F} (f : A -> F B) : list A -> F (list B) :=
     compose sequence_a_list (fmap f).    

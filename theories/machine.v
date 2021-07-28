@@ -38,6 +38,38 @@ Program Definition to_pid (w: Addr): option PID :=
                 | right _ => None
   end.
 
+(* don't know how to prove it *)
+(* Lemma to_of_pid p:  (to_pid (of_pid p))= Some p. *)
+(*   Proof. *)
+(*     destruct p. *)
+(*     rewrite /to_pid /of_pid //=. *)
+(*     unfold Is_true in align. *)
+(*     destruct (decide ((z `rem` page_size)%Z =? 0)%Z). *)
+(*     repeat f_equal. *)
+(*     unfold Is_true in i. *)
+(*     destruct (decide ((z `rem` page_size)%Z = 0)%Z). *)
+(*     apply Z.eqb_eq in e. *)
+(*     inversion align. *)
+(*     rewrite e in i,align. *)
+(*     rewrite Z.eqb_eq in align. *)
+(*     unfold Is_true. *)
+(*     assert (Hdecide: (left align) = bool_decide ((z `rem` page_size)%Z = 0%Z)). *)
+(*     destruct align. *)
+(*     (* destruct (decide ((z `rem` page_size)%Z = (z `rem` page_size)%Z)). *) *)
+(*     (* destruct e. *) *)
+(*     unfold decide. *)
+(*     unfold decide_rel. *)
+(*     case (Z_eq_dec (z `rem` page_size)%Z (z `rem` page_size)%Z). *)
+(*     intro. *)
+(*     Check eq_refl. *)
+(*     unfold Z.eq_dec. *)
+(*     unfold Z_eq_dec. *)
+(*     constructor. *)
+(*     rewrite X. *)
+(*     by exists (P z e). *)
+(*     lia. *)
+(* Qed. *)
+
 Program Definition to_pid_aligned (w: Word): PID:=
   let z:=(page_size * (w / page_size) )%Z in
   let wr:= (finz.FinZ z _ _) in
