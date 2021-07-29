@@ -1458,8 +1458,8 @@ Qed.
    psd =  (map (λ pid, (of_pid pid)) ps) ->
    (∀ (k : nat) (y1 y2 : Addr),
    finz.seq b (length psd) !! k = Some y1 → psd !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-   map (λ v : Addr,(bind ((get_mem σ) !! v) (λ w, unit(to_pid_aligned w)))) (finz.seq b l)
-   = map (λ pid, unit (to_pid_aligned (of_pid pid))) ps.
+   map (λ v : Addr,(bind ((get_mem σ) !! v) to_pid )) (finz.seq b l)
+   = map (λ pid, Some pid) ps.
   Proof.
     intros.
     generalize dependent b.
@@ -1476,13 +1476,12 @@ Qed.
     simpl in H.
     inversion H.
     simpl.
-    unfold omap in IHl.
     destruct psd.
     done.
     rewrite -(IHl psd _ _ _ (b^+1)%f).
     pose proof (H1 0 b (of_pid p)).
     rewrite H2.
-    rewrite H3 //.
+    rewrite H3 to_of_pid //.
     done.
     rewrite H0.
     rewrite -> list_lookup_fmap.
@@ -1514,7 +1513,7 @@ Qed.
     (v,wf,wt,(list_to_set rs),{[r := (list_to_set ps)]},ty).
 
   Lemma sequence_a_map_unit{A} (l:list A) :
-  @sequence_a list _ _ _ A option _ _ (map (λ e , unit e ) l) = Some l.
+  @sequence_a list _ _ _ A option _ _ (map (λ e , Some e ) l) = Some l.
     Proof.
       unfold sequence_a.
       simpl.
@@ -1522,7 +1521,6 @@ Qed.
       induction l.
       done.
       simpl.
-
       simpl in IHl.
       rewrite IHl //.
 Qed.
@@ -1533,7 +1531,7 @@ Qed.
     seq_in_page (of_pid p) (length des) p ->
    (∀ (k : nat) (y1 y2 : Addr),
              finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-   parse_transaction_descriptor σ p = Some (i , None, wt , wf, W1, {[j:= list_to_set ((λ pid : PID, to_pid_aligned pid) <$> psd)]}).
+   parse_transaction_descriptor σ p = Some (i , None, wt , wf, W1, {[j:= list_to_set  psd]}).
   Proof.
     intros.
     rewrite /parse_transaction_descriptor /get_memory_with_offset.
@@ -1608,10 +1606,6 @@ Qed.
         f_equal.
         lia.
        }
-    assert (Hcomp: ((@unit option _ _ PID) ∘ (λ pid : PID, to_pid_aligned pid)) =  (λ pid : PID, unit( to_pid_aligned (of_pid pid)))).
-    f_equal.
-    rewrite -Hcomp.
-    rewrite -> (list_fmap_compose (λ pid, (to_pid_aligned (of_pid pid))) unit psd).
     rewrite -> sequence_a_map_unit.
     simpl.
     unfold memory_regions_to_gmap.

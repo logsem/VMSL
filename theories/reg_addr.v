@@ -60,6 +60,7 @@ Solve Obligations with solveRegCount.
          lia.
          assert(H': ( (x -1 ) * page_size < z )%Z).
          lia.
+         apply Z.eqb_eq in align.
          apply Z.rem_divide in align;[|unfold page_size;lia].
          destruct align.
          subst z.
@@ -156,6 +157,7 @@ Solve Obligations with solveRegCount.
         simpl in H1.
         rewrite -H1 in H0.
         simpl in H0.
+        apply Z.eqb_eq in align.
         apply Z.rem_divide in align;[|unfold page_size;lia].
         destruct align.
         subst z.

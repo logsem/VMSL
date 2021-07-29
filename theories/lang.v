@@ -443,7 +443,7 @@ Definition memory_regions_to_gmap (md : list memory_region_descriptor) : gmap VM
 
 
 Definition parse_list_of_pids st (b : Addr) l : option (list PID) :=
-   @sequence_a list _ _ _ PID option _ _ (map (λ v, (w <- ((get_mem st) !! v) ;;; unit(to_pid_aligned w) ))
+   @sequence_a list _ _ _ PID option _ _ (map (λ v, (w <- ((get_mem st) !! v) ;;; (to_pid w) ))
                       (finz.seq b l)).
 
 Definition parse_memory_region_descriptor (st : state) (b:Addr) (o:Z) : option memory_region_descriptor :=

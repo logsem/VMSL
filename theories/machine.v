@@ -23,7 +23,7 @@ Notation Word := (finz word_size).
 Notation Addr := Word.
 
 Inductive PID: Type :=
-| P (z : Addr) (align: (Z.rem z page_size = 0)%Z) .
+| P (z : Addr) (align: (Z.rem z page_size =? 0)%Z = true) .
 
 Definition of_pid (p: PID): Word :=
   match p with
@@ -32,43 +32,38 @@ Definition of_pid (p: PID): Word :=
 
 Coercion of_pid: PID >-> Word.
 
-Program Definition to_pid (w: Addr): option PID :=
-  match (decide ((Z.rem w page_size) = 0)%Z) with
-                | left H => Some (P w H)
-                | right _ => None
-  end.
+Definition to_pid (w: Addr): option PID.
+  Proof.
+  destruct (Z_eq_dec (Z.rem w page_size) 0%Z).
+  - apply (Z.eqb_eq (Z.rem w page_size) 0%Z) in e.
+    exact (Some (P w e)).
+  - exact None.
+Defined.
 
-(* don't know how to prove it *)
-(* Lemma to_of_pid p:  (to_pid (of_pid p))= Some p. *)
-(*   Proof. *)
-(*     destruct p. *)
-(*     rewrite /to_pid /of_pid //=. *)
-(*     unfold Is_true in align. *)
-(*     destruct (decide ((z `rem` page_size)%Z =? 0)%Z). *)
-(*     repeat f_equal. *)
-(*     unfold Is_true in i. *)
-(*     destruct (decide ((z `rem` page_size)%Z = 0)%Z). *)
-(*     apply Z.eqb_eq in e. *)
-(*     inversion align. *)
-(*     rewrite e in i,align. *)
-(*     rewrite Z.eqb_eq in align. *)
-(*     unfold Is_true. *)
-(*     assert (Hdecide: (left align) = bool_decide ((z `rem` page_size)%Z = 0%Z)). *)
-(*     destruct align. *)
-(*     (* destruct (decide ((z `rem` page_size)%Z = (z `rem` page_size)%Z)). *) *)
-(*     (* destruct e. *) *)
-(*     unfold decide. *)
-(*     unfold decide_rel. *)
-(*     case (Z_eq_dec (z `rem` page_size)%Z (z `rem` page_size)%Z). *)
-(*     intro. *)
-(*     Check eq_refl. *)
-(*     unfold Z.eq_dec. *)
-(*     unfold Z_eq_dec. *)
-(*     constructor. *)
-(*     rewrite X. *)
-(*     by exists (P z e). *)
-(*     lia. *)
-(* Qed. *)
+Lemma pid_spec p :
+  ((Z.rem (of_pid p) page_size) = 0)%Z.
+Proof.
+  destruct p. cbn. rewrite -> Z.eqb_eq in align.
+  lia.
+Qed.
+
+Lemma of_pid_eq p1 p2 :
+  of_pid p1 = of_pid p2 →
+  p1 = p2.
+Proof.
+  destruct p1, p2; cbn. intros ->.
+  repeat f_equal; apply eq_proofs_unicity; decide equality.
+Qed.
+
+Lemma to_of_pid p:  (to_pid (of_pid p))= Some p.
+  Proof.
+   generalize (pid_spec p); intros ?.
+  set (w := (of_pid p)) in *.
+  unfold to_pid.
+  destruct (Z_eq_dec (Z.rem w page_size) 0%Z) eqn:?.
+  { f_equal. apply of_pid_eq. cbn. done. }
+  all: lia.
+Qed.
 
 Program Definition to_pid_aligned (w: Word): PID:=
   let z:=(page_size * (w / page_size) )%Z in
@@ -112,6 +107,7 @@ subst wr.
 simpl.
 subst z.
 unfold Z.divide.
+apply Z.eqb_eq.
 apply Z.rem_divide.
 unfold page_size.
 lia.
@@ -202,10 +198,7 @@ Proof.
             decode_encode := _ |}.
   intro r. destruct r; auto.
   rewrite decode_encode.
-  unfold to_pid. simpl.
-  destruct (decide ((z `rem` page_size)%Z=0%Z)).
-  - repeat f_equal; apply eq_proofs_unicity; decide equality; decide equality.
-  - exfalso. done.
+  apply to_of_pid.
 Defined.
 
 Inductive reg_name : Type :=
