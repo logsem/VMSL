@@ -74,8 +74,8 @@ From HypVeri Require Export lang machine RAs.
     lia.
   Qed.
 
-  Definition transaction_l (v r:VMID) (wf: Word) (b:bool) (r:  VMID) (ps: list PID)  (ty: transaction_type): transaction :=
-    (v,wf,b,r ,(list_to_set ps),ty).
+  Definition transaction_l (v :VMID) (wf: Word) (r:  VMID) (ps: list PID) : transaction_descriptor :=
+    (v,None ,wf,r , ps).
 
   Lemma sequence_a_map_unit{A} (l:list A) :
   @sequence_a list _ _ _ A option _ _ (map (λ e , Some e ) l) = Some l.
@@ -96,7 +96,7 @@ Qed.
     seq_in_page (of_pid p) (length des) p ->
    (∀ (k : nat) (y1 y2 : Addr),
              finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-   parse_transaction_descriptor σ p = Some (i , None, wf,  j , (list_to_set  psd)).
+   parse_transaction_descriptor σ p = Some (i , None, wf,  j , psd).
   Proof.
     intros.
     rewrite /parse_transaction_descriptor /get_memory_with_offset.

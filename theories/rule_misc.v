@@ -510,22 +510,22 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_current_vmid_preserve_hpool σ i : get_trans_gset (update_current_vmid σ i) =
-                                               (get_trans_gset σ).
+  Lemma update_current_vmid_preserve_hpool σ i : get_hpool_gset (update_current_vmid σ i) =
+                                               (get_hpool_gset σ).
   Proof.
-    rewrite /get_trans_gset.
+    rewrite /get_hpool_gset.
     f_equal.
   Qed.
 
 
-  Lemma update_reg_global_preserve_hpool σ i r w : get_trans_gset (update_reg_global σ i r w) =
-                                               (get_trans_gset σ).
+  Lemma update_reg_global_preserve_hpool σ i r w : get_hpool_gset (update_reg_global σ i r w) =
+                                               (get_hpool_gset σ).
   Proof.
-    rewrite /get_trans_gset.
+    rewrite /get_hpool_gset.
     f_equal.
   Qed.
 
-  Lemma update_offset_PC_preserve_hpool σ o : get_trans_gset (update_offset_PC σ o) = get_trans_gset σ.
+  Lemma update_offset_PC_preserve_hpool σ o : get_hpool_gset (update_offset_PC σ o) = get_hpool_gset σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
@@ -533,10 +533,10 @@ From HypVeri Require Import RAs.
     done.
   Qed.
 
-  Lemma update_memory_unsafe_preserve_hpool σ a w : get_trans_gset (update_memory_unsafe σ a w) =
-                                               (get_trans_gset σ).
+  Lemma update_memory_unsafe_preserve_hpool σ a w : get_hpool_gset (update_memory_unsafe σ a w) =
+                                               (get_hpool_gset σ).
   Proof.
-    rewrite /get_trans_gset.
+    rewrite /get_hpool_gset.
     f_equal.
   Qed.
 
@@ -569,6 +569,35 @@ From HypVeri Require Import RAs.
     rewrite /get_receivers_gmap.
     f_equal.
   Qed.
+
+  Lemma update_page_table_foldr σ i (psd: list PID) perm:
+   i = (get_current_vm σ) ->
+   (foldr (λ (v' : PID) (acc' : state), update_page_table acc' v' perm) σ psd)
+   = ((get_reg_files σ), (get_mail_boxes σ),
+          (foldr (λ (p:PID) acc, vinsert i (<[p:=perm]>(get_vm_page_table σ i)) acc) (get_page_tables σ) psd),
+                              (get_current_vm σ), (get_mem σ), (get_transactions σ)).
+    Proof.
+      intros ->.
+      induction psd.
+      simpl.
+      repeat destruct σ as [σ ?].
+      done.
+      simpl.
+      simpl in IHpsd.
+      rewrite -> IHpsd.
+      rewrite /update_page_table //= /get_current_vm //=  /update_page_table_global  /get_reg_files //=.
+      rewrite /get_mail_boxes /get_mem /get_transactions /get_current_vm  //=  /get_page_tables //=.
+      assert (Hrewrite : (get_vm_page_table
+          (σ.1.1.1.1.1, σ.1.1.1.1.2,
+          list.foldr
+            (λ (p : PID) (acc : vec page_table vm_count),
+               vinsert σ.1.1.2 (<[p:=perm]> (get_vm_page_table σ σ.1.1.2)) acc) σ.1.1.1.2 psd, σ.1.1.2, σ.1.2,
+          σ.2) σ.1.1.2) = (get_vm_page_table σ σ.1.1.2)).
+      rewrite /get_vm_page_table.
+      f_equal.
+      Admitted.
+      (* TODO: rewrite /get_page_tables /=. *)
+
 
   Lemma reducible_normal{σ} i instr ai wi :
    (get_current_vm σ) = i ->

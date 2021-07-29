@@ -44,9 +44,9 @@ Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl q' des qh sh} {l :Wo
   ∗ ▷ mem_region des ptx
   ∗ ▷ hp{ qh }[ (GSet sh)] }}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
-  ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc∖spsd] ∗ E@i:={q'}[sexcl]
+  ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc∖spsd] ∗ E@i:={q'}[sexcl∖spsd]
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1  ∗ TX@ i := ptx
-  ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W0, j , spsd,Donation)
+  ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W0, j , psd,Donation)
   ∗ wh ->re false ∗ R2 @@ i ->r wh ∗ hp{qh}[(GSet (sh∖{[wh]}))] )
   ∗ mem_region des ptx}}}.
 Proof.
@@ -64,6 +64,8 @@ Proof.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess Hacc") as %Haccai;eauto.
   { rewrite (to_pid_aligned_in_page _ pi);eauto. set_solver. }
+  iDestruct ((gen_own_valid_Set sown) with "Hσowned Hown") as %Hown;eauto.
+  iDestruct ((gen_excl_valid_Set sexcl) with "Hσexcl Hexcl") as %Hexcl;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai wi with "Hσmem Hai") as %Hai.
   unfold mem_region.
@@ -71,6 +73,8 @@ Proof.
   { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
   (* valid tx *)
   iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
+  (* valid hpool *)
+  iDestruct (gen_hpool_valid with "Hhp Hσhp") as %Hhp.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -92,15 +96,47 @@ Proof.
     assert (Hcheck:  negb (i =? j) = true).
        {apply negb_true_iff. apply  <- Nat.eqb_neq. intro. apply Hneq. by apply fin_to_nat_inj.  }
     rewrite Hcheck /= in Heqc2;clear Hcheck.
-    assert (Hcheck: set_Forall (λ v' : PID, check_perm_page σ1 i v' (Owned, ExclusiveAccess) = true)
-                                   ((list_to_set  psd): (gset PID))).
-    {
-      (* TODO own_valid access_valid excl_valid *)
-      admit.
+    destruct (forallb (λ v' : PID, check_perm_page σ1 i v' (Owned, ExclusiveAccess))
+                                    psd) eqn:HCheck.
+    2: {
+      apply not_true_iff_false in HCheck.
+      exfalso.
+      apply HCheck.
+      apply forallb_forall.
+      intros.
+      unfold check_perm_page.
+      apply elem_of_list_In in H.
+      apply (elem_of_list_to_set (C:= gset PID)) in H.
+      rewrite <- Hspsd in H.
+      assert (HxInown: x ∈ sown). { set_solver. }
+      assert (HxInexcl: x ∈ sexcl). { set_solver. }
+      pose proof (Hown x HxInown) as Hxown .
+      simpl in Hxown.
+      destruct Hxown as [perm [HSomeperm Hisowned]].
+      rewrite HSomeperm.
+      pose proof (Hexcl x HxInexcl) as Hxexcl.
+      simpl in Hxexcl.
+      destruct Hxexcl as [perm' [HSomeperm' Hisexcl]].
+      rewrite HSomeperm in HSomeperm'.
+      inversion HSomeperm'.
+      subst perm'.
+      clear HSomeperm HSomeperm'.
+      destruct (decide ((Owned, ExclusiveAccess) = perm)) eqn:Heqn.
+      rewrite Heqn //.
+      rewrite /is_owned in Hisowned.
+      rewrite /is_exclusive in Hisexcl.
+      exfalso.
+      apply n.
+      destruct perm.
+      destruct o, a;try done.
     }
-    
+    rewrite /new_transaction /fresh_handle in Heqc2.
+    set (allfhs:= (get_fresh_handles (get_transactions σ1))) in *.
+    destruct allfhs.
+    { exfalso. apply Hshne. set_solver. }
+    rewrite //=  /update_page_table in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
-    rewrite /gen_vm_interp /update_incr_PC.    (* unchanged part *)
+    rewrite /gen_vm_interp /update_incr_PC /update_reg.    (* unchanged part *)
     rewrite_reg_all.
     rewrite Hcur.
     iFrame.

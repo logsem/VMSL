@@ -1,4 +1,4 @@
-From stdpp Require Import vector.
+From stdpp Require Import list vector.
 
 Class Functor (F : Type -> Type) := {
   fmap {A B : Type} (f : A -> B) (fa : F A) : F B;
@@ -55,7 +55,7 @@ Class Monoid (M : Type) := {
                           }.
 
 Class Foldable (T : Type -> Type) := {
-  foldr {A B : Type} : (A -> B -> B) -> B -> T A -> B;
+  foldr {A B : Type} : (B -> A -> A) -> A -> T B -> A;
   fold_map {A : Type} {M : Type} `{Monoid M} : (A -> M) -> T A -> M;
                                    }.
 
@@ -191,11 +191,11 @@ Module List.
      *)
   Defined.
 
-  Local Fixpoint foldr_list {A B : Type} (f : A -> B -> B) (b : B) (l : list A) : B :=
-    match l with
-    | nil => b
-    | cons x xs => f x (foldr_list f b xs)
-    end.
+  (* Local Fixpoint foldr_list {A B : Type} (f : A -> B -> B) (b : B) (l : list A) : B := *)
+  (*   match l with *)
+  (*   | nil => b *)
+  (*   | cons x xs => f x (foldr_list f b xs) *)
+  (*   end. *)
 
   Local Fixpoint fold_map_list {A M : Type} `{Monoid M} (f : A -> M) (l : list A) : M :=
     match l with
@@ -205,7 +205,7 @@ Module List.
   
   Instance foldable_list : Foldable list.
   Proof.
-    refine {| foldr := @foldr_list;
+    refine {| foldr := @stdpp.list.foldr ;
               fold_map := @fold_map_list ;|}.
   Defined.
   
@@ -287,7 +287,7 @@ End List.
 Module ListNoDup.
   From stdpp Require Import listset_nodup.    
 
-  Local Definition foldr_listset_nodup {A B : Type} (f : A -> B -> B) (b : B) (l : listset_nodup A) : B :=
+  Local Definition foldr_listset_nodup {A B : Type} (f : B -> A -> A) (b : A) (l : listset_nodup B) : A :=
     match l with
     | ListsetNoDup l' _ => foldr f b l'
     end.
@@ -328,7 +328,7 @@ End ListNoDup.
 
 Module Vector.
 
-  Local Fixpoint foldr_vec {A B : Type} {n : nat} (f : A -> B -> B) (b : B) (l : vec A n) : B :=
+  Local Fixpoint foldr_vec {A B : Type} {n : nat} (f : B -> A -> A) (b : A) (l : vec B n) : A :=
     match l with
     | vnil => b
     | vcons x xs => f x (foldr_vec f b xs)

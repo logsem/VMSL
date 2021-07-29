@@ -33,7 +33,7 @@ Definition transaction : Type :=
   * Word (*flag *)
   * bool (* if retrieved *)
   * VMID (* receiver *)
-  * gset PID (* PIDs *)
+  * list PID (* PIDs *)
   * transaction_type.
 
 Definition handle := Word.
@@ -432,7 +432,7 @@ Definition transaction_descriptor : Type :=
   * option handle (* Handle *)
   * Word(* Flag *)
   * VMID (* Receiver *)
-  *(gset PID).
+  * list PID.
 
 Definition parse_list_of_pids st (b : Addr) l : option (list PID) :=
    @sequence_a list _ _ _ PID option _ _ (map (λ v, (w <- ((get_mem st) !! v) ;;; (to_pid w) ))
@@ -454,7 +454,7 @@ Definition parse_transaction_descriptor (st : state) (b: Addr) : option transact
   wh <- get_memory_with_offset st b 2 ;;;
   md <- parse_memory_region_descriptor st (b^+3)%f;;;
   vs' <- decode_vmid vs ;;;
-  unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, md.1, (list_to_set md.2)).
+  unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, md.1, md.2).
 
 (*TODO: validate length*)
 Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transaction_type)
@@ -488,7 +488,7 @@ Definition insert_transaction (st : state) (h : handle) (t : transaction) : stat
    (<[h:=t]>(get_transactions st).1 , (get_transactions st).2 ∖ {[h]})).
 
 Definition new_transaction (st : state) (v r : VMID)
-           (tt : transaction_type) (flag : Word) (ps:(gset PID))  : hvc_result (state * handle) :=
+           (tt : transaction_type) (flag : Word) (ps:(list PID))  : hvc_result (state * handle) :=
     h <- fresh_handle (get_transactions st) ;;;
     unit (insert_transaction st h (v, flag, false, r, ps, tt), h).
 
@@ -541,8 +541,8 @@ Program Definition yield (s : state) : exec_mode * state :=
 Definition check_transition_transaction (s : state) (td : transaction_descriptor) : bool :=
   let p := (Owned, ExclusiveAccess) in
   match td with
-  | (_, _, _, _, m) =>  bool_decide( set_Forall (fun v' =>
-                           (check_perm_page s (get_current_vm s) v' p) = true)  m)
+  | (_, _, _, _, m) => forallb (fun v' =>
+                           (check_perm_page s (get_current_vm s) v' p))  m
   end.
 
 (*TODO: zero the pages*)
@@ -563,7 +563,7 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
         | (st,hd, td) =>
           match td with
           | (_, ps) => unit(update_reg (update_reg
-                      (set_fold (fun v' (acc': state) => update_page_table acc' v' (Owned, NoAccess)) st ps)
+                      (foldr (fun v' (acc': state) => update_page_table acc' v' (Owned, NoAccess)) st ps)
                       R0 (encode_hvc_ret_code Succ))
                       R2 hd)
           end
@@ -600,11 +600,11 @@ Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : h
 
 Definition relinquish_transaction (s : state)
            (h : handle)
-           (rcvr : VMID * (gset PID)) : hvc_result state :=
+           (rcvr : VMID * (list PID)) : hvc_result state :=
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
-   unit (set_fold (fun v' acc' => update_page_table acc' v' (NotOwned, NoAccess)) s' rcvr.2).
+   unit (foldr (fun v' acc' => update_page_table acc' v' (NotOwned, NoAccess)) s' rcvr.2).
 
-Definition get_memory_descriptor (t : transaction) : VMID * (gset PID) :=
+Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
   match t with
   | (_, _, _, r, m, _) =>(r, m)
   end.
@@ -626,16 +626,16 @@ Definition retrieve (s : state) : exec_mode * state :=
        (* for all pages of the trancation ... (change the page table of the caller according to the type)*)
   match ty with
   | Sharing =>
-    unit (set_fold (fun v' acc' =>
+    unit (foldr (fun v' acc' =>
                    update_page_table acc' v' (NotOwned, SharedAccess))
                 s' ps)
   | Lending =>
     (* it is fine because we only allow at most one receiver *)
-      unit (set_fold (fun v' acc' =>
+      unit (foldr (fun v' acc' =>
                         update_page_table acc' v' (NotOwned, ExclusiveAccess))
                      s' ps)
   | Donation =>
-    unit (set_fold (fun v' acc' =>
+    unit (foldr (fun v' acc' =>
                    update_page_table acc' v' (Owned, ExclusiveAccess))
                 s' ps)
   end)
@@ -664,7 +664,7 @@ Definition reclaim (s : state) : exec_mode * state :=
       l <- unit ((get_memory_descriptor trn).2 );;;
       if no_borrowers s handle (get_current_vm s)
       then
-        unit (set_fold
+        unit (foldr
                 (fun v' acc' =>
                    update_page_table acc' v' (Owned, ExclusiveAccess))
                 (remove_transaction s handle) l)
