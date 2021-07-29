@@ -18,9 +18,9 @@ From HypVeri Require Export lang machine.
                                                     (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
                       gen_excl_preG_inG :> inG Σ (authR (gmapUR V
                                                     (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
-                      gen_trans_preG_inG :> gen_heapGpreS W (V * W* W*(gmap V (gset P))*F) Σ;
+                      gen_trans_preG_inG :> gen_heapGpreS W (V * W*  V * (gset P)*F) Σ;
                       gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
-                      gen_retri_preG_inG :> inG Σ (authR (gmapUR W (gset_disjR (leibnizO V))))
+                      gen_retri_preG_inG :> inG Σ (authR (gmapUR W (exclR boolO)))
                    }.
 
 
@@ -77,9 +77,9 @@ Definition gen_VMΣ : gFunctors :=
       GFunctor page_table_ra;
       GFunctor page_table_ra;
       GFunctor page_table_ra;
-      gen_heapΣ Word (VMID * Word * Word * (gmap VMID (gset PID)) * transaction_type);
+      gen_heapΣ Word (VMID * Word *  VMID * (gset PID) * transaction_type);
       GFunctor (frac_authR (gset_disjR (leibnizO Word)));
-      GFunctor (authR (gmapUR Word (gset_disjR (leibnizO VMID))))
+      GFunctor (authR (gmapUR Word (exclR boolO)))
    ].
 
 Global Instance subG_gen_VMPreG {Σ}:
@@ -147,18 +147,18 @@ Section definitions.
 
 
   (* TODO we need getters for transations.. *)
-  Definition get_trans_gmap σ : gmap Word (VMID * Word * Word  * (gmap VMID (gset PID)) * transaction_type):=
+  Definition get_trans_gmap σ : gmap Word (VMID * Word *  VMID * (gset PID) * transaction_type):=
     list_to_map (map (λ (p:Word * transaction) ,
                       let trans := p.2 in
-                         (p.1,((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.1.2),  trans.1.2), trans.2))
+                         (p.1,((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.2),  trans.1.2), trans.2))
                      )  (map_to_list (get_transactions σ).1)).
   Definition get_trans_gset σ :=
     (frac_auth_auth  (GSet (get_transactions σ).2)).
 
-  Definition get_receivers_gmap σ : authR (gmapUR Word (gset_disjR (leibnizO VMID))) :=
+  Definition get_receivers_gmap σ : authR (gmapUR Word (exclR boolO)) :=
     ● (list_to_map (map (λ (p:Word * transaction) ,
                       let trans := p.2 in
-                  (p.1,(GSet trans.1.1.2))) (map_to_list (get_transactions σ).1))).
+                  (p.1,(Excl trans.1.1.1.2))) (map_to_list (get_transactions σ).1))).
 
   Definition gen_vm_interp σ: iProp Σ :=
       own (gen_token_name vmG) (get_token (get_current_vm σ)) ∗
@@ -229,22 +229,22 @@ Section definitions.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
 
-    Definition excl_mapsto_def (i:VMID) dq (s: gset_disj PID) : iProp Σ :=
+  Definition excl_mapsto_def (i:VMID) dq (s: gset_disj PID) : iProp Σ :=
     own (gen_excl_name vmG) (◯ {[i := (dq, to_agree s)]}).
   Definition excl_mapsto_aux : seal (@excl_mapsto_def). Proof. by eexists. Qed.
   Definition excl_mapsto := excl_mapsto_aux.(unseal).
   Definition excl_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
 
 
-  Definition trans_mapsto_def(wh : Word) dq (v: VMID) (wf: Word) (wt: Word) (pgs : gmap VMID (gset PID)) (fid : transaction_type) : iProp Σ :=
+  Definition trans_mapsto_def(wh : Word) dq (v r: VMID) (wf: Word) (pgs : (gset PID)) (fid : transaction_type) : iProp Σ :=
     own (gen_trans_name vmG) (gmap_view_frag wh dq
-                          (((((v, wf) , wt), pgs), fid): (leibnizO (VMID * Word * Word * (gmap VMID (gset PID)) * transaction_type)))).
+                          (((((v, wf) , r), pgs), fid): (leibnizO (VMID * Word * VMID * (gset PID) * transaction_type)))).
   Definition trans_mapsto_aux : seal (@trans_mapsto_def). Proof. by eexists. Qed.
   Definition trans_mapsto := trans_mapsto_aux.(unseal).
   Definition trans_mapsto_eq : @trans_mapsto = @trans_mapsto_def := trans_mapsto_aux.(seal_eq).
 
-  Definition retri_mapsto_def (w:Word) (s: gset_disj VMID) : iProp Σ :=
-    own (gen_retri_name vmG) (◯ {[w := s]}).
+  Definition retri_mapsto_def (w:Word) (b:boolO) : iProp Σ :=
+    own (gen_retri_name vmG) (◯ {[w := (Excl b)]}).
   Definition retri_mapsto_aux : seal (@retri_mapsto_def). Proof. by eexists. Qed.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
   Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
@@ -304,12 +304,10 @@ Notation "E@ i :={ q } p " := (excl_mapsto  i (DfracOwn q) (GSet {[p]}))
                                            (at level 20, format "E@ i :={ q } p "):bi_scope.
 
 (* predicates for transactions *)
-Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v x y m f)
+Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v y x m f)
                                                    (at level 20, format "w ->t{ q }( v , x , y , m , f )"):bi_scope.
-Notation "w ->re[ s ]" := (retri_mapsto w (GSet s))
-                              (at level 20, format "w ->re[ s ]"):bi_scope.
-Notation "w ->re v" := (retri_mapsto w (GSet {[v]}))
-                          (at level 20, format "w ->re v"):bi_scope.
+Notation "w ->re b" := (retri_mapsto w b)
+                          (at level 20, format "w ->re b"):bi_scope.
 
 (* predicates for hpool *)
 Notation "hp{ q }[ s ]" := (hpool_mapsto q s)
@@ -826,6 +824,11 @@ Lemma gen_mem_update1:
   iFrame.
   done.
  Qed.
+
+ Definition mem_region (instr: list Word) (b:Addr):=
+    ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
+
+
 
  (* rules for TX *)
   Lemma tx_dupl i p :
@@ -1362,35 +1365,14 @@ Qed.
 
 
   (* rules for transactions *)
-  Lemma trans_split wh q1 q2 i wf wt m f:
-   wh ->t{(q1+q2)%Qp}(i,wf,wt,m,f) -∗  wh ->t{q1}(i,wf,wt,m,f) ∗ wh ->t{q2}(i,wf,wt,m,f).
+  Lemma trans_split wh q1 q2 i (r:VMID) wf m f:
+   wh ->t{(q1+q2)%Qp}(i,wf,r,m,f) -∗  wh ->t{q1}(i,wf,r,m,f) ∗ wh ->t{q2}(i,wf,r,m,f).
   Proof using.
     iIntros "HT".
     rewrite trans_mapsto_eq.
     iApply own_op.
     rewrite -gmap_view_frag_op.
     rewrite dfrac_op_own.
-    done.
-  Qed.
-
-  Lemma retri_split_set wh (s1 s2 : gset VMID):
-   s1 ## s2 -> wh ->re[(s1 ∪ s2)] -∗ wh ->re[s1] ∗ wh ->re[s2].
-  Proof using.
-    iIntros (Hdisj) "Hre".
-    rewrite retri_mapsto_eq.
-    iApply own_op.
-    rewrite -auth_frag_op singleton_op.
-    rewrite (gset_disj_union _ _ Hdisj).
-    naive_solver.
-  Qed.
-
-  Lemma  retri_split_singleton wh (s: gset VMID) i:
-   i ∉ s -> wh ->re[(s ∪ {[i]})] -∗ wh ->re[s] ∗ wh ->re i.
-  Proof using.
-    iIntros (Hnotin) "Hr".
-    assert (Hdisj: s ## {[i]}).
-    { set_solver. }
-    iDestruct (retri_split_set wh _ _ Hdisj with "Hr")  as "Hr'".
     done.
   Qed.
 
@@ -1430,186 +1412,8 @@ Qed.
   Global Instance hpool_mapsto_timeless q sh : Timeless (hp{ q }[ sh ]).
   Proof. rewrite hpool_mapsto_eq /hpool_mapsto_def. apply _. Qed.
 
-  Global Instance retri_mapsto_timeless w s : Timeless (w ->re[ s ]).
+  Global Instance retri_mapsto_timeless w (b:bool) : Timeless (w ->re b).
   Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
 
-  (* predicates for descriptors *)
-
-  Definition serialized_memory_descirptor l (r:VMID) ps := [l; (of_imm (encode_vmid r))]++ (map (λ pid, (of_pid pid)) ps).
-
-  Definition serialized_transaction_descriptor (v r:VMID) (wf wt l : Word) (ps: list PID) (h : handle ): list Word :=
-    [(of_imm (encode_vmid v)); wf; h;wt; W1%f] ++ (serialized_memory_descirptor l r ps).
-
-  Lemma trans_desc_length{i j wf wt l ps} des :
-    des = serialized_transaction_descriptor i j wf wt l ps W0 ->
-    (finz.to_z l) = (Z.of_nat (length ps)) ->
-    ((Z.of_nat (length des)) = 5 + 2 + (finz.to_z l))%Z.
-  Proof.
-    intros.
-    rewrite H /serialized_transaction_descriptor /serialized_memory_descirptor H0.
-    simpl.
-    rewrite fmap_length.
-    lia.
-  Qed.
-
-
-  Lemma mem_desc_valid{ b psd σ}l ps:
-    l =  (length ps) ->
-   psd =  (map (λ pid, (of_pid pid)) ps) ->
-   (∀ (k : nat) (y1 y2 : Addr),
-   finz.seq b (length psd) !! k = Some y1 → psd !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-   map (λ v : Addr,(bind ((get_mem σ) !! v) to_pid )) (finz.seq b l)
-   = map (λ pid, Some pid) ps.
-  Proof.
-    intros.
-    generalize dependent b.
-    generalize dependent ps.
-    generalize dependent psd.
-    induction l.
-    intros.
-    destruct ps .
-    rewrite H //=.
-    simplify_eq.
-    intros.
-    destruct ps .
-    done.
-    simpl in H.
-    inversion H.
-    simpl.
-    destruct psd.
-    done.
-    rewrite -(IHl psd _ _ _ (b^+1)%f).
-    pose proof (H1 0 b (of_pid p)).
-    rewrite H2.
-    rewrite H3 to_of_pid //.
-    done.
-    rewrite H0.
-    rewrite -> list_lookup_fmap.
-    done.
-    done.
-    rewrite -> fmap_cons in H0.
-    inversion H0.
-    done.
-    intros.
-    apply (H1 (k+1)).
-    simpl.
-    rewrite lookup_cons_ne_0.
-    rewrite -H2 //=.
-    f_equal.
-    lia.
-    lia.
-    rewrite -H4.
-    rewrite lookup_cons_ne_0.
-    f_equal.
-    lia.
-    lia.
-  Qed.
-    
-
-  Definition mem_region (instr: list Word) (b:Addr):=
-    ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
-
-  Definition transaction1 (v r:VMID) (wf wt l : Word) (rs: list VMID) (ps: list PID)  (ty: transaction_type): transaction :=
-    (v,wf,wt,(list_to_set rs),{[r := (list_to_set ps)]},ty).
-
-  Lemma sequence_a_map_unit{A} (l:list A) :
-  @sequence_a list _ _ _ A option _ _ (map (λ e , Some e ) l) = Some l.
-    Proof.
-      unfold sequence_a.
-      simpl.
-      unfold monad.List.sequence_a_list.
-      induction l.
-      done.
-      simpl.
-      simpl in IHl.
-      rewrite IHl //.
-Qed.
-
-  Lemma transaction_descriptor_valid{i j wf wt l psd σ} des p :
-    (finz.to_z l) = (Z.of_nat (length psd)) ->
-    des = serialized_transaction_descriptor i j wf wt l psd W0 ->
-    seq_in_page (of_pid p) (length des) p ->
-   (∀ (k : nat) (y1 y2 : Addr),
-             finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-   parse_transaction_descriptor σ p = Some (i , None, wt , wf, W1, {[j:= list_to_set  psd]}).
-  Proof.
-    intros.
-    rewrite /parse_transaction_descriptor /get_memory_with_offset.
-    destruct H1 as [_ [? _]].
-    pose proof (trans_desc_length des H0 H) as Hlen.
-    assert (HpSome: ((of_pid p) + 0)%f = Some ((of_pid p) ^+ 0)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 0 ((of_pid p) ^+ 0)%f (encode_vmid i)).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    assert (HpSome: ((of_pid p) + 1)%f = Some ((of_pid p) ^+ 1)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 1 ((of_pid p) ^+ 1)%f wf).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    assert (HpSome: ((of_pid p) + 2)%f = Some ((of_pid p) ^+ 2)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 2 ((of_pid p) ^+ 2)%f W0).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    assert (HpSome: ((of_pid p) + 3)%f = Some ((of_pid p) ^+ 3)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 3 ((of_pid p) ^+ 3)%f wt).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    assert (HpSome: ((of_pid p) + 4)%f = Some ((of_pid p) ^+ 4)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 4 ((of_pid p) ^+ 4)%f W1).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    rewrite /parse_memory_region_descriptors //=  /parse_memory_region_descriptor /get_memory_with_offset.
-    assert (HpSome: ((of_pid p) ^+ 5 + (0%nat + 0))%f = Some ((of_pid p) ^+ 5)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 5 ((of_pid p) ^+ 5)%f l).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    assert (HpSome: ((of_pid p) ^+ 5 + (0%nat + 1))%f = Some ((of_pid p) ^+ 6)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 6 ((of_pid p) ^+ 6)%f (encode_vmid j)).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    rewrite !decode_encode_vmid /parse_list_of_pids /= .
-    rewrite (@mem_desc_valid _ (map (λ pid, (of_pid pid)) psd) _ _ psd );eauto.
-    2: { lia. }
-    2: { intros.
-         apply (H2 (k+7) _).
-         assert (Hlenmapeq: length ( map (λ pid : PID, (of_pid pid)) psd) = length psd).
-        apply fmap_length.
-         apply (finz_seq_lookup _ _ y1).
-         assert (Hklt: k < length ( map (λ pid : PID, (of_pid pid)) psd)).
-         rewrite <-(finz_seq_length _ ((p ^+ 5) ^+ (0%nat + 0 + 2))%f).
-         apply lookup_lt_is_Some.
-         by exists y1.
-        rewrite Hlenmapeq in Hklt.
-        lia.
-        apply (finz_seq_lookup'  _ y1 k _ ) in H3.
-        2: { rewrite Hlenmapeq. solve_finz. }
-        destruct H3.
-        rewrite Hlenmapeq in H3.
-        solve_finz.
-        rewrite H0 /serialized_transaction_descriptor.
-        simpl.
-        rewrite !lookup_cons_ne_0; try lia.
-        rewrite -H4.
-        f_equal.
-        lia.
-       }
-    rewrite -> sequence_a_map_unit.
-    simpl.
-    unfold memory_regions_to_gmap.
-    done.
- Qed.
 
 End hyp_lang_rules.

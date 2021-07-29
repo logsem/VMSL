@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base.
+From HypVeri Require Import RAs transaction rule_misc lifting rules.rules_base.
 From iris.proofmode Require Import tactics.
 From iris.algebra Require Import gset.
 Require Import stdpp.fin.
@@ -8,7 +8,7 @@ Section donate.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_donate_not_zeroed {instr i wi r2 pi ptx sown q sacc sexcl q' wt des qh sh} {l :Word} {spsd: gset PID}
+Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl q' des qh sh} {l :Word} {spsd: gset PID}
       ai r0 r1 j (psd: list PID) :
   (* the current instruction is hvc *)
   instr = Hvc ->
@@ -23,7 +23,7 @@ Lemma hvc_donate_not_zeroed {instr i wi r2 pi ptx sown q sacc sexcl q' wt des qh
   (* l is the number of to-be-donated pages *)
   (finz.to_z l) = (Z.of_nat (length psd)) ->
   (* the descriptor, in list Word *)
-  des = serialized_transaction_descriptor i j W0 wt l psd W0 ->
+  des = serialized_transaction_descriptor i j W0 l psd W0 ->
   (* the whole descriptor resides in the TX page *)
   seq_in_page (of_pid ptx) (length des) ptx ->
   (* r1 equals the length of the descriptor *)
@@ -46,8 +46,8 @@ Lemma hvc_donate_not_zeroed {instr i wi r2 pi ptx sown q sacc sexcl q' wt des qh
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc∖spsd] ∗ E@i:={q'}[sexcl]
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1  ∗ TX@ i := ptx
-  ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W0, wt, {[j := spsd]},Donation)
-  ∗ wh ->re j ∗ R2 @@ i ->r wh ∗ hp{qh}[(GSet (sh∖{[wh]}))] )
+  ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W0, j , spsd,Donation)
+  ∗ wh ->re false ∗ R2 @@ i ->r wh ∗ hp{qh}[(GSet (sh∖{[wh]}))] )
   ∗ mem_region des ptx}}}.
 Proof.
   iIntros (Hinstr Hdecodei Hini Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
@@ -85,37 +85,15 @@ Proof.
        apply last_addr_in_bound.  apply Z.leb_le. destruct (((ptx ^+ length des)%f <=? (ptx ^+ (page_size - 1))%f)%Z). done. contradiction. }
     rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
-    rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W0 wt l psd σ1 des) /= in Heqc2;eauto.
-    rewrite map_size_singleton /= Hcureq /= in Heqc2.
+    rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W0 l psd σ1 des) /= in Heqc2;eauto.
     assert (Hcheck : (i =? i) = true).
-    { by apply   <- Nat.eqb_eq.}
-    rewrite Hcheck /= in Heqc2;clear Hcheck.
-    assert (Hcheck: (map_fold (λ (k : VMID) (_ : gset PID) (acc : bool), (negb (i =? k)) && acc) true
-                           {[j := list_to_set ((λ pid : PID, to_pid_aligned pid) <$> psd)]}) = true).
-    {  rewrite map_fold_insert_L.
-       assert (Hcheck' :  negb (i =? j) = true).
+    { by apply   <- Nat.eqb_eq. }
+    rewrite Hcureq Hcheck /= in Heqc2;clear Hcheck.
+    assert (Hcheck:  negb (i =? j) = true).
        {apply negb_true_iff. apply  <- Nat.eqb_neq. intro. apply Hneq. by apply fin_to_nat_inj.  }
-    rewrite Hcheck'.
-      simpl.
-      apply map_fold_empty.
-      intros.
-      exfalso.
-      apply lookup_insert_Some in H0.
-      destruct H0.
-      2: { destruct H0.  simplify_map_eq. }
-      destruct H0.
-      apply lookup_insert_Some in H1.
-      destruct H1.
-      2: { destruct H1.  simplify_map_eq. }
-      destruct H1.
-      apply H.
-      apply fin_to_nat_inj.
-      rewrite -H1 -H0 //.
-      apply lookup_empty.
-    }
     rewrite Hcheck /= in Heqc2;clear Hcheck.
     assert (Hcheck: set_Forall (λ v' : PID, check_perm_page σ1 i v' (Owned, ExclusiveAccess) = true)
-                                   ((list_to_set ((λ pid : PID, to_pid_aligned (of_pid pid)) <$> psd)): (gset PID))).
+                                   ((list_to_set  psd): (gset PID))).
     {
       (* TODO own_valid access_valid excl_valid *)
       admit.
