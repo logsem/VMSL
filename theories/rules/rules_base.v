@@ -51,6 +51,34 @@ Ltac rewrite_vmid_all :=
     try rewrite -> update_current_vmid_preserve_receivers
   end.
 
+Ltac rewrite_pt_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_page_table_batch_preserve_current_vm;
+    try rewrite -> update_page_table_batch_preserve_regs;
+    try rewrite -> update_page_table_batch_preserve_mem;
+    try rewrite -> update_page_table_batch_preserve_tx;
+    try rewrite -> update_page_table_batch_preserve_rx;
+    try rewrite -> update_page_table_batch_preserve_trans;
+    try rewrite -> update_page_table_batch_preserve_hpool;
+    try rewrite -> update_page_table_batch_preserve_receivers
+  end.
+
+Ltac rewrite_trans_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> insert_transaction_preserve_current_vm;
+    try rewrite -> insert_transaction_preserve_regs;
+    try rewrite -> insert_transaction_preserve_mem;
+    try rewrite -> insert_transaction_preserve_tx;
+    try rewrite -> insert_transaction_preserve_rx;
+    try rewrite -> insert_transaction_preserve_owned;
+    try rewrite -> insert_transaction_preserve_access;
+    try rewrite -> insert_transaction_preserve_excl
+  end.
+
+
+
 
 Ltac solve_reg_lookup :=
   match goal with

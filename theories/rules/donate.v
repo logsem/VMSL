@@ -136,9 +136,13 @@ Proof.
     { exfalso. apply Hshne. set_solver. }
     rewrite //=  /update_page_table in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
-    rewrite /gen_vm_interp /update_incr_PC /update_reg.    (* unchanged part *)
+    rewrite /gen_vm_interp /update_incr_PC /update_reg.
+    (* unchanged part *)
     rewrite_reg_all.
-    rewrite Hcur.
+    rewrite update_page_table_batch_preserve_current_vm insert_transaction_preserve_current_vm.
+    rewrite_reg_all.
+    rewrite_pt_all.
+    rewrite_trans_all.
     iFrame.
     (* updated part *)
 Admitted.

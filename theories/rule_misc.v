@@ -570,33 +570,158 @@ From HypVeri Require Import RAs.
     f_equal.
   Qed.
 
-  Lemma update_page_table_foldr σ i (psd: list PID) perm:
-   i = (get_current_vm σ) ->
-   (foldr (λ (v' : PID) (acc' : state), update_page_table acc' v' perm) σ psd)
-   = ((get_reg_files σ), (get_mail_boxes σ),
-          (foldr (λ (p:PID) acc, vinsert i (<[p:=perm]>(get_vm_page_table σ i)) acc) (get_page_tables σ) psd),
-                              (get_current_vm σ), (get_mem σ), (get_transactions σ)).
+  (* Lemma update_page_table_foldr σ i (psd: list PID) perm: *)
+  (*  i = (get_current_vm σ) -> *)
+  (*  (foldr (λ (v' : PID) (acc' : state), update_page_table acc' v' perm) σ psd) *)
+  (*  = ((get_reg_files σ), (get_mail_boxes σ), *)
+  (*         (foldr (λ (p:PID) acc, vinsert i (<[p:=perm]>(get_vm_page_table σ i)) acc) (get_page_tables σ) psd), *)
+  (*                             (get_current_vm σ), (get_mem σ), (get_transactions σ)). *)
+  (*   Proof. *)
+  (*     intros ->. *)
+  (*     induction psd. *)
+  (*     simpl. *)
+  (*     repeat destruct σ as [σ ?]. *)
+  (*     done. *)
+  (*     simpl. *)
+  (*     simpl in IHpsd. *)
+  (*     rewrite -> IHpsd. *)
+  (*     rewrite /update_page_table //= /get_current_vm //=  /update_page_table_global  /get_reg_files //=. *)
+  (*     rewrite /get_mail_boxes /get_mem /get_transactions /get_current_vm  //=  /get_page_tables //=. *)
+  (*     f_equal. *)
+  (*     f_equal. *)
+  (*     f_equal. *)
+  (*     f_equal /=. *)
+  (*     (* TODO, seems like we need a lemma: ∀ i, vec1 !!! i = vec2 !!! i -> vec1=vec2 *) *)
+  (*         Admitted. *)
+
+  Lemma update_page_table_batch_preserve_current_vm σ (ps: list PID) perm:
+   get_current_vm (update_page_table_batch σ ps perm) = get_current_vm σ.
     Proof.
-      intros ->.
-      induction psd.
-      simpl.
-      repeat destruct σ as [σ ?].
-      done.
-      simpl.
-      simpl in IHpsd.
-      rewrite -> IHpsd.
-      rewrite /update_page_table //= /get_current_vm //=  /update_page_table_global  /get_reg_files //=.
-      rewrite /get_mail_boxes /get_mem /get_transactions /get_current_vm  //=  /get_page_tables //=.
-      assert (Hrewrite : (get_vm_page_table
-          (σ.1.1.1.1.1, σ.1.1.1.1.2,
-          list.foldr
-            (λ (p : PID) (acc : vec page_table vm_count),
-               vinsert σ.1.1.2 (<[p:=perm]> (get_vm_page_table σ σ.1.1.2)) acc) σ.1.1.1.2 psd, σ.1.1.2, σ.1.2,
-          σ.2) σ.1.1.2) = (get_vm_page_table σ σ.1.1.2)).
-      rewrite /get_vm_page_table.
+      rewrite /get_current_vm.
       f_equal.
-      Admitted.
-      (* TODO: rewrite /get_page_tables /=. *)
+Qed.
+
+  Lemma update_page_table_batch_preserve_regs σ (ps: list PID) perm:
+   get_reg_gmap (update_page_table_batch σ ps perm) = get_reg_gmap σ.
+    Proof.
+      rewrite /get_reg_gmap.
+      f_equal.
+Qed.
+   Lemma update_page_table_batch_preserve_mem σ (ps: list PID) perm:
+   get_mem (update_page_table_batch σ ps perm) = get_mem σ.
+    Proof.
+      rewrite /get_mem.
+      f_equal.
+Qed.
+   Lemma update_page_table_batch_preserve_tx σ (ps: list PID) perm:
+   get_tx_agree (update_page_table_batch σ ps perm) = get_tx_agree σ.
+    Proof.
+      rewrite /get_tx_agree.
+      f_equal.
+Qed.
+       Lemma update_page_table_batch_preserve_rx1 σ (ps: list PID) perm:
+   get_rx_agree (update_page_table_batch σ ps perm) = get_rx_agree σ.
+    Proof.
+      rewrite /get_rx_agree.
+      f_equal.
+Qed.
+   Lemma update_page_table_batch_preserve_rx2 σ (ps: list PID) perm:
+   get_rx_gmap (update_page_table_batch σ ps perm) = get_rx_gmap σ.
+    Proof.
+      rewrite /get_rx_gmap.
+      f_equal.
+Qed.
+      Lemma update_page_table_batch_preserve_rx σ (ps: list PID) perm:
+       (get_rx_agree (update_page_table_batch σ ps perm), get_rx_gmap (update_page_table_batch σ ps perm) ) =
+                                               (get_rx_agree σ, get_rx_gmap σ).
+  Proof.
+    by rewrite update_page_table_batch_preserve_rx1 update_page_table_batch_preserve_rx2 .
+  Qed.
+
+   Lemma update_page_table_batch_preserve_trans σ (ps: list PID) perm:
+   get_trans_gmap (update_page_table_batch σ ps perm) = get_trans_gmap σ.
+    Proof.
+      rewrite /get_trans_gmap.
+      f_equal.
+Qed.
+   Lemma update_page_table_batch_preserve_hpool σ (ps: list PID) perm:
+   get_hpool_gset (update_page_table_batch σ ps perm) = get_hpool_gset σ.
+    Proof.
+      rewrite /get_hpool_gset.
+      f_equal.
+Qed.
+   Lemma update_page_table_batch_preserve_receivers σ (ps: list PID) perm:
+   get_receivers_gmap (update_page_table_batch σ ps perm) = get_receivers_gmap σ.
+    Proof.
+      rewrite /get_receivers_gmap.
+      f_equal.
+Qed.
+
+  Lemma insert_transaction_preserve_current_vm σ h trans:
+   get_current_vm (insert_transaction σ h trans) = get_current_vm σ.
+    Proof.
+      rewrite /get_current_vm.
+      f_equal.
+Qed.
+
+      Lemma insert_transaction_preserve_regs σ h trans:
+   get_reg_gmap (insert_transaction σ h trans) = get_reg_gmap σ.
+    Proof.
+      rewrite /get_reg_gmap.
+      f_equal.
+Qed.
+  Lemma insert_transaction_preserve_mem σ h trans:
+   get_mem (insert_transaction σ h trans) = get_mem σ.
+    Proof.
+      rewrite /get_mem.
+      f_equal.
+Qed.
+  Lemma insert_transaction_preserve_tx σ h trans:
+   get_tx_agree (insert_transaction σ h trans) = get_tx_agree σ.
+    Proof.
+      rewrite /get_tx_agree.
+      f_equal.
+Qed.
+  Lemma insert_transaction_preserve_rx1 σ h trans:
+   get_rx_agree (insert_transaction σ h trans) = get_rx_agree σ.
+    Proof.
+      rewrite /get_rx_agree.
+      f_equal.
+Qed.
+  Lemma insert_transaction_preserve_rx2 σ h trans:
+   get_rx_gmap(insert_transaction σ h trans) = get_rx_gmap σ.
+    Proof.
+      rewrite /get_rx_gmap.
+      f_equal.
+Qed.
+  Lemma insert_transaction_preserve_rx  σ h trans:
+       (get_rx_agree (insert_transaction σ h trans), get_rx_gmap (insert_transaction σ h trans) ) =
+                                               (get_rx_agree σ, get_rx_gmap σ).
+  Proof.
+    by rewrite insert_transaction_preserve_rx1 insert_transaction_preserve_rx2 .
+  Qed.
+  Lemma insert_transaction_preserve_owned σ h trans:
+   get_owned_gmap (insert_transaction σ h trans) = get_owned_gmap σ.
+    Proof.
+      rewrite /get_owned_gmap.
+      f_equal.
+Qed.
+   Lemma insert_transaction_preserve_access σ h trans:
+   get_access_gmap (insert_transaction σ h trans) = get_access_gmap σ.
+    Proof.
+      rewrite /get_access_gmap.
+      f_equal.
+Qed.
+     Lemma insert_transaction_preserve_excl σ h trans:
+   get_excl_gmap (insert_transaction σ h trans) = get_excl_gmap σ.
+    Proof.
+      rewrite /get_excl_gmap.
+      f_equal.
+Qed.
+
+
+
+ (* TODO more preserving rules. *)
 
 
   Lemma reducible_normal{σ} i instr ai wi :

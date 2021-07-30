@@ -143,7 +143,16 @@ Definition get_page_table_global (st : state) (v : VMID) (p : PID) : option perm
 
 Definition get_page_table (st : state) (p : PID) : option permission :=
   get_page_table_global st (get_current_vm st) p.
-                
+
+Definition update_page_table_global_batch st (v:VMID) (ps : list PID) (pm: permission): state :=
+   (get_reg_files st, get_mail_boxes st, vinsert v (foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v) ps) (get_page_tables st),
+   get_current_vm st,
+   get_mem st, get_transactions st).
+
+Definition update_page_table_batch st (ps : list PID) (pm: permission): state :=
+  update_page_table_global_batch st (get_current_vm st) ps pm.
+
+
 Definition update_memory_unsafe (st : state) (a : Addr) (w : Word) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, <[a:=w]>(get_mem st), get_transactions st).
 
@@ -563,7 +572,7 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
         | (st,hd, td) =>
           match td with
           | (_, ps) => unit(update_reg (update_reg
-                      (foldr (fun v' (acc': state) => update_page_table acc' v' (Owned, NoAccess)) st ps)
+                      (update_page_table_batch st ps (Owned, NoAccess))
                       R0 (encode_hvc_ret_code Succ))
                       R2 hd)
           end
