@@ -64,6 +64,7 @@ Proof.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess Hacc") as %Haccai;eauto.
   { rewrite (to_pid_aligned_in_page _ pi);eauto. set_solver. }
+  iDestruct ((gen_access_valid_lookup_Set _ _ _ sacc) with "Hσaccess Hacc") as %Hacc;eauto.
   iDestruct ((gen_own_valid_Set sown) with "Hσowned Hown") as %Hown;eauto.
   iDestruct ((gen_excl_valid_Set sexcl) with "Hσexcl Hexcl") as %Hexcl;eauto.
   (* valid mem *)
@@ -144,7 +145,36 @@ Proof.
     rewrite_pt_all.
     rewrite_trans_all.
     iFrame.
-    (* updated part *)
+    (* update regs *)
+     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+     rewrite !update_reg_global_update_reg;rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
+     2 : {
+        exists r2.
+        rewrite lookup_insert_ne.
+        solve_reg_lookup.
+        done.
+     }
+     2 : {
+        rewrite !update_reg_global_update_reg.
+        rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
+        rewrite !lookup_insert_ne;[solve_reg_lookup|done|done].
+        rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
+rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs.
+        exists r2.
+        rewrite lookup_insert_ne;[solve_reg_lookup|done].
+        rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs.
+        solve_reg_lookup.
+     }
+     iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i h R0 i (encode_hvc_ret_code Succ) ) with "Hσreg PC R2 R0") as ">[Hσreg [PC [R2 R0]]]";eauto.
+     rewrite Hcureq.
+     iFrame.
+     (* update page table *)
+     rewrite (@update_page_table_batch_update_access_noaccess _ i sacc spsd psd Owned );eauto.
+     rewrite_trans_all.
+     iDestruct ((gen_access_update_noaccess spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
+     set_solver.
+     rewrite Hcureq.
+     iFrame.
 Admitted.
 
 End donate.

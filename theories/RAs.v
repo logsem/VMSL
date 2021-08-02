@@ -126,24 +126,24 @@ Section definitions.
                                       | None => (v,None)
                                     end) (list_of_vmids))): (gmap VMID (optionO (prodO (leibnizO Word) (leibnizO VMID))) )))).
 
-  Definition get_owned_gmap σ : page_table_ra :=
-    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
+  Definition get_owned_gmap σ : (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID))))) :=
+    (list_to_map (map (λ v, (v, ((DfracOwn 1),
         to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
            (map_to_list (filter (λ p, (is_owned p.2) = true) (get_vm_page_table σ v)))))
-                         : gset PID))))) (list_of_vmids)))).
+                         : gset PID))))) (list_of_vmids))).
 
 
-  Definition get_access_gmap σ : page_table_ra :=
-    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
+  Definition get_access_gmap σ : (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID))))) :=
+    (list_to_map (map (λ v, (v, ((DfracOwn 1),
         to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
            (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v)))))
-                         : gset PID))))) (list_of_vmids)))).
+                         : gset PID))))) (list_of_vmids))).
 
-    Definition get_excl_gmap σ : page_table_ra :=
-    (● (list_to_map (map (λ v, (v, ((DfracOwn 1),
+    Definition get_excl_gmap σ : (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID))))) :=
+    (list_to_map (map (λ v, (v, ((DfracOwn 1),
         to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
            (map_to_list (filter (λ p, (is_exclusive p.2) = true) (get_vm_page_table σ v)))))
-                         : gset PID))))) (list_of_vmids)))).
+                         : gset PID))))) (list_of_vmids))).
 
 
   (* TODO we need getters for transations.. *)
@@ -166,9 +166,9 @@ Section definitions.
       ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
       own (gen_tx_name vmG) (get_tx_agree σ) ∗
       own (gen_rx_name vmG) ((get_rx_agree σ), (get_rx_gmap σ) )∗
-      own (gen_owned_name vmG) (get_owned_gmap σ) ∗
-      own (gen_access_name vmG) (get_access_gmap σ) ∗
-      own (gen_excl_name vmG) (get_excl_gmap σ) ∗
+      own (gen_owned_name vmG)  (●(get_owned_gmap σ)) ∗
+      own (gen_access_name vmG) (● (get_access_gmap σ)) ∗
+      own (gen_excl_name vmG) (●(get_excl_gmap σ)) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
       own (gen_hpool_name vmG) (get_hpool_gset σ) ∗
       own (gen_retri_name vmG) (get_receivers_gmap σ).
@@ -710,6 +710,43 @@ Qed.
         destruct Hneq; apply lookup_insert_None; split;eauto; intros P; by inversion P.
 Qed.
 
+  Lemma gen_reg_update3_global {σ w1 w2 w3} r1 i1 w1' r2 i2 w2' r3 i3 w3':
+    r1 ≠ r2 ∨ i1 ≠ i2  ->
+    r1 ≠ r3 ∨ i1 ≠ i3  ->
+    r3 ≠ r2 ∨ i3 ≠ i2  ->
+    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    r1 @@ i1 ->r w1 -∗
+    r2 @@ i2 ->r w2 -∗
+    r3 @@ i3 ->r w3==∗
+    ghost_map_auth (gen_reg_name vmG) 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']> (<[(r3,i3):= w3']>(get_reg_gmap σ)))) ∗
+    r1 @@ i1 ->r w1'  ∗ r2 @@ i2 ->r w2' ∗ r3 @@ i3 ->r w3'.
+ Proof.
+  iIntros (Hneq12 Hneq13 Hneq32) "Hreg Hr1 Hr2 Hr3".
+  iDestruct ((gen_reg_update_Sep _ {[(r1,i1):=w1; (r2,i2):=w2 ;(r3,i3):=w3]} {[(r1,i1):=w1'; (r2,i2):=w2'; (r3,i3):=w3']}) with "Hreg [Hr1 Hr2 Hr3]")
+    as ">[Hreg Hr123]" ;eauto;[set_solver| | ].
+        rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+        iFrame.
+        destruct Hneq32; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+        destruct Hneq12; apply lookup_insert_None; split;eauto.
+        destruct Hneq13; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+        intros P; by inversion P.
+        destruct Hneq13; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+        intros P; by inversion P.
+        iModIntro.
+        rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+        iDestruct "Hr123" as "(? & ? & ? & _)".
+        rewrite ?insert_union_singleton_l !map_union_assoc.
+        simplify_map_eq.
+        by iFrame.
+        destruct Hneq32; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+        destruct Hneq12; apply lookup_insert_None; split;eauto.
+        destruct Hneq13; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+        intros P; by inversion P.
+        destruct Hneq13; apply lookup_insert_None; split;eauto; intros P; by inversion P.
+        intros P; by inversion P.
+Qed.
+
+
 
  (* rules for memory points-to *)
   Lemma mem_dupl_false a w1 w2:
@@ -1093,29 +1130,18 @@ Lemma gen_mem_update1:
   Qed.
 *)
 
-Lemma gen_access_valid_Set:
-  ∀ (σ : state) i q (s:gset PID),
-    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+Lemma gen_access_valid_lookup_Set σ i q s:
+    own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
     (A@ i :={q}[s] ) -∗
-          ([∗ set]  p ∈ s, ⌜(check_access_page σ i p)= true ⌝).
+          ⌜(get_access_gmap σ) !! i = Some ((DfracOwn 1), to_agree (GSet s)) ⌝.
 Proof.
-    iIntros (????) "Hσ Hacc".
+   iIntros  "Hσ Hacc".
     rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (own_valid_2 with "Hσ Hacc") as %Hvalid.
     iPureIntro.
-    unfold get_access_gmap in Hvalid.
     apply auth_both_valid_discrete in Hvalid.
     destruct Hvalid.
-    remember (list_to_map (map
-              (λ v : VMID,
-                 (v,
-                 (DfracOwn 1,
-                 to_agree (GSet
-                   (list_to_set
-                      (map (λ p : PID * permission, p.1)
-                         (map_to_list
-                            (filter (λ p : PID * permission, is_accessible p.2 = true)
-                               (get_vm_page_table σ v))))))))) list_of_vmids)) as m.
+    set (m := (get_access_gmap σ)) in *.
     pose proof (lookup_included {[i := (DfracOwn q, to_agree (GSet s))]} m).
     rewrite ->H1 in H.
     clear H1.
@@ -1131,6 +1157,7 @@ Proof.
     destruct H.
     simplify_map_eq /=.
     destruct H1.
+    rewrite H.
     apply (elem_of_list_to_map_2 _ i x0) in H.
     apply elem_of_list_In in H.
     apply (in_map_iff ) in H.
@@ -1139,14 +1166,39 @@ Proof.
     inversion H.
     simplify_eq /=.
     clear H.
-    unfold set_Forall.
-    intros p Hin.
     destruct H1.
-    - inversion H;clear H.
+     - inversion H;clear H.
       simplify_eq /=.
-      unfold check_access_page.
       apply to_agree_inj in H3.
       inversion H3; subst; clear H3.
+      done.
+    - apply pair_included in H.
+      destruct H;clear H.
+      apply to_agree_included in H1.
+      inversion H1; subst; clear H1.
+      done.
+Qed.
+
+
+Lemma gen_access_valid_Set σ i q s:
+    own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
+    (A@ i :={q}[s] ) -∗
+          ([∗ set]  p ∈ s, ⌜(check_access_page σ i p)= true ⌝).
+Proof.
+    iIntros "Hσ Hacc".
+    iDestruct (gen_access_valid_lookup_Set with "Hσ Hacc") as %Hvalid.
+    iPureIntro.
+    unfold get_access_gmap in Hvalid.
+    apply  (elem_of_list_to_map_2 _ i (DfracOwn 1, to_agree (GSet s))) in Hvalid.
+    apply elem_of_list_In in Hvalid.
+    apply (in_map_iff ) in Hvalid.
+    destruct Hvalid.
+    destruct H.
+    inversion H.
+    simplify_eq /=.
+    unfold set_Forall.
+    intros p Hin.
+    unfold check_access_page.
       apply elem_of_list_to_set in Hin.
       apply elem_of_list_In in Hin.
       apply (in_map_iff _ _ p) in Hin.
@@ -1158,33 +1210,11 @@ Proof.
       destruct H1.
       subst p.
       by rewrite H1 /=.
-    - apply pair_included in H.
-      destruct H;clear H.
-      apply to_agree_included in H1.
-      inversion H1; subst; clear H1.
-      unfold check_access_page.
-      assert ( p ∈ (list_to_set
-           (map (λ p : PID * permission, p.1)
-              (map_to_list (filter (λ p : PID * permission, is_accessible p.2 = true) (get_vm_page_table σ i)))): gset PID)) as Hin'.
-      { set_solver.  }
-      clear Hin;rename Hin' into Hin.
-      apply elem_of_list_to_set in Hin.
-      apply elem_of_list_In in Hin.
-      apply (in_map_iff _ _ p) in Hin.
-      destruct Hin.
-      destruct H.
-      rewrite <- elem_of_list_In in H1.
-      apply elem_of_map_to_list' in H1.
-      apply map_filter_lookup_Some in H1.
-      destruct H1.
-      subst p.
-      rewrite H1.
-      done.
 Qed.
 
   Lemma gen_access_valid:
   ∀ (σ : state) i q p,
-    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
     (A@ i :={q}p ) -∗
           ( ⌜(check_access_page σ i p)= true ⌝).
   Proof.
@@ -1196,7 +1226,7 @@ Qed.
   Lemma gen_access_valid2:
   ∀ (σ : state) i q s p1 p2,
     {[p1;p2]} ⊆ s ->
-    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    own (gen_access_name vmG) (● (get_access_gmap σ) ) -∗
     (A@ i :={q}[s] ) -∗
           ( ⌜(check_access_page σ i p1)= true⌝ ∗ ⌜(check_access_page σ i p2)= true ⌝).
   Proof.
@@ -1216,7 +1246,7 @@ Qed.
 
 Lemma gen_access_valid_addr {σ i q} a p:
     addr_in_page a p ->
-    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
     (A@ i :={q} p ) -∗
           ( ⌜(check_access_addr σ i a)= true ⌝).
 Proof.
@@ -1231,7 +1261,7 @@ Qed.
 
 Lemma gen_access_valid_addr_elem{ σ i q } a s:
     to_pid_aligned a ∈ s ->
-    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    own (gen_access_name vmG) (●(get_access_gmap σ) ) -∗
         (A@ i :={q}[s] ) -∗
         ⌜(check_access_addr σ i a)= true ⌝.
 Proof.
@@ -1246,7 +1276,7 @@ Qed.
 
 Lemma gen_access_valid_addr2 {σ i q } a1 a2 s:
     s= {[(to_pid_aligned a1); (to_pid_aligned a2)]} ->
-    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
     (A@ i :={q}[s] ) -∗
           ( ⌜(check_access_addr σ i a1)= true ⌝ ∗ ⌜(check_access_addr σ i a2)= true ⌝).
 Proof.
@@ -1266,7 +1296,7 @@ Qed.
 Lemma gen_no_access_valid:
   ∀ (σ : state) i p s,
     p ∉ s ->
-    own (gen_access_name vmG) (get_access_gmap σ)  -∗
+    own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
         (A@ i :={1}[s]) -∗
         ( ⌜(check_access_page σ i p)= false ⌝).
 Proof.
@@ -1363,8 +1393,34 @@ Qed.
 
   (* TODO : gen_access_valid_Sep*)
 
+
+
+Lemma gen_access_update_noaccess{σ i sacc psd} sps:
+ sps = (list_to_set psd) ->
+ sps ⊆ sacc ->
+ A@i:={1}[sacc] -∗
+ own (gen_access_name vmG)
+            (● (get_access_gmap σ))==∗
+ own (gen_access_name vmG)
+              (● (<[i:= (((DfracOwn 1), to_agree (GSet (sacc∖sps))))]>(get_access_gmap σ))) ∗ A@i:={1}[sacc∖sps].
+Proof.
+  iIntros (Hsps Hsubset) "HA Hacc".
+  iDestruct (gen_access_valid_lookup_Set with "Hacc HA") as %Haccess.
+  rewrite access_mapsto_eq /access_mapsto_def.
+  rewrite -own_op.
+  iApply ((own_update _
+   (● get_access_gmap σ
+      ⋅ ◯ {[i := (DfracOwn 1, to_agree (GSet (sacc)))]}) _ ) with "[HA Hacc]").
+  2: { rewrite own_op. iFrame. }
+  apply (auth_update _ _ (<[i:= (DfracOwn 1, to_agree (GSet (sacc ∖ sps)))]> (get_access_gmap σ)) ({[i := (DfracOwn 1, to_agree (GSet (sacc ∖ sps)))]})
+    ).
+  apply (singleton_local_update (get_access_gmap σ) i (DfracOwn 1, to_agree (GSet sacc)) (DfracOwn 1, to_agree (GSet sacc)));eauto.
+  apply exclusive_local_update.
+  done.
+Qed.
+
 Lemma gen_own_valid_Set {σ i q} (s:gset PID):
-    own (gen_owned_name vmG) (get_owned_gmap σ)  -∗
+    own (gen_owned_name vmG) (● (get_owned_gmap σ))  -∗
     (O@ i :={q}[s] ) -∗
           ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i) !! p =Some perm ∧ is_owned perm = true ⌝).
 Proof.
@@ -1455,8 +1511,10 @@ Proof.
 Qed.
 
 
+
+
 Lemma gen_excl_valid_Set {σ i q} (s:gset PID):
-    own (gen_excl_name vmG) (get_excl_gmap σ)  -∗
+    own (gen_excl_name vmG) (● (get_excl_gmap σ)) -∗
     (E@ i :={q}[s] ) -∗
           ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i) !! p =Some perm ∧ is_exclusive perm = true ⌝).
 Proof.
