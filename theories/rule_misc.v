@@ -1607,18 +1607,108 @@ Qed.
       rewrite /get_excl_gmap.
       f_equal.
 Qed.
-    (*TODO *)
     Lemma insert_transaction_update_trans σ h tran:
-     (get_trans_gmap (insert_transaction σ h tran)) = <[h:=tran]>(get_trans_gmap σ).
+     (get_trans_gmap (insert_transaction σ h tran)) = <[h:= (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2)]>(get_trans_gmap σ).
       Proof.
-      Admitted.
+        rewrite /get_trans_gmap //=.
+        apply map_eq.
+        intro.
+        destruct (decide (h=i)).
+        - subst i;rewrite lookup_insert.
+          apply elem_of_list_to_map_1'.
+          + intros.
+            inv_map_in.
+            inversion H.
+            subst h.
+            destruct x;simpl.
+            apply elem_of_list_In in H0.
+            apply elem_of_map_to_list' in H0.
+            simpl in H0.
+            rewrite lookup_insert in H0.
+            inversion H0;subst t.
+            done.
+          + inv_map_in.
+            exists (h, tran).
+            split.
+            done.
+            apply elem_of_list_In.
+            apply elem_of_map_to_list'.
+            apply lookup_insert.
+        - rewrite lookup_insert_ne;eauto.
+          destruct (list_to_map (map (λ p : Addr * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2))) (map_to_list (get_transactions σ).1)) !! i) eqn:Heqn.
+          + apply elem_of_list_to_map_2 in Heqn.
+             apply elem_of_list_In in Heqn.
+             apply in_map_iff in Heqn.
+             destruct Heqn.
+             destruct H.
+             inversion H.
+             subst i.
+             destruct x;simpl in *.
+             apply elem_of_list_In in H0.
+             apply elem_of_map_to_list' in H0.
+             simpl in H0.
+             apply elem_of_list_to_map_1'.
+            * intros.
+              inv_map_in.
+              inversion H1.
+              subst f.
+              destruct x;simpl in *.
+              apply elem_of_list_In in H2.
+              apply elem_of_map_to_list' in H2.
+              simpl in H2.
+              rewrite lookup_insert_ne in H2;eauto.
+              rewrite H2 in H0.
+              inversion H0;subst t.
+              done.
+            * inv_map_in.
+              exists (f, t).
+              split.
+              done.
+              apply elem_of_list_In.
+              apply elem_of_map_to_list'.
+              simpl.
+              rewrite lookup_insert_ne;eauto.
+          + apply not_elem_of_list_to_map_1.
+            apply not_elem_of_list_to_map_2 in Heqn.
+            intro.
+            apply Heqn.
+            apply elem_of_list_In in H.
+            apply in_map_iff in H.
+            destruct H.
+            destruct H.
+            destruct H.
+            apply elem_of_list_In in H0.
+            apply elem_of_list_In in H0.
+            apply in_map_iff in H0.
+            destruct H0.
+            destruct H.
+            destruct x;inversion H.
+            apply elem_of_list_In in H0.
+            apply elem_of_map_to_list' in H0.
+            simpl in *.
+            subst f.
+            rewrite lookup_insert_ne in H0;eauto.
+            apply elem_of_list_In.
+            apply in_map_iff.
+            exists (x0.1,p).
+            split;[done|].
+            apply in_map_iff.
+            exists (x0.1,x0.2).
+            subst p;split;[done|].
+            apply elem_of_list_In.
+            apply elem_of_map_to_list'.
+            apply H0.
+      Qed.
 
-    Lemma insert_transaction_update_hpool σ h tran:
-     (get_hpool_gset (insert_transaction σ h tran)) = (get_hpool_gset σ) ∖ {[h]}.
+
+    (*TODO *)
+    Lemma insert_transaction_update_hpool{s} σ h tran:
+     (get_hpool_gset σ) = (GSet s) ->
+     (get_hpool_gset (insert_transaction σ h tran)) = (GSet (s ∖ {[h]})).
       Proof.
         Admitted.
 
-    Lemma insert_transaction_update_trans σ h tran:
+    Lemma insert_transaction_update_retri σ h tran:
      (get_retrieved_gmap (insert_transaction σ h tran)) = <[h:=false]>(get_retrieved_gmap σ).
       Proof.
         Admitted.
