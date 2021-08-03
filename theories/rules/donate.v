@@ -168,6 +168,8 @@ Proof.
      set_solver.
      rewrite Hcureq.
      iFrame.
+     rewrite update_access_batch_preserve_ownerships insert_transaction_preserve_owned.
+     iFrame.
 Admitted.
 
 End donate.

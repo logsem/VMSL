@@ -95,6 +95,13 @@ Section definitions.
 
   Definition list_of_vmids  := vec_to_list (fun_to_vec (λ v: fin vm_count, v)).
 
+  Lemma length_list_of_vmids :
+   length list_of_vmids = vm_count.
+    Proof.
+      rewrite /list_of_vmids.
+      apply vec_to_list_length.
+Qed.
+
   Lemma in_list_of_vmids v: In v  list_of_vmids.
   Proof.
     apply elem_of_list_In.

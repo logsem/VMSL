@@ -746,6 +746,34 @@ Qed.
        done.
        Qed.
 
+    Lemma update_access_batch_preserve_ownerships σ ps perm :
+    (get_owned_gmap  (update_access_batch σ ps perm)) = (get_owned_gmap σ).
+      Proof.
+        rewrite /get_owned_gmap /update_access_batch /update_access_global_batch /=.
+        f_equal.
+        simplify_list_eq.
+        apply (list_eq_same_length _ _ vm_count).
+        rewrite fmap_length.
+        apply length_list_of_vmids.
+        rewrite fmap_length.
+        apply length_list_of_vmids.
+        intros.
+        apply list_lookup_fmap_inv in H0, H1.
+        destruct H0, H1.
+         destruct H0, H1.
+         rewrite H3 in H2.
+         inversion H2;subst x1.
+         clear H2.
+         rewrite H0 H1.
+         do 8 f_equal.
+         rewrite /get_vm_page_table /get_page_tables /=.
+         destruct (decide (get_current_vm σ = x0)).
+         subst x0.
+         rewrite vlookup_insert //.
+         rewrite vlookup_insert_ne //.
+       Qed.
+
+
   Ltac inv_map_in :=
        match goal with
          | H : (?i, ?y) ∈ map ?f ?l |- _ => apply elem_of_list_In in H;
