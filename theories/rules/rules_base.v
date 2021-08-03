@@ -51,18 +51,32 @@ Ltac rewrite_vmid_all :=
     try rewrite -> update_current_vmid_preserve_receivers
   end.
 
-Ltac rewrite_pt_all :=
+Ltac rewrite_ownership_all :=
   match goal with
   | |- _ =>
-    try rewrite -> update_page_table_batch_preserve_current_vm;
-    try rewrite -> update_page_table_batch_preserve_regs;
-    try rewrite -> update_page_table_batch_preserve_mem;
-    try rewrite -> update_page_table_batch_preserve_tx;
-    try rewrite -> update_page_table_batch_preserve_rx;
-    try rewrite -> update_page_table_batch_preserve_trans;
-    try rewrite -> update_page_table_batch_preserve_hpool;
-    try rewrite -> update_page_table_batch_preserve_receivers
+    try rewrite -> update_ownership_batch_preserve_current_vm;
+    try rewrite -> update_ownership_batch_preserve_regs;
+    try rewrite -> update_ownership_batch_preserve_mem;
+    try rewrite -> update_ownership_batch_preserve_tx;
+    try rewrite -> update_ownership_batch_preserve_rx;
+    try rewrite -> update_ownership_batch_preserve_trans;
+    try rewrite -> update_ownership_batch_preserve_hpool;
+    try rewrite -> update_ownership_batch_preserve_receivers
   end.
+
+Ltac rewrite_access_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_access_batch_preserve_current_vm;
+    try rewrite -> update_access_batch_preserve_regs;
+    try rewrite -> update_access_batch_preserve_mem;
+    try rewrite -> update_access_batch_preserve_tx;
+    try rewrite -> update_access_batch_preserve_rx;
+    try rewrite -> update_access_batch_preserve_trans;
+    try rewrite -> update_access_batch_preserve_hpool;
+    try rewrite -> update_access_batch_preserve_receivers
+  end.
+
 
 Ltac rewrite_trans_all :=
   match goal with
@@ -104,7 +118,7 @@ Implicit Type q : Qp.
   
 
 Lemma check_access_page_mem_eq {σ i a} :
-  check_access_page σ i (to_pid_aligned a) =
+  check_access_page' σ i (to_pid_aligned a) =
   check_access_addr σ i a.
 Proof.
   rewrite /check_access_addr; done.

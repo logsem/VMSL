@@ -128,21 +128,21 @@ Section definitions.
 
   Definition get_owned_gmap σ : (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID))))) :=
     (list_to_map (map (λ v, (v, ((DfracOwn 1),
-        to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
-           (map_to_list (filter (λ p, (is_owned p.2) = true) (get_vm_page_table σ v)))))
+        to_agree (GSet ((list_to_set (map (λ (p:(PID*ownership)), p.1)
+           (map_to_list (filter (λ p, (is_owned p.2) = true) (get_vm_page_table σ v).1))))
                          : gset PID))))) (list_of_vmids))).
 
 
   Definition get_access_gmap σ : (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID))))) :=
     (list_to_map (map (λ v, (v, ((DfracOwn 1),
-        to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
-           (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v)))))
+        to_agree (GSet ((list_to_set (map (λ (p:(PID*access)), p.1)
+           (map_to_list (filter (λ p, (is_accessible p.2) = true) (get_vm_page_table σ v).2))))
                          : gset PID))))) (list_of_vmids))).
 
     Definition get_excl_gmap σ : (gmapUR VMID (prodR dfracR (agreeR (gset_disjUR (leibnizO PID))))) :=
     (list_to_map (map (λ v, (v, ((DfracOwn 1),
-        to_agree (GSet ((list_to_set (map (λ (p:(PID*permission)), p.1)
-           (map_to_list (filter (λ p, (is_exclusive p.2) = true) (get_vm_page_table σ v)))))
+        to_agree (GSet ((list_to_set (map (λ (p:(PID*access)), p.1)
+           (map_to_list (filter (λ p, (is_exclusive p.2) = true) (get_vm_page_table σ v).2))))
                          : gset PID))))) (list_of_vmids))).
 
 
@@ -1183,7 +1183,7 @@ Qed.
 Lemma gen_access_valid_Set σ i q s:
     own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
     (A@ i :={q}[s] ) -∗
-          ([∗ set]  p ∈ s, ⌜(check_access_page σ i p)= true ⌝).
+          ([∗ set]  p ∈ s, ⌜(check_access_page' σ i p)= true ⌝).
 Proof.
     iIntros "Hσ Hacc".
     iDestruct (gen_access_valid_lookup_Set with "Hσ Hacc") as %Hvalid.
@@ -1209,14 +1209,14 @@ Proof.
       apply map_filter_lookup_Some in H1.
       destruct H1.
       subst p.
-      by rewrite H1 /=.
+      rewrite -H2 /check_access_page' H1 //.
 Qed.
 
   Lemma gen_access_valid:
   ∀ (σ : state) i q p,
     own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
     (A@ i :={q}p ) -∗
-          ( ⌜(check_access_page σ i p)= true ⌝).
+          ( ⌜(check_access_page' σ i p)= true ⌝).
   Proof.
      iIntros (????) "Hσ Hacc".
      iDestruct (gen_access_valid_Set _ _ _ {[p]} with "Hσ Hacc") as %->;eauto.
@@ -1228,7 +1228,7 @@ Qed.
     {[p1;p2]} ⊆ s ->
     own (gen_access_name vmG) (● (get_access_gmap σ) ) -∗
     (A@ i :={q}[s] ) -∗
-          ( ⌜(check_access_page σ i p1)= true⌝ ∗ ⌜(check_access_page σ i p2)= true ⌝).
+          ( ⌜(check_access_page' σ i p1)= true⌝ ∗ ⌜(check_access_page' σ i p2)= true ⌝).
   Proof.
      iIntros (?????? Hsubset) "Hσ Hacc".
      iDestruct (gen_access_valid_Set _ _ _ s with "Hσ Hacc") as %Hcheck;eauto.
@@ -1298,7 +1298,7 @@ Lemma gen_no_access_valid:
     p ∉ s ->
     own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
         (A@ i :={1}[s]) -∗
-        ( ⌜(check_access_page σ i p)= false ⌝).
+        ( ⌜(check_access_page' σ i p)= false ⌝).
 Proof.
   iIntros (?????) "Hσ Hacc".
   rewrite access_mapsto_eq /access_mapsto_def /get_access_gmap.
@@ -1311,11 +1311,11 @@ Proof.
                            (DfracOwn 1,
                             to_agree (gset.GSet
                               (list_to_set
-                                 (map (λ p0 : PID * permission, p0.1)
+                                 (map (λ p0 : PID * access, p0.1)
                                       (map_to_list
                                          (filter
-                                            (λ p0 : PID * permission, is_accessible p0.2 = true)
-                                            (get_vm_page_table σ v))))))))) list_of_vmids)) as m.
+                                            (λ p0 : PID * access, is_accessible p0.2 = true)
+                                            (get_vm_page_table σ v).2)))))))) list_of_vmids)) as m.
   apply auth_both_valid_discrete in Hvalid.
   destruct Hvalid.
   pose proof (lookup_included {[i := (DfracOwn 1, to_agree (GSet s))]} m).
@@ -1325,7 +1325,7 @@ Proof.
   apply option_included in H2.
   destruct H2.
   - simplify_map_eq.
-  - rewrite /check_access_page.
+  - rewrite /check_access_page'.
     destruct H2 as [a [b [H2 [H2' H2'']]]].
     apply lookup_singleton_Some in H2.
     destruct H2; simplify_map_eq.
@@ -1345,19 +1345,20 @@ Proof.
       rewrite /get_page_tables.
       rewrite /get_vm_page_table /get_page_tables in H.
       clear H2'' H3 H0.
-      destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
-      destruct (is_accessible p0) eqn:Heqn'; try done.
+      destruct ((σ.1.1.1.2 !!! i).2 !! p) eqn:Heq.
+      rewrite Heq /=.
+      destruct (is_accessible a) eqn:Heqn'; try done.
       exfalso.
       apply H.
       apply elem_of_list_In.
       apply in_map_iff.
-      exists (p, p0).
+      exists (p, a).
       split; eauto.
       rewrite <-elem_of_list_In.
       rewrite elem_of_map_to_list.
       apply map_filter_lookup_Some.
       split; auto.
-      reflexivity.
+      rewrite Heq //.
     + apply prod_included in H2.
       destruct H2 as [_ H2].
       simpl in H2.
@@ -1370,25 +1371,22 @@ Proof.
       apply to_agree_included in H2.
       inversion H2; subst; clear H2.
       rewrite /get_vm_page_table /get_page_tables in H.
-      destruct ((σ.1.1.1.2 !!! i) !! p) eqn:Heq.
-      destruct (is_accessible p0) eqn:Heqn'; try done.
+      destruct ((σ.1.1.1.2 !!! i).2 !! p) eqn:Heq.
+      rewrite Heq /=.
+      destruct (is_accessible a) eqn:Heqn'; try done.
       exfalso.
       apply not_elem_of_list_to_set in H.
       apply H.
       apply elem_of_list_In.
       apply in_map_iff.
-      exists (p, p0).
+      exists (p, a).
       split; eauto.
       rewrite <-elem_of_list_In.
       rewrite elem_of_map_to_list.
       apply map_filter_lookup_Some.
       split; auto.
       rewrite /get_vm_page_table /get_page_tables.
-      rewrite Heq.
-      assumption.
-      rewrite /get_vm_page_table /get_page_tables.
-      rewrite Heq.
-      reflexivity.
+      rewrite Heq //.
 Qed.
 
   (* TODO : gen_access_valid_Sep*)
@@ -1422,7 +1420,7 @@ Qed.
 Lemma gen_own_valid_Set {σ i q} (s:gset PID):
     own (gen_owned_name vmG) (● (get_owned_gmap σ))  -∗
     (O@ i :={q}[s] ) -∗
-          ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i) !! p =Some perm ∧ is_owned perm = true ⌝).
+          ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i).1 !! p =Some perm ∧ is_owned perm = true ⌝).
 Proof.
     iIntros "Hσ Hown".
     rewrite owned_mapsto_eq /owned_mapsto_def.
@@ -1437,10 +1435,10 @@ Proof.
                  (DfracOwn 1,
                  to_agree (GSet
                    (list_to_set
-                      (map (λ p : PID * permission, p.1)
+                      (map (λ p : PID * ownership, p.1)
                          (map_to_list
-                            (filter (λ p : PID * permission, is_owned p.2 = true)
-                               (get_vm_page_table σ v))))))))) list_of_vmids)) as m.
+                            (filter (λ p : PID * ownership, is_owned p.2 = true)
+                               (get_vm_page_table σ v).1)))))))) list_of_vmids)) as m.
     pose proof (lookup_included {[i := (DfracOwn q, to_agree (GSet s))]} m).
     rewrite ->H1 in H.
     clear H1.
@@ -1491,8 +1489,9 @@ Proof.
       inversion H1; subst; clear H1.
       unfold check_access_page.
       assert ( p ∈ (list_to_set
-           (map (λ p : PID * permission, p.1)
-              (map_to_list (filter (λ p : PID * permission, is_owned p.2 = true) (get_vm_page_table σ i)))): gset PID)) as Hin'.
+           (map (λ p : PID * ownership, p.1)
+              (map_to_list (filter (λ p : PID * ownership, is_owned p.2 = true)
+                                   (get_vm_page_table σ i).1))): gset PID)) as Hin'.
       { set_solver.  }
       clear Hin;rename Hin' into Hin.
       apply elem_of_list_to_set in Hin.
@@ -1516,7 +1515,7 @@ Qed.
 Lemma gen_excl_valid_Set {σ i q} (s:gset PID):
     own (gen_excl_name vmG) (● (get_excl_gmap σ)) -∗
     (E@ i :={q}[s] ) -∗
-          ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i) !! p =Some perm ∧ is_exclusive perm = true ⌝).
+          ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i).2 !! p =Some perm ∧ is_exclusive perm = true ⌝).
 Proof.
     iIntros "Hσ Hexcl".
     rewrite excl_mapsto_eq /excl_mapsto_def.
@@ -1531,10 +1530,10 @@ Proof.
                  (DfracOwn 1,
                  to_agree (GSet
                    (list_to_set
-                      (map (λ p : PID * permission, p.1)
+                      (map (λ p : PID * access, p.1)
                          (map_to_list
-                            (filter (λ p : PID * permission, is_exclusive p.2 = true)
-                               (get_vm_page_table σ v))))))))) list_of_vmids)) as m.
+                            (filter (λ p : PID * access, is_exclusive p.2 = true)
+                               (get_vm_page_table σ v).2)))))))) list_of_vmids)) as m.
     pose proof (lookup_included {[i := (DfracOwn q, to_agree (GSet s))]} m).
     rewrite ->H1 in H.
     clear H1.
@@ -1585,8 +1584,9 @@ Proof.
       inversion H1; subst; clear H1.
       unfold check_access_page.
       assert ( p ∈ (list_to_set
-           (map (λ p : PID * permission, p.1)
-              (map_to_list (filter (λ p : PID * permission, is_exclusive p.2 = true) (get_vm_page_table σ i)))): gset PID)) as Hin'.
+           (map (λ p : PID * access, p.1)
+              (map_to_list (filter (λ p : PID * access, is_exclusive p.2 = true)
+                                   (get_vm_page_table σ i).2))): gset PID)) as Hin'.
       { set_solver.  }
       clear Hin;rename Hin' into Hin.
       apply elem_of_list_to_set in Hin.

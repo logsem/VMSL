@@ -114,40 +114,33 @@ Proof.
       pose proof (Hown x HxInown) as Hxown .
       simpl in Hxown.
       destruct Hxown as [perm [HSomeperm Hisowned]].
-      rewrite HSomeperm.
+      rewrite /check_ownership_page  HSomeperm /=.
+      destruct (decide (Owned = perm)). simpl.
+      2: { exfalso. apply n. destruct perm;eauto. rewrite /is_owned //.  }
       pose proof (Hexcl x HxInexcl) as Hxexcl.
       simpl in Hxexcl.
       destruct Hxexcl as [perm' [HSomeperm' Hisexcl]].
-      rewrite HSomeperm in HSomeperm'.
-      inversion HSomeperm'.
-      subst perm'.
-      clear HSomeperm HSomeperm'.
-      destruct (decide ((Owned, ExclusiveAccess) = perm)) eqn:Heqn.
-      rewrite Heqn //.
-      rewrite /is_owned in Hisowned.
-      rewrite /is_exclusive in Hisexcl.
-      exfalso.
-      apply n.
-      destruct perm.
-      destruct o, a;try done.
+      rewrite /check_access_page HSomeperm'.
+      destruct (decide (ExclusiveAccess = perm')). done.
+      exfalso. apply n. destruct perm';eauto; rewrite /is_exclusive //.
     }
     rewrite /new_transaction /fresh_handle in Heqc2.
     set (allfhs:= (get_fresh_handles (get_transactions σ1))) in *.
     destruct allfhs.
     { exfalso. apply Hshne. set_solver. }
-    rewrite //=  /update_page_table in Heqc2.
+    rewrite //=  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp /update_incr_PC /update_reg.
     (* unchanged part *)
     rewrite_reg_all.
-    rewrite update_page_table_batch_preserve_current_vm insert_transaction_preserve_current_vm.
+    rewrite update_access_batch_preserve_current_vm insert_transaction_preserve_current_vm.
     rewrite_reg_all.
-    rewrite_pt_all.
+    rewrite_access_all.
     rewrite_trans_all.
     iFrame.
     (* update regs *)
      rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-     rewrite !update_reg_global_update_reg;rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
+     rewrite !update_reg_global_update_reg;rewrite ?update_access_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
      2 : {
         exists r2.
         rewrite lookup_insert_ne.
@@ -156,20 +149,20 @@ Proof.
      }
      2 : {
         rewrite !update_reg_global_update_reg.
-        rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
+        rewrite ?update_access_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
         rewrite !lookup_insert_ne;[solve_reg_lookup|done|done].
-        rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
-rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs.
+        rewrite ?update_access_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
+        rewrite ?update_access_batch_preserve_regs ?insert_transaction_preserve_regs.
         exists r2.
         rewrite lookup_insert_ne;[solve_reg_lookup|done].
-        rewrite ?update_page_table_batch_preserve_regs ?insert_transaction_preserve_regs.
+        rewrite ?update_access_batch_preserve_regs ?insert_transaction_preserve_regs.
         solve_reg_lookup.
      }
      iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i h R0 i (encode_hvc_ret_code Succ) ) with "Hσreg PC R2 R0") as ">[Hσreg [PC [R2 R0]]]";eauto.
      rewrite Hcureq.
      iFrame.
      (* update page table *)
-     rewrite (@update_page_table_batch_update_access_noaccess _ i sacc spsd psd Owned );eauto.
+     rewrite (@update_access_batch_noaccess _ i sacc spsd psd);eauto.
      rewrite_trans_all.
      iDestruct ((gen_access_update_noaccess spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
      set_solver.

@@ -264,22 +264,22 @@ Qed.
 Definition permission : Type :=
   (ownership * access).
 
-Definition is_accessible (p : permission) : bool :=
+Definition is_accessible (p : access) : bool :=
   match p with
-  | (_, SharedAccess) => true
-  | (_, ExclusiveAccess) => true
+  | SharedAccess => true
+  | ExclusiveAccess => true
   | _ => false
   end.
 
-Definition is_exclusive (p : permission) : bool :=
+Definition is_exclusive (p : access) : bool :=
   match p with
-  | (_, ExclusiveAccess) => true
+  | ExclusiveAccess => true
   | _ => false
   end.
 
-Definition is_owned (p : permission) : bool :=
+Definition is_owned (p : ownership) : bool :=
   match p with
-  | (Owned, _) => true
+  | Owned => true
   | _ => false
   end.
 

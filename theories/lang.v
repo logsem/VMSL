@@ -17,7 +17,7 @@ Definition reg_file : Type :=
   gmap reg_name Word.
 
 Definition page_table : Type :=
-  gmap PID permission.
+  gmap PID ownership * gmap PID access.
 
 Definition tx_buffer : Type :=
   PID.
@@ -85,8 +85,19 @@ Inductive exec_mode : Type :=
 
 (* Aux funcs *)
 
-Definition check_perm_page (st : state) (v : VMID) (p : PID) (pm : permission) : bool :=
-  match (get_vm_page_table st v) !! p with
+Definition check_ownership_page (st : state) (v : VMID) (p : PID) (pm : ownership ) : bool :=
+  match (get_vm_page_table st v).1 !! p  with
+  | Some p' =>
+    match (decide (pm = p')) with
+    | left _ => true
+    | right _ => false
+    end
+
+  | _ => false
+  end.
+
+Definition check_access_page (st : state) (v : VMID) (p : PID) (pm : access) : bool :=
+  match (get_vm_page_table st v).2 !! p  with
   | Some p' =>
     match (decide (pm = p')) with
     | left _ => true
@@ -95,29 +106,36 @@ Definition check_perm_page (st : state) (v : VMID) (p : PID) (pm : permission) :
   | _ => false
   end.
 
+Definition check_perm_page (st : state) (v : VMID) (p:PID) (pm : permission) : bool :=
+  andb (check_ownership_page st v p pm.1)
+  (check_access_page st v p pm.2).
+
+
 Definition check_perm_addr (st : state) (v : VMID) (a : Addr) (p : permission) : bool :=
   check_perm_page st v (to_pid_aligned a) p.
 
-Definition check_access_page (st : state) (v : VMID) (p : PID) : bool :=
-  match (get_vm_page_table st v) !! p with
+Definition check_ownership_page' (st : state) (v : VMID) (p : PID)  : bool :=
+  match (get_vm_page_table st v).1 !! p  with
+  | Some p' => is_owned p'
+  | _ => false
+  end.
+
+
+Definition check_access_page' (st : state) (v : VMID) (p : PID) : bool :=
+  match (get_vm_page_table st v).2 !! p with
   | Some p' => is_accessible p'
   | _ => false
   end.
 
 Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
-  check_access_page st v (to_pid_aligned a).
-
-Definition check_ownership_page (st : state) (v : VMID) (p : PID) : bool :=
-  match (get_vm_page_table st v) !! p with
-  | Some p' => is_owned p'
-  | _ => false
-  end.
+  check_access_page' st v (to_pid_aligned a).
 
 Definition check_ownership_addr (st : state) (v : VMID) (a : Addr) : bool :=
-  check_ownership_page st v (to_pid_aligned a).
+  check_ownership_page' st v (to_pid_aligned a).
 
 Definition update_reg_global (st : state) (v : VMID) (r : reg_name) (w : Word) : state :=
-  (vinsert v (<[r:=w]>(get_vm_reg_file st v)) (get_reg_files st), (get_mail_boxes st), (get_page_tables st),
+  (vinsert v (<[r:=w]>(get_vm_reg_file st v)) (get_reg_files st),
+   (get_mail_boxes st), (get_page_tables st),
    get_current_vm st,
    get_mem st, get_transactions st).
 
@@ -130,28 +148,50 @@ Definition get_reg_global (st : state) (v : VMID) (r : reg_name) : option Word :
 Definition get_reg (st : state) (r : reg_name) : option Word :=
   get_reg_global st (get_current_vm st) r.
 
-Definition update_page_table_global (st : state) (v : VMID) (p : PID) (pm : permission) : state :=
-  (get_reg_files st, get_mail_boxes st, vinsert v (<[p:=pm]>(get_vm_page_table st v)) (get_page_tables st),
+Definition update_ownership_global (st : state) (v : VMID) (p : PID) (pm : ownership) : state :=
+  (get_reg_files st, get_mail_boxes st,
+   vinsert v (<[p:=pm]>(get_vm_page_table st v).1, (get_vm_page_table st v).2) (get_page_tables st),
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_page_table (st : state) (p : PID) (pm : permission) : state :=
-  update_page_table_global st (get_current_vm st) p pm.
+Definition update_ownership (st : state) (p : PID) (pm : ownership) : state :=
+  update_ownership_global st (get_current_vm st) p pm.
 
-Definition get_page_table_global (st : state) (v : VMID) (p : PID) : option permission :=
-  (get_vm_page_table st v) !! p.
-
-Definition get_page_table (st : state) (p : PID) : option permission :=
-  get_page_table_global st (get_current_vm st) p.
-
-Definition update_page_table_global_batch st (v:VMID) (ps : list PID) (pm: permission): state :=
-   (get_reg_files st, get_mail_boxes st, vinsert v (foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v) ps) (get_page_tables st),
+Definition update_access_global (st : state) (v : VMID) (p : PID) (pm : access) : state :=
+  (get_reg_files st, get_mail_boxes st,
+   vinsert v ((get_vm_page_table st v).1, <[p:=pm]>(get_vm_page_table st v).2) (get_page_tables st),
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_page_table_batch st (ps : list PID) (pm: permission): state :=
-  update_page_table_global_batch st (get_current_vm st) ps pm.
+Definition update_access(st : state) (p : PID) (pm : access) : state :=
+  update_access_global st (get_current_vm st) p pm.
 
+
+Definition get_permission_global (st : state) (v : VMID) (p : PID) : option permission :=
+  o <- (get_vm_page_table st v).1 !! p;;;
+  a <- (get_vm_page_table st v).2 !! p;;;
+  unit (o,a).
+
+Definition get_permission (st : state) (p : PID) : option permission :=
+  get_permission_global st (get_current_vm st) p.
+
+Definition update_ownership_global_batch st (v:VMID) (ps : list PID) (pm: ownership): state :=
+   (get_reg_files st, get_mail_boxes st,
+   vinsert v ((foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v).1 ps), (get_vm_page_table st v).2) (get_page_tables st),
+   get_current_vm st,
+   get_mem st, get_transactions st).
+
+Definition update_access_global_batch st (v:VMID) (ps : list PID) (pm: access): state :=
+   (get_reg_files st, get_mail_boxes st,
+   vinsert v ( (get_vm_page_table st v).1, (foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v).2 ps)) (get_page_tables st),
+   get_current_vm st,
+   get_mem st, get_transactions st).
+
+Definition update_ownership_batch st (ps : list PID) (pm: ownership): state :=
+  update_ownership_global_batch st (get_current_vm st) ps pm.
+
+Definition update_access_batch st (ps : list PID) (pm: access): state :=
+  update_access_global_batch st (get_current_vm st) ps pm.
 
 Definition update_memory_unsafe (st : state) (a : Addr) (w : Word) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, <[a:=w]>(get_mem st), get_transactions st).
@@ -572,7 +612,7 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
         | (st,hd, td) =>
           match td with
           | (_, ps) => unit(update_reg (update_reg
-                      (update_page_table_batch st ps (Owned, NoAccess))
+                      (update_access_batch st ps NoAccess)
                       R0 (encode_hvc_ret_code Succ))
                       R2 hd)
           end
@@ -611,7 +651,7 @@ Definition relinquish_transaction (s : state)
            (h : handle)
            (rcvr : VMID * (list PID)) : hvc_result state :=
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
-   unit (foldr (fun v' acc' => update_page_table acc' v' (NotOwned, NoAccess)) s' rcvr.2).
+   unit (foldr (fun v' acc' => update_access (update_ownership acc' v' NotOwned) v' NoAccess) s' rcvr.2).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
   match t with
@@ -636,16 +676,16 @@ Definition retrieve (s : state) : exec_mode * state :=
   match ty with
   | Sharing =>
     unit (foldr (fun v' acc' =>
-                   update_page_table acc' v' (NotOwned, SharedAccess))
+                   update_access acc' v'  SharedAccess)
                 s' ps)
   | Lending =>
     (* it is fine because we only allow at most one receiver *)
       unit (foldr (fun v' acc' =>
-                        update_page_table acc' v' (NotOwned, ExclusiveAccess))
+                        update_access acc' v' ExclusiveAccess)
                      s' ps)
   | Donation =>
     unit (foldr (fun v' acc' =>
-                   update_page_table acc' v' (Owned, ExclusiveAccess))
+                  update_access (update_ownership acc' v' Owned) v'  ExclusiveAccess)
                 s' ps)
   end)
   (* TODO: put a descriptor into rx *)
@@ -675,7 +715,7 @@ Definition reclaim (s : state) : exec_mode * state :=
       then
         unit (foldr
                 (fun v' acc' =>
-                   update_page_table acc' v' (Owned, ExclusiveAccess))
+                   update_access (update_ownership acc' v' Owned) v'  ExclusiveAccess)
                 (remove_transaction s handle) l)
       else throw Denied
   in
