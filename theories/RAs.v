@@ -20,7 +20,7 @@ From HypVeri Require Export lang machine.
                                                     (prodR dfracR (agreeR (gset_disjUR (leibnizO P))))));
                       gen_trans_preG_inG :> gen_heapGpreS W (V * W*  V * (list P)*F) Σ;
                       gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
-                      gen_retri_preG_inG :> inG Σ (authR (gmapUR W (exclR boolO)))
+                      gen_retri_preG_inG :> gen_heapGpreS W bool Σ
                    }.
 
 
@@ -79,7 +79,7 @@ Definition gen_VMΣ : gFunctors :=
       GFunctor page_table_ra;
       gen_heapΣ Word (VMID * Word *  VMID * (list PID) * transaction_type);
       GFunctor (frac_authR (gset_disjR (leibnizO Word)));
-      GFunctor (authR (gmapUR Word (exclR boolO)))
+      gen_heapΣ Word bool
    ].
 
 Global Instance subG_gen_VMPreG {Σ}:
@@ -160,12 +160,12 @@ Qed.
                          (p.1,((((trans.1.1.1.1.1, trans.1.1.1.1.2), trans.1.1.2),  trans.1.2), trans.2))
                      )  (map_to_list (get_transactions σ).1)).
   Definition get_hpool_gset σ :=
-    (frac_auth_auth  (GSet (get_transactions σ).2)).
+      (GSet (get_transactions σ).2).
 
-  Definition get_receivers_gmap σ : authR (gmapUR Word (exclR boolO)) :=
-    ● (list_to_map (map (λ (p:Word * transaction) ,
+  Definition get_retrieved_gmap σ : gmap Word bool :=
+    (list_to_map (map (λ (p:Word * transaction) ,
                       let trans := p.2 in
-                  (p.1,(Excl trans.1.1.1.2))) (map_to_list (get_transactions σ).1))).
+                  (p.1, trans.1.1.1.2)) (map_to_list (get_transactions σ).1))).
 
   Definition gen_vm_interp σ: iProp Σ :=
       own (gen_token_name vmG) (get_token (get_current_vm σ)) ∗
@@ -177,8 +177,8 @@ Qed.
       own (gen_access_name vmG) (● (get_access_gmap σ)) ∗
       own (gen_excl_name vmG) (●(get_excl_gmap σ)) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
-      own (gen_hpool_name vmG) (get_hpool_gset σ) ∗
-      own (gen_retri_name vmG) (get_receivers_gmap σ).
+      own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ)) ∗
+      ghost_map_auth (gen_retri_name vmG) 1 (get_retrieved_gmap σ).
 
   Definition token_agree_def (v:VMID) (q:frac) : iProp Σ :=
     own (gen_token_name vmG) (frac_auth_frag q (to_agree (v: leibnizO VMID))) .
@@ -244,14 +244,13 @@ Qed.
 
 
   Definition trans_mapsto_def(wh : Word) dq (v r: VMID) (wf: Word) (pgs : (list PID)) (fid : transaction_type) : iProp Σ :=
-    own (gen_trans_name vmG) (gmap_view_frag wh dq
-                          (((((v, wf) , r), pgs), fid): (leibnizO (VMID * Word * VMID * (list PID) * transaction_type)))).
+    wh ↪[ (gen_trans_name vmG) ]{ dq } (((((v, wf) , r), pgs), fid): (leibnizO (VMID * Word * VMID * (list PID) * transaction_type))).
   Definition trans_mapsto_aux : seal (@trans_mapsto_def). Proof. by eexists. Qed.
   Definition trans_mapsto := trans_mapsto_aux.(unseal).
   Definition trans_mapsto_eq : @trans_mapsto = @trans_mapsto_def := trans_mapsto_aux.(seal_eq).
 
-  Definition retri_mapsto_def (w:Word) (b:boolO) : iProp Σ :=
-    own (gen_retri_name vmG) (◯ {[w := (Excl b)]}).
+  Definition retri_mapsto_def (w:Word) (b:bool) : iProp Σ :=
+    w ↪[ (gen_retri_name vmG) ] b.
   Definition retri_mapsto_aux : seal (@retri_mapsto_def). Proof. by eexists. Qed.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
   Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
@@ -1517,30 +1516,18 @@ Proof.
 Qed.
 
 
-
-
-Lemma gen_excl_valid_Set {σ i q} (s:gset PID):
-    own (gen_excl_name vmG) (● (get_excl_gmap σ)) -∗
+Lemma gen_excl_valid_lookup_Set σ i q s:
+    own (gen_excl_name vmG) (● (get_excl_gmap σ))  -∗
     (E@ i :={q}[s] ) -∗
-          ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i).2 !! p =Some perm ∧ is_exclusive perm = true ⌝).
+          ⌜(get_excl_gmap σ) !! i = Some ((DfracOwn 1), to_agree (GSet s)) ⌝.
 Proof.
-    iIntros "Hσ Hexcl".
+   iIntros  "Hσ Hexcl".
     rewrite excl_mapsto_eq /excl_mapsto_def.
     iDestruct (own_valid_2 with "Hσ Hexcl") as %Hvalid.
     iPureIntro.
-    unfold get_excl_gmap in Hvalid.
     apply auth_both_valid_discrete in Hvalid.
     destruct Hvalid.
-    remember (list_to_map (map
-              (λ v : VMID,
-                 (v,
-                 (DfracOwn 1,
-                 to_agree (GSet
-                   (list_to_set
-                      (map (λ p : PID * access, p.1)
-                         (map_to_list
-                            (filter (λ p : PID * access, is_exclusive p.2 = true)
-                               (get_vm_page_table σ v).2)))))))) list_of_vmids)) as m.
+    set (m := (get_excl_gmap σ)) in *.
     pose proof (lookup_included {[i := (DfracOwn q, to_agree (GSet s))]} m).
     rewrite ->H1 in H.
     clear H1.
@@ -1556,6 +1543,7 @@ Proof.
     destruct H.
     simplify_map_eq /=.
     destruct H1.
+    rewrite H.
     apply (elem_of_list_to_map_2 _ i x0) in H.
     apply elem_of_list_In in H.
     apply (in_map_iff ) in H.
@@ -1564,38 +1552,39 @@ Proof.
     inversion H.
     simplify_eq /=.
     clear H.
-    unfold set_Forall.
-    intros p Hin.
     destruct H1.
-    - inversion H;clear H.
+     - inversion H;clear H.
       simplify_eq /=.
-      unfold check_access_page.
       apply to_agree_inj in H3.
       inversion H3; subst; clear H3.
-      apply elem_of_list_to_set in Hin.
-      apply elem_of_list_In in Hin.
-      apply (in_map_iff _ _ p) in Hin.
-      destruct Hin.
-      destruct H.
-      rewrite <- elem_of_list_In in H1.
-      apply elem_of_map_to_list' in H1.
-      apply map_filter_lookup_Some in H1.
-      destruct H1.
-      subst p.
-      rewrite H1 /=.
-      exists x.2.
       done.
     - apply pair_included in H.
       destruct H;clear H.
       apply to_agree_included in H1.
       inversion H1; subst; clear H1.
-      unfold check_access_page.
-      assert ( p ∈ (list_to_set
-           (map (λ p : PID * access, p.1)
-              (map_to_list (filter (λ p : PID * access, is_exclusive p.2 = true)
-                                   (get_vm_page_table σ i).2))): gset PID)) as Hin'.
-      { set_solver.  }
-      clear Hin;rename Hin' into Hin.
+      done.
+Qed.
+
+
+Lemma gen_excl_valid_Set {σ i q} (s:gset PID):
+    own (gen_excl_name vmG) (● (get_excl_gmap σ)) -∗
+    (E@ i :={q}[s] ) -∗
+          ([∗ set]  p ∈ s, ∃ perm, ⌜(get_vm_page_table σ i).2 !! p =Some perm ∧ is_exclusive perm = true ⌝).
+Proof.
+    iIntros "Hσ Hexcl".
+       iDestruct (gen_excl_valid_lookup_Set with "Hσ Hexcl") as %Hvalid.
+    iPureIntro.
+    unfold get_excl_gmap in Hvalid.
+    apply  (elem_of_list_to_map_2 _ i (DfracOwn 1, to_agree (GSet s))) in Hvalid.
+    apply elem_of_list_In in Hvalid.
+    apply (in_map_iff ) in Hvalid.
+    destruct Hvalid.
+    destruct H.
+    inversion H.
+    simplify_eq /=.
+    unfold set_Forall.
+    intros p Hin.
+    (* unfold check_access_page. *)
       apply elem_of_list_to_set in Hin.
       apply elem_of_list_In in Hin.
       apply (in_map_iff _ _ p) in Hin.
@@ -1606,11 +1595,33 @@ Proof.
       apply map_filter_lookup_Some in H1.
       destruct H1.
       subst p.
-      rewrite H1.
       exists x.2.
-      done.
+      rewrite -H2  H1 //.
 Qed.
 
+Lemma gen_excl_update_noaccess{σ i sexcl psd} sps:
+ sps = (list_to_set psd) ->
+ sps ⊆ sexcl ->
+ E@i:={1}[sexcl] -∗
+ own (gen_excl_name vmG)
+            (● (get_excl_gmap σ))==∗
+ own (gen_excl_name vmG)
+              (● (<[i:= (((DfracOwn 1), to_agree (GSet (sexcl∖sps))))]>(get_excl_gmap σ))) ∗ E@i:={1}[sexcl∖sps].
+Proof.
+  iIntros (Hsps Hsubset) "HE Hexcl".
+  iDestruct (gen_excl_valid_lookup_Set with "Hexcl HE") as %Hexcl.
+  rewrite excl_mapsto_eq /excl_mapsto_def.
+  rewrite -own_op.
+  iApply ((own_update _
+   (● get_excl_gmap σ
+      ⋅ ◯ {[i := (DfracOwn 1, to_agree (GSet (sexcl)))]}) _ ) with "[HE Hexcl]").
+  2: { rewrite own_op. iFrame. }
+  apply (auth_update _ _ (<[i:= (DfracOwn 1, to_agree (GSet (sexcl ∖ sps)))]> (get_excl_gmap σ)) ({[i := (DfracOwn 1, to_agree (GSet (sexcl ∖ sps)))]})
+    ).
+  apply (singleton_local_update (get_excl_gmap σ) i (DfracOwn 1, to_agree (GSet sexcl)) (DfracOwn 1, to_agree (GSet sexcl)));eauto.
+  apply exclusive_local_update.
+  done.
+Qed.
 
 
 
@@ -1619,16 +1630,34 @@ Qed.
    wh ->t{(q1+q2)%Qp}(i,wf,r,m,f) -∗  wh ->t{q1}(i,wf,r,m,f) ∗ wh ->t{q2}(i,wf,r,m,f).
   Proof using.
     iIntros "HT".
-    rewrite trans_mapsto_eq.
-    iApply own_op.
-    rewrite -gmap_view_frag_op.
-    rewrite dfrac_op_own.
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    rewrite ?ghost_map_elem_eq /ghost_map_elem_def.
+    rewrite -own_op gmap_view_frag_add.
     done.
   Qed.
 
+
+  Lemma gen_trans_valid {σ q i wf} {r:VMID} {m f} wh :
+   wh ->t{q}(i,wf,r,m,f) -∗
+      (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))-∗
+      ⌜∃ (b:bool), (get_transactions σ).1 !! wh = Some (i,wf,b,r,m,f) ⌝.
+  Proof.
+    Admitted.
+
+  Lemma gen_trans_update_insert {σ} h i wf rc m f:
+   (get_trans_gmap σ) !! h = None ->
+   (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))==∗
+    (ghost_map_auth (gen_trans_name vmG) 1 (<[h:= (i,wf,rc,m,f)]>(get_trans_gmap σ)))∗
+    h ->t{1}(i,wf,rc,m,f).
+  Proof.
+    iIntros (HNone) "Htrans".
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iDestruct (ghost_map_insert with "Htrans") as "Htrans";eauto.
+    Qed.
+
   Lemma gen_hpool_valid {σ q} s :
    hp{ q }[ (GSet s) ] -∗
-      (own (gen_hpool_name vmG) (get_hpool_gset σ))-∗
+      (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ)))-∗
       ⌜ (elements s) ⊆ get_fresh_handles (get_transactions σ) ⌝.
   Proof.
     rewrite hpool_mapsto_eq /hpool_mapsto_def.
@@ -1646,6 +1675,33 @@ Qed.
     rewrite /get_fresh_handles.
     set_solver.
    Qed.
+
+  Lemma gen_hpool_update_minus {σ s'} s (h: handle):
+  (get_hpool_gset σ) = GSet s' ->
+  hp{ 1 }[ (GSet s) ] ∗
+    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ))) ==∗
+    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (s' ∖ {[h]}))))∗
+    hp{ 1 }[ (GSet (s' ∖ {[h]})) ].
+  Proof.
+    iIntros (Hs) "[Hhp HHp]".
+    rewrite hpool_mapsto_eq /hpool_mapsto_def.
+    rewrite -own_op.
+    iApply ((own_update _ (●F (get_hpool_gset σ) ⋅ ◯F (GSet s)) _ ) with "[HHp Hhp]").
+    2: { rewrite own_op. iFrame. }
+    apply (frac_auth_update_1 ).
+    done.
+  Qed.
+
+  Lemma gen_retri_update_insert {σ} (h: handle):
+  (get_retrieved_gmap σ) !! h = None ->
+    ghost_map_auth (gen_retri_name vmG) 1 (get_retrieved_gmap σ) ==∗
+    ghost_map_auth (gen_retri_name vmG) 1 (<[h:=false]>(get_retrieved_gmap σ))∗
+    h ->re false.
+  Proof.
+    iIntros (HNone) "H".
+    rewrite retri_mapsto_eq /retri_mapsto_def.
+     iDestruct (ghost_map_insert with "H") as "H";eauto.
+  Qed.
 
 
   Global Instance token_timeless i q : Timeless (<<i>>{ q }).

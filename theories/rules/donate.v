@@ -8,7 +8,7 @@ Section donate.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl q' des qh sh} {l :Word} {spsd: gset PID}
+Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl des qh sh} {l :Word} {spsd: gset PID}
       ai r0 r1 j (psd: list PID) :
   (* the current instruction is hvc *)
   instr = Hvc ->
@@ -39,12 +39,12 @@ Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl q' des qh sh} {l :Wo
   (* there are at least one free handles in the hpool *)
   sh ≠ ∅ ->
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi
-  ∗ ▷ O@i:={q}[sown] ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={q'}[sexcl]
+  ∗ ▷ O@i:={q}[sown] ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl]
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r r1) ∗ ▷(R2 @@i ->r r2) ∗  ▷ TX@ i := ptx
   ∗ ▷ mem_region des ptx
   ∗ ▷ hp{ qh }[ (GSet sh)] }}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
-  ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc∖spsd] ∗ E@i:={q'}[sexcl∖spsd]
+  ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc∖spsd] ∗ E@i:={1}[sexcl∖spsd]
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1  ∗ TX@ i := ptx
   ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W0, j , psd,Donation)
   ∗ wh ->re false ∗ R2 @@ i ->r wh ∗ hp{qh}[(GSet (sh∖{[wh]}))] )
@@ -67,6 +67,7 @@ Proof.
   iDestruct ((gen_access_valid_lookup_Set _ _ _ sacc) with "Hσaccess Hacc") as %Hacc;eauto.
   iDestruct ((gen_own_valid_Set sown) with "Hσowned Hown") as %Hown;eauto.
   iDestruct ((gen_excl_valid_Set sexcl) with "Hσexcl Hexcl") as %Hexcl;eauto.
+  iDestruct ((gen_excl_valid_lookup_Set _ _ _ sexcl) with "Hσexcl Hexcl") as %Hexcl';eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai wi with "Hσmem Hai") as %Hai.
   unfold mem_region.
@@ -162,7 +163,7 @@ Proof.
      rewrite Hcureq.
      iFrame.
      (* update page table *)
-     rewrite (@update_access_batch_noaccess _ i sacc spsd psd);eauto.
+     rewrite (@update_access_batch_update_access_noaccess _ i sacc spsd psd);eauto.
      rewrite_trans_all.
      iDestruct ((gen_access_update_noaccess spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
      set_solver.
@@ -170,6 +171,12 @@ Proof.
      iFrame.
      rewrite update_access_batch_preserve_ownerships insert_transaction_preserve_owned.
      iFrame.
+     rewrite (@update_access_batch_update_excl_noaccess _ i sexcl spsd psd);eauto.
+     rewrite_trans_all.
+     iDestruct ((gen_excl_update_noaccess spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
+     rewrite Hcureq.
+     iFrame.
+     (* update transactions *)
 Admitted.
 
 End donate.
