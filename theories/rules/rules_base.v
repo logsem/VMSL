@@ -15,6 +15,7 @@ Ltac rewrite_reg_all :=
     try rewrite -> update_offset_PC_preserve_access  ; try rewrite -> update_reg_global_preserve_access;
     try rewrite -> update_offset_PC_preserve_excl  ; try rewrite -> update_reg_global_preserve_excl;
     try rewrite -> update_offset_PC_preserve_trans  ; try rewrite -> update_reg_global_preserve_trans;
+    try rewrite -> update_offset_PC_preserve_trans'  ; try rewrite -> update_reg_global_preserve_trans';
     try rewrite -> update_offset_PC_preserve_hpool  ; try rewrite -> update_reg_global_preserve_hpool;
     try rewrite -> update_offset_PC_preserve_receivers  ; try rewrite -> update_reg_global_preserve_receivers
   end.
@@ -32,6 +33,7 @@ Ltac rewrite_mem_all :=
     try rewrite -> update_memory_unsafe_preserve_access;
     try rewrite -> update_memory_unsafe_preserve_excl;
     try rewrite -> update_memory_unsafe_preserve_trans;
+    try rewrite -> update_memory_unsafe_preserve_trans';
     try rewrite -> update_memory_unsafe_preserve_hpool;
     try rewrite -> update_memory_unsafe_preserve_receivers
   end.
@@ -47,6 +49,7 @@ Ltac rewrite_vmid_all :=
     try rewrite -> update_current_vmid_preserve_access;
     try rewrite -> update_current_vmid_preserve_excl;
     try rewrite -> update_current_vmid_preserve_trans;
+    try rewrite -> update_current_vmid_preserve_trans';
     try rewrite -> update_current_vmid_preserve_hpool;
     try rewrite -> update_current_vmid_preserve_receivers
   end.
@@ -60,6 +63,7 @@ Ltac rewrite_ownership_all :=
     try rewrite -> update_ownership_batch_preserve_tx;
     try rewrite -> update_ownership_batch_preserve_rx;
     try rewrite -> update_ownership_batch_preserve_trans;
+    try rewrite -> update_ownership_batch_preserve_trans';
     try rewrite -> update_ownership_batch_preserve_hpool;
     try rewrite -> update_ownership_batch_preserve_receivers
   end.
@@ -73,6 +77,7 @@ Ltac rewrite_access_all :=
     try rewrite -> update_access_batch_preserve_tx;
     try rewrite -> update_access_batch_preserve_rx;
     try rewrite -> update_access_batch_preserve_trans;
+    try rewrite -> update_access_batch_preserve_trans';
     try rewrite -> update_access_batch_preserve_hpool;
     try rewrite -> update_access_batch_preserve_receivers
   end.
