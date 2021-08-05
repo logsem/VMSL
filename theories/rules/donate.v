@@ -126,9 +126,6 @@ Proof.
       exfalso. apply n. destruct perm';eauto; rewrite /is_exclusive //.
     }
     rewrite /new_transaction /fresh_handle in Heqc2.
-    (* set (allfhs:= (get_fresh_handles (get_transactions σ1))) in *. *)
-    (* destruct allfhs as [| h fhs] eqn:Hfhs . *)
-    (* { exfalso. apply Hshne. set_solver. } *)
     destruct (elements sh) as [| h fhs] eqn:Hfhs .
     { exfalso. rewrite -elements_empty in Hfhs.  apply Hshne. apply set_eq.
      intro. rewrite -elem_of_elements Hfhs elem_of_elements.   split;intro;set_solver. }
