@@ -1677,6 +1677,22 @@ Qed.
     assumption.
   Qed.
 
+  Lemma gen_hpool_valid_eq {σ} s :
+   hp{ 1 }[ s ] -∗
+      (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
+      ⌜ s = (get_hpool_gset σ) ⌝.
+  Proof.
+    rewrite hpool_mapsto_eq /hpool_mapsto_def.
+    iIntros "H1 H2".
+    iDestruct (own_valid_2  with "H2 H1") as %Hvalid.
+    rewrite /get_hpool_gset in Hvalid.
+    apply frac_auth_agree_L in Hvalid.
+    iPureIntro.
+    inversion Hvalid.
+    done.
+  Qed.
+
+
   Lemma gen_hpool_valid {σ q} s :
    hp{ q }[ s ] -∗
       (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
@@ -1690,14 +1706,28 @@ Qed.
     set_solver.
    Qed.
 
+   Lemma gen_hpool_valid' {σ} s :
+   hp{ 1 }[ s ] -∗
+      (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
+      ⌜ (elements s) = get_fresh_handles (get_transactions σ) ⌝.
+  Proof.
+    iIntros "H1 H2".
+    iDestruct (gen_hpool_valid_eq  with "H1 H2") as %Hvalid.
+    rewrite /get_hpool_gset in Hvalid.
+    rewrite /get_fresh_handles.
+    iPureIntro.
+    set_solver.
+   Qed.
+
+
   Lemma gen_hpool_update_diff {σ s q } (h: handle):
    h ∈ s ->
-  hp{ q }[ s ] ∗
+  hp{ q }[ s ] -∗
     (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ)))) ==∗
     (own (gen_hpool_name vmG) (frac_auth_auth (GSet ( (get_hpool_gset σ)∖ {[h]}))))∗
     hp{ q }[ s ∖ {[h]} ].
   Proof.
-    iIntros (HIn) "[Hhp HHp]".
+    iIntros (HIn) "Hhp HHp".
     iDestruct (gen_hpool_valid_subset with "Hhp HHp")as %Hvalid.
     rewrite hpool_mapsto_eq /hpool_mapsto_def.
     rewrite -own_op.

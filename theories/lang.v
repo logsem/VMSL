@@ -36,7 +36,7 @@ Definition transaction : Type :=
   * list PID (* PIDs *)
   * transaction_type.
 
-Definition handle := Word.
+Notation handle := Word.
 
 Definition hpool := gset handle.
 

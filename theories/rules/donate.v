@@ -8,7 +8,7 @@ Section donate.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl des qh sh} {l :Word} {spsd: gset PID}
+Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
       ai r0 r1 j (psd: list PID) :
   (* the current instruction is hvc *)
   instr = Hvc ->
@@ -42,12 +42,12 @@ Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl des qh sh} {l :Word}
   ∗ ▷ O@i:={q}[sown] ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl]
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r r1) ∗ ▷(R2 @@i ->r r2) ∗  ▷ TX@ i := ptx
   ∗ ▷ mem_region des ptx
-  ∗ ▷ hp{ qh }[ sh ] }}}
+  ∗ ▷ hp{ 1 }[ sh ] }}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc∖spsd] ∗ E@i:={1}[sexcl∖spsd]
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1  ∗ TX@ i := ptx
   ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W0, j , psd,Donation)
-  ∗ wh ->re false ∗ R2 @@ i ->r wh ∗ hp{qh}[ (sh∖{[wh]})] )
+  ∗ wh ->re false  ∗ hp{1}[ (sh∖{[wh]})] )
   ∗ mem_region des ptx}}}.
 Proof.
   iIntros (Hinstr Hdecodei Hini Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
@@ -76,7 +76,7 @@ Proof.
   (* valid tx *)
   iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
   (* valid hpool *)
-  iDestruct (gen_hpool_valid with "Hhp Hσhp") as %Hhp.
+  iDestruct (gen_hpool_valid' with "Hhp Hσhp") as %Hhp.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -126,10 +126,13 @@ Proof.
       exfalso. apply n. destruct perm';eauto; rewrite /is_exclusive //.
     }
     rewrite /new_transaction /fresh_handle in Heqc2.
-    set (allfhs:= (get_fresh_handles (get_transactions σ1))) in *.
-    destruct allfhs.
-    { exfalso. apply Hshne. set_solver. }
-    rewrite //=  in Heqc2.
+    (* set (allfhs:= (get_fresh_handles (get_transactions σ1))) in *. *)
+    (* destruct allfhs as [| h fhs] eqn:Hfhs . *)
+    (* { exfalso. apply Hshne. set_solver. } *)
+    destruct (elements sh) as [| h fhs] eqn:Hfhs .
+    { exfalso. rewrite -elements_empty in Hfhs.  apply Hshne. apply set_eq.
+     intro. rewrite -elem_of_elements Hfhs elem_of_elements.   split;intro;set_solver. }
+    rewrite -Hhp //=  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp /update_incr_PC /update_reg.
     (* unchanged part *)
@@ -177,6 +180,42 @@ Proof.
      rewrite Hcureq.
      iFrame.
      (* update transactions *)
-Admitted.
+     rewrite insert_transaction_update_trans /=.
+     rewrite insert_transaction_update_hpool /=.
+     rewrite insert_transaction_update_retri /=.
+     assert (HhInfhs: h ∈ (get_transactions σ1).2). {
+        rewrite /get_fresh_handles in Hhp.
+        apply elem_of_elements.
+        rewrite -Hhp.
+        apply <- (elem_of_cons fhs h h).
+        left;done.
+     }
+     iDestruct ((gen_trans_update_insert h i W0 j psd Donation) with "Htrans") as ">[Hσtrans Htran]".
+     { apply not_elem_of_dom.
+       rewrite get_trans_gmap_preserve_dom.
+       set_solver.
+     }
+     assert (HhIn: h ∈ sh).
+      { apply elem_of_elements.
+       rewrite Hfhs.
+       apply <- (elem_of_cons fhs h h).
+       left;done.
+     }
+     iDestruct ((gen_hpool_update_diff h HhIn) with "Hhp Hσhp") as ">[Hσhp Hhp]".
+     iDestruct ((gen_retri_update_insert h) with "Hrcv") as ">[Hσrtrv Hrtrv]".
+     { apply not_elem_of_dom.
+       rewrite get_retri_gmap_preserve_dom.
+       set_solver.
+     }
+     iFrame.
+     iModIntro.
+     iSplitR.
+     iPureIntro.
+     set_solver.
+     iApply "HΦ".
+     iFrame.
+     iExists h.
+     by iFrame.
+Qed.
 
 End donate.

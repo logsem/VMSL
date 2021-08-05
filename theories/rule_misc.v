@@ -1617,6 +1617,90 @@ From HypVeri Require Import RAs.
         apply H0.
   Qed.
 
+  Lemma get_trans_gmap_preserve_dom {σ}:
+   dom (gset handle) (get_trans_gmap σ) = dom (gset handle) (get_transactions σ).1.
+   apply  set_eq.
+   split.
+   - intros.
+     apply elem_of_dom.
+     apply elem_of_dom in H.
+     destruct H.
+     rewrite /get_trans_gmap in H.
+     apply  elem_of_list_to_map_2 in H.
+     inv_map_in.
+     apply elem_of_list_In in H0.
+     destruct x1.
+     apply (elem_of_map_to_list) in H0.
+     inversion H;subst f.
+     eexists.
+     done.
+   - intros.
+     apply elem_of_dom.
+     apply elem_of_dom in H.
+     destruct H.
+     rewrite /get_trans_gmap.
+     exists (x0.1.1.1.1.1, x0.1.1.1.1.2, x0.1.1.2, x0.1.2, x0.2).
+     apply elem_of_list_to_map'.
+     intros.
+     inv_map_in.
+     inversion H1;subst x.
+     clear H5 H1.
+     apply elem_of_list_In in H2.
+     destruct x1.
+     apply (elem_of_map_to_list) in H2.
+     simpl in *.
+     rewrite H2 in H.
+     inversion H;subst t.
+     done.
+     inv_map_in.
+     exists (x,x0).
+     split;[done|].
+     apply elem_of_list_In.
+     by apply (elem_of_map_to_list).
+  Qed.
+
+  Lemma get_retri_gmap_preserve_dom {σ}:
+   dom (gset handle) (get_retrieved_gmap σ) = dom (gset handle) (get_transactions σ).1.
+   apply  set_eq.
+   split.
+   - intros.
+     apply elem_of_dom.
+     apply elem_of_dom in H.
+     destruct H.
+     rewrite /get_retrieved_gmap in H.
+     apply  elem_of_list_to_map_2 in H.
+     inv_map_in.
+     apply elem_of_list_In in H0.
+     destruct x1.
+     apply (elem_of_map_to_list) in H0.
+     inversion H;subst f.
+     eexists.
+     done.
+   - intros.
+     apply elem_of_dom.
+     apply elem_of_dom in H.
+     destruct H.
+     rewrite /get_retrieved_gmap.
+     exists x0.1.1.1.2.
+     apply elem_of_list_to_map'.
+     intros.
+     inv_map_in.
+     inversion H1;subst x.
+     clear H5 H1.
+     apply elem_of_list_In in H2.
+     destruct x1.
+     apply (elem_of_map_to_list) in H2.
+     simpl in *.
+     rewrite H2 in H.
+     inversion H;subst t.
+     done.
+     inv_map_in.
+     exists (x,x0).
+     split;[done|].
+     apply elem_of_list_In.
+     by apply (elem_of_map_to_list).
+  Qed.
+
  (* TODO more preserving rules. *)
 
   Lemma reducible_normal{σ} i instr ai wi :
