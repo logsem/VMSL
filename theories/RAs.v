@@ -1507,7 +1507,7 @@ Admitted.
 Lemma gen_trans_update_insert {σ} h i wf rc m f:
  (get_trans_gmap σ) !! h = None ->
  (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))==∗
-                                                           (ghost_map_auth (gen_trans_name vmG) 1 (<[h:= (i,wf,rc,m,f)]>(get_trans_gmap σ)))∗
+ (ghost_map_auth (gen_trans_name vmG) 1 (<[h:= (i,wf,rc,m,f)]>(get_trans_gmap σ)))∗
                                                            h ->t{1}(i,wf,rc,m,f).
 Proof.
   iIntros (HNone) "Htrans".
@@ -1564,7 +1564,7 @@ Proof.
   set_solver.
 Qed.
 
-Lemma gen_hpool_valid' {σ} s :
+Lemma gen_hpool_valid1 {σ} s :
  hp{ 1 }[ s ] -∗
    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
    ⌜ (elements s) = get_fresh_handles (get_transactions σ) ⌝.
@@ -1578,7 +1578,7 @@ Proof.
 Qed.
 
 
-Lemma gen_hpool_update_diff {σ s q } (h: handle):
+Lemma gen_hpool_update_diff {σ s q} (h: handle):
  h ∈ s ->
  hp{ q }[ s ] -∗
    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ)))) ==∗
