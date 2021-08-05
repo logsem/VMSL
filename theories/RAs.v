@@ -1171,6 +1171,19 @@ Proof.
       done.
 Qed.
 
+Lemma gen_access_valid_lookup_Set σ i q s:
+    own (gen_access_name vmG) (● (get_access_gmap σ))  -∗
+    (A@ i :={q}[s] ) -∗
+          ⌜(get_access_gmap σ) !! i = Some ((DfracOwn 1), to_agree (GSet s)) ⌝.
+Proof.
+   iIntros  "Hσ Hacc".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    iDestruct (gen_pagetable_valid_lookup_Set with "Hσ Hacc") as %Hvalid.
+    iPureIntro.
+    done.
+Qed.
+
+
 Lemma gen_excl_valid_lookup_Set σ i q s:
     own (gen_excl_name vmG) (● (get_excl_gmap σ))  -∗
     (E@ i :={q}[s] ) -∗
@@ -1471,7 +1484,7 @@ Proof.
   iApply (gen_pagetable_update_diff with "HA Hacc");eauto.
 Qed.
 
-Lemma gen_excl_update_noaccess{σ i sexcl psd} sps:
+Lemma gen_excl_update_diff{σ i sexcl psd} sps:
  sps = (list_to_set psd) ->
  sps ⊆ sexcl ->
  E@i:={1}[sexcl] -∗

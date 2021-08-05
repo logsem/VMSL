@@ -76,7 +76,7 @@ Proof.
   (* valid tx *)
   iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
   (* valid hpool *)
-  iDestruct (gen_hpool_valid' with "Hhp Hσhp") as %Hhp.
+  iDestruct (gen_hpool_valid1 with "Hhp Hσhp") as %Hhp.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -163,17 +163,17 @@ Proof.
      rewrite Hcureq.
      iFrame.
      (* update page table *)
-     rewrite (@update_access_batch_update_access_noaccess _ i sacc spsd psd);eauto.
+     rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);eauto.
      rewrite_trans_all.
-     iDestruct ((gen_access_update_noaccess spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
+     iDestruct ((gen_access_update_diff spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
      set_solver.
      rewrite Hcureq.
      iFrame.
      rewrite update_access_batch_preserve_ownerships insert_transaction_preserve_owned.
      iFrame.
-     rewrite (@update_access_batch_update_excl_noaccess _ i sexcl spsd psd);eauto.
+     rewrite (@update_access_batch_update_excl_diff _ i sexcl spsd psd);eauto.
      rewrite_trans_all.
-     iDestruct ((gen_excl_update_noaccess spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
+     iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
      rewrite Hcureq.
      iFrame.
      (* update transactions *)
