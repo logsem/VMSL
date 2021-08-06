@@ -3,6 +3,7 @@ From iris.algebra Require Import auth agree dfrac csum excl gmap gmap_view gset 
 From iris.proofmode Require Import tactics.
 From HypVeri Require Import monad.
 From HypVeri Require Export lang machine.
+From stdpp Require Import fin_maps.
 
   Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
@@ -850,84 +851,151 @@ Lemma gen_mem_update1:
     a ->a w ==∗
                ghost_map_auth (gen_mem_name vmG) 1 (<[a:=w']>(get_mem σ)) ∗
               a ->a w'.
- Proof.
+Proof.
   iIntros (????) "Hσ Ha".
   rewrite mem_mapsto_eq /mem_mapsto_def.
   iDestruct (ghost_map_update w' with "Hσ Ha") as ">[Hσ Ha]".
   iFrame.
   done.
- Qed.
+Qed.
 
- Definition mem_region (instr: list Word) (b:Addr):=
-    ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
+Definition mem_region (instr: list Word) (b:Addr):=
+  ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
+
+Definition mem_page (p:PID) (ws: list Word):=
+  ([∗ list] a;w ∈ (addr_of_page p);ws, (a ->a w))%I.
+
+(* This alternative donesn't require that the length of ws is page_size *)
+(* Definition mem_page (p:PID) (ws: list Word):= *)
+(*   ([∗ list] i ↦ a ∈ (addr_of_page p), *)
+(*    match (ws !! i) with *)
+(*      | Some w => (a ->a w) *)
+(*      | None => ∃ w, (a->a w) *)
+(*    end)%I. *)
+
+Lemma gen_mem_update_page{ws} σ p (ws': list Word):
+ length ws = length ws'->
+ ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+ mem_page p ws ==∗
+ ghost_map_auth (gen_mem_name vmG) 1
+ (foldr (λ a mem,
+         match (ws' !! (finz.dist (of_pid p) a)) with
+           | Some w =><[a:=w ]> mem
+           | None => mem
+         end) (get_mem σ) (addr_of_page p))
+ ∗ mem_page p ws'.
+  Proof.
+    iIntros (Hlen) "Hσ Hp".
+    rewrite /mem_page.
+    iDestruct (big_sepL2_alt with "Hp") as "[% Hp]".
+  rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word (zip (addr_of_page p) ws)).
+  2: { rewrite fst_zip;try lia;eauto. admit. }
+  rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ).
+  rewrite  mem_mapsto_eq /mem_mapsto_def.
+  iDestruct ((ghost_map_update_big _ (list_to_map (zip (addr_of_page p) ws'))) with "Hσ Hp") as ">[Hσ Hp]".
+  { admit. }
+  rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name vmG] w)%I) _ ).
+  rewrite map_to_list_to_map.
+  2 : { rewrite fst_zip;try lia;eauto. admit.  }
+  rewrite  big_sepL2_alt.
+  iSplitR "Hp".
+  2: {  iFrame. iModIntro. iPureIntro;rewrite Hlen // in H. }
+  iModIntro.
+  assert (H' : (list_to_map (zip (addr_of_page p) ws') ∪ get_mem σ)
+               = (foldr (λ a (mem : lang.mem), match ws' !! finz.dist p a with
+                                                                    | Some w => <[a:=w]> mem
+                                                                    | None => mem
+                                                                    end) (get_mem σ) (addr_of_page p))).
+  {
+    apply map_eq.
+    intro.
+    (* rewrite lookup_union. *)
+    destruct (decide (i ∈ (addr_of_page p))).
+    -
+      (* TODO: have to bump stdpp *)
+      (* rewrite lookup_union_l. *)
+
+    (* apply lookup_union_with. *)
+    (* induction ws'. *)
+    (* cbn. *)
+    (* simplify_list_eq. *)
+    (* f_equal. *)
+    (* unfold union_with, map_union_with. apply _. *)
+    (* apply (union_empty_l_L ). *)
+    (* set_solver. *)
+  }
+  Admitted.
+
+(*TODO : gen_mem_update_pages *)
+ (* [∗ list] p ∈ ps,mem_page p ws -∗ (get_mem σ) ==*  ??? *)
 
  (* rules for TX *)
-  Lemma tx_dupl i p :
-   TX@ i := p -∗ TX@ i := p ∗ TX@ i := p.
-  Proof using.
-    rewrite tx_mapsto_eq.
-    iIntros "Htx".
-    iApply own_op.
-    rewrite -auth_frag_op singleton_op.
-    rewrite agree_idemp.
-    done.
-  Qed.
+ Lemma tx_dupl i p :
+  TX@ i := p -∗ TX@ i := p ∗ TX@ i := p.
+ Proof using.
+   rewrite tx_mapsto_eq.
+   iIntros "Htx".
+   iApply own_op.
+   rewrite -auth_frag_op singleton_op.
+   rewrite agree_idemp.
+   done.
+ Qed.
 
-  Lemma gen_tx_valid σ i p:
-   TX@ i := p -∗ own (gen_tx_name vmG) (get_tx_agree σ) -∗ ⌜ (get_vm_mail_box σ i).1 = p ⌝.
-  Proof.
-    iIntros "Htx Hσ".
-    rewrite tx_mapsto_eq /tx_mapsto_def.
-    destruct σ as [[[[[? σ'] ?] ?] ?] ?].
-    rewrite /get_tx_agree /get_txrx_auth_agree /get_vm_mail_box /get_mail_boxes.
-    iDestruct (own_valid_2 with "Hσ Htx") as %Hown.
-    simpl in *.
-    apply auth_both_valid_discrete in Hown.
-    destruct Hown as [Hown1 Hown2].
-    iPureIntro.
-    pose proof (@lookup_included
-                  VMID _ _
-                  ((agreeR (leibnizO PID)))
-                  {[i := to_agree p]}
-                  (list_to_map (map (λ v : VMID, (v, to_agree (σ' !!! v).1)) list_of_vmids))) as H.
-    rewrite ->H in Hown1.
-    pose proof (Hown1 i) as H1.
-    apply option_included in H1.
-    destruct H1.
-    simplify_map_eq.
-    destruct H0.
-    destruct H0.
-    destruct H0.
-    apply lookup_singleton_Some in H0.
-    destruct H0.
-    simplify_map_eq /=.
-    destruct H1.
-    apply (elem_of_list_to_map_2 _ i x0) in H0.
-    apply elem_of_list_In in H0.
-    apply in_map_iff in H0.
-    destruct H0.
-    destruct H0.
-    inversion H0.
-    simplify_eq /=.
-    destruct H1.
-    - unfold to_agree in H1.
-      destruct (H1 0) as [H1' H1''].
-      simpl in H1', H1''.
-      pose proof (H1' p).
-      assert (p ∈ [p]). apply elem_of_list_here.
-      pose proof (H3 H4).
-      destruct H5 as [b [b1 b2]].
-      inversion b1; subst.
-      + unfold dist in b2.
-        unfold ofe_dist in b2.
-        unfold discrete_dist in b2.
-        rewrite b2.
-        reflexivity.
-      + inversion H7.
-    - apply to_agree_included in H1.
-      rewrite H1.
-      reflexivity.
-  Qed.
+ Lemma gen_tx_valid σ i p:
+  TX@ i := p -∗ own (gen_tx_name vmG) (get_tx_agree σ) -∗ ⌜ (get_vm_mail_box σ i).1 = p ⌝.
+ Proof.
+   iIntros "Htx Hσ".
+   rewrite tx_mapsto_eq /tx_mapsto_def.
+   destruct σ as [[[[[? σ'] ?] ?] ?] ?].
+   rewrite /get_tx_agree /get_txrx_auth_agree /get_vm_mail_box /get_mail_boxes.
+   iDestruct (own_valid_2 with "Hσ Htx") as %Hown.
+   simpl in *.
+   apply auth_both_valid_discrete in Hown.
+   destruct Hown as [Hown1 Hown2].
+   iPureIntro.
+   pose proof (@lookup_included
+                 VMID _ _
+                 ((agreeR (leibnizO PID)))
+                 {[i := to_agree p]}
+                 (list_to_map (map (λ v : VMID, (v, to_agree (σ' !!! v).1)) list_of_vmids))) as H.
+   rewrite ->H in Hown1.
+   pose proof (Hown1 i) as H1.
+   apply option_included in H1.
+   destruct H1.
+   simplify_map_eq.
+   destruct H0.
+   destruct H0.
+   destruct H0.
+   apply lookup_singleton_Some in H0.
+   destruct H0.
+   simplify_map_eq /=.
+   destruct H1.
+   apply (elem_of_list_to_map_2 _ i x0) in H0.
+   apply elem_of_list_In in H0.
+   apply in_map_iff in H0.
+   destruct H0.
+   destruct H0.
+   inversion H0.
+   simplify_eq /=.
+   destruct H1.
+   - unfold to_agree in H1.
+     destruct (H1 0) as [H1' H1''].
+     simpl in H1', H1''.
+     pose proof (H1' p).
+     assert (p ∈ [p]). apply elem_of_list_here.
+     pose proof (H3 H4).
+     destruct H5 as [b [b1 b2]].
+     inversion b1; subst.
+     + unfold dist in b2.
+       unfold ofe_dist in b2.
+       unfold discrete_dist in b2.
+       rewrite b2.
+       reflexivity.
+     + inversion H7.
+   - apply to_agree_included in H1.
+     rewrite H1.
+     reflexivity.
+ Qed.
 
 
   (* rules for RX *)

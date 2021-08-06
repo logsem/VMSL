@@ -1,3 +1,4 @@
+(* This file defines some basic types that will be used in the operational semantics *)
 From stdpp Require Import countable fin vector.
 From Coq Require Import ssreflect Bool Eqdep_dec ZArith.
 From ExtLib Require Import Structures.Monads.
@@ -6,10 +7,12 @@ From machine_utils Require Export finz.
 Open Scope general_if_scope.
 
 Definition reg_count : nat := 31.
-Definition word_size : Z := 2000000. (*TODO: Now a word is 64-bit long, how should I change this? *)
+Definition word_size : Z := 2000000.
 Definition page_size : Z := 1000.
 Definition page_count : Z := 2000.
 Definition imm_size : Z := 1000000.
+
+(* word_size must be a multiple of page_size *)
 Lemma page_size_sanity : Z.mul page_size page_count = word_size.
 Proof.
   unfold page_size.
@@ -18,10 +21,12 @@ Proof.
   by compute.
 Qed.
 
+(* word is a positive integer with word_size as the upper bound *)
 Notation Word := (finz word_size).
 
 Notation Addr := Word.
 
+(* we introduce PID as there will be some operations on pagetables *)
 Inductive PID: Type :=
 | P (z : Addr) (align: (Z.rem z page_size =? 0)%Z = true) .
 
@@ -65,6 +70,7 @@ Lemma to_of_pid p:  (to_pid (of_pid p))= Some p.
   all: lia.
 Qed.
 
+(* this conversion is always successful *)
 Program Definition to_pid_aligned (w: Word): PID:=
   let z:=(page_size * (w / page_size) )%Z in
   let wr:= (finz.FinZ z _ _) in
@@ -115,63 +121,6 @@ exists (w / page_size)%Z.
 lia.
 Defined.
 
-(* Program Definition to_pid_aligned (w: Word): PID:= *)
-(*   let z:=(w - (w `mod` page_size))%Z in *)
-(*   let wr:= (finz.FinZ z _ _) in *)
-(*   P wr _. *)
-(* Next Obligation. *)
-(* intros. *)
-(* destruct w. *)
-(* pose finz_lt. *)
-(* apply -> (Z.ltb_lt z0 word_size ) in e. *)
-(* apply  (Z.ltb_lt z word_size ). *)
-(* subst z. *)
-(* simpl. *)
-(* apply -> (Z.leb_le 0 z0 ) in finz_nonneg. *)
-(* assert (Hrem': (0 ≤ z0 `mod` page_size)%Z). *)
-(* apply Z_mod_pos. *)
-(* unfold page_size. *)
-(* lia. *)
-(* lia. *)
-(* Defined. *)
-(* Next Obligation. *)
-(* intros. *)
-(* destruct w. *)
-(* subst z. *)
-(* simpl. *)
-(* apply -> (Z.leb_le 0 z0) in finz_nonneg. *)
-(* apply Z.leb_le . *)
-(* assert (Hlt: (z0 `mod` page_size ≤ z0)%Z). *)
-(* apply Z.mod_le;eauto. *)
-(* unfold page_size. *)
-(* lia. *)
-(* lia. *)
-(* Qed. *)
-(* Next Obligation. *)
-(* intros. *)
-(* subst wr. *)
-(* simpl. *)
-(* subst z. *)
-(* apply Z.eqb_eq. *)
-(* rewrite <- Zminus_mod_idemp_l. *)
-(* simpl. *)
-(* assert (Heq0: (w mod page_size - w mod page_size)%Z = 0%Z). *)
-(* apply (Zminus_diag (w mod page_size)%Z). *)
-(* rewrite Heq0. *)
-(* apply Zmod_0_l. *)
-(* Defined. *)
-
-
-Inductive Imm: Type :=
-| I (w : Word) (fin: Z.ltb w imm_size = true) .
-
-Definition of_imm (im: Imm): Word :=
-  match im with
-  | I w fin => w
-  end.
-
-Coercion of_imm: Imm >-> Word.
-
 Global Instance pid_eq_dec: EqDecision PID.
 intros x y.
 destruct x,y .
@@ -179,14 +128,6 @@ destruct (finz_eq_dec word_size z z0).
 - left. subst z0. f_equal. apply eq_proofs_unicity; decide equality; decide equality.
 - right. inversion 1. contradiction.
 Defined.
-
-Global Instance imm_eq_dec: EqDecision Imm.
-intros x y. destruct x,y.
-destruct (finz_eq_dec word_size w w0).
-- left. subst w0. f_equal. apply eq_proofs_unicity; decide equality.
-- right. inversion 1. contradiction.
-Defined.
-
 
 Global Instance pid_countable : Countable PID.
 Proof.
@@ -201,6 +142,28 @@ Proof.
   apply to_of_pid.
 Defined.
 
+
+(* Immediate numbers will only be used in some instructions,
+   it is needed to make sure Word is countable *)
+Inductive Imm: Type :=
+| I (w : Word) (fin: Z.ltb w imm_size = true) .
+
+Definition of_imm (im: Imm): Word :=
+  match im with
+  | I w fin => w
+  end.
+
+Coercion of_imm: Imm >-> Word.
+
+Global Instance imm_eq_dec: EqDecision Imm.
+intros x y. destruct x,y.
+destruct (finz_eq_dec word_size w w0).
+- left. subst w0. f_equal. apply eq_proofs_unicity; decide equality.
+- right. inversion 1. contradiction.
+Defined.
+
+
+(* there are 31 general purpose registers and two system registers PC and NZ *)
 Inductive reg_name : Type :=
 | PC
 | NZ
@@ -242,6 +205,7 @@ Proof.
   - exfalso; auto.
 Qed.
 
+(* if a VM ownes a page *)
 Inductive ownership : Type :=
 | Owned
 | NotOwned.
@@ -251,6 +215,7 @@ Proof.
   solve_decision.
 Qed.
 
+(* if a VM has access to a page. SharedAccess means at least two VMs can access this page. *)
 Inductive access : Type :=
 | NoAccess
 | SharedAccess
@@ -260,9 +225,6 @@ Global Instance eq_decision_access : EqDecision access.
 Proof.
   solve_decision.
 Qed.
-
-Definition permission : Type :=
-  (ownership * access).
 
 Definition is_accessible (p : access) : bool :=
   match p with
@@ -283,11 +245,7 @@ Definition is_owned (p : ownership) : bool :=
   | _ => false
   end.
 
-Global Instance eq_decision_permission : EqDecision permission.
-Proof.
-  solve_decision.
-Qed.
-
+(* by the FFA specs, a VM has the following three ways to share memory *)
 Inductive transaction_type : Type :=
 | Donation
 | Sharing
@@ -298,6 +256,9 @@ Proof.
   solve_decision.
 Qed.
 
+(* only essiential regular instructions are included *)
+(* Halt and Fail are introduced to model termination and exception *)
+(* Hvc is for invoking FFA calls *)
 Inductive instruction : Type :=
 | Mov (dst : reg_name) (src : Imm + reg_name)
 | Ldr (dst : reg_name) (src : reg_name)
@@ -309,6 +270,7 @@ Inductive instruction : Type :=
 | Fail
 | Hvc.
 
+(* these conditions describe a valid instruction *)
 Definition reg_valid_cond (r : reg_name) : Prop :=
   PC ≠ r /\ NZ ≠ r.
 
@@ -338,12 +300,14 @@ Inductive valid_instruction : instruction -> Prop :=
 | valid_br r : reg_valid_cond r ->
                 valid_instruction (Br r).
 
+(* the decoding instruction is always valid,
+so that we can avoid considering the invalid instruction exceptions  *)
 Class InstructionSerialization := {
   decode_instruction : Word -> option instruction;
   decode_instruction_valid : forall w i, decode_instruction w = Some i -> valid_instruction i;
   encode_instruction : instruction -> Word;
   decode_encode_instruction : forall (i : instruction), decode_instruction (encode_instruction i) = Some i;
-                                 }.
+  }.
 
 Context `{InstrSer : InstructionSerialization}.
 
@@ -365,16 +329,16 @@ Proof.
   apply decode_encode_instruction.
 Qed.
 
-(* TODO: ZArith seems to be much more convenient *)
-
+(* there are only fixed number of VMs in the machine *)
 Class HypervisorConstants := {
   vm_count : nat;
   vm_count_pos : 0 < vm_count;
- }.
+}.
 
 Section hyp_def.
 Context `{_: HypervisorConstants}.
 
+(* all FFA hypercalls that we support *)
 Inductive hvc_func : Type :=
   Run
 | Yield
@@ -398,7 +362,7 @@ Inductive hvc_error : Type :=
 | Ready
 | NoMem.
 
-Definition VMID : Type := fin vm_count.
+Definition VMID: Type := fin vm_count.
 
 Class HypervisorParameters := {
   decode_vmid : Word -> option VMID;
@@ -407,7 +371,7 @@ Class HypervisorParameters := {
       decode_vmid (encode_vmid vmid) = Some vmid;
   decode_hvc_func : Word -> option hvc_func;
   encode_hvc_func : hvc_func -> Imm;
-  (* we use Imm because it is more convenient to write programs.. *)
+  (* we use Imm here because it will be more convenient to write programs.. *)
   decode_encode_hvc_func : forall (hvc : hvc_func),
       decode_hvc_func (encode_hvc_func hvc) = Some hvc;
   decode_hvc_error : Word -> option hvc_error;
@@ -422,5 +386,5 @@ Class HypervisorParameters := {
   encode_transaction_type : transaction_type -> Word;
   decode_encode_transaction_type : forall (ty : transaction_type),
       decode_transaction_type (encode_transaction_type ty) = Some ty
-                                                                }.
+}.
 End hyp_def.
