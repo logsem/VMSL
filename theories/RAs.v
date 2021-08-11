@@ -171,6 +171,7 @@ Section definitions.
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
       own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))) ∗
       ⌜ (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ⌝ ∗
+      ⌜ map_Forall (λ _ v, (Z.of_nat (length v.1.2) <? word_size)%Z = true) (get_transactions σ).1 ⌝ ∗
       ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ).
 
   Definition token_agree_def (v:VMID) (q:frac) : iProp Σ :=
@@ -1509,13 +1510,59 @@ Proof using.
   done.
 Qed.
 
-
 Lemma gen_trans_valid {σ q i wf} {r:VMID} {m f} wh :
  wh ->t{q}(i,wf,r,m,f) -∗
        (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))-∗
        ⌜∃ (b:bool), (get_transactions σ).1 !! wh = Some (i,wf,b,r,m,f) ⌝.
 Proof.
-Admitted.
+  iIntros "Htrn Hσ".
+  rewrite trans_mapsto_eq /trans_mapsto_def.
+  destruct σ as [[[[[? ?] ?] ?] ?] σ'].
+  rewrite /get_trans_gmap /get_transactions_gmap.
+  iDestruct (ghost_map_lookup with "Hσ Htrn") as "%H".
+  simpl in *.
+  iPureIntro.
+  apply elem_of_list_to_map_2 in H.
+  apply elem_of_list_In in H.
+  apply in_map_iff in H.
+  inversion H as [el H']; clear H.
+  inversion H' as [H'' H''']; clear H'.
+  inversion H''.
+  subst.
+  clear H''.
+  apply elem_of_list_In in H'''.
+  apply elem_of_map_to_list' in H'''.
+  exists el.2.1.1.1.2.
+  rewrite H'''.
+  rewrite <-?surjective_pairing.
+  reflexivity.
+Qed.
+
+Lemma gen_retri_valid {σ wh b} :
+  wh ->re b -∗ ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) -∗
+  ⌜exists t, (get_transactions σ).1 !! wh = Some t ∧ t.1.1.1.2 = b⌝.
+Proof.
+  iIntros "Hretri Hσ".
+  rewrite retri_mapsto_eq /retri_mapsto_def.
+  destruct σ as [[[[[? ?] ?] ?] ?] σ'].
+  rewrite /get_retri_gmap /get_transactions_gmap.
+  iDestruct (ghost_map_lookup with "Hσ Hretri") as "%H".
+  simpl in *.
+  iPureIntro.
+  apply elem_of_list_to_map_2 in H.
+  apply elem_of_list_In in H.
+  apply in_map_iff in H.
+  inversion H as [el H']; clear H.
+  inversion H' as [H'' H''']; clear H'.
+  inversion H''.
+  subst.
+  clear H''.
+  apply elem_of_list_In in H'''.
+  apply elem_of_map_to_list' in H'''.
+  rewrite H'''.
+  exists el.2.
+  done.
+Qed.
 
 Lemma gen_trans_update_insert {σ} h i wf rc m f:
  (get_trans_gmap σ) !! h = None ->

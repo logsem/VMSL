@@ -187,6 +187,11 @@ Definition update_access_global_batch st (v:VMID) (ps : list PID) (pm: access): 
    get_current_vm st,
    get_mem st, get_transactions st).
 
+Definition update_memory_global_batch (st : state) (l : list (Addr * Word)) : state :=
+  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st,
+   (foldr (λ p acc, match p with | (a, w) => <[a:=w]>acc end) (snd (fst st)) l),
+           get_transactions st).
+
 Definition update_ownership_batch st (ps : list PID) (pm: ownership): state :=
   update_ownership_global_batch st (get_current_vm st) ps pm.
 
@@ -396,6 +401,9 @@ Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * VMID)) :
 Definition get_tx_pid_global (st : state) (v : VMID) : PID:=
    (get_vm_mail_box st v).1.
 
+Definition get_rx_pid_global (st : state) (v : VMID) : PID :=
+  (get_vm_mail_box st v).2.1.
+                       
 Definition is_rx_ready_global (st : state) (v : VMID) : bool :=
   match get_vm_mail_box st v with
   | (_, (_, Some _)) => true
@@ -483,6 +491,36 @@ Definition transaction_descriptor : Type :=
   * VMID (* Receiver *)
   * list PID.
 
+Definition transaction_to_transaction_descriptor (t : transaction) (h : handle) : transaction_descriptor :=
+  match t with
+  | (vs, f, _, vr, ls, _) => (vs, Some h, f, vr, ls)
+  end.
+
+Definition write_mem_segment_page_unsafe (st : state) (dst : PID) (segment : list Word) : state :=
+  update_memory_global_batch st (zip (finz.seq (of_pid dst) (Z.to_nat page_size)) segment).
+
+Definition transaction_to_list_words (t : transaction) (h : handle) : option (list Word) :=
+  match transaction_to_transaction_descriptor t h with
+  | (vs, Some h, f, vr, ls) =>
+    match finz.of_z (Z.of_nat (length ls)) with
+    | Some l =>
+      Some ([of_imm (encode_vmid vs); f; h; l; of_imm (encode_vmid vr)] ++ map of_pid ls)
+    | None => None
+    end
+  | (vs, None, f, vr, ls) =>
+    match finz.of_z (Z.of_nat (length ls)) with
+    | Some l =>
+      Some ([of_imm (encode_vmid vs); f; W0; l; of_imm (encode_vmid vr)] ++ map of_pid ls)
+    | None => None
+    end
+  end.
+
+Definition transaction_write_rx (st : state) (t : transaction) (h : handle) : option state :=
+  match transaction_to_list_words t h with
+  | Some ls => Some (write_mem_segment_page_unsafe st (get_rx_pid_global st (get_current_vm st)) ls)
+  | None => None
+  end.
+
 Definition parse_list_of_pids st (b : Addr) l : option (list PID) :=
    @sequence_a list _ _ _ PID option _ _ (map (λ v, (w <- ((get_mem st) !! v) ;;; (to_pid w) ))
                       (finz.seq b l)).
@@ -494,6 +532,11 @@ Definition parse_memory_region_descriptor (st : state) (b:Addr) : option memory_
   ls' <- parse_list_of_pids st (b^+2)%f (Z.to_nat (finz.to_z l));;;
   unit (r', ls').
 
+Definition parse_transaction_descriptor_retrieve (st : state) (b : Addr) : option transaction_descriptor :=
+  vs <- get_memory_with_offset st b 0 ;;;
+  wh <- get_memory_with_offset st b 2 ;;;
+  vs' <- decode_vmid vs ;;;
+  unit (vs', Some wh, W0, (get_current_vm st), []).
 (* TODO: Prop version, reflection *)
 
 Definition parse_transaction_descriptor (st : state) (b: Addr) : option transaction_descriptor :=
@@ -538,8 +581,8 @@ Definition insert_transaction (st : state) (h : handle) (t : transaction) : stat
 
 Definition new_transaction (st : state) (v r : VMID)
            (tt : transaction_type) (flag : Word) (ps:(list PID))  : hvc_result (state * handle) :=
-    h <- fresh_handle (get_transactions st) ;;;
-    unit (insert_transaction st h (v, flag, false, r, ps, tt), h).
+  h <- fresh_handle (get_transactions st) ;;;
+  unit (insert_transaction st h (v, flag, false, r, ps, tt), h).
 
 Definition get_transaction (st : state) (h : handle) : option transaction :=
   ((get_transactions st).1) !! h.
@@ -665,30 +708,32 @@ Definition get_transaction_type (t : transaction) : transaction_type :=
 
 Definition retrieve (s : state) : exec_mode * state :=
   let comp :=
- (* TODO: get the descriptor from tx and validate it *)
-      handle <- lift_option (get_reg s R1) ;;;
-      trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-      (let (r, ps) := get_memory_descriptor trn in
-       let ty := get_transaction_type trn in
-       (* add receiver(caller) into the list of the transaction *)
-          s' <- toggle_transaction_retrieve s handle trn ;;;
-       (* for all pages of the trancation ... (change the page table of the caller according to the type)*)
-  match ty with
-  | Sharing =>
-    unit (foldr (fun v' acc' =>
-                   update_access acc' v'  SharedAccess)
-                s' ps)
-  | Lending =>
-    (* it is fine because we only allow at most one receiver *)
-      unit (foldr (fun v' acc' =>
-                        update_access acc' v' ExclusiveAccess)
-                     s' ps)
-  | Donation =>
-    unit (foldr (fun v' acc' =>
-                  update_access (update_ownership acc' v' Owned) v'  ExclusiveAccess)
-                s' ps)
-  end)
-  (* TODO: put a descriptor into rx *)
+      len <- lift_option (get_reg s R1) ;;;
+      m <- (if (page_size <? len)%Z
+            then throw InvParam
+            else
+              lift_option (parse_transaction_descriptor_retrieve s
+                             (of_pid (get_tx_pid_global s (get_current_vm s))))) ;;;
+      match m with
+      | (vs, Some handle, _, _, _) =>
+        trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
+        (let (r, ps) := get_memory_descriptor trn in
+         let ty := get_transaction_type trn in
+         (* add receiver(caller) into the list of the transaction *)
+         s' <- toggle_transaction_retrieve s handle trn ;;;
+         s'' <- lift_option_with_err (transaction_write_rx s trn handle) InvParam ;;;
+         (* for all pages of the trancation ... (change the page table of the caller according to the type)*)
+         match ty with
+         | Sharing =>
+           unit (update_access_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps SharedAccess)
+         | Lending =>
+           (* it is fine because we only allow at most one receiver *)
+           unit (update_access_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps ExclusiveAccess)
+         | Donation =>
+           unit (update_access_batch (update_ownership_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
+         end)
+      | _ => throw InvParam
+      end
   in
   unpack_hvc_result_normal s comp.
 
