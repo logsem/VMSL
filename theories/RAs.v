@@ -849,8 +849,8 @@ Lemma gen_mem_update1:
   ∀ (σ : state) a w w',
     ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
     a ->a w ==∗
-               ghost_map_auth (gen_mem_name vmG) 1 (<[a:=w']>(get_mem σ)) ∗
-              a ->a w'.
+    ghost_map_auth (gen_mem_name vmG) 1 (<[a:=w']>(get_mem σ)) ∗
+    a ->a w'.
 Proof.
   iIntros (????) "Hσ Ha".
   rewrite mem_mapsto_eq /mem_mapsto_def.
@@ -862,8 +862,9 @@ Qed.
 Definition mem_region (instr: list Word) (b:Addr):=
   ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
 
-Definition mem_page (p:PID) (ws: list Word):=
-  ([∗ list] a;w ∈ (addr_of_page p);ws, (a ->a w))%I.
+(* This definition implicitly requires the length of instr is equal to page_size  *)
+Definition mem_page (instr: list Word) (p: PID):=
+  ([∗ list] a;w ∈ (finz.seq (of_pid p) (Z.to_nat page_size));instr, (a ->a w))%I.
 
 (* This alternative donesn't require that the length of ws is page_size *)
 (* Definition mem_page (p:PID) (ws: list Word):= *)
@@ -873,61 +874,81 @@ Definition mem_page (p:PID) (ws: list Word):=
 (*      | None => ∃ w, (a->a w) *)
 (*    end)%I. *)
 
+
+Lemma finz_seq_lookup0{b} n (f : finz.finz b) x :
+   is_Some(f + 1)%f ->
+   finz.seq f n !! x = Some f -> x=0.
+Proof.
+  revert f. destruct n; cbn.
+  { intros. inversion H0. }
+  { intros.
+    destruct (decide (x=0)).
+    done.
+    rewrite lookup_cons_ne_0 in H0.
+    apply elem_of_list_lookup_2 in H0.
+    pose proof (finz_seq_notin _ f (f ^+ 1)%f n).
+    assert ( (f < f ^+ 1)%f) as Hlt.
+    solve_finz.
+    apply H1 in Hlt.
+    done.
+    done. }
+Qed.
+
+
+Lemma finz_seq_NoDup'{b} (f : finz.finz b) (n : nat) :
+  is_Some (f + (Z.of_nat (n-1)))%f →
+  NoDup (finz.seq f n).
+Proof using.
+  revert f. induction n; intros f Hfn.
+  { apply NoDup_nil_2. }
+  { cbn. generalize dependent f. induction n; intros.
+    { simpl. apply NoDup_singleton.}
+    { simpl. apply NoDup_cons_2.
+      apply not_elem_of_cons.
+      split.
+      solve_finz.
+      apply finz_seq_notin.
+      solve_finz.
+      eapply IHn.
+      solve_finz.
+  } }
+Qed.
+
 Lemma gen_mem_update_page{ws} σ p (ws': list Word):
- length ws = length ws'->
+ length ws' = length ws  ->
  ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
- mem_page p ws ==∗
+ mem_page ws p ==∗
  ghost_map_auth (gen_mem_name vmG) 1
- (foldr (λ a mem,
-         match (ws' !! (finz.dist (of_pid p) a)) with
-           | Some w =><[a:=w ]> mem
-           | None => mem
-         end) (get_mem σ) (addr_of_page p))
- ∗ mem_page p ws'.
+ (list_to_map (zip (finz.seq p (Z.to_nat page_size)) ws') ∪ get_mem σ)
+ ∗ mem_page ws' p.
   Proof.
     iIntros (Hlen) "Hσ Hp".
     rewrite /mem_page.
     iDestruct (big_sepL2_alt with "Hp") as "[% Hp]".
-  rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word (zip (addr_of_page p) ws)).
-  2: { rewrite fst_zip;try lia;eauto. admit. }
-  rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ).
-  rewrite  mem_mapsto_eq /mem_mapsto_def.
-  iDestruct ((ghost_map_update_big _ (list_to_map (zip (addr_of_page p) ws'))) with "Hσ Hp") as ">[Hσ Hp]".
-  { admit. }
-  rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name vmG] w)%I) _ ).
-  rewrite map_to_list_to_map.
-  2 : { rewrite fst_zip;try lia;eauto. admit.  }
-  rewrite  big_sepL2_alt.
-  iSplitR "Hp".
-  2: {  iFrame. iModIntro. iPureIntro;rewrite Hlen // in H. }
-  iModIntro.
-  assert (H' : (list_to_map (zip (addr_of_page p) ws') ∪ get_mem σ)
-               = (foldr (λ a (mem : lang.mem), match ws' !! finz.dist p a with
-                                                                    | Some w => <[a:=w]> mem
-                                                                    | None => mem
-                                                                    end) (get_mem σ) (addr_of_page p))).
-  {
-    apply map_eq.
-    intro.
-    (* rewrite lookup_union. *)
-    destruct (decide (i ∈ (addr_of_page p))).
-    -
-      (* TODO: have to bump stdpp *)
-      (* rewrite lookup_union_l. *)
+    rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word _).
+    2: { rewrite fst_zip;[|lia]. apply finz_seq_NoDup'. apply last_addr_in_bound. }
+    rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ).
+    rewrite  mem_mapsto_eq /mem_mapsto_def.
+    iDestruct ((ghost_map_update_big _ (list_to_map (zip (finz.seq (of_pid p) (Z.to_nat page_size)) ws'))) with "Hσ Hp") as ">[Hσ Hp]".
+    { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. rewrite Hlen //.   lia. lia. }
+    rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name vmG] w)%I) _ ).
+    rewrite map_to_list_to_map.
+    2 : { rewrite fst_zip;[|lia]. apply finz_seq_NoDup'. apply last_addr_in_bound. }
+    rewrite  big_sepL2_alt.
+    iSplitR "Hp".
+    2: {  iFrame. iModIntro. iPureIntro;rewrite -Hlen // in H.  }
+    done.
+Qed.
 
-    (* apply lookup_union_with. *)
-    (* induction ws'. *)
-    (* cbn. *)
-    (* simplify_list_eq. *)
-    (* f_equal. *)
-    (* unfold union_with, map_union_with. apply _. *)
-    (* apply (union_empty_l_L ). *)
-    (* set_solver. *)
-  }
-  Admitted.
+  (* TODO: probably need a more general version of it? *)
+Lemma gen_mem_update_pages{wss} σ (ps: list PID) (ws': list Word):
+ ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+ ([∗ list] p;ws ∈ ps;wss,mem_region ws (of_pid p)) ==∗
+ ghost_map_auth (gen_mem_name vmG) 1
+ (foldr (λ p acc, (list_to_map (zip (finz.seq (of_pid p) (length ws')) ws')) ∪ acc) (get_mem σ) ps)
+ ∗ [∗ list] p∈ ps,mem_region ws' (of_pid p).
+Admitted.
 
-(*TODO : gen_mem_update_pages *)
- (* [∗ list] p ∈ ps,mem_page p ws -∗ (get_mem σ) ==*  ??? *)
 
  (* rules for TX *)
  Lemma tx_dupl i p :

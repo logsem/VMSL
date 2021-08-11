@@ -559,8 +559,11 @@ Definition check_transition_transaction (s : state) (td : transaction_descriptor
   end.
 
 Definition zero_pages (st: state) (ps: list PID):=
-  foldr (λ p acc, (foldr (λ a acc', update_memory_unsafe acc' a W0)
-                         acc (finz.seq (of_pid p) (Z.to_nat page_size)))) st ps.
+   (get_reg_files st, get_mail_boxes st,
+  get_page_tables st, get_current_vm st,
+  (foldr (λ p acc, (list_to_map (zip (finz.seq (of_pid p) (Z.to_nat page_size)) list_of_W0)) ∪ acc )
+         (get_mem st) ps),
+   get_transactions st).
 
 Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   let comp :=

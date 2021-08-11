@@ -216,7 +216,7 @@ Proof.
 Qed.
 
 
-Lemma hvc_donate_z {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
+Lemma hvc_donate_z {instr i wi r2 pi ptx sown q sacc sexcl des sh wss} {l :Word} {spsd: gset PID}
       ai r0 r1 j (psd: list PID):
   (* the current instruction is hvc *)
   instr = Hvc ->
@@ -249,14 +249,14 @@ Lemma hvc_donate_z {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {sp
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi
   ∗ ▷ O@i:={q}[sown] ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl]
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r r1) ∗ ▷(R2 @@i ->r r2) ∗  ▷ TX@ i := ptx
-  ∗ ▷ mem_region des ptx ∗ ▷ ([∗ list] p ∈ psd, mem_page p [])
+  ∗ ▷ mem_region des ptx ∗ ▷ ([∗ list] p;ws ∈ psd;wss, mem_region ws (of_pid p))
   ∗ ▷ hp{ 1 }[ sh ] }}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc∖spsd] ∗ E@i:={1}[sexcl∖spsd]
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1  ∗ TX@ i := ptx
-  ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W0, j , psd,Donation)
+  ∗ ∃(wh: Word), ( ⌜ wh ∈ sh ⌝ ∗ R2 @@ i ->r wh ∗ wh ->t{1}(i,W1, j , psd,Donation)
   ∗ wh ->re false  ∗ hp{1}[ (sh∖{[wh]})] )
-  ∗ mem_region des ptx ∗ ([∗ list] p ∈ psd, mem_page p list_of_W0)}}}.
+  ∗ mem_region des ptx ∗ ([∗ list] p ∈ psd, mem_region list_of_W0 (of_pid p) )}}}.
 Proof.
   iIntros (Hinstr Hdecodei Hini Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
   iIntros "(>PC & >Hai & >Hown & >Hacc & >Hexcl & >R0 & >R1 & >R2 & >TX & >Hadesc & >Hpgs & >Hhp ) HΦ".
@@ -278,7 +278,7 @@ Proof.
   iDestruct ((gen_excl_valid_lookup_Set _ _ _ sexcl) with "Hσexcl Hexcl") as %Hexcl';eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai wi with "Hσmem Hai") as %Hai.
-  unfold mem_region.
+  (* unfold mem_region. *)
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
   { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
   (* valid tx *)
@@ -338,7 +338,7 @@ Proof.
     { exfalso. rewrite -elements_empty in Hfhs.  apply Hshne. apply set_eq.
      intro. rewrite -elem_of_elements Hfhs elem_of_elements.   split;intro;set_solver. }
     rewrite -Hhp //=  in Heqc2.
-    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    destruct HstepP;subst m2 σ2; subst c2. cbn.
     rewrite /gen_vm_interp /update_incr_PC /update_reg.
     (* unchanged part *)
     rewrite_reg_all.
@@ -359,8 +359,8 @@ Proof.
         solve_reg_lookup.
         done.
      }
-     2 : { rewrite !update_reg_global_preserve_current_vm  update_access_batch_preserve_current_vm
-            zero_pages_preserve_current_vm insert_transaction_preserve_current_vm //. }
+     (* 2 : { rewrite ?update_reg_global_preserve_current_vm  ?update_access_batch_preserve_current_vm *)
+     (*        ?zero_pages_preserve_current_vm ?insert_transaction_preserve_current_vm //. } *)
      2 : {
         rewrite !update_reg_global_update_reg.
         rewrite ?update_access_batch_preserve_regs
@@ -384,7 +384,7 @@ Proof.
      rewrite Hcureq.
      iFrame.
      (* TODO: update memory *)
-     (* don't know how to express it *)
+     iDestruct ((gen_mem_update_pages σ1 psd list_of_W0) with "Hσmem Hpgs") as ">[Hσmem Hpgs]";eauto.
      (* update page table *)
      rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);eauto.
      rewrite ?zero_pages_preserve_current_vm ?insert_transaction_preserve_current_vm.
@@ -439,7 +439,8 @@ Proof.
      iApply "HΦ".
      iFrame.
      iExists h.
-     by iFrame.
+     iFrame.
+     done.
 Qed.
 
 
