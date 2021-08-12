@@ -22,14 +22,32 @@ Solve Obligations with lia.
 Program Definition R2 :reg_name := (R 2 _).
 Solve Obligations with lia.
 
-Definition list_of_W0: list Word:=
+Definition page_of_W0: list Word:=
   map (λ _, W0) (seq 0 (Z.to_nat page_size)).
 
-Lemma length_list_of_W0 : length (list_of_W0) = (Z.to_nat page_size).
+Definition pages_of_W0 (n:nat): list (list Word):=
+  map (λ _, page_of_W0) (seq 0 n).
+
+Lemma length_page_of_W0 : length (page_of_W0) = (Z.to_nat page_size).
 Proof.
-  rewrite /list_of_W0 map_length seq_length //.
+  rewrite /page_of_W0 map_length seq_length //.
 Qed.
 
+Lemma length_pages_of_W0 n : length (pages_of_W0 n) = n.
+Proof.
+  rewrite /pages_of_W0 map_length seq_length //.
+Qed.
+
+Lemma length_pages_of_W0_forall n : forall ws, ws ∈  (pages_of_W0 n) -> length ws = (Z.to_nat page_size).
+Proof.
+  intros.
+  apply elem_of_list_In in H.
+  rewrite /pages_of_W0 in H.
+  apply in_map_iff in H.
+  destruct H.
+  destruct H.
+  rewrite -H length_page_of_W0 //.
+Qed.
 
 (* an address is in the range of the page with PID p *)
 Definition addr_in_page (a: Addr ) (p:PID):=
@@ -302,6 +320,17 @@ Proof using.
       destruct HSome.
       split.
       lia. rewrite -H0. solve_finz. solve_finz. } }
+Qed.
+
+Lemma finz_seq_cons {b} (f: finz.finz b) (l:nat) :
+  (l > 0) ->
+  (finz.seq f l) = f :: (finz.seq (f ^+ 1)%f (l-1)).
+Proof.
+  intro.
+  destruct l;[lia|].
+  cbn.
+  repeat f_equal.
+  lia.
 Qed.
 
 Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).

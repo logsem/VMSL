@@ -558,11 +558,16 @@ Definition check_transition_transaction (s : state) (td : transaction_descriptor
                            (check_perm_page s (get_current_vm s) v' p))  m
   end.
 
+Definition list_pid_to_addr (ps: list PID):=
+  (foldr (++) [] (map (λ p,  (finz.seq (of_pid p) (Z.to_nat page_size))) ps)).
+
+Definition flat_list_list_word (wss: list (list Word)):=
+  (foldr (++) [] wss).
+
 Definition zero_pages (st: state) (ps: list PID):=
    (get_reg_files st, get_mail_boxes st,
   get_page_tables st, get_current_vm st,
-  (foldr (λ p acc, (list_to_map (zip (finz.seq (of_pid p) (Z.to_nat page_size)) list_of_W0)) ∪ acc )
-         (get_mem st) ps),
+  (list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word (pages_of_W0 (length ps))))) ∪ (get_mem st),
    get_transactions st).
 
 Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=

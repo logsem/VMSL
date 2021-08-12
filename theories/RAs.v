@@ -957,9 +957,6 @@ Proof.
     iFrame.
 Qed.
 
-Definition list_pid_to_addr (ps: list PID):=
-  (foldr (++) [] (map (λ p,  (finz.seq (of_pid p) (Z.to_nat page_size))) ps)).
-
 Lemma list_pid_to_addr_NoDup (ps:list PID):
   NoDup ps ->
   NoDup (list_pid_to_addr ps).
@@ -1013,9 +1010,6 @@ Proof.
     apply NoDup_cons in Hnd;destruct Hnd;done.
 Qed.
 
-Definition flat_list_list_word (wss: list (list Word)):=
-  (foldr (++) [] wss).
-
 Lemma flat_list_list_word_length_eq wss wss':
  length wss = length wss'->
  (forall ws, ws ∈ wss -> length ws = (Z.to_nat page_size)) ->
@@ -1061,6 +1055,77 @@ Proof.
     by apply H1.
   }
 Qed.
+
+
+Lemma list2_pid_words_in p ps wss:
+  p ∈ ps ->
+   ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ⊢
+  ∃ ws,  mem_page ws p ∗ ( mem_page ws p -∗  ([∗ list] p;ws ∈ ps;wss, mem_page ws p)).
+Proof.
+  iIntros (Hin) "Hl".
+  (* lookup_lt_is_Some_1 *)
+  apply elem_of_list_lookup_1 in Hin.
+  destruct Hin.
+  assert (HisSome: is_Some (ps!!x) ). done.
+  pose proof (lookup_lt_is_Some_1 ps x HisSome).
+  iDestruct (big_sepL2_length with  "Hl") as "%".
+  rewrite H1 in H0.
+  apply lookup_lt_is_Some_2 in H0.
+  destruct H0.
+  iExists x0.
+  iApply (big_sepL2_lookup_acc (λ _ p0 ws, mem_page ws p0) ps wss );eauto.
+Qed.
+
+Lemma mem_page2_invalid{ws ws'} p :
+ mem_page ws p ∗ mem_page ws' p -∗ False.
+Proof.
+  iIntros "[Hpg Hpg']".
+  rewrite /mem_page.
+  iDestruct (big_sepL2_alt with "Hpg") as "[% Hpg]".
+  iDestruct (big_sepL2_alt with "Hpg'") as "[% Hpg']".
+  destruct ws, ws';cbn.
+  inversion H.
+  inversion H.
+  inversion H0.
+  rewrite finz_seq_cons;[|lia].
+  cbn.
+  iDestruct "Hpg" as "[Hp Hpg]".
+  iDestruct "Hpg'" as "[Hp' Hpg']".
+  rewrite mem_mapsto_eq /mem_mapsto_def.
+  iDestruct (ghost_map_elem_valid_2 with "Hp Hp'") as "%".
+  destruct H1.
+  rewrite dfrac_op_own in H1.
+  rewrite -> dfrac_valid_own in H1.
+  exfalso.
+ apply (bool_decide_unpack _).
+  by compute.
+Qed.
+
+Lemma list2_pid_words_NoDup ps wss:
+ ([∗ list] p;ws ∈ ps;wss, mem_page ws p) -∗ ⌜ NoDup ps ⌝.
+Proof.
+  revert wss.
+  induction ps.
+  - iIntros (?) "Hl".
+    iPureIntro; intros; constructor.
+  -  iIntros (?) "Hl".
+  destruct wss; cbn.
+  { iExFalso; done. }
+  { rewrite NoDup_cons.
+    iAssert (⌜ a ∉ ps ⌝%I) as "%Hnotin".
+    iIntros (?).
+    iDestruct "Hl" as "[Hl Hls]".
+    iDestruct ((list2_pid_words_in a ps wss) with "Hls") as "Hl'";eauto.
+    iDestruct "Hl'" as (ws') "[Hl' Hacc]".
+    iApply mem_page2_invalid.
+    iFrame.
+    iDestruct "Hl" as "[Hl Hls]".
+    iDestruct ((IHps wss) with "Hls") as "%".
+    iPureIntro.
+    done.
+    }
+Qed.
+
 
 Lemma mem_page_list_list (ps: list PID) (wss: list (list Word)):
  ([∗ list] p;ws ∈ ps;wss, mem_page ws p) -∗
@@ -1112,9 +1177,6 @@ Proof.
 Qed.
 
 Lemma gen_mem_update_pages{wss} σ (ps: list PID) (wss': list (list Word)):
- (* seems like we cannot get around it ... *)
- (* TODO: set_to_list (list_to_set ps) ? more stuff to change & prove *)
- NoDup ps ->
  (forall ws', ws' ∈ wss' -> length ws' = (Z.to_nat page_size)) ->
  length ps = length wss' ->
  ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
@@ -1122,7 +1184,8 @@ Lemma gen_mem_update_pages{wss} σ (ps: list PID) (wss': list (list Word)):
  ghost_map_auth (gen_mem_name vmG) 1 ((list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word wss'))) ∪ (get_mem σ))
  ∗ [∗ list] p;ws'∈ ps;wss',mem_page ws' p.
 Proof.
-  iIntros (Hndps Hwslen Hwsslen) "Hσ Hpgs".
+  iIntros (Hwslen Hwsslen) "Hσ Hpgs".
+  iDestruct (list2_pid_words_NoDup with "Hpgs") as "%".
   iDestruct (list_wss_length_correct with "Hpgs") as "%".
   iDestruct (big_sepL2_length with "Hpgs") as "%".
   iDestruct (mem_page_list_list with "Hpgs") as "Hpgs".
