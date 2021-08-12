@@ -901,53 +901,237 @@ Lemma finz_seq_NoDup'{b} (f : finz.finz b) (n : nat) :
 Proof using.
   revert f. induction n; intros f Hfn.
   { apply NoDup_nil_2. }
-  { cbn. generalize dependent f. induction n; intros.
-    { simpl. apply NoDup_singleton.}
-    { simpl. apply NoDup_cons_2.
+  { cbn.
+    destruct n; intros;simpl.
+    { apply NoDup_singleton. }
+    { apply NoDup_cons_2.
       apply not_elem_of_cons.
       split.
       solve_finz.
       apply finz_seq_notin.
       solve_finz.
       eapply IHn.
-      solve_finz.
-  } }
+      solve_finz. } }
 Qed.
 
-Lemma gen_mem_update_page{ws} σ p (ws': list Word):
- length ws' = length ws  ->
+Lemma gen_mem_update_Sep_list{ σ} (ads : list Addr) (ws ws': list Word):
+ NoDup ads ->
+ length ws = length ws' ->
+ ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+ ([∗ list] a;w ∈ ads;ws, a ->a w) ==∗
+ ghost_map_auth (gen_mem_name vmG) 1 ((list_to_map (zip ads ws'))  ∪ (get_mem σ))
+ ∗ [∗ list] a;w' ∈ ads;ws', a ->a w'.
+Proof.
+  iIntros (Hnodup Hlen) "Hσ Hmm".
+  iDestruct (big_sepL2_alt with "Hmm") as "[% Hmm]".
+  rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word _).
+  2: { rewrite fst_zip //;lia. }
+  rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ).
+  rewrite  mem_mapsto_eq /mem_mapsto_def.
+  iDestruct ((ghost_map_update_big _  (list_to_map (zip ads ws'))) with "Hσ Hmm") as ">[Hσ Hmm]".
+    { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. lia. lia. }
+  rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name vmG] w)%I) _ ).
+  rewrite map_to_list_to_map.
+  2 : { rewrite fst_zip //. lia. }
+  rewrite  big_sepL2_alt.
+  iFrame.
+  iModIntro. iPureIntro. lia.
+Qed.
+
+
+Lemma gen_mem_update_page{σ ws} p (ws': list Word):
+ length ws' = (Z.to_nat page_size) ->
  ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
  mem_page ws p ==∗
  ghost_map_auth (gen_mem_name vmG) 1
  (list_to_map (zip (finz.seq p (Z.to_nat page_size)) ws') ∪ get_mem σ)
  ∗ mem_page ws' p.
-  Proof.
+Proof.
     iIntros (Hlen) "Hσ Hp".
     rewrite /mem_page.
-    iDestruct (big_sepL2_alt with "Hp") as "[% Hp]".
-    rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word _).
-    2: { rewrite fst_zip;[|lia]. apply finz_seq_NoDup'. apply last_addr_in_bound. }
-    rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ).
-    rewrite  mem_mapsto_eq /mem_mapsto_def.
-    iDestruct ((ghost_map_update_big _ (list_to_map (zip (finz.seq (of_pid p) (Z.to_nat page_size)) ws'))) with "Hσ Hp") as ">[Hσ Hp]".
-    { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. rewrite Hlen //.   lia. lia. }
-    rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name vmG] w)%I) _ ).
-    rewrite map_to_list_to_map.
-    2 : { rewrite fst_zip;[|lia]. apply finz_seq_NoDup'. apply last_addr_in_bound. }
-    rewrite  big_sepL2_alt.
-    iSplitR "Hp".
-    2: {  iFrame. iModIntro. iPureIntro;rewrite -Hlen // in H.  }
-    done.
+    iAssert (⌜ length ws = Z.to_nat 1000 ⌝%I) as "%Hlen'".
+    {  iDestruct (big_sepL2_alt with "Hp") as "[% Hp]". iPureIntro. rewrite finz_seq_length in H. lia. }
+    iApply ((gen_mem_update_Sep_list (finz.seq p (Z.to_nat 1000)) ws ws') with "Hσ").
+    apply finz_seq_NoDup'. apply last_addr_in_bound.
+    lia.
+    iFrame.
 Qed.
 
-  (* TODO: probably need a more general version of it? *)
-Lemma gen_mem_update_pages{wss} σ (ps: list PID) (ws': list Word):
+Definition list_pid_to_addr (ps: list PID):=
+  (foldr (++) [] (map (λ p,  (finz.seq (of_pid p) (Z.to_nat page_size))) ps)).
+
+Lemma list_pid_to_addr_NoDup (ps:list PID):
+  NoDup ps ->
+  NoDup (list_pid_to_addr ps).
+Proof.
+  intro Hnd.
+  rewrite /list_pid_to_addr.
+  induction ps.
+  - simpl. by apply NoDup_nil.
+  - cbn.  apply  NoDup_app.
+    split.
+    { apply finz_seq_NoDup'. apply last_addr_in_bound. }
+    split.
+    { intros. apply NoDup_cons in Hnd. destruct Hnd as [ Hnotin Hnd].
+      pose proof (finz_seq_in2 _ _ _ H) as Halt.
+      pose proof (finz_seq_in1 _ _ _ H) as Hagt.
+      clear IHps.
+      induction ps.
+      cbn.
+      apply not_elem_of_nil.
+      cbn.
+      apply not_elem_of_app.
+      split.
+      { intro.
+        pose proof (finz_seq_in2 _ _ _ H0) as Ha0lt.
+        pose proof (finz_seq_in1 _ _ _ H0) as Ha0gt.
+        assert (Hne: a ≠ a0).
+        apply not_elem_of_cons in Hnotin.
+        destruct Hnotin;eauto.
+        destruct (decide ((of_pid a)<= (of_pid a0))%f).
+        assert (Hlt: ((of_pid a)< (of_pid a0))%f).
+        assert (Hne': ((of_pid a) ≠ (of_pid a0))%f).
+        intro.
+        apply Hne.
+        apply of_pid_eq;eauto.
+        solve_finz.
+        clear l Hne.
+        assert (a ^+ (Z.to_nat page_size - 1) < a0 )%f.
+        apply pid_lt_lt;eauto.
+        solve_finz.
+        assert (a0<a)%f.
+        solve_finz.
+        assert (a0 ^+ (Z.to_nat page_size - 1) < a )%f.
+        apply pid_lt_lt;eauto.
+        solve_finz.
+      }
+      apply IHps.
+      { apply not_elem_of_cons in Hnotin;destruct Hnotin;done. }
+      { apply NoDup_cons in Hnd;destruct Hnd;done. }
+    }
+    apply IHps.
+    apply NoDup_cons in Hnd;destruct Hnd;done.
+Qed.
+
+Definition flat_list_list_word (wss: list (list Word)):=
+  (foldr (++) [] wss).
+
+Lemma flat_list_list_word_length_eq wss wss':
+ length wss = length wss'->
+ (forall ws, ws ∈ wss -> length ws = (Z.to_nat page_size)) ->
+ (forall ws', ws' ∈ wss' -> length ws' = (Z.to_nat page_size)) ->
+ length (flat_list_list_word wss) = length (flat_list_list_word wss').
+Proof.
+ intro.
+ rewrite /flat_list_list_word.
+ generalize dependent  wss'.
+ induction wss;destruct wss';eauto;cbn;intros;try inversion H.
+ rewrite !app_length.
+ rewrite (IHwss wss');eauto.
+ rewrite (H0 a).
+ rewrite (H1 l).
+ done.
+ apply elem_of_cons;left;done.
+ apply elem_of_cons;left;done.
+ intros. apply H0. apply elem_of_cons;right;done.
+ intros. apply H1. apply elem_of_cons;right;done.
+Qed.
+
+Lemma list_wss_length_correct ps wss:
+ ([∗ list] p;ws ∈ ps;wss, mem_page ws p) -∗ ⌜ (forall ws, ws ∈ wss -> length ws = (Z.to_nat page_size)) ⌝.
+Proof.
+  revert ps.
+  rewrite /mem_page.
+  induction wss.
+  - iIntros (?) "Hl".
+    iPureIntro; intros; inversion H.
+  -  iIntros (?) "Hl".
+  destruct ps; cbn.
+  { iExFalso; done. }
+  { iIntros (??).
+    iDestruct "Hl" as "[Hl Hls]".
+    iDestruct (big_sepL2_length with  "Hl") as "%".
+    rewrite finz_seq_length in H.
+    apply elem_of_cons in a1.
+    destruct a1.
+    subst a0.
+    done.
+    iDestruct ((IHwss ps) with "Hls") as "%".
+    iPureIntro.
+    by apply H1.
+  }
+Qed.
+
+Lemma mem_page_list_list (ps: list PID) (wss: list (list Word)):
+ ([∗ list] p;ws ∈ ps;wss, mem_page ws p) -∗
+ [∗ list] a;w ∈ (list_pid_to_addr ps);(flat_list_list_word wss), a ->a w.
+Proof.
+  rewrite /mem_page /list_pid_to_addr /flat_list_list_word.
+  iRevert (wss).
+  iInduction ps as [|p ps'] "IH";cbn.
+  iIntros (?) "Hl".
+  iDestruct (big_sepL2_alt with "Hl") as "[% Hl]".
+  destruct a;try inversion H.
+  done.
+  iIntros (wss) "Hlist".
+  destruct wss;cbn;try done.
+  iDestruct ("Hlist") as "[Hl Hlist]".
+  iApply (big_sepL2_app with "Hl").
+  iApply "IH".
+  done.
+Qed.
+
+Lemma mem_page_list_list' (ps: list PID) (wss: list (list Word)):
+ (forall ws', ws' ∈ wss -> length ws' = (Z.to_nat page_size)) ->
+ ([∗ list] a;w ∈ (list_pid_to_addr ps);(flat_list_list_word wss), a ->a w) -∗
+  ([∗ list] p;ws ∈ ps;wss, mem_page ws p).
+Proof.
+  rewrite /mem_page /list_pid_to_addr /flat_list_list_word.
+  iRevert (wss).
+  iInduction ps as [|p ps'] "IH";cbn.
+  iIntros (??) "Hl".
+  iDestruct (big_sepL2_alt with "Hl") as "[% Hl]".
+  destruct a.
+  done.
+  simpl in H.
+  assert (length l = Z.to_nat 1000) as Hlen.
+  { apply x. apply elem_of_cons;left;done. }
+  rewrite app_length in H.
+  lia.
+  iIntros (wss Hlen) "Hlist".
+  destruct wss;cbn;try done.
+  iDestruct (big_sepL2_app_inv with "Hlist") as "Hlist".
+  { left. rewrite finz_seq_length. symmetry;apply Hlen.  apply elem_of_cons;left;done. }
+  iDestruct ("Hlist") as "[Hl Hlist]".
+  iFrame.
+  iApply "IH".
+  { iPureIntro. intros.
+    apply Hlen.
+    apply elem_of_cons;right;done. }
+  done.
+Qed.
+
+Lemma gen_mem_update_pages{wss} σ (ps: list PID) (wss': list (list Word)):
+ (* seems like we cannot get around it ... *)
+ (* TODO: set_to_list (list_to_set ps) ? more stuff to change & prove *)
+ NoDup ps ->
+ (forall ws', ws' ∈ wss' -> length ws' = (Z.to_nat page_size)) ->
+ length ps = length wss' ->
  ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
- ([∗ list] p;ws ∈ ps;wss,mem_region ws (of_pid p)) ==∗
- ghost_map_auth (gen_mem_name vmG) 1
- (foldr (λ p acc, (list_to_map (zip (finz.seq (of_pid p) (length ws')) ws')) ∪ acc) (get_mem σ) ps)
- ∗ [∗ list] p∈ ps,mem_region ws' (of_pid p).
-Admitted.
+ ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ==∗
+ ghost_map_auth (gen_mem_name vmG) 1 ((list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word wss'))) ∪ (get_mem σ))
+ ∗ [∗ list] p;ws'∈ ps;wss',mem_page ws' p.
+Proof.
+  iIntros (Hndps Hwslen Hwsslen) "Hσ Hpgs".
+  iDestruct (list_wss_length_correct with "Hpgs") as "%".
+  iDestruct (big_sepL2_length with "Hpgs") as "%".
+  iDestruct (mem_page_list_list with "Hpgs") as "Hpgs".
+  iDestruct ((gen_mem_update_Sep_list _ (flat_list_list_word wss) (flat_list_list_word wss')) with "Hσ Hpgs") as ">[Hσ Hpgs]".
+  { apply list_pid_to_addr_NoDup;eauto. }
+  {  apply  flat_list_list_word_length_eq;eauto. lia. }
+  iFrame.
+  iApply mem_page_list_list';eauto.
+Qed.
 
 
  (* rules for TX *)

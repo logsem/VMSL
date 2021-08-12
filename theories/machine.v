@@ -6,18 +6,16 @@ From machine_utils Require Export finz.
 
 Open Scope general_if_scope.
 
-Definition reg_count : nat := 31.
-Definition word_size : Z := 2000000.
-Definition page_size : Z := 1000.
-Definition page_count : Z := 2000.
-Definition imm_size : Z := 1000000.
+Notation reg_count := 31.
+Notation word_size := 2000000%Z.
+Notation page_size := 1000%Z.
+Notation page_count := 2000%Z.
+Notation imm_size := 1000000%Z.
+(*define these numbers as notation so that we don't need to unfold them before lia. *)
 
 (* word_size must be a multiple of page_size *)
 Lemma page_size_sanity : Z.mul page_size page_count = word_size.
 Proof.
-  unfold page_size.
-  unfold page_count.
-  unfold word_size.
   by compute.
 Qed.
 
@@ -86,7 +84,6 @@ simpl.
 apply -> (Z.leb_le 0 z0 ) in finz_nonneg.
 assert (Hlt' : ( page_size * (z0 / page_size)  <= z0)%Z).
 apply Z_mult_div_ge.
-unfold page_size.
 lia.
 lia.
 Defined.
@@ -99,11 +96,9 @@ apply -> (Z.leb_le 0 z0) in finz_nonneg.
 apply Z.leb_le .
 assert (Hlt' : (0 <= (z0 / page_size) * page_size )%Z).
 apply Zmult_gt_0_le_0_compat.
-unfold page_size.
 lia.
 apply Z.div_pos.
 lia.
-unfold page_size.
 lia.
 lia.
 Qed.
@@ -115,7 +110,6 @@ subst z.
 unfold Z.divide.
 apply Z.eqb_eq.
 apply Z.rem_divide.
-unfold page_size.
 lia.
 exists (w / page_size)%Z.
 lia.

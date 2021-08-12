@@ -3,34 +3,24 @@ From Coq Require Import ssreflect Eqdep_dec ZArith.
 From HypVeri Require Import machine monad.
 From stdpp Require Import fin_maps list countable fin vector.
 
-Ltac solveWordSize :=
-  pose proof word_size;
-  unfold word_size;
-  lia.
-
-Ltac solveRegCount :=
-  pose proof reg_count;
-  unfold reg_count;
-  lia.
-
-(* we define these because they are frequently used *)
+(* these definitions are frequently used *)
 Program Definition W0 : Word := (finz.FinZ 0 _ _).
-Solve Obligations with solveWordSize.
+Solve Obligations with lia.
 
 Program Definition W1 : Word := (finz.FinZ 1 _ _).
-Solve Obligations with solveWordSize.
+Solve Obligations with lia.
 
 Program Definition W2 : Word := (finz.FinZ 2 _ _).
-Solve Obligations with solveWordSize.
+Solve Obligations with lia.
 
 Program Definition R0 :reg_name := (R 0 _).
-Solve Obligations with solveRegCount.
+Solve Obligations with lia.
 
 Program Definition R1 :reg_name := (R 1 _).
-Solve Obligations with solveRegCount.
+Solve Obligations with lia.
 
 Program Definition R2 :reg_name := (R 2 _).
-Solve Obligations with solveRegCount.
+Solve Obligations with lia.
 
 Definition list_of_W0: list Word:=
   map (λ _, W0) (seq 0 (Z.to_nat page_size)).
@@ -63,7 +53,6 @@ Proof.
   simplify_eq /=.
   assert (Hy : exists y, (y * page_size = word_size)%Z).
   exists 2000%Z.
-  unfold page_size, word_size.
   lia.
   destruct Hy.
   assert (Hlt: (z + page_size -1 < word_size)%Z).
@@ -77,12 +66,12 @@ Proof.
       assert(H': ( (x -1 ) * page_size < z )%Z).
       lia.
       apply Z.eqb_eq in align.
-      apply Z.rem_divide in align;[|unfold page_size;lia].
+      apply Z.rem_divide in align;[|lia].
       destruct align.
       subst z.
       rewrite -H in finz_lt.
-      apply Zmult_gt_0_lt_reg_r in finz_lt;[|unfold page_size;lia].
-      apply Zmult_gt_0_lt_reg_r in H';[|unfold page_size;lia].
+      apply Zmult_gt_0_lt_reg_r in finz_lt;[|lia].
+      apply Zmult_gt_0_lt_reg_r in H';[|lia].
       lia.
     }
     lia.
@@ -94,7 +83,6 @@ Proof.
   eauto.
   exfalso.
   apply n.
-  unfold page_size.
   lia.
   exfalso.
   apply n.
@@ -178,17 +166,17 @@ Proof.
     rewrite -H1 in H0.
     simpl in H0.
     apply Z.eqb_eq in align.
-    apply Z.rem_divide in align;[|unfold page_size;lia].
+    apply Z.rem_divide in align;[|lia].
     destruct align.
     subst z.
     apply (fast_Zmult_comm page_size x0) in H.
-    apply Z.quot_le_lower_bound in H;[|unfold page_size;lia].
+    apply Z.quot_le_lower_bound in H;[|lia].
     assert (H0': (z0 < page_size* (x0+1) )%Z).
     lia.
-    apply Z.quot_lt_upper_bound in H0';[|lia|unfold page_size;lia].
+    apply Z.quot_lt_upper_bound in H0';[|lia|lia].
     assert (Heq: (z0 `quot` page_size = x0)%Z).
     lia.
-    rewrite Z.quot_div_nonneg in Heq;[lia|unfold page_size;lia| ].
+    rewrite Z.quot_div_nonneg in Heq;[lia|lia| ].
     solve_finz.
   }
   subst z.
@@ -216,6 +204,17 @@ Proof.
   revert f f'. induction n; cbn.
   { intros. inversion 1. }
   { intros. apply not_elem_of_cons. split. solve_finz. eapply IHn. solve_finz. }
+Qed.
+
+Lemma finz_seq_in1{b} (f f' : finz.finz b) n :
+  f ∈ finz.seq f' n ->  (f' <= f )%f.
+Proof.
+  revert f f'. induction n; cbn.
+  { intros. inversion H. }
+  { intros. apply  elem_of_cons in H.
+    destruct H.
+    solve_finz.
+    eapply IHn in H. solve_finz. }
 Qed.
 
 Lemma finz_seq_in2{b} (f f' : finz.finz b) n :
@@ -309,3 +308,28 @@ Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
 
 (* an alternative definition, not sure which is better *)
 (* Definition addr_of_page' (p: PID) := map (λ off, ((of_pid p) + off)%f) (seqZ 0%Z page_size). *)
+
+Lemma pid_lt_lt (p1 p2:PID):
+  ((of_pid p1) < (of_pid p2))%f -> (p1 ^+ (page_size - 1) < p2)%f.
+Proof.
+  intro.
+  pose proof (last_addr_in_bound p1).
+  destruct H0.
+  rewrite (incr_default_incr (of_pid p1) x);eauto.
+  destruct p1,p2.
+  destruct z,z0.
+  simpl in *.
+  apply Z.eqb_eq in align, align0.
+  apply Z.rem_divide in align,align0;try lia.
+  destruct align, align0.
+  assert ( z < z0 )%Z.
+  solve_finz.
+  subst z.
+  subst z0.
+  destruct x.
+  simpl in H0.
+  assert (z = x0 * 1000 + 1000 -1)%Z.
+  solve_finz.
+  subst z.
+  solve_finz.
+Qed.
