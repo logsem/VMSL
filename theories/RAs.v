@@ -318,6 +318,12 @@ Section hyp_lang_rules.
   Implicit Types r : reg_name.
   Implicit Types w: Word.
 
+  Lemma nainv_alloc γ E P :  ▷ P ={E}=∗ na_inv (gen_nainv_name vmG) γ P.
+    Proof.
+      iIntros "P".
+      iMod ((na_inv_alloc (gen_nainv_name vmG) E γ P) with "P") as "H".
+      done.
+    Qed.
 
   Lemma token_frag_valid i1 i2 q1 q2 :
    << i1 >>{ q1 } -∗
