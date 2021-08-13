@@ -531,7 +531,7 @@ From HypVeri Require Import RAs.
     rewrite /get_page_tables //.
     done.
   Qed.
-
+  
   Lemma update_access_batch_preserve_current_vm σ (ps: list PID) perm:
   get_current_vm (update_access_batch σ ps perm) = get_current_vm σ.
   Proof. f_equal. Qed.
@@ -1183,6 +1183,141 @@ From HypVeri Require Import RAs.
           (λ tran, tran.1.1.1.2)).
   Qed.
 
+  Lemma copy_page_segment_unsafe_preserve_current_vm σ src dst l:
+  get_current_vm (copy_page_segment_unsafe σ src dst l) = get_current_vm σ.
+  Proof. f_equal. Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_regs σ src dst l:
+  get_reg_gmap (copy_page_segment_unsafe σ src dst l) = get_reg_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_tx σ src dst l:
+  get_tx_agree (copy_page_segment_unsafe σ src dst l) = get_tx_agree σ.
+  Proof. f_equal. Qed.
+  
+  Lemma copy_page_segment_unsafe_preserve_rx1 σ src dst l:
+  get_rx_agree (copy_page_segment_unsafe σ src dst l) = get_rx_agree σ.
+  Proof. f_equal. Qed.
+  
+  Lemma copy_page_segment_unsafe_preserve_rx2 σ src dst l:
+  get_rx_gmap (copy_page_segment_unsafe σ src dst l) = get_rx_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_rx σ src dst l:
+    (get_rx_agree (copy_page_segment_unsafe σ src dst l),
+     get_rx_gmap (copy_page_segment_unsafe σ src dst l)) =
+    (get_rx_agree σ, get_rx_gmap σ).
+  Proof. by rewrite copy_page_segment_unsafe_preserve_rx1
+                    copy_page_segment_unsafe_preserve_rx2 . Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_owned σ src dst l:
+    get_owned_gmap (copy_page_segment_unsafe σ src dst l) = get_owned_gmap σ.
+  Proof. f_equal. Qed.
+  
+  Lemma copy_page_segment_unsafe_preserve_access σ src dst l:
+    get_access_gmap (copy_page_segment_unsafe σ src dst l) = get_access_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_excl σ src dst l:
+   get_excl_gmap (copy_page_segment_unsafe σ src dst l) = get_excl_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_transactions σ src dst l:
+   (get_transactions (copy_page_segment_unsafe σ src dst l))
+   = (get_transactions σ).
+  Proof. f_equal. Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_hpool σ src dst l:
+  get_hpool_gset (copy_page_segment_unsafe σ src dst l) = get_hpool_gset σ.
+  Proof. f_equal. Qed.
+
+  Lemma copy_page_segment_unsafe_preserve_receivers σ src dst l:
+  get_retri_gmap (copy_page_segment_unsafe σ src dst l) = get_retri_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_current_vm σ l v r tx rx :
+  get_current_vm (fill_rx_unsafe σ l v r tx rx) = get_current_vm σ.
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_regs σ l v r tx rx :
+  get_reg_gmap (fill_rx_unsafe σ l v r tx rx) = get_reg_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_tx σ l v r tx rx :
+    tx = get_tx_pid_global σ r ->
+    get_tx_agree (fill_rx_unsafe σ l v r tx rx) = get_tx_agree σ.
+  Proof.
+    intros H.
+    rewrite /fill_rx_unsafe /get_tx_agree /get_txrx_auth_agree H
+            /get_tx_pid_global /get_vm_mail_box /get_mail_boxes.
+    simpl.
+    f_equal.
+    f_equal.
+    induction list_of_vmids as [|? ? IH].
+    - reflexivity.
+    - simpl.
+      f_equal.
+      + f_equal.
+        f_equal.
+        destruct (decide (a = r)) as [p|p].
+        * rewrite p.
+          rewrite vlookup_insert.
+          reflexivity.
+        * rewrite vlookup_insert_ne; auto.
+      + rewrite IH.
+        reflexivity.
+  Qed.
+  
+  Lemma fill_rx_unsafe_preserve_rx1 σ l v r tx rx :
+    rx = get_rx_pid_global σ r ->
+    get_rx_agree (fill_rx_unsafe σ l v r tx rx) = get_rx_agree σ.
+  Proof.
+    intros H.
+    rewrite /fill_rx_unsafe /get_rx_agree /get_txrx_auth_agree H
+            /get_rx_pid_global /get_vm_mail_box /get_mail_boxes.
+    simpl.
+    f_equal.
+    f_equal.
+    induction list_of_vmids as [|? ? IH].
+    - reflexivity.
+    - simpl.
+      f_equal.
+      + f_equal.
+        f_equal.
+        destruct (decide (a = r)) as [p|p].
+        * rewrite p.
+          rewrite vlookup_insert.
+          reflexivity.
+        * rewrite vlookup_insert_ne; auto.
+      + rewrite IH.
+        reflexivity.
+  Qed.
+
+  Lemma fill_rx_unsafe_preserve_owned σ l v r tx rx :
+    get_owned_gmap (fill_rx_unsafe σ l v r tx rx) = get_owned_gmap σ.
+  Proof. f_equal. Qed.
+  
+  Lemma fill_rx_unsafe_preserve_access σ l v r tx rx :
+    get_access_gmap (fill_rx_unsafe σ l v r tx rx) = get_access_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_excl σ l v r tx rx :
+   get_excl_gmap (fill_rx_unsafe σ l v r tx rx) = get_excl_gmap σ.
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_transactions σ l v r tx rx :
+   (get_transactions (fill_rx_unsafe σ l v r tx rx))
+   = (get_transactions σ).
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_hpool σ l v r tx rx :
+  get_hpool_gset (fill_rx_unsafe σ l v r tx rx) = get_hpool_gset σ.
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_receivers σ l v r tx rx :
+  get_retri_gmap (fill_rx_unsafe σ l v r tx rx) = get_retri_gmap σ.
+  Proof. f_equal. Qed.
+  
   Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
    dom (gset handle) (get_transactions_gmap σ proj) = dom (gset handle) (get_transactions σ).1.
   Proof.

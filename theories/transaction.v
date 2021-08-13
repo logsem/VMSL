@@ -163,19 +163,19 @@ Qed.
     done.
   Qed.
 
-  Lemma transaction_retrieve_descriptor_valid{i j handle l psd σ} des p :
-    finz.of_z (length psd) = Some l ->
-    des = [of_imm (encode_vmid j); W0; handle; l; of_imm (encode_vmid i)] ++ map of_pid psd ->
+  Lemma transaction_retrieve_descriptor_valid {j handle wf l psd σ} des p :
+    (finz.to_z l) = (Z.of_nat (length psd)) ->
+    des = [of_imm (encode_vmid j); wf; handle; l; of_imm (encode_vmid (get_current_vm σ))] ++ map of_pid psd ->
     seq_in_page (of_pid p) (length des) p ->
     (∀ (k : nat) (y1 y2 : Addr),
              finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-    parse_transaction_descriptor_retrieve σ p = Some (j, Some handle, W0, i, []).
+    parse_transaction_descriptor_retrieve σ p = Some (j, Some handle, wf, (get_current_vm σ), []).
   Proof.
     intros H H0 H1 H2.
     rewrite /parse_transaction_descriptor_retrieve /get_memory_with_offset.
     destruct H1 as [_ [? _]].
     simpl in H0.
-    pose proof (@trans_desc_length j i W0 l psd handle des) as H3.
+    pose proof (@trans_desc_length j (get_current_vm σ) wf l psd handle des) as H3.
     rewrite /serialized_transaction_descriptor /serialized_memory_descirptor in H3.
     simpl in H3.
     pose proof (H3 H0) as Hlen.
@@ -189,53 +189,14 @@ Qed.
     solve_finz.
     rewrite HpSome //=;clear HpSome.
     rewrite (H2 1 ((of_pid p) ^+ 1)%f wf).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
+    2: { apply finz_seq_lookup. rewrite H0. simpl. lia. solve_finz. }
     2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
     assert (HpSome: ((of_pid p) + 2)%f = Some ((of_pid p) ^+ 2)%f).
     solve_finz.
     rewrite HpSome //=;clear HpSome.
-    rewrite (H2 2 ((of_pid p) ^+ 2)%f W0).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
+    rewrite (H2 2 ((of_pid p) ^+ 2)%f handle).
+    2: { apply finz_seq_lookup. rewrite H0. simpl. lia. solve_finz. }
     2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    rewrite  /parse_memory_region_descriptor /get_memory_with_offset.
-    assert (HpSome: ((of_pid p) ^+ 3 + 0)%f = Some ((of_pid p) ^+ 3)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 3 ((of_pid p) ^+ 3)%f l).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    assert (HpSome: ((of_pid p) ^+ 3 + 1)%f = Some ((of_pid p) ^+ 4)%f).
-    solve_finz.
-    rewrite HpSome //=;clear HpSome.
-    rewrite (H2 4 ((of_pid p) ^+ 4)%f (encode_vmid j)).
-    2: { apply finz_seq_lookup. lia. solve_finz. }
-    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
-    rewrite !decode_encode_vmid /parse_list_of_pids /= .
-    rewrite (@mem_desc_valid _ (map (λ pid, (of_pid pid)) psd) _ _ psd );eauto.
-    2: { lia. }
-    2: { intros.
-         apply (H2 (k+5) _).
-         assert (Hlenmapeq: length ( map (λ pid : PID, (of_pid pid)) psd) = length psd).
-        apply fmap_length.
-         apply (finz_seq_lookup _ _ y1).
-         assert (Hklt: k < length ( map (λ pid : PID, (of_pid pid)) psd)).
-         rewrite <-(finz_seq_length _ ((p ^+ 3) ^+ 2)%f).
-         apply lookup_lt_is_Some.
-         by exists y1.
-        rewrite Hlenmapeq in Hklt.
-        lia.
-        apply (finz_seq_lookup'  _ y1 k _ ) in H3.
-        2: { rewrite Hlenmapeq. solve_finz. }
-        destruct H3.
-        rewrite Hlenmapeq in H3.
-        solve_finz.
-        rewrite H0 /serialized_transaction_descriptor.
-        simpl.
-        rewrite !lookup_cons_ne_0; try lia.
-        rewrite -H4.
-        f_equal.
-        lia.
-       }
-    rewrite -> sequence_a_map_unit.
-    done.
+    rewrite !decode_encode_vmid /=.
+    reflexivity.
   Qed.
