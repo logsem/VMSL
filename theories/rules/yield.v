@@ -36,7 +36,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & ? & ? & ? & Haccessown & ?)".
+  iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & ? & ? & ? & ? & Haccessown & ?)".
   (* valid regs *)
   iDestruct (gen_reg_valid1 σ1 PC i ai Hcur with "Hregown Hpc") as "%Hpc".
   iDestruct (gen_reg_valid1 σ1 R0 i w2 Hcur with "Hregown Hr0") as "%Hr0".

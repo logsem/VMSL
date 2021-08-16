@@ -25,7 +25,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & Htxown & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(? & Hmem & Hreg & Htxown & ? & ? & ? & Haccess & ?)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | |]; subst src dst; clear Hvalidinstr.
@@ -79,7 +79,6 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
 
-(* TODO: add token*)
 Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
   instr = Ldr ra rb ->
   decode_instruction w1 = Some(instr) ->
@@ -96,7 +95,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & Htxown & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(? & Hmem & Hreg & Htxown & ? & ? & ? & Haccess & ?)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | |]; subst src dst; clear Hvalidinstr.

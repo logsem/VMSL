@@ -57,7 +57,7 @@ Proof.
   inversion Hsche as [ Hcureq ]; clear Hsche.
   apply fin_to_nat_inj in Hcureq.
   iModIntro.
-  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & ? & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & Hrcv)".
+  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & ? & ? & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & Hrcv)".
   (* valid regs *)
   iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 r1 R2 r2 Hcureq ) with "Hσreg PC R0 R1 R2 ")
     as "[%HPC [%HR0 [%HR1 %HR2]]]";eauto.
@@ -265,7 +265,7 @@ Proof.
   inversion Hsche as [ Hcureq ]; clear Hsche.
   apply fin_to_nat_inj in Hcureq.
   iModIntro.
-  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & ? & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & Hrcv)".
+  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & ? & ? & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & Hrcv)".
   (* valid regs *)
   iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 r1 R2 r2 Hcureq ) with "Hσreg PC R0 R1 R2 ")
     as "[%HPC [%HR0 [%HR1 %HR2]]]";eauto.

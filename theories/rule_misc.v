@@ -388,31 +388,6 @@ From HypVeri Require Import RAs.
 
   (* TODO: the proofs above are identical *)
 
-  Lemma update_current_vmid_preserve_rx σ i :
-   (get_rx_agree (update_current_vmid σ i), get_rx_gmap (update_current_vmid σ i)) =
-   (get_rx_agree σ, get_rx_gmap σ).
-  Proof. by rewrite update_current_vmid_preserve_rx1 update_current_vmid_preserve_rx2. Qed.
-
-  Lemma update_reg_global_preserve_rx σ i r w :
-   (get_rx_agree (update_reg_global σ i r w), get_rx_gmap (update_reg_global σ i r w)) =
-   (get_rx_agree σ, get_rx_gmap σ).
-  Proof. by rewrite update_reg_global_preserve_rx1 update_reg_global_preserve_rx2. Qed.
-
-  Lemma update_offset_PC_preserve_rx  σ o :
-   (get_rx_agree (update_offset_PC σ o), get_rx_gmap (update_offset_PC σ o) ) =
-   (get_rx_agree σ, get_rx_gmap σ).
-  Proof. by rewrite update_offset_PC_preserve_rx1 update_offset_PC_preserve_rx2. Qed.
-
-  Lemma update_memory_unsafe_preserve_rx  σ a w :
-   (get_rx_agree (update_memory_unsafe σ a w), get_rx_gmap (update_memory_unsafe σ a w) ) =
-   (get_rx_agree σ, get_rx_gmap σ).
-  Proof. by rewrite update_memory_unsafe_preserve_rx1 update_memory_unsafe_preserve_rx2. Qed.
-
-  Lemma zero_pages_preserve_rx  σ ps :
-   (get_rx_agree (zero_pages σ ps), get_rx_gmap (zero_pages σ ps) ) =
-   (get_rx_agree σ, get_rx_gmap σ).
-  Proof. by rewrite zero_pages_preserve_rx1 zero_pages_preserve_rx2. Qed.
-
   Lemma update_current_vmid_preserve_pt σ i i':
    get_vm_page_table (update_current_vmid σ i) i' = get_vm_page_table σ i'.
   Proof. rewrite /update_reg_global /get_vm_page_table /get_page_tables //. Qed.
