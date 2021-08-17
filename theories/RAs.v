@@ -1772,6 +1772,17 @@ Proof.
   iDestruct (ghost_map_insert with "H") as "H";eauto.
 Qed.
 
+Lemma gen_retri_update {σ b b'} (h: handle):
+  (get_retri_gmap σ) !! h = Some b ->
+  h ->re b -∗
+  ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
+  ghost_map_auth (gen_retri_name vmG) 1 (<[h:=b']>(get_retri_gmap σ)) ∗
+  h ->re b'.
+Proof.
+  iIntros (HNone) "Q H".
+  rewrite retri_mapsto_eq /retri_mapsto_def.
+  iDestruct ((ghost_map_update b') with "H Q") as "H"; eauto.
+Qed.
 
 Global Instance token_timeless i q : Timeless (<<i>>{ q }).
 Proof. rewrite token_agree_eq /token_agree_def. apply _. Qed.

@@ -1669,6 +1669,117 @@ From HypVeri Require Import RAs.
         rewrite lookup_insert_ne; auto.
   Qed.
 
+  Lemma get_retri_gmap_to_get_transaction σ wh {j wf b i psd tt}:
+    (<[wh:=b]> (get_retri_gmap σ)) =
+    (get_retri_gmap
+       (get_reg_files σ, get_mail_boxes σ, get_page_tables σ,
+        get_current_vm σ, get_mem σ,
+        (<[wh := (j, wf, b, i, psd, tt)]>
+         (get_transactions σ).1, (get_transactions σ).2))).
+  Proof.
+    rewrite /get_retri_gmap.
+    rewrite /get_transactions_gmap.
+    apply map_eq.
+    intros x.
+    destruct (list_to_map
+                (map (λ p : Addr * transaction, (p.1, p.2.1.1.1.2))
+                     (map_to_list
+                        (get_transactions
+                           (get_reg_files σ, get_mail_boxes σ, get_page_tables σ, 
+                            get_current_vm σ, get_mem σ,
+                            (<[wh := (j, wf, b, i, psd, tt)]> (get_transactions σ).1, (get_transactions σ).2))).1))
+                !! x) eqn:Heqn.
+    - apply elem_of_list_to_map_2 in Heqn.
+      apply elem_of_list_In in Heqn.
+      apply in_map_iff in Heqn.
+      destruct Heqn as [y [Heqn1 Heqn2]].
+      apply elem_of_list_In in Heqn2.
+      apply elem_of_map_to_list' in Heqn2.
+      inversion Heqn1; subst; clear Heqn1.
+      destruct (decide (wh = y.1)).
+      + subst.
+        rewrite /get_transactions in Heqn2.
+        simpl in Heqn2.
+        apply lookup_insert_rev in Heqn2.
+        inversion Heqn2; subst; clear Heqn2.
+        simpl.
+        apply lookup_insert.
+      + rewrite /get_transactions in Heqn2.
+        simpl in Heqn2.
+        rewrite ->lookup_insert_Some in Heqn2.
+        destruct Heqn2 as [H | H].
+        destruct H; done.
+        destruct H as [_ H].
+        rewrite ->lookup_insert_Some.
+        right.
+        split; auto.
+        apply elem_of_list_to_map_1'.
+        intros y' Q.
+        apply elem_of_list_In in Q.
+        apply in_map_iff in Q.
+        destruct Q as [r [Q1 Q2]].
+        inversion Q1; subst; clear Q1.
+        rewrite (surjective_pairing r) in Q2.
+        apply elem_of_list_In in Q2.
+        apply elem_of_map_to_list' in Q2.
+        simpl in Q2.
+        rewrite /get_transactions in Q2.
+        rewrite H1 in Q2.
+        rewrite Q2 in H.
+        inversion H; subst; clear H.
+        f_equal.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        exists (y.1, y.2).
+        split; auto.
+        rewrite /get_transactions.
+        apply elem_of_list_In.
+        apply elem_of_map_to_list.
+        assumption.
+    - rewrite <-not_elem_of_list_to_map in Heqn.
+      simpl in Heqn.
+      destruct (decide (wh = x)).
+      + subst.
+        exfalso.
+        apply Heqn.
+        rewrite <-list_fmap_compose.
+        rewrite /compose.
+        simpl.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        exists (x, (j, wf, b, i, psd, tt)).
+        split; auto.
+        apply elem_of_list_In.
+        apply elem_of_map_to_list'.
+        simpl.
+        rewrite lookup_insert; auto.
+      + rewrite lookup_insert_ne; auto.
+        rewrite <-not_elem_of_list_to_map.
+        intros H.
+        apply Heqn.
+        rewrite ->elem_of_list_In in H.
+        apply in_map_iff in H.
+        destruct H as [x' [H1 H2]]; subst.
+        apply in_map_iff in H2.
+        destruct H2 as [x'' [H2 H3]].
+        inversion H2; subst.
+        rewrite elem_of_list_In.
+        apply in_map_iff.        
+        exists (x''.1, x''.2.1.1.1.2).
+        split; auto.
+        apply in_map_iff.
+        exists (x''.1, x''.2).
+        split; auto.
+        rewrite <-elem_of_list_In.
+        apply elem_of_map_to_list'.
+        simpl.
+        rewrite lookup_insert_ne; auto.
+        rewrite <-elem_of_map_to_list.
+        rewrite elem_of_list_In.
+        rewrite <-surjective_pairing.
+        assumption.
+  Qed.
+
   Lemma insert_transaction_update_trans σ h tran:
      (get_trans_gmap (insert_transaction σ h tran))
      = <[h:= (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2)]>(get_trans_gmap σ).
