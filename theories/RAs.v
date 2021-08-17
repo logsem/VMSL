@@ -298,6 +298,93 @@ Notation "w ->re b" := (retri_mapsto w b) (at level 20, format "w ->re b"):bi_sc
 
 (* predicates for hpool *)
 Notation "hp{ q }[ s ]" := (hpool_mapsto q s) (at level 20, format "hp{ q }[ s ]"):bi_scope.
+
+Section alloc_rules.
+  (* these rules cannot be parametrized by gen_vmG, otherwise it is not possible to prove any
+   adequacy lemmas for examples. *)
+  Context `{! gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ}.
+  Lemma gen_token_alloc i :
+   ⊢ |==> ∃ γ, own γ (get_token i) ∗ own γ (frac_auth_frag 1%Qp (to_agree (i: leibnizO VMID))).
+  Proof.
+    iIntros.
+    rewrite /get_token.
+    iDestruct (own_alloc ((●F (to_agree (i: leibnizO VMID))) ⋅ (◯F (to_agree (i: leibnizO VMID))))) as ">Halloc".
+    { apply frac_auth_valid. done. }
+    iModIntro.
+    iDestruct "Halloc" as (γ) "Halloc".
+    iExists γ.
+    rewrite own_op //.
+  Qed.
+
+  Lemma gen_reg_alloc (regs: gmap (reg_name * VMID) Word) :
+   ⊢ |==> ∃ γ, ghost_map_auth γ 1%Qp regs ∗
+               [∗ map] p↦w∈ regs, ghost_map_elem γ p (DfracOwn 1%Qp) w.
+  Proof.
+    iApply ghost_map_alloc.
+  Qed.
+
+  Lemma gen_mem_alloc (mem: gmap Addr Word) :
+   ⊢ |==> ∃ γ, ghost_map_auth γ 1 mem ∗
+               [∗ map] p↦w∈ mem, ghost_map_elem γ p (DfracOwn 1) w.
+  Proof.
+    iApply (ghost_map_alloc mem).
+  Qed.
+
+  Lemma gen_tx_alloc (gm : (gmap VMID (agreeR (leibnizO PID)))) :
+   ✓ gm ->
+   ⊢ |==> ∃ γ, own γ (● gm) ∗ own γ (◯ gm).
+  Proof.
+    iIntros.
+    iDestruct (own_alloc ((● gm) ⋅ (◯ gm ))) as ">Halloc".
+    { apply auth_both_valid_discrete. split;done. }
+    iModIntro.
+    iDestruct "Halloc" as (γ) "Halloc".
+    iExists γ.
+    rewrite own_op //.
+  Qed.
+
+  Definition gen_rx_agree_alloc := gen_tx_alloc.
+
+  Lemma gen_rx_option_alloc (gmo: gmap VMID (option (Word * VMID))):
+   ⊢ |==> ∃ γ, ghost_map_auth γ 1 gmo ∗
+                              [∗ map] k ↦ v∈ gmo, ghost_map_elem γ k (DfracOwn 1) v.
+  Proof.
+    iIntros.
+    iApply (ghost_map_alloc gmo).
+  Qed.
+
+  Lemma gen_pagetable_alloc (gm : gmap VMID (gset_disj PID) ):
+   ⊢ |==> ∃ γ, ghost_map_auth γ 1 gm ∗ [∗ map] k ↦ v ∈ gm, ghost_map_elem γ k (DfracOwn 1) v.
+  Proof.
+    iApply (ghost_map_alloc gm).
+  Qed.
+
+  Lemma gen_trans_alloc (gm: gmap Word _):
+   ⊢ |==> ∃ γ, ghost_map_auth γ 1 gm ∗ [∗ map] k ↦ v ∈ gm, ghost_map_elem γ k (DfracOwn 1) v.
+  Proof.
+    iApply (ghost_map_alloc gm).
+  Qed.
+
+  Lemma gen_hpool_alloc (gs: gset Word):
+   ⊢ |==> ∃ γ, own γ (frac_auth_auth (GSet gs)) ∗ own γ (frac_auth_frag 1 (GSet gs)).
+  Proof.
+    iIntros.
+    iDestruct (own_alloc ((●F (GSet gs)) ⋅ (◯F (GSet gs)))) as ">Halloc".
+    { apply frac_auth_valid. done. }
+    iModIntro.
+    iDestruct "Halloc" as (γ) "Halloc".
+    iExists γ.
+    rewrite own_op //.
+  Qed.
+
+  Lemma gen_retri_alloc (gm: gmap Word bool):
+   ⊢ |==> ∃ γ, ghost_map_auth γ 1 gm ∗ [∗ map] k ↦ v ∈ gm, ghost_map_elem γ k (DfracOwn 1) v.
+  Proof.
+    iApply (ghost_map_alloc gm).
+  Qed.
+
+End alloc_rules.
+
 Section hyp_lang_rules.
 
   Context `{vmG :!gen_VMG Σ}.
@@ -312,18 +399,6 @@ Section hyp_lang_rules.
     iIntros "P".
     iMod ((na_inv_alloc (gen_nainv_name vmG) E γ P) with "P") as "H".
     done.
-  Qed.
-
-  Lemma token_alloc i : ⊢ |==> ∃ γ, own γ (get_token i) ∗ own γ (frac_auth_frag 1%Qp (to_agree (i: leibnizO VMID))).
-  Proof.
-    iIntros.
-    rewrite /get_token.
-    iDestruct (own_alloc ((●F (to_agree (i: leibnizO VMID))) ⋅ (◯F (to_agree (i: leibnizO VMID))))) as ">Halloc".
-    { apply frac_auth_valid. done. }
-    iModIntro.
-    iDestruct "Halloc" as (γ) "Halloc".
-    iExists γ.
-    rewrite own_op //.
   Qed.
 
   Lemma token_frag_valid i1 i2 q1 q2 :
@@ -436,13 +511,6 @@ Section hyp_lang_rules.
       iDestruct (reg_dupl_false with "Hr1 Hr2") as %[].
     - iRight. done.
     - iLeft. done.
-  Qed.
-
-  Lemma gen_reg_alloc (regs: gmap (reg_name * VMID) Word) :
-   ⊢ |==> ∃ γ, ghost_map_auth γ 1%Qp regs ∗
-               [∗ map] p↦w∈ regs, ghost_map_elem γ p (DfracOwn 1%Qp) w.
-  Proof.
-    iApply ghost_map_alloc.
   Qed.
 
   Lemma gen_reg_valid1:
@@ -769,13 +837,6 @@ Lemma gen_reg_update1_global:
     - simplify_eq /=.
       iDestruct (mem_dupl_false with "Ha1 Ha2") as %[].
     - done.
- Qed.
-
- Lemma gen_mem_alloc (mem: gmap Addr Word) :
-   ⊢ |==> ∃ γ, ghost_map_auth γ 1 mem ∗
-               [∗ map] p↦w∈ mem, ghost_map_elem γ p (DfracOwn 1) w.
- Proof.
-   iApply (ghost_map_alloc mem).
  Qed.
 
 Lemma gen_mem_valid:
@@ -1176,19 +1237,6 @@ Qed.
    done.
  Qed.
 
- Lemma gen_tx_alloc (gm : (gmap VMID (agreeR (leibnizO PID)))) :
-  ✓ gm ->
-  ⊢ |==> ∃ γ, own γ (● gm) ∗ own γ (◯ gm).
- Proof.
-   iIntros.
-   iDestruct (own_alloc ((● gm) ⋅ (◯ gm ))) as ">Halloc".
-   { apply auth_both_valid_discrete. split;done. }
-   iModIntro.
-   iDestruct "Halloc" as (γ) "Halloc".
-   iExists γ.
-   rewrite own_op //.
- Qed.
-
  Lemma get_txrx_auth_agree_valid σ f:
   ✓ (get_txrx_auth_agree σ f).
  Proof.
@@ -1295,16 +1343,6 @@ Qed.
    naive_solver.
  Qed.
   
- Definition gen_rx_agree_alloc := gen_tx_alloc.
- 
- Lemma gen_rx_option_alloc (gmo: gmap VMID (option (Word * VMID))):
-  ⊢ |==> ∃ γ, ghost_map_auth γ 1 gmo ∗
-                             [∗ map] k ↦ v∈ gmo, ghost_map_elem γ k (DfracOwn 1) v.
- Proof.
-   iIntros.
-   iApply (ghost_map_alloc gmo).
- Qed.
-
  Lemma gen_rx_agree_valid σ i p:
   ✓ (● get_rx_agree σ ⋅ ◯ {[i := to_agree p]}) -> (get_vm_mail_box σ i).2.1 = p.
  Proof.
@@ -1428,10 +1466,6 @@ Qed.
   Qed.
 *)
 
- (* TODO: alloc lemmas *)
-
- (* Lemma gen_pagetable_alloc (gm : gmap VMID _ ): *)
- (*  ⊢ |==> ∃ γ, own γ (● gm) ∗ *)
 
  Lemma gen_pagetable_valid_lookup_Set{Perm: Type} {σ i q γ} proj (checkb: Perm -> bool) (s:gset PID):
   ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb)  -∗
@@ -1776,7 +1810,6 @@ Qed.
    set_solver.
  Qed.
 
-
  Lemma gen_hpool_update_diff {σ s q} (h: handle):
   h ∈ s ->
   hp{ q }[ s ] -∗
@@ -1825,7 +1858,6 @@ Qed.
    rewrite HY.
    apply gset_disj_alloc_local_update;by set_solver.
  Qed.
-
 
  Lemma gen_retri_update_insert {σ} (h: handle):
   (get_retri_gmap σ) !! h = None ->
