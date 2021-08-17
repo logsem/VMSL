@@ -531,6 +531,58 @@ From HypVeri Require Import RAs.
     rewrite /get_page_tables //.
     done.
   Qed.
+
+  Lemma update_ownership_batch_preserve_access σ ps perm : get_access_gmap (update_ownership_batch σ ps perm) = (get_access_gmap σ).
+  Proof.
+    rewrite /get_access_gmap /get_pagetable_gmap /update_ownership_batch /update_ownership_global_batch /=.
+    f_equal.
+    simplify_list_eq.
+    apply (list_eq_same_length _ _ vm_count).
+    rewrite fmap_length.
+    apply length_list_of_vmids.
+    rewrite fmap_length.
+    apply length_list_of_vmids.
+    intros.
+    apply list_lookup_fmap_inv in H0, H1.
+    destruct H0, H1.
+    destruct H0, H1.
+    rewrite H3 in H2.
+    inversion H2;subst x1.
+    clear H2.
+    rewrite H0 H1.
+    do 8 f_equal.
+    rewrite /get_vm_page_table /get_page_tables /=.
+    destruct (decide (get_current_vm σ = x0)).
+    subst x0.
+    rewrite vlookup_insert //.
+    rewrite vlookup_insert_ne //.
+  Qed.
+
+  Lemma update_ownership_batch_preserve_excl σ ps perm : get_excl_gmap (update_ownership_batch σ ps perm) = (get_excl_gmap σ).
+  Proof.
+    rewrite /get_excl_gmap /get_pagetable_gmap /update_ownership_batch /update_ownership_global_batch /=.
+    f_equal.
+    simplify_list_eq.
+    apply (list_eq_same_length _ _ vm_count).
+    rewrite fmap_length.
+    apply length_list_of_vmids.
+    rewrite fmap_length.
+    apply length_list_of_vmids.
+    intros.
+    apply list_lookup_fmap_inv in H0, H1.
+    destruct H0, H1.
+    destruct H0, H1.
+    rewrite H3 in H2.
+    inversion H2;subst x1.
+    clear H2.
+    rewrite H0 H1.
+    do 8 f_equal.
+    rewrite /get_vm_page_table /get_page_tables /=.
+    destruct (decide (get_current_vm σ = x0)).
+    subst x0.
+    rewrite vlookup_insert //.
+    rewrite vlookup_insert_ne //.
+  Qed.
   
   Lemma update_access_batch_preserve_current_vm σ (ps: list PID) perm:
   get_current_vm (update_access_batch σ ps perm) = get_current_vm σ.
@@ -615,7 +667,6 @@ From HypVeri Require Import RAs.
     rewrite vlookup_insert //.
     rewrite vlookup_insert_ne //.
   Qed.
-
 
   Ltac inv_map_in :=
        match goal with
@@ -867,7 +918,7 @@ From HypVeri Require Import RAs.
     apply (@update_access_batch_update_pagetable_diff _ i);eauto.
   Qed.
 
-  Lemma update_ownership_batch_update_pagetable_union{σ i sown} {sps:gset PID} (ps: list PID):
+  Lemma update_ownership_batch_update_pagetable_union {σ i sown} {sps:gset PID} (ps: list PID):
    sps = (list_to_set ps)->
    i = (get_current_vm σ)->
    (get_owned_gmap σ) !! i = Some (DfracOwn 1, to_agree (GSet sown)) ->
@@ -1027,7 +1078,349 @@ From HypVeri Require Import RAs.
           destruct x.
           simpl in H2;inversion H3.
           by subst.
-    Qed.
+  Qed.
+
+  Lemma update_exclusive_batch_update_pagetable_union {σ i sexcl} {sps:gset PID} (ps: list PID):
+   sps = (list_to_set ps) ->
+   i = (get_current_vm σ) ->
+   (get_excl_gmap σ) !! i = Some (DfracOwn 1, to_agree (GSet sexcl)) ->
+   get_excl_gmap (update_access_batch σ ps ExclusiveAccess) =
+   <[i:= (DfracOwn 1, to_agree (GSet (sexcl ∪ sps ) ))]>(get_excl_gmap σ).
+  Proof.
+    intros.
+    rewrite /get_excl_gmap /get_pagetable_gmap.
+    apply (@map_eq VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap); eauto.
+    intro.
+    destruct(decide (i0 = i)).
+    - subst i0. rewrite lookup_insert.
+      assert(Hgoal: list_to_set
+                      (map (λ p : PID * access, p.1)
+                           (map_to_list
+                              (filter (λ p : PID * access, is_exclusive p.2 = true)
+                                      (get_vm_page_table (update_access_batch σ ps ExclusiveAccess) i).2)))
+                    = sexcl ∪ sps).
+      {
+          apply set_eq.
+          intro.
+          rewrite  elem_of_list_to_set.
+          split.
+          * intros.
+            inv_map_in.
+            apply elem_of_list_In in H3.
+            apply (elem_of_map_to_list' _ x0) in H3.
+            apply map_filter_lookup_Some in H3.
+            destruct H3.
+            simplify_eq /=.
+            rewrite /get_vm_page_table /get_page_tables /update_access_batch
+                    /update_access_global_batch //= in H3.
+            rewrite vlookup_insert in H3.
+            apply elem_of_union.
+            induction ps; simpl in *.
+            -- left.
+               apply (get_excl_gmap_is_exclusive_true x0.1 H1).
+               exists (x0.2).
+               split;eauto.
+            -- destruct (decide (a=x0.1)).
+               right;set_solver.
+               assert (Himp :(x0.1 ∈ sexcl ∨ x0.1 ∈ ((list_to_set ps):gset PID))
+                             ->(x0.1 ∈ sexcl ∨ x0.1 ∈ {[a]} ∪ ((list_to_set ps):gset PID))).
+               { intros. destruct H. left;done. right; set_solver. }
+               apply Himp.
+               apply IHps;eauto.
+               rewrite lookup_insert_ne in H3;done.
+          * intros.
+            apply elem_of_union in H2.
+            destruct H2.
+            apply (get_excl_gmap_is_exclusive_true x H1) in H2;eauto.
+            destruct H2.
+            destruct H2.
+            inv_map_in.
+            exists (x,x0).
+            split;eauto.
+            apply elem_of_list_In .
+            apply elem_of_map_to_list.
+            apply map_filter_lookup_Some.
+            rewrite /get_vm_page_table /get_page_tables /update_access_batch
+                    /update_access_global_batch /=.
+            rewrite -H0 vlookup_insert.
+            destruct H1;split;eauto.
+            generalize dependent sps.
+            induction ps;simpl in *.
+            done.
+            intros.
+            destruct (decide (x=a)).
+            subst a.
+            rewrite lookup_insert.
+            rewrite /is_exclusive in H3.
+            destruct x0;try done.
+            rewrite lookup_insert_ne;eauto.
+            inv_map_in.
+            exists (x, ExclusiveAccess).
+            split;eauto.
+            apply elem_of_list_In .
+            apply elem_of_map_to_list.
+            apply map_filter_lookup_Some.
+            rewrite /get_vm_page_table /get_page_tables /update_access_batch
+                    /update_access_global_batch /=.
+            split;eauto.
+            rewrite -H0 vlookup_insert //=.
+            generalize dependent sps.
+            induction ps;simpl in *.
+            intros.
+            set_solver.
+            intros.
+            destruct (decide (x=a)).
+            subst a.
+            rewrite lookup_insert //.
+            rewrite lookup_insert_ne;eauto.
+            apply (IHps (list_to_set ps));eauto.
+            set_solver.
+        }
+        apply (@elem_of_list_to_map_1' VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap).
+        + intros.
+          inv_map_in.
+          inversion H2.
+          do 3 f_equal.
+          clear H6 H3 H2.
+          subst x.
+          symmetry.
+          apply Hgoal.
+        + inv_map_in.
+          exists i.
+          split;[|apply in_list_of_vmids].
+          do 4 f_equal.
+          apply Hgoal.
+      - rewrite (lookup_insert_ne _ i i0 _);eauto.
+        set (l:= (map
+                    (λ v : VMID,
+                           (v, (DfracOwn 1,
+                                to_agree (GSet
+                                            (list_to_set
+                                               (map (λ p : PID * access, p.1)
+                                                    (map_to_list
+                                                       (filter (λ p : PID * access, is_exclusive p.2 = true) (get_vm_page_table σ v).2))))))))
+                    list_of_vmids)) in *.
+        destruct (list_to_map l !! i0) eqn:Heqn.
+        + apply (elem_of_list_to_map_2 l i0 c) in Heqn.
+          apply elem_of_list_In in Heqn.
+          apply in_map_iff in Heqn.
+          inversion Heqn;clear Heqn.
+          destruct H2 as [H3 HIn];inversion H3;subst;clear H3.
+          apply (@elem_of_list_to_map_1' VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap).
+          *  intros.
+             inv_map_in.
+             inversion H.
+             do 7 f_equal.
+             rewrite /get_vm_page_table update_access_batch_preserve_other_page_tables //.
+          * inv_map_in.
+            exists i0.
+            split;eauto.
+            do 8 f_equal.
+            rewrite /get_vm_page_table update_access_batch_preserve_other_page_tables //.
+        + apply (@not_elem_of_list_to_map_2 VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap) in Heqn.
+          apply (@not_elem_of_list_to_map_1 VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap).
+          intro P.
+          apply Heqn.
+          apply elem_of_list_In.
+          apply in_map_iff.
+          apply elem_of_list_In in P.
+          apply in_map_iff in P.
+          destruct P.
+          exists x.
+          destruct H2.
+          split;eauto.
+          apply in_map_iff.
+          apply in_map_iff in H3.
+          destruct H3.
+          exists x0.
+          destruct H3.
+          split;eauto.
+          rewrite -H3.
+          do 8 f_equal.
+          rewrite /get_vm_page_table update_access_batch_preserve_other_page_tables //.
+          destruct x.
+          simpl in H2;inversion H3.
+          by subst.
+  Qed.
+
+  Lemma update_access_batch_update_pagetable_union {σ i sacc a'} {sps:gset PID} (ps: list PID):
+   sps = (list_to_set ps) ->
+   i = (get_current_vm σ) ->
+   (get_access_gmap σ) !! i = Some (DfracOwn 1, to_agree (GSet sacc)) ->
+   sps ## sacc ->
+   is_accessible a' = true ->
+   get_access_gmap (update_access_batch σ ps a') =
+   <[i:= (DfracOwn 1, to_agree (GSet (sacc ∪ sps)))]>(get_access_gmap σ).
+  Proof.
+    intros H H0 H1 P Q.
+    rewrite /get_access_gmap /get_pagetable_gmap.
+    apply (@map_eq VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap); eauto.
+    intro.
+    destruct(decide (i0 = i)).
+    - subst i0. rewrite lookup_insert.
+      assert(Hgoal: list_to_set
+                      (map (λ p : PID * access, p.1)
+                           (map_to_list
+                              (filter (λ p : PID * access, is_accessible p.2 = true)
+                                      (get_vm_page_table (update_access_batch σ ps a') i).2)))
+                    = sacc ∪ sps).
+      {
+          apply set_eq.
+          intro.
+          rewrite  elem_of_list_to_set.
+          split.
+          * intros.
+            inv_map_in.
+            apply elem_of_list_In in H3.
+            apply (elem_of_map_to_list' _ x0) in H3.
+            apply map_filter_lookup_Some in H3.
+            destruct H3.
+            simplify_eq /=.
+            rewrite /get_vm_page_table /get_page_tables /update_access_batch
+                    /update_access_global_batch //= in H3.
+            rewrite vlookup_insert in H3.
+            apply elem_of_union.
+            induction ps; simpl in *.
+            -- left.
+               apply (get_access_gmap_is_accessible x0.1 H1).
+               exists (x0.2).
+               split;eauto.
+            -- destruct (decide (a=x0.1)).
+               right;set_solver.
+               assert (Himp :(x0.1 ∈ sacc ∨ x0.1 ∈ ((list_to_set ps):gset PID))
+                             ->(x0.1 ∈ sacc ∨ x0.1 ∈ {[a]} ∪ ((list_to_set ps):gset PID))).
+               { intros. destruct H. left;done. right; set_solver. }
+               apply Himp.
+               apply IHps;eauto.
+               rewrite ->disjoint_union_l in P.
+               destruct P; done.
+               rewrite lookup_insert_ne in H3;done.
+          * intros.
+            apply elem_of_union in H2.
+            destruct H2.
+            pose proof H2 as H2'.
+            apply (get_access_gmap_is_accessible x H1) in H2;eauto.
+            destruct H2.
+            destruct H2.
+            inv_map_in.
+            exists (x,x0).
+            split;eauto.
+            apply elem_of_list_In .
+            apply elem_of_map_to_list.
+            apply map_filter_lookup_Some.
+            rewrite /get_vm_page_table /get_page_tables /update_access_batch
+                    /update_access_global_batch /=.
+            rewrite -H0 vlookup_insert.
+            destruct H1;split;eauto.
+            simpl.
+            generalize dependent sps.
+            induction ps;simpl in *.
+            done.
+            intros.
+            destruct (decide (x=a)).
+            subst a.
+            rewrite lookup_insert.
+            rewrite /is_accessible in H3.
+            destruct x0;try done.
+            rewrite ->elem_of_disjoint in P.
+            exfalso.
+            apply P with x; set_solver.
+            rewrite ->elem_of_disjoint in P.
+            exfalso.
+            apply P with x; set_solver.
+            rewrite lookup_insert_ne; eauto.
+            apply IHps with (list_to_set ps); auto.
+            apply disjoint_union_l with {[a]}.
+            rewrite H in P; auto.
+            inv_map_in.
+            exists (x, a').
+            split;eauto.
+            apply elem_of_list_In .
+            apply elem_of_map_to_list.
+            apply map_filter_lookup_Some.
+            rewrite /get_vm_page_table /get_page_tables /update_access_batch
+                    /update_access_global_batch /=.
+            split;eauto.
+            rewrite -H0 vlookup_insert //=.
+            generalize dependent sps.
+            induction ps;simpl in *.
+            intros.
+            set_solver.
+            intros.
+            destruct (decide (x=a)).
+            subst a.
+            rewrite lookup_insert //.
+            rewrite lookup_insert_ne;eauto.
+            apply (IHps (list_to_set ps));eauto.
+            set_solver.
+            set_solver.
+      }
+      apply (@elem_of_list_to_map_1' VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap).
+        + intros.
+          inv_map_in.
+          inversion H2.
+          do 3 f_equal.
+          clear H6 H3 H2.
+          subst x.
+          symmetry.
+          apply Hgoal.
+        + inv_map_in.
+          exists i.
+          split;[|apply in_list_of_vmids].
+          do 4 f_equal.
+          apply Hgoal.
+      - rewrite (lookup_insert_ne _ i i0 _);eauto.
+        set (l:= (map
+                    (λ v : VMID,
+                           (v, (DfracOwn 1,
+                                to_agree (GSet
+                                            (list_to_set
+                                               (map (λ p : PID * access, p.1)
+                                                    (map_to_list
+                                                       (filter (λ p : PID * access, is_accessible p.2 = true) (get_vm_page_table σ v).2))))))))
+                    list_of_vmids)) in *.
+        destruct (list_to_map l !! i0) eqn:Heqn.
+        + apply (elem_of_list_to_map_2 l i0 c) in Heqn.
+          apply elem_of_list_In in Heqn.
+          apply in_map_iff in Heqn.
+          inversion Heqn;clear Heqn.
+          destruct H2 as [H3 HIn];inversion H3;subst;clear H3.
+          apply (@elem_of_list_to_map_1' VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap).
+          *  intros.
+             inv_map_in.
+             inversion H.
+             do 7 f_equal.
+             rewrite /get_vm_page_table update_access_batch_preserve_other_page_tables //.
+          * inv_map_in.
+            exists i0.
+            split;eauto.
+            do 8 f_equal.
+            rewrite /get_vm_page_table update_access_batch_preserve_other_page_tables //.
+        + apply (@not_elem_of_list_to_map_2 VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap) in Heqn.
+          apply (@not_elem_of_list_to_map_1 VMID (gmap VMID) _ _ _ _ _ _ _ _ gmap_finmap).
+          intro R.
+          apply Heqn.
+          apply elem_of_list_In.
+          apply in_map_iff.
+          apply elem_of_list_In in R.
+          apply in_map_iff in R.
+          destruct R.
+          exists x.
+          destruct H2.
+          split;eauto.
+          apply in_map_iff.
+          apply in_map_iff in H3.
+          destruct H3.
+          exists x0.
+          destruct H3.
+          split;eauto.
+          rewrite -H3.
+          do 8 f_equal.
+          rewrite /get_vm_page_table update_access_batch_preserve_other_page_tables //.
+          destruct x.
+          simpl in H2;inversion H3.
+            by subst.
+  Qed.
 
   Lemma insert_transaction_preserve_current_vm σ h trans:
    get_current_vm (insert_transaction σ h trans) = get_current_vm σ.
@@ -1163,6 +1556,118 @@ From HypVeri Require Import RAs.
         apply H0.
   Qed.
 
+  Lemma toggle_transaction_unsafe_preserve_trans {j wf b b' i psd tt} σ wh : 
+    (get_transactions σ).1 !! wh = Some (j, wf, b, i, psd, tt) ->
+    (get_trans_gmap (get_reg_files σ, get_mail_boxes σ, get_page_tables σ, get_current_vm σ, get_mem σ,
+                     (<[wh := (j, wf, b', i, psd, tt)]> (get_transactions σ).1, (get_transactions σ).2))) = get_trans_gmap σ.
+  Proof.
+    intros H.
+    rewrite /get_trans_gmap /get_transactions_gmap //=.
+    apply map_eq.
+    intros x.
+    destruct (list_to_map
+                (map (λ p : Addr * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
+                     (map_to_list (<[wh := (j, wf, b', i, psd, tt)]> (get_transactions σ).1))) !! x) eqn:Heqn.
+    - apply elem_of_list_to_map_2 in Heqn.
+      apply elem_of_list_In in Heqn.
+      apply in_map_iff in Heqn.
+      destruct Heqn as [y [Heqn1 Heqn2]].
+      apply elem_of_list_In in Heqn2.
+      apply elem_of_map_to_list' in Heqn2.
+      inversion Heqn1; subst; clear Heqn1.
+      symmetry.
+      apply elem_of_list_to_map_1'.
+      + intros t P.
+        apply elem_of_list_In in P.
+        apply in_map_iff in P.
+        destruct P as [r [P1 P2]].
+        apply elem_of_list_In in P2.
+        apply elem_of_map_to_list' in P2.
+        inversion P1; subst; clear P1.
+        destruct (decide (wh = y.1)).
+        * simplify_eq.
+          rewrite lookup_insert in Heqn2.
+          inversion Heqn2; subst; clear Heqn2.
+          simpl.
+          rewrite H1 in P2.
+          rewrite P2 in H.
+          inversion H; subst; clear H.
+          rewrite H3; reflexivity.
+        * rewrite H1 in P2.
+          rewrite lookup_insert_ne in Heqn2; auto.
+          rewrite P2 in Heqn2.
+          inversion Heqn2; subst; clear Heqn2; reflexivity.
+      + apply elem_of_list_In.
+        apply in_map_iff.
+        destruct (decide (wh = y.1)).
+        * simplify_eq.
+          rewrite lookup_insert in Heqn2.
+          inversion Heqn2; subst; clear Heqn2.
+          simpl.
+          exists (y.1, ((j, wf, b, i, psd, tt))).
+          split; auto.
+          apply elem_of_list_In.
+          apply elem_of_map_to_list'.
+          simpl.
+          assumption.
+        * rewrite lookup_insert_ne in Heqn2; auto.
+          exists (y.1, y.2).
+          split; auto.
+          apply elem_of_list_In.
+          apply elem_of_map_to_list'.
+          simpl.
+          assumption.
+    - destruct (decide (wh = x)).
+      + subst wh.
+        symmetry.
+        apply not_elem_of_list_to_map_1.
+        intros P.
+        apply not_elem_of_list_to_map_2 in Heqn.
+        apply Heqn.
+        rewrite <-list_fmap_compose.
+        rewrite <-list_fmap_compose in P.
+        rewrite /compose.
+        rewrite /compose in P.
+        simpl in *.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        apply elem_of_list_In in P.
+        apply in_map_iff in P.
+        destruct P as [t [P1 P2]].
+        exists (t.1, (j, wf, b', i, psd, tt)).
+        split; auto.
+        apply elem_of_list_In.
+        apply elem_of_map_to_list'.
+        simpl.
+        subst x.
+        apply lookup_insert.
+      + symmetry.
+        apply not_elem_of_list_to_map_1.
+        intros P.
+        apply not_elem_of_list_to_map_2 in Heqn.
+        apply Heqn.
+        rewrite <-list_fmap_compose.
+        rewrite <-list_fmap_compose in P.
+        rewrite /compose.
+        rewrite /compose in P.
+        simpl in *.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        apply elem_of_list_In in P.
+        apply in_map_iff in P.
+        destruct P as [t [P1 P2]].
+        apply elem_of_list_In in P2.
+        destruct t as [t1 t2].
+        apply elem_of_map_to_list in P2.
+        exists (t1, t2).
+        split; auto.
+        apply elem_of_list_In.
+        apply elem_of_map_to_list'.
+        simpl.
+        subst x.
+        simpl in n.
+        rewrite lookup_insert_ne; auto.
+  Qed.
 
   Lemma insert_transaction_update_trans σ h tran:
      (get_trans_gmap (insert_transaction σ h tran))
@@ -1222,9 +1727,9 @@ From HypVeri Require Import RAs.
    get_excl_gmap (copy_page_segment_unsafe σ src dst l) = get_excl_gmap σ.
   Proof. f_equal. Qed.
 
-  Lemma copy_page_segment_unsafe_preserve_transactions σ src dst l:
-   (get_transactions (copy_page_segment_unsafe σ src dst l))
-   = (get_transactions σ).
+  Lemma copy_page_segment_unsafe_preserve_trans σ src dst l:
+   (get_trans_gmap (copy_page_segment_unsafe σ src dst l))
+   = get_trans_gmap σ.
   Proof. f_equal. Qed.
 
   Lemma copy_page_segment_unsafe_preserve_hpool σ src dst l:
@@ -1237,6 +1742,10 @@ From HypVeri Require Import RAs.
 
   Lemma fill_rx_unsafe_preserve_current_vm σ l v r tx rx :
   get_current_vm (fill_rx_unsafe σ l v r tx rx) = get_current_vm σ.
+  Proof. f_equal. Qed.
+
+  Lemma fill_rx_unsafe_preserve_mem σ l v r tx rx :
+  get_mem (fill_rx_unsafe σ l v r tx rx) = get_mem σ.
   Proof. f_equal. Qed.
 
   Lemma fill_rx_unsafe_preserve_regs σ l v r tx rx :
@@ -1305,9 +1814,9 @@ From HypVeri Require Import RAs.
    get_excl_gmap (fill_rx_unsafe σ l v r tx rx) = get_excl_gmap σ.
   Proof. f_equal. Qed.
 
-  Lemma fill_rx_unsafe_preserve_transactions σ l v r tx rx :
-   (get_transactions (fill_rx_unsafe σ l v r tx rx))
-   = (get_transactions σ).
+  Lemma fill_rx_unsafe_preserve_trans σ l v r tx rx :
+   (get_trans_gmap (fill_rx_unsafe σ l v r tx rx))
+   = get_trans_gmap σ.
   Proof. f_equal. Qed.
 
   Lemma fill_rx_unsafe_preserve_hpool σ l v r tx rx :

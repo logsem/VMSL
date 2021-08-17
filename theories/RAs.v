@@ -1197,6 +1197,18 @@ Proof.
     done.
 Qed.
 
+Lemma gen_owned_valid_lookup_Set σ i q s:
+    own (gen_owned_name vmG) (● (get_owned_gmap σ))  -∗
+    (O@ i :={q}[s] ) -∗
+          ⌜(get_owned_gmap σ) !! i = Some ((DfracOwn 1), to_agree (GSet s)) ⌝.
+Proof.
+  iIntros "Hσ Hexcl".
+  rewrite owned_mapsto_eq /owned_mapsto_def.
+  iDestruct (gen_pagetable_valid_lookup_Set with "Hσ Hexcl") as %Hvalid.
+  iPureIntro.
+  done.
+Qed.
+
 Lemma gen_pagetable_valid_Set{Perm: Type} {σ i q γ} proj (checkb: Perm -> bool) (s:gset PID):
     own γ (● (get_pagetable_gmap σ proj checkb))  -∗
     own γ (◯ {[i := (DfracOwn q, to_agree (GSet s))]}) -∗
@@ -1497,6 +1509,67 @@ Proof.
   iIntros (Hsps Hsubset) "HE Hexcl".
   rewrite excl_mapsto_eq /excl_mapsto_def.
   iApply (gen_pagetable_update_diff with "HE Hexcl");eauto.
+Qed.
+
+Lemma gen_pagetable_update_union {Perm: Type} {σ i γ s ps} proj (checkb: Perm -> bool) sps:
+ sps = (list_to_set ps) ->
+ own γ (◯ {[i := (DfracOwn 1, to_agree (GSet s))]}) -∗
+ own γ (● (get_pagetable_gmap σ proj checkb))==∗
+ own γ (● (<[i:= (((DfracOwn 1), to_agree (GSet (s ∪ sps))))]>(get_pagetable_gmap σ proj checkb))) ∗
+ own γ (◯ {[i := (DfracOwn 1, to_agree (GSet (s ∪ sps)))]}).
+Proof.
+  iIntros (Hsps) "Hpt Hσ".
+  iDestruct (gen_pagetable_valid_lookup_Set with "Hσ Hpt") as %Haccess.
+  rewrite -own_op.
+  iApply ((own_update _
+   (● (get_pagetable_gmap σ proj checkb)
+      ⋅ ◯ {[i := (DfracOwn 1, to_agree (GSet s))]}) _ ) with "[Hσ Hpt]").
+  2: { rewrite own_op. iFrame. }
+  apply (auth_update _ _ (<[i:= (DfracOwn 1, to_agree (GSet (s ∪ sps)))]>
+                      (get_pagetable_gmap σ proj checkb)) ({[i := (DfracOwn 1, to_agree (GSet (s ∪ sps)))]})).
+  apply (singleton_local_update (get_pagetable_gmap σ proj checkb)
+                i (DfracOwn 1, to_agree (GSet s)) (DfracOwn 1, to_agree (GSet s))); eauto.
+  apply exclusive_local_update.
+  done.
+Qed.
+
+Lemma gen_access_update_union{σ i sacc psd} sps:
+ sps = (list_to_set psd) ->
+ A@i:={1}[sacc] -∗
+ own (gen_access_name vmG)
+   (● (get_access_gmap σ))==∗
+ own (gen_access_name vmG)
+   (● (<[i:= (((DfracOwn 1), to_agree (GSet (sacc ∪ sps))))]>(get_access_gmap σ))) ∗ A@i:={1}[sacc ∪ sps].
+Proof.
+  iIntros (Hsps) "HA Hacc".
+  rewrite access_mapsto_eq /access_mapsto_def.
+  iApply (gen_pagetable_update_union with "HA Hacc");eauto.
+Qed.
+
+Lemma gen_own_update_union{σ i sown psd} sps:
+ sps = (list_to_set psd) ->
+ O@i:={1}[sown] -∗
+ own (gen_owned_name vmG)
+   (● (get_owned_gmap σ))==∗
+ own (gen_owned_name vmG)
+   (● (<[i:= (((DfracOwn 1), to_agree (GSet (sown ∪ sps))))]>(get_owned_gmap σ))) ∗ O@i:={1}[sown ∪ sps].
+Proof.
+  iIntros (Hsps) "HO Hown".
+  rewrite owned_mapsto_eq /owned_mapsto_def.
+  iApply (gen_pagetable_update_union with "HO Hown");eauto.
+Qed.
+
+Lemma gen_excl_update_union{σ i sexcl psd} sps:
+ sps = (list_to_set psd) ->
+ E@i:={1}[sexcl] -∗
+ own (gen_excl_name vmG)
+   (● (get_excl_gmap σ))==∗
+ own (gen_excl_name vmG)
+   (● (<[i:= (((DfracOwn 1), to_agree (GSet (sexcl ∪ sps))))]>(get_excl_gmap σ))) ∗ E@i:={1}[sexcl ∪ sps].
+Proof.
+  iIntros (Hsps) "HE Hexcl".
+  rewrite excl_mapsto_eq /excl_mapsto_def.
+  iApply (gen_pagetable_update_union with "HE Hexcl");eauto.
 Qed.
 
 (* rules for transactions *)
