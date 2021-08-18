@@ -25,6 +25,24 @@ From HypVeri Require Import RAs.
     reflexivity.
   Qed.
 
+  Lemma zero_pages_preserve_current_vm σ ps:
+   (get_current_vm (zero_pages σ ps)) = (get_current_vm σ).
+  Proof.
+    rewrite /get_current_vm /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    rewrite /get_current_vm.
+    apply IHl.
+  Qed.
+
   Lemma get_reg_global_update_reg_global_ne_vmid {σ i j R1 R2 A B} :
     i ≠ j ->
     get_reg_global σ j R2 = Some B ->
@@ -216,6 +234,23 @@ From HypVeri Require Import RAs.
    get_reg_gmap (update_memory_unsafe σ a w) = get_reg_gmap σ.
   Proof. f_equal. Qed.
 
+  Lemma zero_pages_preserve_reg σ ps:
+   (get_reg_gmap (zero_pages σ ps)) = (get_reg_gmap σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
+
   Lemma update_current_vmid_preserve_mem σ i : get_mem (update_current_vmid σ i) = get_mem σ.
   Proof. f_equal. Qed.
 
@@ -259,6 +294,23 @@ From HypVeri Require Import RAs.
   Lemma update_memory_unsafe_preserve_tx σ a w : get_tx_agree (update_memory_unsafe σ a w) = get_tx_agree σ.
   Proof. f_equal. Qed.
 
+  Lemma zero_pages_preserve_tx σ ps:
+   (get_tx_agree (zero_pages σ ps)) = (get_tx_agree σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
+
   Lemma update_current_vmid_preserve_rx1 σ i : get_rx_agree (update_current_vmid σ i) =
                                                (get_rx_agree σ).
   Proof. f_equal. Qed.
@@ -278,6 +330,24 @@ From HypVeri Require Import RAs.
   Lemma update_memory_unsafe_preserve_rx1 σ a w : get_rx_agree (update_memory_unsafe σ a w) =
                                                (get_rx_agree σ).
   Proof. f_equal. Qed.
+
+  Lemma zero_pages_preserve_rx1 σ ps:
+   (get_rx_agree (zero_pages σ ps)) = (get_rx_agree σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
+
 
   Lemma update_current_vmid_preserve_rx2 σ i : get_rx_gmap (update_current_vmid σ i) =
                                                  (get_rx_gmap σ).
@@ -299,24 +369,49 @@ From HypVeri Require Import RAs.
                                                (get_rx_gmap σ).
   Proof. f_equal. Qed.
 
+  Lemma zero_pages_preserve_rx2 σ ps:
+   (get_rx_gmap (zero_pages σ ps)) = (get_rx_gmap σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
 
   (* TODO: the proofs above are identical *)
 
-  Lemma update_current_vmid_preserve_rx σ i : (get_rx_agree (update_current_vmid σ i), get_rx_gmap (update_current_vmid σ i)) =
-                                               (get_rx_agree σ, get_rx_gmap σ).
+  Lemma update_current_vmid_preserve_rx σ i :
+   (get_rx_agree (update_current_vmid σ i), get_rx_gmap (update_current_vmid σ i)) =
+   (get_rx_agree σ, get_rx_gmap σ).
   Proof. by rewrite update_current_vmid_preserve_rx1 update_current_vmid_preserve_rx2. Qed.
 
-  Lemma update_reg_global_preserve_rx σ i r w : (get_rx_agree (update_reg_global σ i r w), get_rx_gmap (update_reg_global σ i r w)) =
-                                               (get_rx_agree σ, get_rx_gmap σ).
+  Lemma update_reg_global_preserve_rx σ i r w :
+   (get_rx_agree (update_reg_global σ i r w), get_rx_gmap (update_reg_global σ i r w)) =
+   (get_rx_agree σ, get_rx_gmap σ).
   Proof. by rewrite update_reg_global_preserve_rx1 update_reg_global_preserve_rx2. Qed.
 
-  Lemma update_offset_PC_preserve_rx  σ o : (get_rx_agree (update_offset_PC σ o), get_rx_gmap (update_offset_PC σ o) ) =
-                                               (get_rx_agree σ, get_rx_gmap σ).
+  Lemma update_offset_PC_preserve_rx  σ o :
+   (get_rx_agree (update_offset_PC σ o), get_rx_gmap (update_offset_PC σ o) ) =
+   (get_rx_agree σ, get_rx_gmap σ).
   Proof. by rewrite update_offset_PC_preserve_rx1 update_offset_PC_preserve_rx2. Qed.
 
-  Lemma update_memory_unsafe_preserve_rx  σ a w : (get_rx_agree (update_memory_unsafe σ a w), get_rx_gmap (update_memory_unsafe σ a w) ) =
-                                               (get_rx_agree σ, get_rx_gmap σ).
+  Lemma update_memory_unsafe_preserve_rx  σ a w :
+   (get_rx_agree (update_memory_unsafe σ a w), get_rx_gmap (update_memory_unsafe σ a w) ) =
+   (get_rx_agree σ, get_rx_gmap σ).
   Proof. by rewrite update_memory_unsafe_preserve_rx1 update_memory_unsafe_preserve_rx2. Qed.
+
+  Lemma zero_pages_preserve_rx  σ ps :
+   (get_rx_agree (zero_pages σ ps), get_rx_gmap (zero_pages σ ps) ) =
+   (get_rx_agree σ, get_rx_gmap σ).
+  Proof. by rewrite zero_pages_preserve_rx1 zero_pages_preserve_rx2. Qed.
 
   Lemma update_current_vmid_preserve_pt σ i i':
    get_vm_page_table (update_current_vmid σ i) i' = get_vm_page_table σ i'.
@@ -334,7 +429,8 @@ From HypVeri Require Import RAs.
                                                (get_owned_gmap σ).
   Proof. f_equal. Qed.
 
-  Lemma update_offset_PC_preserve_owned σ o : get_owned_gmap (update_offset_PC σ o) = get_owned_gmap σ.
+  Lemma update_offset_PC_preserve_owned σ o :
+   get_owned_gmap (update_offset_PC σ o) = get_owned_gmap σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
@@ -342,9 +438,26 @@ From HypVeri Require Import RAs.
     done.
   Qed.
 
-  Lemma update_memory_unsafe_preserve_owned σ a w : get_owned_gmap (update_memory_unsafe σ a w) =
-                                               (get_owned_gmap σ).
+  Lemma update_memory_unsafe_preserve_owned σ a w :
+   get_owned_gmap (update_memory_unsafe σ a w) = (get_owned_gmap σ).
   Proof. f_equal. Qed.
+
+  Lemma zero_pages_preserve_owned σ ps :
+   get_owned_gmap (zero_pages σ ps) = (get_owned_gmap σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
 
   Lemma update_current_vmid_preserve_access σ i : get_access_gmap (update_current_vmid σ i) =
                                                (get_access_gmap σ).
@@ -374,6 +487,23 @@ From HypVeri Require Import RAs.
                                                (get_access_gmap σ).
   Proof. f_equal. Qed.
 
+  Lemma zero_pages_preserve_access σ ps :
+   get_access_gmap (zero_pages σ ps) = (get_access_gmap σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
+
   Lemma update_current_vmid_preserve_excl σ i : get_excl_gmap (update_current_vmid σ i) =
                                                (get_excl_gmap σ).
   Proof. f_equal. Qed.
@@ -393,6 +523,23 @@ From HypVeri Require Import RAs.
   Lemma update_memory_unsafe_preserve_excl σ a w : get_excl_gmap (update_memory_unsafe σ a w) =
                                                (get_excl_gmap σ).
   Proof. f_equal. Qed.
+
+  Lemma zero_pages_preserve_excl σ ps :
+   get_excl_gmap (zero_pages σ ps) = (get_excl_gmap σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
 
   Lemma update_current_vmid_preserve_trans σ i : get_trans_gmap (update_current_vmid σ i) =
                                                (get_trans_gmap σ).
@@ -435,6 +582,40 @@ From HypVeri Require Import RAs.
                                                (get_transactions σ).
   Proof. f_equal. Qed.
 
+  Lemma zero_pages_preserve_trans σ ps :
+   get_trans_gmap (zero_pages σ ps) = (get_trans_gmap σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
+
+  Lemma zero_pages_preserve_trans' σ ps :
+   get_transactions (zero_pages σ ps) = (get_transactions σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
+
   Lemma update_current_vmid_preserve_hpool σ i : get_hpool_gset (update_current_vmid σ i) =
                                                (get_hpool_gset σ).
   Proof. f_equal. Qed.
@@ -455,25 +636,60 @@ From HypVeri Require Import RAs.
                                                (get_hpool_gset σ).
   Proof. f_equal. Qed.
 
-  Lemma update_current_vmid_preserve_receivers σ i : get_retri_gmap (update_current_vmid σ i) =
-                                               (get_retri_gmap σ).
+  Lemma zero_pages_preserve_hpool σ ps :
+   get_hpool_gset (zero_pages σ ps) = (get_hpool_gset σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
+
+  Lemma update_current_vmid_preserve_retri σ i :
+   get_retri_gmap (update_current_vmid σ i) = (get_retri_gmap σ).
   Proof. f_equal. Qed.
 
-  Lemma update_reg_global_preserve_receivers σ i r w : get_retri_gmap (update_reg_global σ i r w) =
-                                               (get_retri_gmap σ).
+  Lemma update_reg_global_preserve_retri σ i r w :
+   get_retri_gmap (update_reg_global σ i r w) = (get_retri_gmap σ).
   Proof. f_equal. Qed.
 
-  Lemma update_offset_PC_preserve_receivers σ o : get_retri_gmap (update_offset_PC σ o) = get_retri_gmap σ.
+  Lemma update_offset_PC_preserve_retri σ o :
+   get_retri_gmap (update_offset_PC σ o) = get_retri_gmap σ.
   Proof.
     unfold update_offset_PC.
     destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-    rewrite /update_reg update_reg_global_preserve_receivers;done.
+    rewrite /update_reg update_reg_global_preserve_retri;done.
     done.
   Qed.
 
-  Lemma update_memory_unsafe_preserve_receivers σ a w : get_retri_gmap (update_memory_unsafe σ a w) =
-                                                        (get_retri_gmap σ).
+  Lemma update_memory_unsafe_preserve_retri σ a w :
+   get_retri_gmap (update_memory_unsafe σ a w) = (get_retri_gmap σ).
   Proof. f_equal. Qed.
+
+  Lemma zero_pages_preserve_retri σ ps :
+   get_retri_gmap (zero_pages σ ps) = (get_retri_gmap σ).
+  Proof.
+    rewrite /zero_pages.
+    cbn.
+    generalize σ.
+    induction ps.
+    done.
+    intro.
+    cbn.
+    induction (finz.seq a (Z.to_nat page_size)).
+    cbn.
+    apply IHps.
+    cbn.
+    apply IHl.
+  Qed.
 
   Lemma update_ownership_batch_preserve_current_vm σ (ps: list PID) perm:
   get_current_vm (update_ownership_batch σ ps perm) = get_current_vm σ.
@@ -516,7 +732,7 @@ From HypVeri Require Import RAs.
   get_hpool_gset (update_ownership_batch σ ps perm) = get_hpool_gset σ.
   Proof. f_equal. Qed.
 
-  Lemma update_ownership_batch_preserve_receivers σ (ps: list PID) perm:
+  Lemma update_ownership_batch_preserve_retri σ (ps: list PID) perm:
   get_retri_gmap (update_ownership_batch σ ps perm) = get_retri_gmap σ.
   Proof. f_equal. Qed.
 
@@ -625,7 +841,7 @@ From HypVeri Require Import RAs.
   get_hpool_gset (update_access_batch σ ps perm) = get_hpool_gset σ.
   Proof. f_equal. Qed.
 
-  Lemma update_access_batch_preserve_receivers σ (ps: list PID) perm:
+  Lemma update_access_batch_preserve_retri σ (ps: list PID) perm:
   get_retri_gmap (update_access_batch σ ps perm) = get_retri_gmap σ.
   Proof. f_equal. Qed.
 

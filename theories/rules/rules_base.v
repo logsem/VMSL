@@ -17,25 +17,25 @@ Ltac rewrite_reg_all :=
     try rewrite -> update_offset_PC_preserve_trans  ; try rewrite -> update_reg_global_preserve_trans;
     try rewrite -> update_offset_PC_preserve_trans'  ; try rewrite -> update_reg_global_preserve_trans';
     try rewrite -> update_offset_PC_preserve_hpool  ; try rewrite -> update_reg_global_preserve_hpool;
-    try rewrite -> update_offset_PC_preserve_receivers  ; try rewrite -> update_reg_global_preserve_receivers
+    try rewrite -> update_offset_PC_preserve_retri  ; try rewrite -> update_reg_global_preserve_retri
   end.
 
 
 Ltac rewrite_mem_all :=
   match goal with
   | |- _ =>
-    try rewrite -> update_memory_unsafe_preserve_current_vm;
-    try rewrite -> update_memory_unsafe_preserve_reg;
+    try rewrite -> update_memory_unsafe_preserve_current_vm;try rewrite -> zero_pages_preserve_current_vm;
+    try rewrite -> update_memory_unsafe_preserve_reg;try rewrite -> zero_pages_preserve_reg;
     try rewrite -> update_reg_global_preserve_mem;
-    try rewrite -> update_memory_unsafe_preserve_tx;
-    try rewrite -> update_memory_unsafe_preserve_rx;
-    try rewrite -> update_memory_unsafe_preserve_owned;
-    try rewrite -> update_memory_unsafe_preserve_access;
-    try rewrite -> update_memory_unsafe_preserve_excl;
-    try rewrite -> update_memory_unsafe_preserve_trans;
-    try rewrite -> update_memory_unsafe_preserve_trans';
-    try rewrite -> update_memory_unsafe_preserve_hpool;
-    try rewrite -> update_memory_unsafe_preserve_receivers
+    try rewrite -> update_memory_unsafe_preserve_tx;try rewrite -> zero_pages_preserve_tx;
+    try rewrite -> update_memory_unsafe_preserve_rx;try rewrite -> zero_pages_preserve_rx;
+    try rewrite -> update_memory_unsafe_preserve_owned;try rewrite -> zero_pages_preserve_owned;
+    try rewrite -> update_memory_unsafe_preserve_access;try rewrite -> zero_pages_preserve_access;
+    try rewrite -> update_memory_unsafe_preserve_excl;try rewrite -> zero_pages_preserve_excl;
+    try rewrite -> update_memory_unsafe_preserve_trans;try rewrite -> zero_pages_preserve_trans;
+    try rewrite -> update_memory_unsafe_preserve_trans';try rewrite -> zero_pages_preserve_trans';
+    try rewrite -> update_memory_unsafe_preserve_hpool;try rewrite -> zero_pages_preserve_hpool;
+    try rewrite -> update_memory_unsafe_preserve_retri;try rewrite -> zero_pages_preserve_retri
   end.
 
 Ltac rewrite_vmid_all :=
@@ -51,7 +51,7 @@ Ltac rewrite_vmid_all :=
     try rewrite -> update_current_vmid_preserve_trans;
     try rewrite -> update_current_vmid_preserve_trans';
     try rewrite -> update_current_vmid_preserve_hpool;
-    try rewrite -> update_current_vmid_preserve_receivers
+    try rewrite -> update_current_vmid_preserve_retri
   end.
 
 Ltac rewrite_ownership_all :=
@@ -65,7 +65,7 @@ Ltac rewrite_ownership_all :=
     try rewrite -> update_ownership_batch_preserve_trans;
     try rewrite -> update_ownership_batch_preserve_trans';
     try rewrite -> update_ownership_batch_preserve_hpool;
-    try rewrite -> update_ownership_batch_preserve_receivers
+    try rewrite -> update_ownership_batch_preserve_retri
   end.
 
 Ltac rewrite_access_all :=
@@ -79,7 +79,7 @@ Ltac rewrite_access_all :=
     try rewrite -> update_access_batch_preserve_trans;
     try rewrite -> update_access_batch_preserve_trans';
     try rewrite -> update_access_batch_preserve_hpool;
-    try rewrite -> update_access_batch_preserve_receivers
+    try rewrite -> update_access_batch_preserve_retri
   end.
 
 
