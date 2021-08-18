@@ -195,7 +195,7 @@ Proof.
      }
      iFrame.
      (* update retri *)
-     rewrite update_ownership_batch_preserve_receivers update_reg_global_preserve_receivers
+     rewrite update_ownership_batch_preserve_retri update_reg_global_preserve_retri
              fill_rx_unsafe_preserve_receivers copy_page_segment_unsafe_preserve_receivers.
      assert (HTemp : (get_retri_gmap σ1) !! wh = Some false).
      {
@@ -242,8 +242,8 @@ Proof.
      }
      rewrite copy_page_segment_unsafe_preserve_rx1.
      
-     TODO     
-     
-Qed.
+     (* TODO *)
+Admitted.
+       
 
 End retrieve.

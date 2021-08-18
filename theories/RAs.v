@@ -1067,7 +1067,7 @@ Proof.
   (* lookup_lt_is_Some_1 *)
   apply elem_of_list_lookup_1 in Hin.
   destruct Hin.
-  assert (HisSome: is_Some (ps!!x) ). done.
+  assert (HisSome: is_Some (ps!!x) ). eauto.
   pose proof (lookup_lt_is_Some_1 ps x HisSome).
   iDestruct (big_sepL2_length with  "Hl") as "%".
   rewrite H1 in H0.
