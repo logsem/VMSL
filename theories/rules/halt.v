@@ -7,19 +7,20 @@ Section halt.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma halt {E instr i w1 q p} ai :
+Lemma halt {E instr i w1 q p s} ai :
   instr = Halt ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page ai p ->
+  p ∈ s ->
   {SS{{▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
-          ∗ ▷ (A@i:={q} p)}}}
+          ∗ ▷ (A@i:={q}[s])}}}
     ExecI @ i ;E
  {{{ RET HaltI;  PC @@ i ->r (ai ^+ 1)%f
                   ∗ ai ->a w1
-                  ∗ A@i:={q} p }}}.
+                  ∗ A@i:={q}[s] }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hinstr Hdecode Hin HpIn ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -29,7 +30,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid1 σ1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr ai _ Hin ) with "Haccess Hacc") as %Hacc.
+  iDestruct ((gen_access_valid_addr_Set ai p s) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.

@@ -799,7 +799,7 @@ From HypVeri Require Import RAs.
     inversion H2;subst x1.
     clear H2.
     rewrite H0 H1.
-    do 6 f_equal.
+    do 5 f_equal.
     rewrite /get_vm_page_table /get_page_tables /=.
     destruct (decide (get_current_vm σ = x0)).
     subst x0.
@@ -828,13 +828,13 @@ From HypVeri Require Import RAs.
 
 
   Lemma get_pagetable_gmap_checkb {Perm:Type} {σ i s} proj (checkb: Perm -> bool) p:
-   (get_pagetable_gmap σ proj checkb) !! i = Some (GSet s)->
+   (get_pagetable_gmap σ proj checkb) !! i = Some  s->
    (p ∈ s <->
     ∃ perm, (proj (get_vm_page_table σ i)) !! p =Some perm ∧ checkb perm = true).
   Proof.
     intros.
     rewrite /get_access_gmap in H.
-    apply (elem_of_list_to_map_2 _ i (GSet s)) in H.
+    apply (elem_of_list_to_map_2 _ i s) in H.
     inv_map_in. clear H0.
     inversion H.
     subst.
@@ -863,7 +863,7 @@ From HypVeri Require Import RAs.
   Qed.
 
   Lemma get_owned_gmap_is_owned {σ i sown} p:
-   (get_owned_gmap σ) !! i = Some (GSet sown)->
+   (get_owned_gmap σ) !! i = Some sown->
    (p ∈ sown <->
     ∃ perm, (get_vm_page_table σ i).1 !! p =Some perm ∧ is_owned perm = true).
   Proof.
@@ -873,7 +873,7 @@ From HypVeri Require Import RAs.
   Qed.
 
   Lemma get_access_gmap_is_accessible {σ i sacc} p:
-   (get_access_gmap σ) !! i = Some (GSet sacc)->
+   (get_access_gmap σ) !! i = Some  sacc->
    (p ∈ sacc <->
     ∃ perm, (get_vm_page_table σ i).2 !! p =Some perm ∧ is_accessible perm = true).
   Proof.
@@ -883,7 +883,7 @@ From HypVeri Require Import RAs.
   Qed.
 
   Lemma get_excl_gmap_is_exclusive_true {σ i sexcl} p:
-   (get_excl_gmap σ) !! i = Some (GSet sexcl)->
+   (get_excl_gmap σ) !! i = Some  sexcl->
    (p ∈ sexcl<->
     ∃ perm, (get_vm_page_table σ i).2 !! p =Some perm ∧ is_exclusive perm = true).
   Proof.
@@ -897,9 +897,9 @@ From HypVeri Require Import RAs.
    sps = (list_to_set ps)->
    i = (get_current_vm σ) ->
    checkb NoAccess = false ->
-   (get_pagetable_gmap σ (λ pt,pt.2) checkb) !! i = Some (GSet s) ->
+   (get_pagetable_gmap σ (λ pt,pt.2) checkb) !! i = Some s ->
    (get_pagetable_gmap (update_access_batch σ ps NoAccess)  (λ pt,pt.2) checkb) =
-   <[(get_current_vm σ):= (GSet (s ∖ sps))]>(get_pagetable_gmap σ (λ pt,pt.2) checkb).
+   <[(get_current_vm σ):= s ∖ sps]>(get_pagetable_gmap σ (λ pt,pt.2) checkb).
   Proof.
     intros Hsps Hi Hcheckb Hlookup.
     rewrite /get_pagetable_gmap.
@@ -988,10 +988,10 @@ From HypVeri Require Import RAs.
         apply Hgoal.
     - rewrite (lookup_insert_ne _ i i0 _);eauto.
       set (l:= (map (λ v : VMID,
-                      (v, (GSet (list_to_set
+                      (v, (list_to_set
                             (map (λ p : PID * access, p.1)
                                   (map_to_list (filter (λ p : PID * access, checkb p.2 = true)
-                                        (get_vm_page_table σ v).2))))))) list_of_vmids)) in *.
+                                        (get_vm_page_table σ v).2)))))) list_of_vmids)) in *.
       destruct (list_to_map l !! i0) eqn:Heqn.
       + apply (elem_of_list_to_map_2 l i0 g) in Heqn.
         apply elem_of_list_In in Heqn.
@@ -1038,9 +1038,9 @@ From HypVeri Require Import RAs.
   Lemma update_access_batch_update_access_diff{σ i sacc} {sps:gset PID} (ps: list PID):
     sps = (list_to_set ps)->
     i = (get_current_vm σ) ->
-    (get_access_gmap σ) !! i = Some  (GSet sacc) ->
+    (get_access_gmap σ) !! i = Some sacc ->
     get_access_gmap (update_access_batch σ ps NoAccess) =
-    <[(get_current_vm σ):= (GSet (sacc∖ sps))]>(get_access_gmap σ).
+    <[(get_current_vm σ):= (sacc∖ sps)]>(get_access_gmap σ).
   Proof.
     intros.
     apply (@update_access_batch_update_pagetable_diff _ i);eauto.
@@ -1049,9 +1049,9 @@ From HypVeri Require Import RAs.
   Lemma update_access_batch_update_excl_diff{σ i sexcl} {sps:gset PID} (ps: list PID):
     sps = (list_to_set ps)->
     i = (get_current_vm σ) ->
-    (get_excl_gmap σ) !! i = Some (GSet sexcl) ->
+    (get_excl_gmap σ) !! i = Some sexcl ->
     get_excl_gmap (update_access_batch σ ps NoAccess) =
-    <[(get_current_vm σ):= (GSet (sexcl ∖ sps))]>(get_excl_gmap σ).
+    <[(get_current_vm σ):= (sexcl ∖ sps)]>(get_excl_gmap σ).
   Proof.
     intros.
     apply (@update_access_batch_update_pagetable_diff _ i);eauto.
@@ -1060,9 +1060,9 @@ From HypVeri Require Import RAs.
   Lemma update_ownership_batch_update_pagetable_union{σ i sown} {sps:gset PID} (ps: list PID):
    sps = (list_to_set ps)->
    i = (get_current_vm σ)->
-   (get_owned_gmap σ) !! i = Some (GSet sown) ->
+   (get_owned_gmap σ) !! i = Some sown ->
    get_owned_gmap (update_ownership_batch σ ps Owned) =
-   <[i:= (GSet (sown ∪ sps))]>(get_owned_gmap σ).
+   <[i:= sown ∪ sps]>(get_owned_gmap σ).
   Proof.
     intros.
     rewrite /get_owned_gmap /get_pagetable_gmap.
@@ -1169,11 +1169,10 @@ From HypVeri Require Import RAs.
     - rewrite (lookup_insert_ne _ i i0 _);eauto.
       set (l:= (map
                   (λ v : VMID,
-                    (v, (GSet
-                           (list_to_set
+                    (v,   (list_to_set
                               (map (λ p : PID * ownership, p.1)
                                    (map_to_list
-                                      (filter (λ p : PID * ownership, is_owned p.2 = true) (get_vm_page_table σ v).1)))))))
+                                      (filter (λ p : PID * ownership, is_owned p.2 = true) (get_vm_page_table σ v).1))))))
                   list_of_vmids)) in *.
       destruct (list_to_map l !! i0) eqn:Heqn.
       + apply (elem_of_list_to_map_2 l i0 g) in Heqn.

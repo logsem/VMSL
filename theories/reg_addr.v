@@ -403,3 +403,38 @@ Proof.
   subst z.
   solve_finz.
 Qed.
+
+Lemma finz_seq_nonempty_length {b} (x f :finz.finz b) (l:nat):
+  x ∈ finz.seq f l-> l >0.
+Proof.
+  intros.
+  destruct l.
+  inversion H.
+  lia.
+Qed.
+
+Lemma addr_in_notin (p1 p2 : PID) (x: Addr) (l1 : nat) :
+  ((Z.of_nat l1) < page_size)%Z ->
+  p1 ≠ p2 ->
+  x ∈ finz.seq (of_pid p1) l1 ->
+  ∀ l2 , ((Z.of_nat l2) < page_size)%Z -> x ∉ finz.seq (of_pid p2) l2.
+Proof.
+  intros.
+  pose proof H1.
+  apply finz_seq_nonempty_length in H3.
+  destruct (decide ((of_pid p1) <= (of_pid p2))%f).
+  - assert ( (of_pid p1) ≠ (of_pid p2))%f.
+    { intro. apply H0. by apply of_pid_eq. }
+    assert ( (of_pid p1) < (of_pid p2))%f. solve_finz.
+    apply  finz_seq_notin.
+    apply pid_lt_lt in H5.
+    apply finz_seq_in2 in H1.
+    solve_finz.
+  - destruct l2.
+    apply not_elem_of_nil.
+    assert ( (of_pid p2) < (of_pid p1))%f. solve_finz.
+    apply  finz_seq_notin2.
+    apply finz_seq_in1 in H1.
+    apply pid_lt_lt in H4.
+    solve_finz.
+Qed.

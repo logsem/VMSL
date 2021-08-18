@@ -8,20 +8,21 @@ Section mov.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma mov_word {E instr i w1 w3 q p} a w2 ra :
+Lemma mov_word {E instr i w1 w3 q p s} a w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page a p ->
+  p ∈ s ->
   {SS{{  ▷ (PC @@ i ->r a)
-          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} p)
+          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q}[s])
           ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
   {{{ RET ExecI;  PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
-                   ∗ A@i:={q} p
+                   ∗ A@i:={q}[s]
                    ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hinstr Hdecode Hin HpIn ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -36,7 +37,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid2 σ1 i PC a ra w3 Hcur HneqPC) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr a _ Hin with "Haccess Hacc") as %Hacc.
+  iDestruct (gen_access_valid_addr_Set a p s with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -68,23 +69,24 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-Lemma mov_reg {E instr i qi w1 w3 q p} a w2 ra rb :
+Lemma mov_reg {E instr i qi w1 w3 q p s} a w2 ra rb :
   instr = Mov ra (inr rb)->
   decode_instruction w1 = Some(instr) ->
   addr_in_page a p ->
+  p ∈ s ->
   {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r a)
-          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q} p)
+          ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q}[s])
           ∗ ▷ (ra @@ i ->r w2)
           ∗ ▷ (rb @@ i ->r w3) }}}
     ExecI @ i ;E
   {{{ RET ExecI; <<i>>{ qi }
                    ∗ PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
-                   ∗ A@i:={q} p
+                   ∗ A@i:={q}[s]
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
+  iIntros (Hinstr Hdecode Hin HpIn ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -100,7 +102,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid3 σ1 i PC a ra w2 rb w3 Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr a _ Hin with "Haccess Hacc") as %Hacc.
+  iDestruct (gen_access_valid_addr_Set a p s with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid σ1 a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
