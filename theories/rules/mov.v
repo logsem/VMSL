@@ -27,7 +27,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
+  iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [imm dst Hvalidra | | | | | | | ].
@@ -96,7 +96,7 @@ Proof.
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   inversion Hvalidrb as [ HneqPCb HneqNZb ].
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
   (* valid regs *)
   iDestruct ((gen_reg_valid3 σ1 i PC a ra w2 rb w3 Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)

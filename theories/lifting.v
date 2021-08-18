@@ -2,7 +2,6 @@ From machine_program_logic.program_logic Require Import machine weakestpre.
 From HypVeri Require Import lang.
 From iris.proofmode Require Import tactics.
 
-Section lifting.
 
 Lemma machine_mixin : MachineMixin terminated step.
 Proof.
@@ -11,6 +10,8 @@ Qed.
 
 Canonical Structure hyp_machine :=
   Machine terminated step (Some scheduler) machine_mixin.
+
+Section lifting.
 
 Context `{_ : !irisG hyp_machine Σ}.
 

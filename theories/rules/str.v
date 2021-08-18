@@ -24,7 +24,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxpage & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxpage & ? & ? & Haccess & ?)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [ | | | src dst Hvalidra Hvalidrb Hneqrarb | | | |] .
@@ -95,7 +95,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxown & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxown & ? & ? & Haccess & ?)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [| | | src dst H3' H4' Hneqrarb | | | |]; subst src dst; clear Hvalidinstr.
@@ -156,7 +156,7 @@ Proof.
         simpl.
         iFrame.
         iApply "Hϕ".
-          by iFrame.
+        by iFrame.
   - iSplit.
     + iPureIntro.
       exists FailPageFaultI, σ1.

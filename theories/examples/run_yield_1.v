@@ -16,7 +16,7 @@ Section RunYield1.
   Definition yield_I := encode_hvc_func Yield.
   
 
-   Definition program1 (i : VMID) : list Word :=
+  Definition program1 (i : VMID) : list Word :=
     [
     mov_word_I R0 run_I;
     mov_word_I R1 (encode_vmid i);
@@ -32,7 +32,7 @@ Section RunYield1.
   
   Class tokG Σ := tok_G :> inG Σ (exclR unitO).
 
-  Context `{gen_VMG Σ, tokG Σ}.
+  Context `{gen_VMG Σ, tokG Σ} (N : namespace).
 
   Definition program (instr: list Word) (b:Addr):=
     ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
@@ -48,8 +48,6 @@ Section RunYield1.
     inversion HF.
     Qed.
 
-  Definition invN := nroot .@ "tok".
-
   Definition na_inv  γ2 γ3 (z i:VMID) :=
     ((∃ w0 w1,  tokI γ2  ∗ R0 @@ z ->r w0 ∗ R1 @@ z ->r w1) ∨
      ( tokI γ3  ∗ R0 @@ z ->r run_I ∗ R1 @@ z ->r (encode_vmid i)))%I.
@@ -59,7 +57,7 @@ Section RunYield1.
       ∨ <<z>>{ 1%Qp } ∗ nainv_closed ⊤ ∗ tokI γ3
       ∨ <<i>>{ 1%Qp } ∗ nainv_closed ⊤ ∗ tokI γ1 ∗ tokI γ2 )%I.
 
-  Lemma mach_zero {γ1 γ2 γ3 z i q1 prog1page ι ι1} :
+  Lemma machine_z_spec {γ1 γ2 γ3 z i q1 prog1page ι ι1} :
       ι ## ι1 ->
       fin_to_nat z = 0 ->
       z ≠ i ->
@@ -189,9 +187,9 @@ Section RunYield1.
     rewrite Hlen.
     iFrame.
     iSplitL;done.
-Qed.
+  Qed.
 
-    Lemma mach_i {γ1 γ2 γ3 z i q1 prog2page r0_ ι ι1} :
+  Lemma machine_i_spec {γ1 γ2 γ3 z i q1 prog2page r0_ ι ι1} :
       ι ## ι1 ->
       fin_to_nat z = 0 ->
       z ≠ i ->
@@ -298,9 +296,9 @@ Qed.
     }
      iExFalso.
       iApply (tokI_excl with "H△ H△'").
- Qed.
+  Qed.
 
-  Lemma spec {γ1 γ2 γ3 ι ι1 z i q1 q2 prog1page prog2page r0_} :
+  Lemma run_yield_1_spec' γ1 γ2 γ3 ι ι1 z i q1 q2 prog1page prog2page r0_:
       ι ## ι1 ->
       fin_to_nat z = 0 ->
       z ≠ i ->
@@ -327,17 +325,66 @@ Qed.
   Proof.
     iIntros (Hdisj Z Hvne Hpne HInz HIni) "(Hprogz & Hprogi & #Hinv & #Hnainv & H△ & Haccz & Hacci & PCz & PCi & R0i)".
     iSplitL  "Hprogz H△ Haccz PCz".
-    - iApply mach_zero;eauto.
+    - iApply machine_z_spec;eauto.
       iFrame.
       iSplitL;done.
-    - iApply mach_i;eauto.
+    - iApply machine_i_spec;eauto.
       iFrame.
       iSplitL;done.
   Qed.
 
-  (* The last issue is how the two invariants are allocated.
-     It seems impossible. Because given a separating conjunction of two WPs,
-     there is no way to introduce an update modality.. *)
-  (* Perhaps specifications of this form are unprovable? *)
+  Definition invN := N .@ "inv".
+
+  Definition nainvN := N .@ "na".
+
+  Lemma namespace_disjoint: invN ## nainvN.
+  Proof.
+    apply ndot_ne_disjoint.
+    done.
+  Qed.
+
+  Lemma run_yield_1_spec z i q1 q2 prog1page prog2page r0_ r1_ r0_':
+      fin_to_nat z = 0 ->
+      z ≠ i ->
+      prog1page ≠ prog2page ->
+      seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
+      seq_in_page (of_pid prog2page) (length program2) prog2page ->
+      program (program1 i) (of_pid prog1page) ∗
+      program (program2) (of_pid prog2page) ∗
+      nainv_closed ⊤ ∗
+      <<z>>{ 1%Qp} ∗ R0 @@ z ->r r0_ ∗ R1 @@ z ->r r1_ ∗
+      A@z :={q1} prog1page ∗ A@i :={q2} prog2page ∗
+      PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page) ∗
+      R0 @@ i ->r r0_'
+        ⊢ |={⊤}=>
+        (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝
+            ∗ program (program1 i) (of_pid prog1page)
+            ∗ A@z :={q1} prog1page
+            ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f )}}%I)
+       ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝
+            ∗ program (program1 i) (of_pid prog2page)
+            ∗ A@i :={q2} prog2page
+            ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
+            ∗ R0 @@ i ->r yield_I) }}%I).
+  Proof.
+    iIntros ( Z Hvne Hpne HInz HIni) "(Hprogz & Hprogi & Hnatok & Hstok & R0z & R1z & Haccz & Hacci & PCz & PCi & R0i)".
+    iMod (own_alloc (Excl ())) as (γ1) "Htok1". done.
+    iMod (own_alloc (Excl ())) as (γ2) "Htok2". done.
+    iMod (own_alloc (Excl ())) as (γ3) "Htok3". done.
+    iMod ((nainv_alloc nainvN ⊤ (na_inv  γ2 γ3 z i)) with "[ R0z R1z Htok2 ]" ) as "Hnainv".
+    { iNext. iLeft. iExists r0_, r1_. iFrame. }
+    iMod (inv_alloc invN _ (inv' z i γ1 γ2 γ3 nainvN) with "[Hstok Hnatok Htok3]") as "Hinv".
+    { iNext. iRight;iLeft. iFrame. }
+    iModIntro.
+    iDestruct (run_yield_1_spec' γ1 γ2 γ3 invN nainvN z i q1 q2 prog1page prog2page r0_'
+                 with "[Hprogz Hprogi Haccz Hacci PCz PCi R0i Htok1 Hnainv Hinv]") as "[WP1 WP2]";eauto.
+    { apply namespace_disjoint. }
+    { iFrame. }
+    iFrame.
+    iApply (wp_mono with "WP2").
+    iIntros (?) "(? & ? & ? & ? & ? & ? )".
+    iFrame.
+  Qed.
+
 
 End RunYield1.

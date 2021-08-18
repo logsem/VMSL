@@ -10,7 +10,8 @@ Ltac rewrite_reg_all :=
     try rewrite -> update_offset_PC_preserve_current_vm; try rewrite -> update_reg_global_preserve_current_vm;
     try rewrite -> update_offset_PC_preserve_mem ; try rewrite -> update_reg_global_preserve_mem;
     try rewrite -> update_offset_PC_preserve_tx ; try rewrite -> update_reg_global_preserve_tx;
-    try rewrite -> update_offset_PC_preserve_rx ; try rewrite  -> update_reg_global_preserve_rx;
+    try rewrite -> update_offset_PC_preserve_rx1 ; try rewrite  -> update_reg_global_preserve_rx1;
+    try rewrite -> update_offset_PC_preserve_rx2 ; try rewrite  -> update_reg_global_preserve_rx2;
     try rewrite -> update_offset_PC_preserve_owned  ; try rewrite -> update_reg_global_preserve_owned;
     try rewrite -> update_offset_PC_preserve_access  ; try rewrite -> update_reg_global_preserve_access;
     try rewrite -> update_offset_PC_preserve_excl  ; try rewrite -> update_reg_global_preserve_excl;
@@ -28,7 +29,8 @@ Ltac rewrite_mem_all :=
     try rewrite -> update_memory_unsafe_preserve_reg;try rewrite -> zero_pages_preserve_reg;
     try rewrite -> update_reg_global_preserve_mem;
     try rewrite -> update_memory_unsafe_preserve_tx;try rewrite -> zero_pages_preserve_tx;
-    try rewrite -> update_memory_unsafe_preserve_rx;try rewrite -> zero_pages_preserve_rx;
+    try rewrite -> update_memory_unsafe_preserve_rx1;try rewrite -> zero_pages_preserve_rx1;
+    try rewrite -> update_memory_unsafe_preserve_rx2;try rewrite -> zero_pages_preserve_rx2;
     try rewrite -> update_memory_unsafe_preserve_owned;try rewrite -> zero_pages_preserve_owned;
     try rewrite -> update_memory_unsafe_preserve_access;try rewrite -> zero_pages_preserve_access;
     try rewrite -> update_memory_unsafe_preserve_excl;try rewrite -> zero_pages_preserve_excl;
@@ -44,7 +46,8 @@ Ltac rewrite_vmid_all :=
     try rewrite -> update_current_vmid_preserve_reg;
     try rewrite -> update_current_vmid_preserve_mem;
     try rewrite -> update_current_vmid_preserve_tx;
-    try rewrite -> update_current_vmid_preserve_rx;
+    try rewrite -> update_current_vmid_preserve_rx1;
+    try rewrite -> update_current_vmid_preserve_rx2;
     try rewrite -> update_current_vmid_preserve_owned;
     try rewrite -> update_current_vmid_preserve_access;
     try rewrite -> update_current_vmid_preserve_excl;
@@ -61,7 +64,8 @@ Ltac rewrite_ownership_all :=
     try rewrite -> update_ownership_batch_preserve_regs;
     try rewrite -> update_ownership_batch_preserve_mem;
     try rewrite -> update_ownership_batch_preserve_tx;
-    try rewrite -> update_ownership_batch_preserve_rx;
+    try rewrite -> update_ownership_batch_preserve_rx1;
+    try rewrite -> update_ownership_batch_preserve_rx2;
     try rewrite -> update_ownership_batch_preserve_trans;
     try rewrite -> update_ownership_batch_preserve_trans';
     try rewrite -> update_ownership_batch_preserve_hpool;
@@ -75,7 +79,8 @@ Ltac rewrite_access_all :=
     try rewrite -> update_access_batch_preserve_regs;
     try rewrite -> update_access_batch_preserve_mem;
     try rewrite -> update_access_batch_preserve_tx;
-    try rewrite -> update_access_batch_preserve_rx;
+    try rewrite -> update_access_batch_preserve_rx1;
+    try rewrite -> update_access_batch_preserve_rx2;
     try rewrite -> update_access_batch_preserve_trans;
     try rewrite -> update_access_batch_preserve_trans';
     try rewrite -> update_access_batch_preserve_hpool;
@@ -90,13 +95,12 @@ Ltac rewrite_trans_all :=
     try rewrite -> insert_transaction_preserve_regs;
     try rewrite -> insert_transaction_preserve_mem;
     try rewrite -> insert_transaction_preserve_tx;
-    try rewrite -> insert_transaction_preserve_rx;
+    try rewrite -> insert_transaction_preserve_rx1;
+    try rewrite -> insert_transaction_preserve_rx2;
     try rewrite -> insert_transaction_preserve_owned;
     try rewrite -> insert_transaction_preserve_access;
     try rewrite -> insert_transaction_preserve_excl
   end.
-
-
 
 
 Ltac solve_reg_lookup :=
@@ -140,7 +144,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ1" as "(? & ? & Hreg & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ1" as "(? & ? & Hreg & ? & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 σ1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
   iDestruct (gen_no_access_valid σ1 i (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.

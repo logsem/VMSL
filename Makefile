@@ -34,5 +34,7 @@ clean:
 	@find $(SRC_DIRS) -name ".*.aux" -exec rm {} \;
 	rm -f _CoqProject .coqdeps.d
 
+# TODO add new options examples and all
+# TODO the default option skips examples
 .PHONY: default test clean
 .DELETE_ON_ERROR:

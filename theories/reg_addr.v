@@ -335,8 +335,49 @@ Qed.
 
 Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
 
+
 (* an alternative definition, not sure which is better *)
 (* Definition addr_of_page' (p: PID) := map (λ off, ((of_pid p) + off)%f) (seqZ 0%Z page_size). *)
+
+Lemma finz_seq_lookup0{b} n (f : finz.finz b) x :
+   is_Some(f + 1)%f ->
+   finz.seq f n !! x = Some f -> x=0.
+Proof.
+  revert f. destruct n; cbn.
+  { intros. inversion H0. }
+  { intros.
+    destruct (decide (x=0)).
+    done.
+    rewrite lookup_cons_ne_0 in H0;eauto.
+    apply elem_of_list_lookup_2 in H0.
+    pose proof (finz_seq_notin _ f (f ^+ 1)%f n).
+    assert ( (f < f ^+ 1)%f) as Hlt.
+    solve_finz.
+    apply H1 in Hlt.
+    done.
+  }
+Qed.
+
+
+Lemma finz_seq_NoDup'{b} (f : finz.finz b) (n : nat) :
+  is_Some (f + (Z.of_nat (n-1)))%f →
+  NoDup (finz.seq f n).
+Proof using.
+  revert f. induction n; intros f Hfn.
+  { apply NoDup_nil_2. }
+  { cbn.
+    destruct n; intros;simpl.
+    { apply NoDup_singleton. }
+    { apply NoDup_cons_2.
+      apply not_elem_of_cons.
+      split.
+      solve_finz.
+      apply finz_seq_notin.
+      solve_finz.
+      eapply IHn.
+      solve_finz. } }
+Qed.
+
 
 Lemma pid_lt_lt (p1 p2:PID):
   ((of_pid p1) < (of_pid p2))%f -> (p1 ^+ (page_size - 1) < p2)%f.

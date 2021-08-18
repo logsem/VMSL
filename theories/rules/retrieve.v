@@ -46,7 +46,7 @@ Proof.
   inversion Hsche as [Hcureq]; clear Hsche.
   apply fin_to_nat_inj in Hcureq.
   iModIntro.
-  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hlen & Hrcv)".
+  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hlen & Hrcv)".
   iDestruct ((gen_reg_valid3 σ1 i PC ai R0 r0 R1 r1 Hcureq) with "Hσreg PC Hr0 Hr1")
     as "[%HPC [%HR0 %HR1]]"; eauto.
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess HA") as %Haccai; eauto.
@@ -60,9 +60,11 @@ Proof.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hmemr") as %Hadesc.
   { apply finz_seq_NoDup. destruct Hseq as [? [HisSome ?]]. done. }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
-  iDestruct (gen_rx_none_valid with "HRX Hσrx") as %Hrx.
-  iDestruct ((gen_owned_valid_lookup_Set _ _ _ sown) with "Hσowned HO") as %Hown; eauto.
-  iDestruct ((gen_excl_valid_lookup_Set _ _ _ sexcl) with "Hσexcl HE") as %Hexcl; eauto.
+  iDestruct (gen_rx_none_valid with "HRX Hσrx2") as %Hrx2.
+  iDestruct "HRX" as "(HRX1 & HRX2)".
+  iDestruct (gen_rx_pid_valid with "HRX1 Hσrx1") as %Hrx1.
+  iDestruct ((gen_own_valid_lookup_Set σ1 i 1%Qp sown) with "Hσowned HO") as %Hown; eauto.
+  iDestruct ((gen_excl_valid_lookup_Set σ1 i 1%Qp sexcl) with "Hσexcl HE") as %Hexcl; eauto.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -102,9 +104,10 @@ Proof.
     rewrite Hlenl in Htemp.
     rewrite /transfer_msg /transfer_msg_unsafe Hr1ps //= /get_current_vm //= /get_vm_mail_box /get_mail_boxes in Heqc2.
     simpl in Heqc2.
-    rewrite /get_vm_mail_box /get_mail_boxes in Htx Hrx.
+    rewrite /get_vm_mail_box /get_mail_boxes in Htx Hrx2.
     pose proof (surjective_pairing (σ1.1.1.1.1.2 !!! i)) as Hpair.
-    rewrite Htx Hrx in Hpair.
+    rewrite (surjective_pairing (σ1.1.1.1.1.2 !!! i).2) in Hpair.
+    rewrite Htx Hrx1 Hrx2 in Hpair.
     rewrite //= /fill_rx in Heqc2.
     rewrite /get_vm_mail_box /get_mail_boxes in Heqc2.
     simpl in Heqc2.
@@ -179,7 +182,7 @@ Proof.
      iFrame.
      2 : {
        by rewrite update_ownership_batch_preserve_excl update_reg_global_preserve_excl
-                  fill_rx_unsafe_preserve_excl copy_page_segment_unsafe_preserve_excl.
+               fill_rx_unsafe_preserve_excl copy_page_segment_unsafe_preserve_excl.
      }
      (* update mem *)
      rewrite update_ownership_batch_preserve_mem update_reg_global_preserve_mem fill_rx_unsafe_preserve_mem.
@@ -232,8 +235,8 @@ Proof.
      rewrite <-(@get_retri_gmap_to_get_transaction σ1 wh j wf true (get_current_vm σ1) psd Donation).
      iFrame.
      (* update rx *)
-     rewrite update_ownership_batch_preserve_rx update_reg_global_preserve_rx.
-     rewrite fill_rx_unsafe_preserve_rx1.
+     rewrite update_ownership_batch_preserve_rx1 update_reg_global_preserve_rx1.
+     rewrite fill_rx_unsafe_preserve_rx1. 
      2 : {
        rewrite /get_rx_pid_global /get_vm_mail_box /get_mail_boxes //=.
        rewrite /get_mail_boxes //=.
@@ -241,6 +244,8 @@ Proof.
        reflexivity.
      }
      rewrite copy_page_segment_unsafe_preserve_rx1.
+     iFrame.
+     rewrite update_ownership_batch_preserve_rx2 update_reg_global_preserve_rx2.
      
      (* TODO *)
 Admitted.
