@@ -142,7 +142,7 @@ From HypVeri Require Import RAs.
     rewrite get_reg_gmap_get_vm_reg_file.
     unfold get_reg,get_reg_global;subst;done.
   Qed.
-
+  
   Lemma update_reg_global_update_reg σ i r w : is_Some((get_reg_gmap σ) !! (r,i)) -> get_reg_gmap (update_reg_global σ i r w) =
                                              <[(r,i) := w]>(get_reg_gmap σ).
   Proof.
@@ -1937,6 +1937,11 @@ From HypVeri Require Import RAs.
   Lemma fill_rx_unsafe_preserve_receivers σ l v r tx rx :
   get_retri_gmap (fill_rx_unsafe σ l v r tx rx) = get_retri_gmap σ.
   Proof. f_equal. Qed.
+
+  (*
+  Lemma fill_rx_unsafe_update_mailbox σ l v r tx rx :
+    get_rx_gmap (fill_rx_unsafe σ l v r tx rx) = <[r := Some (l, v)]>(get_rx_gmap σ).
+  *)
   
   Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
    dom (gset handle) (get_transactions_gmap σ proj) = dom (gset handle) (get_transactions σ).1.

@@ -234,6 +234,12 @@ Proof.
      (* update rx *)
      rewrite update_ownership_batch_preserve_rx update_reg_global_preserve_rx.
      rewrite fill_rx_unsafe_preserve_rx1.
+     2 : {
+       rewrite /get_rx_pid_global /get_vm_mail_box /get_mail_boxes //=.
+       rewrite /get_mail_boxes //=.
+       rewrite Hcureq Hpair.
+       reflexivity.
+     }
      rewrite copy_page_segment_unsafe_preserve_rx1.
      
      TODO     
