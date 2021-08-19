@@ -2130,12 +2130,14 @@ From HypVeri Require Import RAs.
     apply map_eq.
     intros i.
     destruct (list_to_map
-    (map
-       (λ v0 : VMID,
-          match (get_vm_mail_box (fill_rx_unsafe σ l v r tx rx) v0).2.2 with
-          | Some (l0, j) => (v0, Some (l0, j))
-          | None => (v0, None)
-          end) list_of_vmids) !! i) eqn:Heqn.
+                (map
+                   (λ v0 : VMID,
+                           match (get_vm_mail_box (fill_rx_unsafe σ l v r tx rx) v0).2.2 with
+                           | Some (l0, j) => (v0, Some (l0, j))
+                           | None => (v0, None)
+                           end
+                   )
+                   list_of_vmids) !! i) eqn:Heqn.
     - apply elem_of_list_to_map_2 in Heqn.
       apply elem_of_list_In in Heqn.
       apply in_map_iff in Heqn.
@@ -2150,10 +2152,118 @@ From HypVeri Require Import RAs.
         inversion Heqn1; subst; clear Heqn1.
         rewrite lookup_insert.
         reflexivity.
-      + simpl in Heqn1.
+      + symmetry.
+        rewrite lookup_insert_Some.
         rewrite /get_vm_mail_box /get_mail_boxes //= in Heqn1.
         rewrite vlookup_insert_ne in Heqn1; auto.
-  Admitted.
+        destruct (σ.1.1.1.1.2 !!! y) as [a b] eqn:Heqn3.
+        destruct b as [c d] eqn:Heqn4.
+        simpl in Heqn1.
+        destruct d as [e|] eqn:Heqn5.
+        * destruct e as [f g] eqn:Heqn6.
+          inversion Heqn1; subst; clear Heqn1.
+          rewrite /get_vm_mail_box /get_mail_boxes.
+          right.
+          split; auto.
+          apply elem_of_list_to_map_1'.
+          -- intros y H.
+             apply elem_of_list_In in H.
+             apply in_map_iff in H.
+             destruct H as [x [H1 H2]].
+             destruct (decide (x = i)).
+             ++ subst.
+                rewrite Heqn3 //= in H1.
+                inversion H1; subst; reflexivity.
+             ++ destruct (σ.1.1.1.1.2 !!! x) as [a' b'] eqn:Heqn3'.
+                destruct b' as [c' d'] eqn:Heqn4'.
+                simpl in H1.
+                destruct d' as [e'|] eqn:Heqn5'.
+                ** destruct e' as [f' g'] eqn:Heqn6'.
+                   simplify_eq.
+                ** simplify_eq.
+          -- apply elem_of_list_In.
+             apply in_map_iff.
+             exists i.
+             rewrite Heqn3 //=.
+             apply elem_of_list_In in Heqn2.
+             split; auto.
+        * simplify_eq.
+          rewrite /get_vm_mail_box /get_mail_boxes //=.
+          right.
+          split; auto.
+          apply elem_of_list_to_map_1'.
+          -- intros y H.
+             apply elem_of_list_In in H.
+             apply in_map_iff in H.
+             destruct H as [x [H1 H2]].
+             destruct (decide (x = i)).
+             ++ subst.
+                rewrite Heqn3 //= in H1.
+                inversion H1; subst; reflexivity.
+             ++ destruct (σ.1.1.1.1.2 !!! x) as [a' b'] eqn:Heqn3'.
+                destruct b' as [c' d'] eqn:Heqn4'.
+                simpl in H1.
+                destruct d' as [e'|] eqn:Heqn5'.
+                ** destruct e' as [f' g'] eqn:Heqn6'.
+                   simplify_eq.
+                ** simplify_eq.
+          -- apply elem_of_list_In.
+             apply in_map_iff.
+             exists i.
+             rewrite Heqn3 //=.
+             apply elem_of_list_In in Heqn2.
+             split; auto.
+    - symmetry.
+      rewrite <-not_elem_of_list_to_map in Heqn.
+      destruct (decide (r = i)).
+      + subst.
+        exfalso.
+        apply Heqn.
+        rewrite <-list_fmap_compose.
+        rewrite /compose.
+        rewrite /get_vm_mail_box /fill_rx_unsafe /get_mail_boxes //=.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        exists i.
+        split; auto using in_list_of_vmids.
+        rewrite vlookup_insert //=.
+      + rewrite /get_vm_mail_box /fill_rx_unsafe /get_mail_boxes //=.
+        rewrite lookup_insert_None.
+        split; auto.
+        rewrite <-not_elem_of_list_to_map.
+        rewrite /get_vm_mail_box /fill_rx_unsafe /get_mail_boxes //= in Heqn.
+        intros H.
+        apply Heqn.
+        apply elem_of_list_In.
+        apply in_map_iff.
+        apply elem_of_list_In in H.
+        apply in_map_iff in H.
+        destruct H as [x [H1 H2]]; subst.
+        apply in_map_iff in H2.
+        destruct H2 as [x' [H1 H2]].
+        destruct (σ.1.1.1.1.2 !!! x') as [a b] eqn:Heqn3.
+        destruct b as [c d] eqn:Heqn4.
+        simpl in H1.
+        destruct d as [e|] eqn:Heqn5.
+        * destruct e as [f g] eqn:Heqn6.
+          exists (x.1, Some (f, g)).
+          split; auto.
+          apply in_map_iff.
+          exists x.1.
+          rewrite vlookup_insert_ne //=; auto.
+          split; auto using in_list_of_vmids.
+          simplify_eq.      
+          rewrite // Heqn3 //=.
+        * simplify_eq.
+          exists (x', None).
+          split; auto.
+          apply in_map_iff.
+          exists x'.
+          simpl in n.
+          rewrite vlookup_insert_ne //=; auto.
+          split; auto using in_list_of_vmids.
+          rewrite Heqn3 //=.
+  Qed.
   
   Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
    dom (gset handle) (get_transactions_gmap σ proj) = dom (gset handle) (get_transactions σ).1.

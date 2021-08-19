@@ -32,15 +32,15 @@ Lemma hvc_retrieve {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gset PID}
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ wh ->re false
   ∗ ▷ (R1 @@ i ->r r1) ∗ ▷ wh ->t{1}(j, wf, i, psd, Donation)
   ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
-  ∗ ▷ mem_region des ptx ∗ ▷ RX@ i :=( rxp !) }}}
+  ∗ ▷ mem_region des ptx ∗ ▷ RX@ i :=( rxp !) ∗ ▷ (∃l, mem_region l rxp ∗ ⌜ length l = length des ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
-  ∗ R0 @@ i ->r r0 ∗ R1 @@ i ->r wh
-  ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( rxp ! l, i)
+  ∗ R0 @@ i ->r r1 ∗ R1 @@ i ->r (encode_hvc_ret_code Succ)
+  ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( rxp ! r1, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
   iIntros (Hdecodei Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Hlenl Hdes Hdesl Hseq Φ).
-  iIntros "(>PC & >Hai & >HA & >Hr0 & >Hwhf & >Hr1 & >Hwh & >HO & >HE & >HTX & >Hmemr & >HRX) HΦ".
+  iIntros "(>PC & >Hai & >HA & >Hr0 & >Hwhf & >Hr1 & >Hwh & >HO & >HE & >HTX & >Hmemr & >HRX & >HRXCont) HΦ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [Hcureq]; clear Hsche.
@@ -246,7 +246,183 @@ Proof.
      rewrite copy_page_segment_unsafe_preserve_rx1.
      iFrame.
      rewrite update_ownership_batch_preserve_rx2 update_reg_global_preserve_rx2.
+     rewrite fill_rx_unsafe_update_mailbox.
+     rewrite copy_page_segment_unsafe_preserve_rx2.
+     Set Nested Proofs Allowed.
+     Lemma gen_rx_gmap_update_global_Some {_l _r} :
+       ∀ (σ : state) i l r rxp,
+         ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
+         RX@i:=(rxp!_l,_r) ==∗
+         ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, r)]>(get_rx_gmap σ)) ∗
+         RX@i:=(rxp!l,r).
+     Proof.
+       iIntros (?????) "Hσ Hrx".
+       rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
+       iDestruct "Hrx" as "(Hrx1 & Hrx2)".
+       iDestruct (ghost_map_update (Some (l, r)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+       iFrame.
+       done.
+     Qed.
+     Lemma gen_rx_gmap_update_global_None :
+       ∀ (σ : state) i l r rxp,
+         ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
+         RX@i:=(rxp!) ==∗
+         ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, r)]>(get_rx_gmap σ)) ∗
+         RX@i:=(rxp!l,r).
+     Proof.
+       iIntros (?????) "Hσ Hrx".
+       rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
+       iDestruct "Hrx" as "(Hrx1 & Hrx2)".
+       iDestruct (ghost_map_update (Some (l, r)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+       iFrame.
+       done.
+     Qed.
+     iCombine "HRX1 HRX2" as "HRX". 
+     iDestruct ((gen_rx_gmap_update_global_None σ1 (get_current_vm σ1) r1 (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
+     iFrame.
+     rewrite /copy_page_segment_unsafe /copy_from_addr_to_addr_unsafe //=.
+     rewrite /get_tx_pid_global /get_vm_mail_box /get_mail_boxes //=.
+     rewrite <-Hcureq in Htx.
+     rewrite Htx.
+     rewrite /mem_region.
+     assert (Hlength: ((read_mem_segment_unsafe
+                          (get_reg_files σ1, σ1.1.1.1.1.2, get_page_tables σ1, get_current_vm σ1, get_mem σ1,
+                           (<[wh := (j, wf, true, get_current_vm σ1, psd, Donation)]> (get_transactions σ1).1,
+                            (get_transactions σ1).2)) ptx r1)) = des).
+     {
+       rewrite /read_mem_segment_unsafe.
+       rewrite /get_mem in Hadesc.
+       apply (f_equal Z.to_nat) in Hdesl.
+       rewrite Hdesl.
+       rewrite Nat2Z.id.
+       clear Hdes Hdesl Hseq Hlendesclt Htx Hpair.
+       generalize dependent (of_pid ptx).
+       induction des; first done.
+       simpl in IHdes.
+       simpl.
+       intros.
+       rewrite /get_memory_unsafe.
+       rewrite (Hadesc 0 f a).
+       simpl.
+       f_equal.
+       rewrite /get_memory_unsafe in IHdes.
+       rewrite (IHdes (f ^+ 1)%f).
+       reflexivity.
+       intros k y1 y2 H1 H2.
+       apply Hadesc with (S k); auto.
+       reflexivity.
+       reflexivity.
+     }
+     iDestruct "HRXCont" as "[%l0 [HRXCont' %Hlen']]".
+     rewrite Hlength.
+     rewrite /write_mem_segment_unsafe //.
+     rewrite /get_rx_pid_global /get_vm_mail_box /get_mail_boxes.
+     assert (Heq1 : (get_reg_files σ1, σ1.1.1.1.1.2, get_page_tables σ1, get_current_vm σ1, 
+                     get_mem σ1,
+                     (<[wh := (j, wf, true, get_current_vm σ1, psd, Donation)]> (get_transactions σ1).1,
+                      (get_transactions σ1).2)).1.1.1.1.2 = σ1.1.1.1.1.2).
+     auto.
+     rewrite Heq1.
+     rewrite <-Hcureq in Hpair.
+     rewrite Hpair.
+     cbn.
+     iDestruct ((gen_mem_update_Sep_list (finz.seq rxp (length l0)) l0 des) with "Hσmem HRXCont'") as "Hmemupd".
+     rewrite Hlen'.
+     apply finz_seq_NoDup'.
+     pose proof last_addr_in_bound as Hbound.
+     specialize (Hbound rxp).
+     solve_finz.
+     assumption.
+     assert (Hzipeq : (zip (finz.seq rxp (length l0)) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)).
+     {
+       (* snd_zip: ∀ (A B : Type) (l : list A) (k : list B), length k ≤ length l → (zip l k).*2 = k *)
+       (* zip_fst_snd: ∀ (A B : Type) (lk : list (A * B)), zip lk.*1 lk.*2 = lk *)
+       rewrite <-(zip_fst_snd (zip (finz.seq rxp (Z.to_nat 1000)) des)).
+       rewrite !snd_zip; auto.
+       f_equal.
+       rewrite Hlen'.
+       clear Hdes Hdesl Hseq Hadesc Hlength Hlen'.
+       generalize dependent (of_pid rxp).
+       induction des; first done.
+       cbn.
+       Lemma length {A B} {l' : list A} {l1 l2 l3 : list B} :
+         length l' < length l1 -> l2 = l1 ++ l3 -> zip l1 l' = zip l2 l'.
+       Proof.
+         simpl.
+         generalize dependent l1.
+         generalize dependent l2.
+         generalize dependent l3.
+         induction l'.
+         - intros l3 l2 l1 H1 H2.
+           rewrite /zip.
+           destruct l2, l1; done.
+         - intros l3 l2 l1 H1 H2.
+           destruct l2, l1; try done.
+           simpl in H2.
+           inversion H2.
+           simpl in H1.
+           inversion H1.
+           inversion H2; subst.
+           simpl.
+           f_equal.
+           rewrite (IHl' l3 (l1 ++ l3) l1); try done.
+           simpl in H1.
+           lia.
+       Qed.
+       destruct (Z.to_nat 1000) eqn:Heqn1000; first done.
+       simpl.
+       intros f.
+       f_equal.
+       assert (Hn : n = 999).
+       lia.
+       subst n.
+       rewrite (@length _ _ des (finz.seq (f ^+ 1)%f 999) (finz.seq (f ^+ 1)%f 1000) [(f ^+ 1000)%f]).
+       simpl in Hlendesclt.
+       rewrite IHdes.
+       reflexivity.
+       lia.
+       simpl in Hlendesclt.
+       rewrite finz_seq_length.
+       lia.
+       rewrite (finz_seq_decomposition _ 1000 _ 999).
+       f_equal.
+       simpl.
+       f_equal.
+       solve_finz.
+       lia.
+       rewrite finz_seq_length.
+       lia.
+     }
+     rewrite Hzipeq.
+     iDestruct "Hmemupd" as ">[Hmemupd1 Hmemupd2]".
+     iFrame "Hmemupd1".
+     iSplitR.
+     iPureIntro.
+     rewrite dom_insert_lookup_L; eauto.
+     split; [set_solver|].
+     apply map_Forall_insert_2; auto.
+     simpl.
+     rewrite <-Hlenl.
+     destruct (finz_spec word_size l) as [H _].
+     rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
+     assumption.
+     iApply "HΦ".
+     rewrite Hlen'.
+     rewrite Hcureq.
+     iFrame.
      
+     (* "Hr1" : R1 @@ get_current_vm σ1 ->r r1
+  "Hwh" : wh->t{1}(j,wf,get_current_vm σ1,psd,Donation) 
+  "Hr0" : R0 @@ get_current_vm σ1 ->r encode_hvc_ret_code Succ
+  "HRX2" : rx_option_mapsto (get_current_vm σ1) (Some (r1, get_current_vm σ1))
+*)
+     iExists h.
+     by iFrame.
+     (* "Hmemr" : [∗ list] a;w ∈ finz.seq ptx (length des);des, a ->a w 
+        Hlendesclt : (length des ≤ 1000 - 1)%Z
+      *)
+     Print mem_page.
+     gen_mem_update_page
      (* TODO *)
 Admitted.
        
