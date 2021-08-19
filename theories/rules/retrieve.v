@@ -35,7 +35,7 @@ Lemma hvc_retrieve {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gset PID}
   ∗ ▷ mem_region des ptx ∗ ▷ RX@ i :=( rxp !) ∗ ▷ (∃l, mem_region l rxp ∗ ⌜ length l = length des ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
-  ∗ R0 @@ i ->r r1 ∗ R1 @@ i ->r (encode_hvc_ret_code Succ)
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
   ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( rxp ! r1, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
@@ -410,21 +410,7 @@ Proof.
      rewrite Hlen'.
      rewrite Hcureq.
      iFrame.
-     
-     (* "Hr1" : R1 @@ get_current_vm σ1 ->r r1
-  "Hwh" : wh->t{1}(j,wf,get_current_vm σ1,psd,Donation) 
-  "Hr0" : R0 @@ get_current_vm σ1 ->r encode_hvc_ret_code Succ
-  "HRX2" : rx_option_mapsto (get_current_vm σ1) (Some (r1, get_current_vm σ1))
-*)
-     iExists h.
-     by iFrame.
-     (* "Hmemr" : [∗ list] a;w ∈ finz.seq ptx (length des);des, a ->a w 
-        Hlendesclt : (length des ≤ 1000 - 1)%Z
-      *)
-     Print mem_page.
-     gen_mem_update_page
-     (* TODO *)
-Admitted.
+Qed.
        
 
 End retrieve.
