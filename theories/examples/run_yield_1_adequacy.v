@@ -43,7 +43,6 @@ Section Adequacy.
   Context {tokG: tokG gen_VMΣ}.
 
   (* exec_mode of all VMs *)
-   About adequate.
   Lemma run_yield_1_adequacy' (σ : state) (ms : list exec_mode) φs:
     (* we need assumptions to be able to allocate resources *)
     (* with these resources, we apply the specification and get the wptp *)
@@ -277,85 +276,85 @@ Section Adequacy.
     destruct H.
     rewrite H.
     rewrite H in Hi.
-    rewrite !big_opL_app.
-    cbn.
-    cbn in Hi.
-    destruct (decide (n = length x)).
-    iSplitR.
-    {  iApply big_sepL_intro.
-    iModIntro.
-    iIntros.
-    pose proof (Hrest (S k)).
-    rewrite Heqz in H1.
-    rewrite H in H1.
-    cbn in H1.
-    assert (S k ≠ 0 ∧ S  k ≠ S n).
-    split.
-    done.
-    rewrite e.
-    apply lookup_lt_Some in H0.
-    lia.
-    apply H1 in H2.
-    apply (lookup_app_l_Some _ (ExecI :: x0) ) in H0.
-    rewrite H2 in H0.
-    inversion H0.
-    iApply wp_terminated';eauto.
-    }
-    iSplitL.
-    iSplitL;[|done].
-    assert (n = length x + 0). rewrite e. lia.
-    rewrite H0.
-    iApply (wp_mono  with "HWPi").
-    iIntros.
-    done.
+    (* rewrite !big_opL_app. *)
+    (* cbn. *)
+    (* cbn in Hi. *)
+    (* destruct (decide (n = length x)). *)
+    (* iSplitR. *)
+    (* {  iApply big_sepL_intro. *)
+    (* iModIntro. *)
+    (* iIntros. *)
+    (* pose proof (Hrest (S k)). *)
+    (* rewrite Heqz in H1. *)
+    (* rewrite H in H1. *)
+    (* cbn in H1. *)
+    (* assert (S k ≠ 0 ∧ S  k ≠ S n). *)
+    (* split. *)
+    (* done. *)
+    (* rewrite e. *)
+    (* apply lookup_lt_Some in H0. *)
+    (* lia. *)
+    (* apply H1 in H2. *)
+    (* apply (lookup_app_l_Some _ (ExecI :: x0) ) in H0. *)
+    (* rewrite H2 in H0. *)
+    (* inversion H0. *)
+    (* iApply wp_terminated';eauto. *)
+    (* } *)
+    (* iSplitL. *)
+    (* iSplitL;[|done]. *)
+    (* assert (n = length x + 0). rewrite e. lia. *)
+    (* rewrite H0. *)
+    (* iApply (wp_mono  with "HWPi"). *)
+    (* iIntros. *)
+    (* done. *)
 
-    iApply big_sepL_intro.
-    iModIntro.
-    iIntros.
-    pose proof (Hrest (S (length x + S k))).
-    rewrite Heqz in H1.
-    rewrite H in H1.
-    cbn in H1.
-    assert (S (length x + S k) ≠ 0 ∧ S (length x + S k) ≠ S n).
-    split.
-    done.
-    rewrite e.
-    lia.
-    apply H1 in H2.
-    apply lookup_app_Some in H2.
-    destruct H2.
-    apply lookup_lt_Some in H2.
-    lia.
-    destruct H2.
-    assert (length x + S k - length x = S k).
-    lia.
-    rewrite H4 in H3.
-    cbn in H3.
-    rewrite H3 in H0.
-    inversion H0.
-    iApply wp_terminated';eauto.
-    rewrite H in Hrest.
-    cbn in Hrest.
-    pose proof (Hrest (S (length x))).
-    assert (S (length x ) ≠ z ∧ S (length x) ≠ S n).
-    split. lia. lia.
-    apply H0 in H1.
-    cbn in H1.
-    apply lookup_app_Some in H1.
-    destruct H1.
-    apply lookup_lt_Some in H1.
-    lia.
-    destruct H1.
-    assert (length x - length x = 0). lia.
-    rewrite H3 in H2.
-    cbn in H2.
-    inversion H2.
+    (* iApply big_sepL_intro. *)
+    (* iModIntro. *)
+    (* iIntros. *)
+    (* pose proof (Hrest (S (length x + S k))). *)
+    (* rewrite Heqz in H1. *)
+    (* rewrite H in H1. *)
+    (* cbn in H1. *)
+    (* assert (S (length x + S k) ≠ 0 ∧ S (length x + S k) ≠ S n). *)
+    (* split. *)
+    (* done. *)
+    (* rewrite e. *)
+    (* lia. *)
+    (* apply H1 in H2. *)
+    (* apply lookup_app_Some in H2. *)
+    (* destruct H2. *)
+    (* apply lookup_lt_Some in H2. *)
+    (* lia. *)
+    (* destruct H2. *)
+    (* assert (length x + S k - length x = S k). *)
+    (* lia. *)
+    (* rewrite H4 in H3. *)
+    (* cbn in H3. *)
+    (* rewrite H3 in H0. *)
+    (* inversion H0. *)
+    (* iApply wp_terminated';eauto. *)
+    (* rewrite H in Hrest. *)
+    (* cbn in Hrest. *)
+    (* pose proof (Hrest (S (length x))). *)
+    (* assert (S (length x ) ≠ z ∧ S (length x) ≠ S n). *)
+    (* split. lia. lia. *)
+    (* apply H0 in H1. *)
+    (* cbn in H1. *)
+    (* apply lookup_app_Some in H1. *)
+    (* destruct H1. *)
+    (* apply lookup_lt_Some in H1. *)
+    (* lia. *)
+    (* destruct H1. *)
+    (* assert (length x - length x = 0). lia. *)
+    (* rewrite H3 in H2. *)
+    (* cbn in H2. *)
+    (* inversion H2. *)
 
-    iModIntro.
+    (* iModIntro. *)
 
-    iIntros.
-    iExists ⊤.
-    iModIntro.
+    (* iIntros. *)
+    (* iExists ⊤. *)
+    (* iModIntro. *)
 
    Admitted.
 

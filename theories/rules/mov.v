@@ -7,7 +7,7 @@ Require Import stdpp.fin.
 Section mov.
 
 Context `{vmG: !gen_VMG Σ}.
-  
+
 Lemma mov_word {E instr i w1 w3 q p s} a w2 ra :
   instr = Mov ra (inl w2) ->
   decode_instruction w1 = Some(instr) ->
