@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base transaction.
+From HypVeri Require Import RAs rule_misc lifting rules.rules_base transaction utils.
 From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
@@ -8,7 +8,7 @@ Section retrieve.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_retrieve {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gset PID}
+Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gset PID}
       ai r0 r1 wh wf (psd: list PID) :
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
@@ -248,35 +248,6 @@ Proof.
      rewrite update_ownership_batch_preserve_rx2 update_reg_global_preserve_rx2.
      rewrite fill_rx_unsafe_update_mailbox.
      rewrite copy_page_segment_unsafe_preserve_rx2.
-     Set Nested Proofs Allowed.
-     Lemma gen_rx_gmap_update_global_Some {_l _r} :
-       ∀ (σ : state) i l r rxp,
-         ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
-         RX@i:=(rxp!_l,_r) ==∗
-         ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, r)]>(get_rx_gmap σ)) ∗
-         RX@i:=(rxp!l,r).
-     Proof.
-       iIntros (?????) "Hσ Hrx".
-       rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
-       iDestruct "Hrx" as "(Hrx1 & Hrx2)".
-       iDestruct (ghost_map_update (Some (l, r)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
-       iFrame.
-       done.
-     Qed.
-     Lemma gen_rx_gmap_update_global_None :
-       ∀ (σ : state) i l r rxp,
-         ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
-         RX@i:=(rxp!) ==∗
-         ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, r)]>(get_rx_gmap σ)) ∗
-         RX@i:=(rxp!l,r).
-     Proof.
-       iIntros (?????) "Hσ Hrx".
-       rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
-       iDestruct "Hrx" as "(Hrx1 & Hrx2)".
-       iDestruct (ghost_map_update (Some (l, r)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
-       iFrame.
-       done.
-     Qed.
      iCombine "HRX1 HRX2" as "HRX". 
      iDestruct ((gen_rx_gmap_update_global_None σ1 (get_current_vm σ1) r1 (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
      iFrame.
@@ -335,8 +306,6 @@ Proof.
      assumption.
      assert (Hzipeq : (zip (finz.seq rxp (length l0)) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)).
      {
-       (* snd_zip: ∀ (A B : Type) (l : list A) (k : list B), length k ≤ length l → (zip l k).*2 = k *)
-       (* zip_fst_snd: ∀ (A B : Type) (lk : list (A * B)), zip lk.*1 lk.*2 = lk *)
        rewrite <-(zip_fst_snd (zip (finz.seq rxp (Z.to_nat 1000)) des)).
        rewrite !snd_zip; auto.
        f_equal.
@@ -345,30 +314,6 @@ Proof.
        generalize dependent (of_pid rxp).
        induction des; first done.
        cbn.
-       Lemma length {A B} {l' : list A} {l1 l2 l3 : list B} :
-         length l' < length l1 -> l2 = l1 ++ l3 -> zip l1 l' = zip l2 l'.
-       Proof.
-         simpl.
-         generalize dependent l1.
-         generalize dependent l2.
-         generalize dependent l3.
-         induction l'.
-         - intros l3 l2 l1 H1 H2.
-           rewrite /zip.
-           destruct l2, l1; done.
-         - intros l3 l2 l1 H1 H2.
-           destruct l2, l1; try done.
-           simpl in H2.
-           inversion H2.
-           simpl in H1.
-           inversion H1.
-           inversion H2; subst.
-           simpl.
-           f_equal.
-           rewrite (IHl' l3 (l1 ++ l3) l1); try done.
-           simpl in H1.
-           lia.
-       Qed.
        destruct (Z.to_nat 1000) eqn:Heqn1000; first done.
        simpl.
        intros f.
@@ -376,7 +321,7 @@ Proof.
        assert (Hn : n = 999).
        lia.
        subst n.
-       rewrite (@length _ _ des (finz.seq (f ^+ 1)%f 999) (finz.seq (f ^+ 1)%f 1000) [(f ^+ 1000)%f]).
+       rewrite (@zip_length_le _ _ des (finz.seq (f ^+ 1)%f 999) (finz.seq (f ^+ 1)%f 1000) [(f ^+ 1000)%f]).
        simpl in Hlendesclt.
        rewrite IHdes.
        reflexivity.
@@ -409,7 +354,7 @@ Proof.
      iApply "HΦ".
      rewrite Hlen'.
      rewrite Hcureq.
-     iFrame.
+     by iFrame.
 Qed.
        
 

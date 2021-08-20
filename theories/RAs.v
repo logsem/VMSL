@@ -1422,6 +1422,36 @@ Qed.
    inversion H.
   Qed.
 
+ Lemma gen_rx_gmap_update_global_Some {_l _a} :
+   ∀ (σ : state) i l x rxp,
+     ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
+     RX@i:=(rxp!_l,_a) ==∗
+     ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, x)]>(get_rx_gmap σ)) ∗
+     RX@i:=(rxp!l,x).
+ Proof.
+   iIntros (?????) "Hσ Hrx".
+   rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
+   iDestruct "Hrx" as "(Hrx1 & Hrx2)".
+   iDestruct (ghost_map_update (Some (l, x)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+   iFrame.
+   done.
+ Qed.
+
+ Lemma gen_rx_gmap_update_global_None :
+   ∀ (σ : state) i l x rxp,
+     ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
+     RX@i:=(rxp!) ==∗
+     ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, x)]>(get_rx_gmap σ)) ∗
+     RX@i:=(rxp!l,x).
+ Proof.
+   iIntros (?????) "Hσ Hrx".
+   rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
+   iDestruct "Hrx" as "(Hrx1 & Hrx2)".
+   iDestruct (ghost_map_update (Some (l, x)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+   iFrame.
+   done.
+ Qed.
+ 
 (*
   (* rules for pagetables  *)
   Lemma owned_split_set i q1 q2 (s1 s2 : gset PID):
