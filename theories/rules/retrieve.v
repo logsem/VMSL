@@ -35,7 +35,7 @@ Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gs
   ∗ ▷ mem_region des ptx ∗ ▷ RX@ i :=( rxp !) ∗ ▷ (∃l, mem_region l rxp ∗ ⌜ length l = length des ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
-  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗ wh ->t{1}(j, wf, i, psd, Donation)
   ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( rxp ! r1, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
@@ -356,6 +356,5 @@ Proof.
      rewrite Hcureq.
      by iFrame.
 Qed.
-       
 
 End retrieve.
