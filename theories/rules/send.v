@@ -6,21 +6,16 @@ Require Import stdpp.fin.
 
 Section send.
 
-Context `{vmG: !gen_VMG Σ}.
-
+  Context `{vmG: !gen_VMG Σ}.
+  
 Lemma hvc_send {wi r0 w sacc pi i j des ptx rxp l ai} :
-  (* the current instruction is hvc *)
-  (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
   addr_in_page ai pi ->
-  (* the decoding of R0 is FFA_DONATE *)
   decode_hvc_func r0 = Some(Send) ->
   decode_vmid w = Some j ->
-  (* pi page in spsd is accessible for VM i *)
   pi ∈ sacc ->
   (finz.to_z l) = (Z.of_nat (length des)) ->
-  seq_in_page (of_pid ptx) (length des) ptx ->
+  ((length des) < page_size)%Z ->
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗ ▷ A@i:={1}[sacc]
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r w) ∗ ▷ (R2 @@ i ->r l)
   ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx ∗ ▷ RX@ j :=( rxp !)
@@ -31,7 +26,7 @@ Lemma hvc_send {wi r0 w sacc pi i j des ptx rxp l ai} :
   ∗ TX@ i := ptx ∗ RX@ j :=( rxp ! l, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
-  iIntros (Hdecodei Hinpi Hdecodef Hdecvmid Hpiacc Hlenl Hseq Φ).
+  iIntros (Hdecodei Hinpi Hdecodef Hdecvmid Hpiacc Hlenl Hsize Φ).
   iIntros "(>PC & >Hai & >HA & >Hr0 & >Hr1 & >Hr2 & >HTX & >Hmemr & >HRX & >Hmemr') HΦ".
   iDestruct "Hmemr'" as "[%l' [Hmemr' %Hlen']]".
   iApply (sswp_lift_atomic_step ExecI); [done|].
@@ -47,7 +42,12 @@ Proof.
   iDestruct ((gen_access_valid_lookup_Set _ _ _ sacc) with "Hσaccess HA") as %Hacc; eauto.
   iDestruct (gen_mem_valid σ1 ai wi with "Hσmem Hai") as %Hai.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hmemr") as %Hadesc.
-  { apply finz_seq_NoDup. destruct Hseq as [? [HisSome ?]]. done. }
+  {
+    apply finz_seq_NoDup.
+    pose proof last_addr_in_bound as Hlaib.
+    specialize (Hlaib ptx).
+    solve_finz.
+  }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
   iDestruct (gen_rx_none_valid with "HRX Hσrx2") as %Hrx2.
   iDestruct "HRX" as "(HRX1 & HRX2)".
@@ -64,13 +64,12 @@ Proof.
     rewrite /exec /hvc HR0 Hdecodef /send HR1 /= Hdecvmid /= HR2 /= /transfer_msg /transfer_msg_unsafe in Heqc2.
     assert (Hlendesclt :((Z.of_nat (length des)) <= (page_size-1))%Z).
     {
-      destruct Hseq as [? [HisSome Hltpagesize]].
       apply (finz_plus_Z_le (of_pid ptx)); eauto.
+      pose proof last_addr_in_bound as Hlaib.
+      specialize (Hlaib ptx).
+      solve_finz.
       apply last_addr_in_bound.
-      apply Z.leb_le.
-      destruct (((ptx ^+ length des)%f <=? (ptx ^+ (page_size - 1))%f)%Z).
-      done.
-      contradiction.
+      solve_finz.
     }
     destruct (page_size <? l)%Z eqn:Hr1ps; [lia|].
     rewrite /get_tx_pid_global Hcureq Htx /get_rx_pid_global /fill_rx Hrx1 in Heqc2.
@@ -137,7 +136,7 @@ Proof.
       apply (f_equal Z.to_nat) in Hlenl.
       rewrite Hlenl.
       rewrite Nat2Z.id.
-      clear Hlenl Hseq Hlendesclt Htx Hpreserve Hlen'.
+      clear Hlenl Hlendesclt Htx Hpreserve Hlen' Hsize.
       generalize dependent (of_pid ptx).
       induction des; first done.
       simpl in IHdes.
@@ -170,7 +169,7 @@ Proof.
       rewrite !snd_zip; auto.
       f_equal.
       rewrite Hlen'.
-      clear Hlenl Hseq Hadesc Hlist Hlen'.
+      clear Hlenl Hadesc Hlist Hlen' Hsize.
       generalize dependent (of_pid rxp).
       induction des; first done.
       cbn.
