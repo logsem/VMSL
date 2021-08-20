@@ -9,8 +9,8 @@ From HypVeri Require Export lang machine RAs.
   Definition serialized_transaction_descriptor (v r:VMID) (wf  l : Word) (ps: list PID) (h : handle ): list Word :=
     [(of_imm (encode_vmid v)); wf; h] ++ (serialized_memory_descirptor l r ps).
 
-  Lemma trans_desc_length{i j wf l ps} des :
-    des = serialized_transaction_descriptor i j wf  l ps W0 ->
+  Lemma trans_desc_length{i j wf l ps wh} des :
+    des = serialized_transaction_descriptor i j wf  l ps wh ->
     (finz.to_z l) = (Z.of_nat (length ps)) ->
     ((Z.of_nat (length des)) = 5 + (finz.to_z l))%Z.
   Proof.
@@ -161,4 +161,42 @@ Qed.
        }
     rewrite -> sequence_a_map_unit.
     done.
- Qed.
+  Qed.
+
+  Lemma transaction_retrieve_descriptor_valid {j handle wf l psd σ} des p :
+    (finz.to_z l) = (Z.of_nat (length psd)) ->
+    des = [of_imm (encode_vmid j); wf; handle; l; of_imm (encode_vmid (get_current_vm σ))] ++ map of_pid psd ->
+    seq_in_page (of_pid p) (length des) p ->
+    (∀ (k : nat) (y1 y2 : Addr),
+             finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
+    parse_transaction_descriptor_retrieve σ p = Some (j, Some handle, wf, (get_current_vm σ), []).
+  Proof.
+    intros H H0 H1 H2.
+    rewrite /parse_transaction_descriptor_retrieve /get_memory_with_offset.
+    destruct H1 as [_ [? _]].
+    simpl in H0.
+    pose proof (@trans_desc_length j (get_current_vm σ) wf l psd handle des) as H3.
+    rewrite /serialized_transaction_descriptor /serialized_memory_descirptor in H3.
+    simpl in H3.
+    pose proof (H3 H0) as Hlen.
+    assert (HpSome: ((of_pid p) + 0)%f = Some ((of_pid p) ^+ 0)%f).
+    solve_finz.
+    rewrite HpSome //=;clear HpSome.
+    rewrite (H2 0 ((of_pid p) ^+ 0)%f (encode_vmid j)).
+    2: { apply finz_seq_lookup. rewrite H0. simpl. lia. solve_finz. }
+    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
+    assert (HpSome: ((of_pid p) + 1)%f = Some ((of_pid p) ^+ 1)%f).
+    solve_finz.
+    rewrite HpSome //=;clear HpSome.
+    rewrite (H2 1 ((of_pid p) ^+ 1)%f wf).
+    2: { apply finz_seq_lookup. rewrite H0. simpl. lia. solve_finz. }
+    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
+    assert (HpSome: ((of_pid p) + 2)%f = Some ((of_pid p) ^+ 2)%f).
+    solve_finz.
+    rewrite HpSome //=;clear HpSome.
+    rewrite (H2 2 ((of_pid p) ^+ 2)%f handle).
+    2: { apply finz_seq_lookup. rewrite H0. simpl. lia. solve_finz. }
+    2: { rewrite H0 /serialized_transaction_descriptor. by list_simplifier. }
+    rewrite !decode_encode_vmid /=.
+    reflexivity.
+  Qed.

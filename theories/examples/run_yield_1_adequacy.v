@@ -10,32 +10,33 @@ From iris.bi Require Import big_op.
     ms !! (fin_to_nat z) = Some ExecI ∧
     ∀ v , (v ≠ (fin_to_nat z) ∧ v ≠ (fin_to_nat i) -> ms !! v = Some HaltI).
 
-  Definition mk_region (p:PID) (ws: list Word) : gmap Addr Word:=
-    (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
+ Definition mk_region (p:PID) (ws: list Word) : gmap Addr Word:=
+   (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
 
-  Definition mem_layout (σ :state) (z i: VMID) (p1 p2: PID) :=
-      (∃ a, is_accessible a= true ∧ (get_vm_page_table σ z).2 !! p1 = Some a) ∧
-      (∃ a, is_accessible a= true ∧ (get_vm_page_table σ i).2 !! p2 = Some a) ∧
-      (mk_region p1 (program1 i)) ∪ (mk_region p2 program2) ⊆ (get_mem σ).
+ Definition mem_layout (σ :state) (z i: VMID) (p1 p2: PID) :=
+   (∃ a, is_accessible a= true ∧ (get_vm_page_table σ z).2 !! p1 = Some a) ∧
+   (∃ a, is_accessible a= true ∧ (get_vm_page_table σ i).2 !! p2 = Some a) ∧
+   (mk_region p1 (program1 i)) ∪ (mk_region p2 program2) ⊆ (get_mem σ).
 
-  Definition reg (σ: state) (z i: VMID) (p1 p2: PID):=
-    (∃ r0 r1 ,{[PC := (of_pid p1); R0 := r0; R1 := r1]} ⊆ (get_reg_files σ)!!!z) ∧
-    ∃ r0 ,{[PC := (of_pid p2); R0 := r0]} ⊆ (get_reg_files σ) !!! i .
+ Definition reg (σ: state) (z i: VMID) (p1 p2: PID):=
+   (∃ r0 r1 ,{[PC := (of_pid p1); R0 := r0; R1 := r1]} ⊆ (get_reg_files σ)!!!z) ∧
+   ∃ r0 ,{[PC := (of_pid p2); R0 := r0]} ⊆ (get_reg_files σ) !!! i .
 
-  Definition transactions (σ: state):=
-    (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
-    (get_transactions σ).2 ≠ ∅.
+ Definition transactions (σ: state):=
+   (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
+   (get_transactions σ).2 ≠ ∅.
 
-  Definition is_initial_config (σ: state) (ms: list exec_mode) (φs : list (exec_mode -> Prop )):=
-    ∃ (z i:VMID), (fin_to_nat z) = 0 ∧ z ≠ i ∧
-                  (get_current_vm σ) = z ∧
-                  φs !! 0 = Some (λ m ,  m = HaltI ) ∧
-                  (∀ (v:nat) , v ≠ 0 -> φs !! v = Some (λ _, True)) ∧
-    ∃ (p1 p2: PID), p1 ≠ p2 ∧
-                  (run_vms ms z i) ∧
-                  (mem_layout σ z i p1 p2) ∧
-                  (reg σ z i p1 p2) ∧
-                  transactions σ.
+ Definition is_initial_config (σ: state) (ms: list exec_mode) (φs : list (exec_mode -> Prop )):=
+   ∃ (z i:VMID), (fin_to_nat z) = 0 ∧ z ≠ i ∧
+                 (get_current_vm σ) = z ∧
+                 φs !! 0 = Some (λ m ,  m = HaltI ) ∧
+                 (∀ (v:nat) , v ≠ 0 -> φs !! v = Some (λ _, True)) ∧
+                 ∃ (p1 p2: PID), p1 ≠ p2 ∧
+                                 (run_vms ms z i) ∧
+                                 (mem_layout σ z i p1 p2) ∧
+                                 (reg σ z i p1 p2) ∧
+                                 transactions σ ∧
+                                 len σ.
 
 Section Adequacy.
   Context {nainv_preG : na_invG gen_VMΣ}.
@@ -97,7 +98,6 @@ Section Adequacy.
     iSplitR.
     iModIntro.
     done.
-
     (* use assumptions to extract resources *)
     (* for mem: sepM -> sepL2 *)
 
@@ -172,6 +172,21 @@ Section Adequacy.
     rewrite token_agree_eq /token_agree_def.
     rewrite access_mapsto_eq /access_mapsto_def.
     iFrame.
+    destruct Hmem as (Hacc1 & Hacc2 & Hmem).
+    iDestruct ((big_sepM_subseteq _ (get_access_gmap σ)
+                (<[z := (get_vm_page_table σ z).2]>({[i := (get_vm_page_table σ i).2]} : (gmap VMID _)))) with "Haccess" ) as "Haccess";eauto.
+    { admit. }
+    (* iDestruct "Haccess" as "[H1 H2]". *)
+    assert ({[z := (get_vm_page_table σ z).2 ;
+                                         i := (get_vm_page_table σ i).2 ]}
+            = <[z := (get_vm_page_table σ z).2]>({[i := (get_vm_page_table σ i).2]} : (gmap VMID _))).
+    done.
+    rewrite H.
+    iDestruct ((big_sepM_insert (λ k x,ghost_map.ghost_map_elem access_gname k (dfrac.DfracOwn 1) x) {[i := (get_vm_page_table σ i).2]} z (get_vm_page_table σ z).2)  with "[Haccess]")
+    as "H1".
+    {admit. }
+    iDestruct "Haccess" as "[H1 H2]".
+      in "Haccess". ?big_sepM_empty;eauto.
 
     iDestruct ((big_sepM_subseteq _ (get_mem σ) (mk_region p1 (program1 i) ∪ mk_region p2 program2))
                  with "Hmem") as "Hmem";eauto.
@@ -356,6 +371,6 @@ Section Adequacy.
     (* iExists ⊤. *)
     (* iModIntro. *)
 
-   Admitted.
+  Admitted.
 
 End Adequacy.
