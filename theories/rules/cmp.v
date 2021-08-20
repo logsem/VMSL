@@ -23,7 +23,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [ | | | | src dst Hvalidra | | |] .
@@ -50,30 +50,31 @@ Proof.
     (* unchanged part *)
     rewrite_reg_all.
     rewrite Hcur.
-    iFrame.
+    iFrame "Htok Htx Hrxagree Hrxoption Howned Hrest".
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     rewrite update_reg_global_update_reg;[|solve_reg_lookup].
     + destruct (w3 <? (of_imm w2))%f,  ((of_imm w2) <? w3)%f.
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hapc Hra Hpc Hnz".
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
-      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W0 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.      iModIntro.
-      iFrame.
+      by iFrame "Hapc Hra Hpc Hnz".
+      iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W0 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
+      iModIntro.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hapc Hra Hpc Hnz".
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W1 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hapc Hra Hpc Hnz".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
       by simplify_map_eq /=.
@@ -94,7 +95,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [ | | | | | src dst Hvalidra Hvalidrb Hneqrarb | |] .
@@ -122,31 +123,31 @@ Proof.
     (* unchanged part *)
     rewrite_reg_all.
     rewrite Hcur.
-    iFrame.
+    iFrame "Htok Htx Hrxagree Hrxoption Howned Hrest".
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     rewrite update_reg_global_update_reg;[|solve_reg_lookup].
     + destruct (w2 <? w3)%f,  (w3 <? w2)%f.
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hpc Hapc Hra Hrb Hnz".
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hpc Hapc Hra Hrb Hnz".
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W0 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hpc Hapc Hra Hrb Hnz".
       iDestruct ((gen_reg_update2_global σ1 PC i ai (ai ^+ 1)%f NZ i w4 W1 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hpc Hapc Hra Hrb Hnz".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
       by simplify_map_eq /=.

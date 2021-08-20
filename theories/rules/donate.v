@@ -57,7 +57,7 @@ Proof.
   inversion Hsche as [ Hcureq ]; clear Hsche.
   apply fin_to_nat_inj in Hcureq.
   iModIntro.
-  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & ? & ? & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hσpsdl & Hrcv)".
+  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hσpsdl & Hrcv)".
   (* valid regs *)
   iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 r1 R2 r2 Hcureq ) with "Hσreg PC R0 R1 R2 ")
     as "[%HPC [%HR0 [%HR1 %HR2]]]";eauto.
@@ -138,7 +138,7 @@ Proof.
     rewrite_reg_all.
     rewrite_access_all.
     rewrite_trans_all.
-    iFrame.
+    iFrame "Hcur Hσmem Hσtx Hσrx1 Hσrx2".
     (* update regs *)
      rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
      rewrite !update_reg_global_update_reg;rewrite ?update_access_batch_preserve_regs ?insert_transaction_preserve_regs;try solve_reg_lookup.
@@ -161,21 +161,20 @@ Proof.
      }
      iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i h R0 i (encode_hvc_ret_code Succ) ) with "Hσreg PC R2 R0") as ">[Hσreg [PC [R2 R0]]]";eauto.
      rewrite Hcureq.
-     iFrame.
+     iFrame "Hσreg".
      (* update page table *)
      rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);eauto.
      rewrite_trans_all.
      iDestruct ((gen_access_update_diff spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
-     set_solver.
      rewrite Hcureq.
-     iFrame.
+     iFrame "Hσaccess".
      rewrite update_access_batch_preserve_ownerships insert_transaction_preserve_owned.
-     iFrame.
+     iFrame "Hσowned".
      rewrite (@update_access_batch_update_excl_diff _ i sexcl spsd psd);eauto.
      rewrite_trans_all.
      iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
      rewrite Hcureq.
-     iFrame.
+     iFrame "Hσexcl".
      (* update transactions *)
      rewrite insert_transaction_update_trans /=.
      rewrite insert_transaction_update_hpool /=.
@@ -204,7 +203,7 @@ Proof.
        rewrite get_retri_gmap_preserve_dom.
        set_solver.
      }
-     iFrame.
+     iFrame "Hσrtrv Hσhp Hσtrans".
      iModIntro.
      iSplitR.
      iPureIntro.
@@ -217,9 +216,9 @@ Proof.
      rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
      assumption.
      iApply "HΦ".
-     iFrame.
+     iFrame "PC Hai Hown Hacc Hexcl R0 R1 TX".
      iExists h.
-     by iFrame.
+     by iFrame "Hhp Hrtrv Htran R2 Hadesc".
 Qed.
 
 
@@ -272,7 +271,7 @@ Proof.
   inversion Hsche as [ Hcureq ]; clear Hsche.
   apply fin_to_nat_inj in Hcureq.
   iModIntro.
-  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & ? & ? & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hlen & Hrcv)".
+  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hlen & Hrcv)".
   (* valid regs *)
   iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 r1 R2 r2 Hcureq ) with "Hσreg PC R0 R1 R2 ")
     as "[%HPC [%HR0 [%HR1 %HR2]]]";eauto.
@@ -355,7 +354,7 @@ Proof.
     rewrite_access_all.
     rewrite_mem_all.
     rewrite_trans_all.
-    iFrame.
+    iFrame "Hcur Hσtx Hσrx1 Hσrx2".
     (* update regs *)
      rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
      rewrite !update_reg_global_update_reg ?update_access_batch_preserve_regs
@@ -387,7 +386,7 @@ Proof.
      }
      iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i h R0 i (encode_hvc_ret_code Succ) ) with "Hσreg PC R2 R0") as ">[Hσreg [PC [R2 R0]]]";eauto.
      rewrite Hcureq.
-     iFrame.
+     iFrame "Hσreg".
      iDestruct ((gen_mem_update_pages σ1 psd (pages_of_W0 (length psd))) with "Hσmem Hpgs") as ">[Hσmem Hpgs]";eauto.
      { apply length_pages_of_W0_forall. }
      { rewrite length_pages_of_W0 //. }
@@ -395,7 +394,6 @@ Proof.
      rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);eauto.
      rewrite ?zero_pages_preserve_current_vm ?insert_transaction_preserve_current_vm.
      iDestruct ((gen_access_update_diff spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
-     set_solver.
      rewrite Hcureq.
      rewrite zero_pages_preserve_access
              insert_transaction_preserve_access.
@@ -408,7 +406,7 @@ Proof.
              insert_transaction_preserve_excl.
      iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
      rewrite Hcureq.
-     iFrame.
+     iFrame "Hσaccess Hσexcl Hσowned Hσmem".
      (* update transactions *)
      rewrite insert_transaction_update_trans /=.
      rewrite insert_transaction_update_hpool /=.
@@ -437,7 +435,7 @@ Proof.
        rewrite get_retri_gmap_preserve_dom.
        set_solver.
      }
-     iFrame.
+     iFrame "Hσhp Hσrtrv Hσtrans".
      iModIntro.
      iSplitR.
      iPureIntro.
@@ -449,9 +447,9 @@ Proof.
      rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
      assumption.
      iApply "HΦ".
-     iFrame.
+     iFrame "PC Hai Hown Hacc Hexcl R0 R1 TX".
      iExists h.
-     by iFrame.
+     by iFrame "Hadesc R2 Hpgs Htran Hhp Hrtrv".
 Qed.
 
 End donate.

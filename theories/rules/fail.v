@@ -22,7 +22,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
   (* valid regs *)
   iDestruct ((gen_reg_valid1 σ1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
@@ -43,8 +43,8 @@ Proof.
     rewrite /gen_vm_interp.
       (* unchanged part *)
     iModIntro.
-    iFrame.
+    iFrame "Htok Hmem Hreg Htx Hrx1 Hrx2 Hown Haccess Hrest".
     iApply "Hϕ".
-    by iFrame.
+    by iFrame "Hpc Hapc Hacc".
 Qed.
 End fail.

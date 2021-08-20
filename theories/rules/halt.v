@@ -25,7 +25,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
   (* valid regs *)
   iDestruct ((gen_reg_valid1 σ1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
@@ -47,14 +47,14 @@ Proof.
     (* unchanged part *)
     rewrite_reg_all.
     rewrite Hcur.
-    iFrame.
+    iFrame "Htok Hmem Htx Hrx1 Hrx2 Hown Haccess Hrest".
     (* updated part *)
     iDestruct ((gen_reg_update1_global σ1 PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     iModIntro.
-    iFrame.
+    iFrame "Hreg".
     iApply "Hϕ".
-    by iFrame.
+    by iFrame "Hpc Hapc Hacc".
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
 End halt.

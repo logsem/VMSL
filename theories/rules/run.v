@@ -34,7 +34,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & ? & ? & ? & ?& Haccessown & ?)".
+  iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & Htx & Hrx1 & Hrx2 & Hown & Haccessown & Hrest)".
   (* valid regs *)
   iDestruct (gen_reg_valid1 σ1 PC z ai Hcur with "Hregown Hpc") as "%Hpc".
   iDestruct (gen_reg_valid1 σ1 R0 z w2 Hcur with "Hregown Hr0") as "%Hr0".
@@ -64,7 +64,7 @@ Proof.
     rewrite /gen_vm_interp /update_incr_PC.
     rewrite_vmid_all.
     rewrite_reg_all.
-    iFrame.
+    iFrame "Hrest Htx Hrx1 Hrx2 Hmemown Haccessown".
     iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
     iDestruct (token_update (get_current_vm σ1) (get_current_vm σ1) i with "Htok") as "HtokUpd".
     rewrite token_agree_eq /token_agree_def.
