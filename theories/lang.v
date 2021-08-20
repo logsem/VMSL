@@ -784,7 +784,8 @@ Definition send (s : state) : exec_mode * state :=
       receiver <- lift_option (get_reg s R1) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
       l <- lift_option (get_reg s R2) ;;;
-      transfer_msg s l receiver'
+      st <- transfer_msg s l receiver' ;;;
+      unit (update_reg st R0 (encode_hvc_ret_code Succ))
   in
   unpack_hvc_result_normal s comp.
 
