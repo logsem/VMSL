@@ -1,5 +1,7 @@
-From iris.algebra Require Import gmap gset dfrac agree.
-From HypVeri Require Import RAs.
+From iris.algebra Require Import gmap.
+From HypVeri Require Import reg_addr machine.
+From HypVeri.algebra Require Import algebra.
+
 
 (* some preservation properties of the opsem*)
   Lemma update_reg_global_preserve_current_vm σ i r w :(get_current_vm (update_reg_global σ i r w)) = (get_current_vm σ).
@@ -741,7 +743,7 @@ From HypVeri Require Import RAs.
     inversion H2;subst x1.
     clear H2.
     rewrite H0 H1.
-    do 6 f_equal.
+    do 5 f_equal.
     rewrite /get_vm_page_table /get_page_tables /=.
     destruct (decide (get_current_vm σ = x0)).
     subst x0.
@@ -767,7 +769,7 @@ From HypVeri Require Import RAs.
     inversion H2;subst x1.
     clear H2.
     rewrite H0 H1.
-    do 6 f_equal.
+    do 5 f_equal.
     rewrite /get_vm_page_table /get_page_tables /=.
     destruct (decide (get_current_vm σ = x0)).
     subst x0.
@@ -1271,9 +1273,9 @@ From HypVeri Require Import RAs.
   Lemma update_exclusive_batch_update_pagetable_union {σ i sexcl} {sps:gset PID} (ps: list PID):
    sps = (list_to_set ps) ->
    i = (get_current_vm σ) ->
-   (get_excl_gmap σ) !! i = Some (GSet sexcl) ->
+   (get_excl_gmap σ) !! i = Some (sexcl) ->
    get_excl_gmap (update_access_batch σ ps ExclusiveAccess) =
-   <[i:= (GSet (sexcl ∪ sps ))]>(get_excl_gmap σ).
+   <[i:= (sexcl ∪ sps)]>(get_excl_gmap σ).
   Proof.
     intros.
     rewrite /get_excl_gmap /get_pagetable_gmap.
@@ -1381,11 +1383,11 @@ From HypVeri Require Import RAs.
       - rewrite (lookup_insert_ne _ i i0 _);eauto.
         set (l:= (map
                     (λ v : VMID,
-                           (v, (GSet
-                                  (list_to_set
-                                     (map (λ p : PID * access, p.1)
-                                          (map_to_list
-                                             (filter (λ p : PID * access, is_exclusive p.2 = true) (get_vm_page_table σ v).2)))))))
+                           (v, (list_to_set
+                                  (map (λ p : PID * access, p.1)
+                                       (map_to_list
+                                          (filter (λ p : PID * access, is_exclusive p.2 = true)
+                                                  (get_vm_page_table σ v).2))))))
                     list_of_vmids)) in *.
         destruct (list_to_map l !! i0) eqn:Heqn.
         + apply (elem_of_list_to_map_2 l i0 g) in Heqn.
@@ -1433,11 +1435,11 @@ From HypVeri Require Import RAs.
   Lemma update_access_batch_update_pagetable_union {σ i sacc a'} {sps:gset PID} (ps: list PID):
    sps = (list_to_set ps) ->
    i = (get_current_vm σ) ->
-   (get_access_gmap σ) !! i = Some (GSet sacc) ->
+   (get_access_gmap σ) !! i = Some (sacc) ->
    sps ## sacc ->
    is_accessible a' = true ->
    get_access_gmap (update_access_batch σ ps a') =
-   <[i:= (GSet (sacc ∪ sps))]>(get_access_gmap σ).
+   <[i:= (sacc ∪ sps)]>(get_access_gmap σ).
   Proof.
     intros H H0 H1 P Q.
     rewrite /get_access_gmap /get_pagetable_gmap.
@@ -1559,11 +1561,11 @@ From HypVeri Require Import RAs.
       - rewrite (lookup_insert_ne _ i i0 _);eauto.
         set (l:= (map
                     (λ v : VMID,
-                           (v, (GSet
-                                  (list_to_set
-                                     (map (λ p : PID * access, p.1)
-                                          (map_to_list
-                                             (filter (λ p : PID * access, is_accessible p.2 = true) (get_vm_page_table σ v).2)))))))
+                           (v, (list_to_set
+                                  (map (λ p : PID * access, p.1)
+                                       (map_to_list
+                                          (filter (λ p : PID * access, is_accessible p.2 = true)
+                                                  (get_vm_page_table σ v).2))))))
                     list_of_vmids)) in *.
         destruct (list_to_map l !! i0) eqn:Heqn.
         + apply (elem_of_list_to_map_2 l i0 g) in Heqn.

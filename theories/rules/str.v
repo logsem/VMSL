@@ -1,7 +1,6 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import rule_misc lifting rules.rules_base.
+From HypVeri.algebra Require Import base mem reg pagetable mailbox.
 Require Import stdpp.fin.
 
 Section str.
@@ -32,16 +31,16 @@ Proof.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   inversion Hvalidrb as [ HneqPCb HneqNZb ].
   (* valid regs *)
-  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqrarb ) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  iDestruct ((gen_reg_valid3 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqrarb ) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
   assert (Hais : to_pid_aligned ai ∈ s). set_solver.
   assert (Has : to_pid_aligned a ∈ s). set_solver.
   iDestruct ((gen_access_valid_addr_elem a s Has) with "Haccess Hacc") as "%Ha".
   iDestruct ((gen_access_valid_addr_elem ai s Hais) with "Haccess Hacc") as "%Hai".
   (* valid mem *)
-  iDestruct (gen_mem_valid2 σ1 ai w1 a w3 Hneqaia with "Hmem Hapc Harb ") as "[%Hmemai %Hmema]".
+  iDestruct (gen_mem_valid2 ai w1 a w3 Hneqaia with "Hmem Hapc Harb ") as "[%Hmemai %Hmema]".
   (* valid rx *)
-  iDestruct (gen_rx_pid_valid σ1 i prx with "HRX Hrxpage") as %Hprx.
+  iDestruct (gen_rx_pid_valid i prx with "HRX Hrxpage") as %Hprx.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -68,8 +67,8 @@ Proof.
     iFrame.
     (* updated part *)
     rewrite update_memory_unsafe_preserve_current_vm.
-    iDestruct ((gen_reg_update1_global σ1 PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
-    iDestruct ((gen_mem_update1 σ1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.    
+    iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    iDestruct ((gen_mem_update1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     rewrite Hcur.
     iModIntro.
@@ -101,12 +100,12 @@ Proof.
   inversion Hvalidinstr as [| | | src dst H3' H4' Hneqrarb | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
   destruct H4' as [HneqPCb HneqNZb].
-  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
-  iDestruct ((gen_mem_valid σ1 ai w1) with "Hmem Hapc") as "%Hpc".
+  iDestruct ((gen_reg_valid3 i PC ai ra w2 rb a Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  iDestruct ((gen_mem_valid ai w1) with "Hmem Hapc") as "%Hpc".
   iDestruct ((gen_access_valid_addr_elem ai s Hais) with "Haccess Hacc") as "%Hai".
-  iDestruct (gen_rx_pid_valid σ1 i p with "Hrx Hrxown") as %Hrx.
+  iDestruct (gen_rx_pid_valid i p with "Hrx Hrxown") as %Hrx.
   destruct Has as [Has | Has].
-  - iDestruct ((gen_no_access_valid σ1 i (to_pid_aligned a) s Has) with "Haccess Hacc") as "%Ha".
+  - iDestruct ((gen_access_valid_not (to_pid_aligned a) s Has) with "Haccess Hacc") as "%Ha".
     iSplit.
     + iPureIntro.
       rewrite /reducible.

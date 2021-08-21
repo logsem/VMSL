@@ -1,7 +1,6 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import rule_misc lifting rules.rules_base.
+From HypVeri Require Import base mem reg pagetable.
 Require Import stdpp.fin.
 
 Section bne.
@@ -29,11 +28,11 @@ Proof.
   subst src .
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
-  iDestruct ((gen_reg_valid3 σ1 i PC ai ra w2 NZ w3 Hcur HneqPCa) with "Hreg Hpc Hra Hnz") as "[%HPC [%Hra %HNZ]]";eauto.
+  iDestruct ((gen_reg_valid3 i PC ai ra w2 NZ w3 Hcur HneqPCa) with "Hreg Hpc Hra Hnz") as "[%HPC [%Hra %HNZ]]";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr ai) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
-  iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
+  iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -54,17 +53,18 @@ Proof.
     iFrame.
     (* updated part *)
     + rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-      iDestruct ((gen_reg_update1_global σ1 PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+      iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
-      iDestruct ((gen_reg_update1_global σ1 PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    + rewrite ->update_reg_global_update_reg; [|solve_reg_lookup].
+      iDestruct ((gen_reg_update1_global PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
       iModIntro.
       iFrame.
       iApply "Hϕ".
       by iFrame.
 Qed.
+
 End bne.

@@ -1,7 +1,6 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base transaction.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import rule_misc lifting rules.rules_base transaction.
+From HypVeri Require Import base mem reg pagetable mailbox trans.
 Require Import stdpp.fin.
 
 Section retrieve.
@@ -35,11 +34,7 @@ Lemma hvc_retrieve {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gset PID}
   ∗ ▷ mem_region des ptx ∗ ▷ RX@ i :=( rxp !) ∗ ▷ (∃l, mem_region l rxp ∗ ⌜ length l = length des ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
-<<<<<<< HEAD
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗ wh ->t{1}(j, wf, i, psd, Donation)
-=======
-  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
->>>>>>> dae3308d810e8a72572e8132cd4e837f01212123
   ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( rxp ! r1, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
@@ -51,12 +46,12 @@ Proof.
   apply fin_to_nat_inj in Hcureq.
   iModIntro.
   iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hlen & Hrcv)".
-  iDestruct ((gen_reg_valid3 σ1 i PC ai R0 r0 R1 r1 Hcureq) with "Hσreg PC Hr0 Hr1")
+  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 r1 Hcureq) with "Hσreg PC Hr0 Hr1")
     as "[%HPC [%HR0 %HR1]]"; eauto.
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess HA") as %Haccai; eauto.
   { rewrite (to_pid_aligned_in_page _ pi); eauto. }
-  iDestruct ((gen_access_valid_lookup_Set _ _ _ sacc) with "Hσaccess HA") as %Hacc; eauto.
-  iDestruct (gen_mem_valid σ1 ai wi with "Hσmem Hai") as %Hai.
+  iDestruct ((gen_access_valid_pure sacc) with "Hσaccess HA") as %Hacc; eauto.
+  iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   iDestruct (gen_trans_valid with "Hwh Htrans") as %Htrans.
   destruct Htrans as [b Htrans].
   iDestruct (gen_retri_valid with "Hwhf Hrcv") as %Hretri.
@@ -64,11 +59,11 @@ Proof.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hmemr") as %Hadesc.
   { apply finz_seq_NoDup. destruct Hseq as [? [HisSome ?]]. done. }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
-  iDestruct (gen_rx_none_valid with "HRX Hσrx2") as %Hrx2.
+  iDestruct (gen_rx_valid_none with "HRX Hσrx2") as %Hrx2.
   iDestruct "HRX" as "(HRX1 & HRX2)".
   iDestruct (gen_rx_pid_valid with "HRX1 Hσrx1") as %Hrx1.
-  iDestruct ((gen_own_valid_lookup_Set σ1 i 1%Qp sown) with "Hσowned HO") as %Hown; eauto.
-  iDestruct ((gen_excl_valid_lookup_Set σ1 i 1%Qp sexcl) with "Hσexcl HE") as %Hexcl; eauto.
+  iDestruct ((gen_own_valid_pure sown) with "Hσowned HO") as %Hown; eauto.
+  iDestruct ((gen_excl_valid_pure sexcl) with "Hσexcl HE") as %Hexcl; eauto.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -161,7 +156,7 @@ Proof.
        rewrite get_reg_gmap_get_reg_Some; auto.
        rewrite /get_reg /get_reg_global /get_vm_reg_file /get_reg_files //= ?Hcureq /get_current_vm //= in HR0 *.
      }
-     iDestruct ((gen_reg_update2_global σ1 PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0") as ">[Hσreg [PC Hr0]]"; eauto.
+     iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0") as ">[Hσreg [PC Hr0]]"; eauto.
      iFrame.
      (* update page table *)
      rewrite update_access_batch_preserve_ownerships.
@@ -330,7 +325,7 @@ Proof.
      rewrite <-Hcureq in Hpair.
      rewrite Hpair.
      cbn.
-     iDestruct ((gen_mem_update_Sep_list (finz.seq rxp (length l0)) l0 des) with "Hσmem HRXCont'") as "Hmemupd".
+     iDestruct ((gen_mem_update_SepL2 (finz.seq rxp (length l0)) l0 des) with "Hσmem HRXCont'") as "Hmemupd".
      rewrite Hlen'.
      apply finz_seq_NoDup'.
      pose proof last_addr_in_bound as Hbound.

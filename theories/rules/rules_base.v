@@ -1,5 +1,6 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting.
+From HypVeri.algebra Require Import base token reg pagetable.
+From HypVeri Require Import rule_misc lifting.
 From iris.proofmode Require Import tactics.
 Require Import iris.base_logic.lib.ghost_map.
 Require Import stdpp.fin.
@@ -105,9 +106,9 @@ Ltac rewrite_trans_all :=
 
 Ltac solve_reg_lookup :=
   match goal with
-  | _ : get_reg ?σ ?r = Some ?w |- get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r = Some ?w |- is_Some (get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
+  | _ : get_reg ?σ ?r = Some ?w |- algebra_base.get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r = Some ?w |- is_Some (algebra_base.get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(algebra_base.get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
     rewrite lookup_insert_ne; eauto
   end.
 
@@ -145,8 +146,8 @@ Proof.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ1" as "(? & ? & Hreg & ? & ? & ? & ? & Haccess & ?)".
-  iDestruct (gen_reg_valid1 σ1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  iDestruct (gen_no_access_valid σ1 i (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
+  iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
+  iDestruct (gen_access_valid_not (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.
   - iPureIntro.
     rewrite /reducible.

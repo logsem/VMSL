@@ -1,9 +1,8 @@
 From machine_program_logic.program_logic Require Import machine weakestpre adequacy.
-From HypVeri Require Import reg_addr RAs lifting.
-From HypVeri.examples Require Import run_yield_1.
-From iris.proofmode Require Import tactics.
-From iris.base_logic Require Import invariants na_invariants.
 From iris.bi Require Import big_op.
+From HypVeri Require Import reg_addr lifting.
+From HypVeri.algebra Require Import base mailbox pagetable.
+From HypVeri.examples Require Import run_yield_1.
 
  Definition run_vms (ms: list exec_mode) (z i: VMID):=
     ms !! (fin_to_nat i) = Some ExecI ∧
@@ -24,7 +23,10 @@ From iris.bi Require Import big_op.
 
  Definition transactions (σ: state):=
    (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
-   (get_transactions σ).2 ≠ ∅.
+   (get_transactions σ).2 ≠ ∅ ∧
+   (map_Forall (λ _ v , (length v.1.2 <? word_size)%Z = true) (get_transactions σ).1).
+
+
 
  Definition is_initial_config (σ: state) (ms: list exec_mode) (φs : list (exec_mode -> Prop )):=
    ∃ (z i:VMID), (fin_to_nat z) = 0 ∧ z ≠ i ∧
@@ -35,8 +37,7 @@ From iris.bi Require Import big_op.
                                  (run_vms ms z i) ∧
                                  (mem_layout σ z i p1 p2) ∧
                                  (reg σ z i p1 p2) ∧
-                                 transactions σ ∧
-                                 len σ.
+                                 transactions σ.
 
 Section Adequacy.
   Context {nainv_preG : na_invG gen_VMΣ}.
@@ -93,8 +94,8 @@ Section Adequacy.
     rewrite /gen_vm_interp.
     cbn.
     rewrite Hcur.
-    iFrame.
-    destruct Htrans as (Hdisj & Hnempty).
+    iFrame "Hσtok Hσmem Hσreg Hσtx Hσrx_a Hσrx_o Hσown Hσaccess Hσexcl Hσtrans Hσhpool Hσretri".
+    destruct Htrans as (Hdisj & Hnempty & Hlen).
     iSplitR.
     iModIntro.
     done.
@@ -129,7 +130,7 @@ Section Adequacy.
 
 
     destruct Hmem as (Hacc1 & Hacc2 & Hmem).
-    iDestruct ((gen_pagetable_split_2 z i) with "[Haccess]") as "(Haccessz & Haccessi & _)";eauto.
+    iDestruct ((gen_pagetable_SepM_split2 z i) with "[Haccess]") as "(Haccessz & Haccessi & _)";eauto.
     set (sacc1 := (get_pagetable_gset σ z (λ pt : page_table, pt.2) is_accessible)) in *.
     set (sacc2 := (get_pagetable_gset σ i (λ pt : page_table, pt.2) is_accessible)) in *.
     pose proof (@run_yield_1_spec gen_VMΣ vmG tokG nroot z i 1 1 p1 p2 sacc1 sacc2 r0_ r1_ r0_' Heqz  Hneq Hpne)
@@ -172,21 +173,6 @@ Section Adequacy.
     rewrite token_agree_eq /token_agree_def.
     rewrite access_mapsto_eq /access_mapsto_def.
     iFrame.
-    destruct Hmem as (Hacc1 & Hacc2 & Hmem).
-    iDestruct ((big_sepM_subseteq _ (get_access_gmap σ)
-                (<[z := (get_vm_page_table σ z).2]>({[i := (get_vm_page_table σ i).2]} : (gmap VMID _)))) with "Haccess" ) as "Haccess";eauto.
-    { admit. }
-    (* iDestruct "Haccess" as "[H1 H2]". *)
-    assert ({[z := (get_vm_page_table σ z).2 ;
-                                         i := (get_vm_page_table σ i).2 ]}
-            = <[z := (get_vm_page_table σ z).2]>({[i := (get_vm_page_table σ i).2]} : (gmap VMID _))).
-    done.
-    rewrite H.
-    iDestruct ((big_sepM_insert (λ k x,ghost_map.ghost_map_elem access_gname k (dfrac.DfracOwn 1) x) {[i := (get_vm_page_table σ i).2]} z (get_vm_page_table σ z).2)  with "[Haccess]")
-    as "H1".
-    {admit. }
-    iDestruct "Haccess" as "[H1 H2]".
-      in "Haccess". ?big_sepM_empty;eauto.
 
     iDestruct ((big_sepM_subseteq _ (get_mem σ) (mk_region p1 (program1 i) ∪ mk_region p2 program2))
                  with "Hmem") as "Hmem";eauto.
