@@ -669,11 +669,10 @@ Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : h
   end.
 
 Definition relinquish_transaction (s : state)
-           (h : handle)
-           (rcvr : VMID * (list PID)) : hvc_result state :=
+           (h : handle) (f : Word) (t : transaction) : hvc_result state :=
+  let ps := t.1.2 in
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
-   unit (foldr (fun v' acc' =>
-                  update_access (update_ownership acc' v' NotOwned) v' NoAccess) s' rcvr.2).
+  unit (update_access_batch (update_ownership_batch (update_reg s R0 (encode_hvc_ret_code Succ)) ps NotOwned) ps NoAccess).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
   match t with
@@ -717,10 +716,12 @@ Definition retrieve (s : state) : exec_mode * state :=
   unpack_hvc_result_normal s comp.
 
 Definition relinquish (s : state) : exec_mode * state :=
+  let b := (of_pid (get_tx_pid_global s (get_current_vm s))) in
   let comp :=
-      handle <- lift_option (get_reg s R1) ;;;
-      trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-      relinquish_transaction s handle (get_memory_descriptor trn)
+      h <- lift_option (get_memory_with_offset s b 0) ;;;
+      f <- lift_option (get_memory_with_offset s b 1) ;;;
+      trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
+      relinquish_transaction s h f trn
   in
   unpack_hvc_result_normal s comp.
 
@@ -737,10 +738,7 @@ Definition reclaim (s : state) : exec_mode * state :=
       l <- unit ((get_memory_descriptor trn).2 );;;
       if no_borrowers s handle (get_current_vm s)
       then
-        unit (foldr
-                (fun v' acc' =>
-                   update_access (update_ownership acc' v' Owned) v'  ExclusiveAccess)
-                (remove_transaction s handle) l)
+        unit (update_access_batch (update_ownership_batch (remove_transaction (update_reg s R0 (encode_hvc_ret_code Succ)) handle) l Owned) l ExclusiveAccess)
       else throw Denied
   in
   unpack_hvc_result_normal s comp.
