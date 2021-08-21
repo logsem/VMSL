@@ -13,9 +13,9 @@ From stdpp Require Import fin_maps.
     gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
     gen_rx_agree_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
     gen_rx_option_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
-    gen_owned_preG_inG :> gen_heapGpreS V (gset_disj P) Σ;
-    gen_access_preG_inG :> gen_heapGpreS V (gset_disj P) Σ;
-    gen_excl_preG_inG :> gen_heapGpreS V (gset_disj P) Σ;
+    gen_owned_preG_inG :> gen_heapGpreS V (gset P) Σ;
+    gen_access_preG_inG :> gen_heapGpreS V (gset P) Σ;
+    gen_excl_preG_inG :> gen_heapGpreS V (gset P) Σ;
     gen_trans_preG_inG :> gen_heapGpreS W (V * W*  V * (list P)*F) Σ;
     gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
     gen_retri_preG_inG :> gen_heapGpreS W bool Σ
@@ -71,9 +71,9 @@ Definition gen_VMΣ : gFunctors :=
     GFunctor ra_rx_tx_agree;
     GFunctor ra_rx_tx_agree;
     gen_heapΣ VMID (option (Word*VMID));
-    gen_heapΣ VMID (gset_disj PID);
-    gen_heapΣ VMID (gset_disj PID);
-    gen_heapΣ VMID (gset_disj PID);
+    gen_heapΣ VMID (gset PID);
+    gen_heapΣ VMID (gset PID);
+    gen_heapΣ VMID (gset PID);
     gen_heapΣ Word (VMID * Word *  VMID * (list PID) * transaction_type);
     GFunctor (frac_authR (gset_disjR (leibnizO Word)));
     gen_heapΣ Word bool
@@ -106,6 +106,23 @@ Section definitions.
     apply lookup_fun_to_vec.
   Qed.
 
+  Lemma NoDup_list_of_vmids : NoDup list_of_vmids.
+  Proof.
+    apply NoDup_alt.
+    rewrite /list_of_vmids.
+    intros.
+    rewrite <-vlookup_lookup' in H.
+    rewrite <-vlookup_lookup' in H0.
+    destruct H, H0.
+    rewrite lookup_fun_to_vec in H.
+    rewrite lookup_fun_to_vec in H0.
+    rewrite -H in H0.
+    rewrite <-(fin_to_nat_to_fin i vm_count x0).
+    rewrite <-(fin_to_nat_to_fin j vm_count x1).
+    rewrite H0.
+    done.
+  Qed.
+
   Definition get_token  (v:VMID) :=
      (frac_auth_auth (to_agree (v: leibnizO VMID))).
 
@@ -127,11 +144,11 @@ Section definitions.
                                     end) (list_of_vmids)))).
 
   Definition get_pagetable_gmap{Perm: Type} σ (proj: page_table -> gmap PID Perm)
-             (checkb: Perm -> bool) : (gmap VMID (gset_disj PID)) :=
+             (checkb: Perm -> bool) : (gmap VMID (gset PID)) :=
     (list_to_map (map (λ v, (v,
-         (GSet ((list_to_set (map (λ (p:(PID*Perm)), p.1)
+         ((list_to_set (map (λ (p:(PID*Perm)), p.1)
            (map_to_list (filter (λ p, (checkb p.2) = true) (proj (get_vm_page_table σ v))))))
-                         : gset PID)))) (list_of_vmids))).
+                         : gset PID))) (list_of_vmids))).
 
   Definition get_owned_gmap σ := (get_pagetable_gmap σ (λ pt, pt.1) is_owned).
 
@@ -208,24 +225,23 @@ Section definitions.
   Definition rx_agree_mapsto_eq : @rx_agree_mapsto = @rx_agree_mapsto_def :=
     rx_agree_mapsto_aux.(seal_eq).
 
-  Definition owned_mapsto_def (i:VMID) dq (s: gset_disj PID) : iProp Σ :=
+  Definition owned_mapsto_def (i:VMID) dq (s: gset PID) : iProp Σ :=
     ghost_map_elem (gen_owned_name vmG) i dq s.
   Definition owned_mapsto_aux : seal (@owned_mapsto_def). Proof. by eexists. Qed.
   Definition owned_mapsto := owned_mapsto_aux.(unseal).
   Definition owned_mapsto_eq : @owned_mapsto = @owned_mapsto_def := owned_mapsto_aux.(seal_eq).
 
-  Definition access_mapsto_def (i:VMID) dq (s: gset_disj PID) : iProp Σ :=
+  Definition access_mapsto_def (i:VMID) dq (s: gset PID) : iProp Σ :=
     ghost_map_elem (gen_access_name vmG) i dq s.
   Definition access_mapsto_aux : seal (@access_mapsto_def). Proof. by eexists. Qed.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
 
-  Definition excl_mapsto_def (i:VMID) dq (s: gset_disj PID) : iProp Σ :=
+  Definition excl_mapsto_def (i:VMID) dq (s: gset PID) : iProp Σ :=
     ghost_map_elem (gen_excl_name vmG) i dq s.
   Definition excl_mapsto_aux : seal (@excl_mapsto_def). Proof. by eexists. Qed.
   Definition excl_mapsto := excl_mapsto_aux.(unseal).
   Definition excl_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
-
 
   Definition trans_mapsto_def(wh : Word) dq (v r: VMID) (wf: Word) (pgs : (list PID)) (fid : transaction_type) : iProp Σ :=
     wh ↪[ (gen_trans_name vmG) ]{ dq } (((((v, wf) , r), pgs), fid): (leibnizO (VMID * Word * VMID * (list PID) * transaction_type))).
@@ -277,19 +293,19 @@ Notation "RX@ i := p " := (rx_agree_mapsto i p)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)
-Notation "O@ i :={ q }[ s ] " := (owned_mapsto i (DfracOwn q) (GSet s))
+Notation "O@ i :={ q }[ s ] " := (owned_mapsto i (DfracOwn q) s)
                                            (at level 20, format "O@ i :={ q }[ s ] "):bi_scope.
-Notation "O@ i :={ q } p" := (owned_mapsto  i (DfracOwn q) (GSet {[p]}))
+Notation "O@ i :={ q } p" := (owned_mapsto  i (DfracOwn q) {[p]})
                                            (at level 20, format "O@ i :={ q } p "):bi_scope.
 
-Notation "A@ i :={ q }[ s ] " := (access_mapsto i (DfracOwn q) (GSet s))
+Notation "A@ i :={ q }[ s ] " := (access_mapsto i (DfracOwn q) s)
                                           (at level 20, format "A@ i :={ q }[ s ] "):bi_scope.
-Notation "A@ i :={ q } p " := (access_mapsto  i (DfracOwn q) (GSet {[p]}))
+Notation "A@ i :={ q } p " := (access_mapsto  i (DfracOwn q) {[p]})
                                            (at level 20, format "A@ i :={ q } p "):bi_scope.
 
-Notation "E@ i :={ q }[ s ] " := (excl_mapsto i (DfracOwn q) (GSet s))
+Notation "E@ i :={ q }[ s ] " := (excl_mapsto i (DfracOwn q) s)
                                           (at level 20, format "E@ i :={ q }[ s ] "):bi_scope.
-Notation "E@ i :={ q } p " := (excl_mapsto  i (DfracOwn q) (GSet {[p]}))
+Notation "E@ i :={ q } p " := (excl_mapsto  i (DfracOwn q) {[p]})
                                            (at level 20, format "E@ i :={ q } p "):bi_scope.
 
 (* predicates for transactions *)
@@ -354,7 +370,7 @@ Section alloc_rules.
     iApply (ghost_map_alloc gmo).
   Qed.
 
-  Lemma gen_pagetable_alloc (gm : gmap VMID (gset_disj PID) ):
+  Lemma gen_pagetable_alloc (gm : gmap VMID (gset PID) ):
    ⊢ |==> ∃ γ, ghost_map_auth γ 1 gm ∗ [∗ map] k ↦ v ∈ gm, ghost_map_elem γ k (DfracOwn 1) v.
   Proof.
     iApply (ghost_map_alloc gm).
@@ -1474,34 +1490,94 @@ Qed.
     iDestruct (owned_split_set i q1 q2 _ _ Hdisj with "HO")  as "HO'".
     done.
   Qed.
-
- Lemma access_split_set i q1 q2 (s1 s2 : gset PID):
-   s1 ## s2 -> A@i:={(q1+q2)%Qp}[(s1 ∪ s2)] -∗ A@i:={q1}[s1] ∗ A@i:={q2}[s2].
-  Proof using.
-  iIntros (Hdisj) "HO".
-  rewrite access_mapsto_eq.
-  iApply own_op.
-  rewrite -auth_frag_op singleton_op.
-  rewrite -pair_op.
-  rewrite (gset_disj_union _ _ Hdisj).
-  naive_solver.
-  Qed.
-
-  Lemma access_split_singleton i q1 q2 (s : gset PID) p:
-   p ∉ s -> A@i:={(q1+q2)%Qp}[(s ∪ {[p]})] -∗ A@i:={q1}[s] ∗ A@i:={q2}p.
-  Proof using.
-    iIntros (Hnotin) "HO".
-    assert (Hdisj: s ## {[p]}). { set_solver. }
-    iDestruct (access_split_set i q1 q2 _ _ Hdisj with "HO")  as "HO'".
-    done.
-  Qed.
 *)
+ (* (* TODO *) *)
+ (* Lemma access_split_set_union i q1 q2 (s1 s2 : gset PID): *)
+ (*  s1 ## s2 -> *)
+ (*  A@i:={(q1+q2)%Qp}[s1 ∪ s2] -∗ A@i:={q1}[s1] ∗ A@i:={q2}[s2]. *)
+ (* Proof using. *)
+ (*   iIntros (Hdisj) "HO". *)
+ (*   rewrite access_mapsto_eq /access_mapsto_def. *)
+ (*   iApply own_op. *)
+ (*   rewrite -auth_frag_op singleton_op. *)
+ (*   rewrite -pair_op. *)
+ (*   rewrite (gset_disj_union _ _ Hdisj). *)
+ (*   naive_solver. *)
+ (* Qed. *)
+ (* Lemma access_split_set_diff i q1 q2 (s1 s2 : gset_disj PID): *)
+ (*  A@i:={(q1+q2)%Qp}[s1] -∗ A@i:={q1}[s1] ∗ A@i:={q2}[s1 ∖ s2]. *)
+ (* Proof using. *)
+ (*   iIntros (Hdisj) "HO". *)
+ (*   rewrite access_mapsto_eq. *)
+ (*   iApply own_op. *)
+ (*   rewrite -auth_frag_op singleton_op. *)
+ (*   rewrite -pair_op. *)
+ (*   rewrite (gset_disj_union _ _ Hdisj). *)
+ (*   naive_solver. *)
+ (* Qed. *)
+
+ (* Lemma access_split_singleton i q1 q2 (s : gset PID) p: *)
+ (*  p ∉ s -> A@i:={(q1+q2)%Qp}[(s ∪ {[p]})] -∗ A@i:={q1}[s] ∗ A@i:={q2}p. *)
+ (* Proof using. *)
+ (*   iIntros (Hnotin) "HO". *)
+ (*   assert (Hdisj: s ## {[p]}). { set_solver. } *)
+ (*   iApply (access_split_set i q1 q2 _ _ Hdisj with "HO"). *)
+ (* Qed. *)
+
+ Definition get_pagetable_gset {Perm: Type}  σ v  (proj: page_table -> gmap PID Perm)
+   (checkb: Perm -> bool):=
+   ((list_to_set (map (λ (p:(PID*Perm)), p.1)
+           (map_to_list (filter (λ p, (checkb p.2) = true) (proj (get_vm_page_table σ v)))))
+                         : gset PID)).
+
+ Lemma gen_pagetable_split_1{Perm: Type} { σ γ} i (proj: page_table -> gmap PID Perm)
+       (checkb: Perm -> bool):
+  ([∗ map] k↦v ∈ (get_pagetable_gmap σ proj checkb ), ghost_map_elem γ k (dfrac.DfracOwn 1) v)%I -∗
+  ghost_map_elem γ i (dfrac.DfracOwn 1) (get_pagetable_gset σ i proj checkb) ∗
+  [∗ map] k↦v ∈ (delete i (get_pagetable_gmap σ proj checkb)), ghost_map_elem γ k (dfrac.DfracOwn 1) v.
+ Proof.
+   iIntros "Hall".
+   iApply ((big_sepM_delete _ (get_pagetable_gmap σ proj checkb) i (get_pagetable_gset σ i proj checkb)) with "Hall").
+   rewrite /get_pagetable_gmap.
+   apply elem_of_list_to_map_1.
+   {  rewrite -list_fmap_compose /compose /=. rewrite list_fmap_id. apply NoDup_list_of_vmids. }
+   rewrite elem_of_list_In.
+   rewrite in_map_iff.
+   exists i.
+   split.
+   rewrite /get_pagetable_gset //.
+   apply in_list_of_vmids.
+ Qed.
+
+ Lemma gen_pagetable_split_2{Perm: Type} { σ γ} i j (proj: page_table -> gmap PID Perm)
+       (checkb: Perm -> bool):
+  i ≠ j ->
+  ([∗ map] k↦v ∈ (get_pagetable_gmap σ proj checkb ), ghost_map_elem γ k (dfrac.DfracOwn 1) v)%I -∗
+  ghost_map_elem γ i (dfrac.DfracOwn 1) (get_pagetable_gset σ i proj checkb) ∗
+  ghost_map_elem γ j (dfrac.DfracOwn 1) (get_pagetable_gset σ j proj checkb) ∗
+  [∗ map] k↦v ∈ (delete j (delete i (get_pagetable_gmap σ proj checkb))), ghost_map_elem γ k (dfrac.DfracOwn 1) v.
+ Proof.
+   iIntros (Hne) "Hall".
+   iDestruct ((gen_pagetable_split_1 i) with "Hall") as "[Hi Hrest]".
+   iFrame.
+   iApply ((big_sepM_delete _ _ j (get_pagetable_gset σ j proj checkb)) with "Hrest").
+   rewrite /get_pagetable_gmap.
+   rewrite lookup_delete_ne;eauto.
+   apply elem_of_list_to_map_1.
+   {  rewrite -list_fmap_compose /compose /=. rewrite list_fmap_id. apply NoDup_list_of_vmids. }
+   rewrite elem_of_list_In.
+   rewrite in_map_iff.
+   exists j.
+   split.
+   rewrite /get_pagetable_gset //.
+   apply in_list_of_vmids.
+ Qed.
 
 
  Lemma gen_pagetable_valid_lookup_Set{Perm: Type} {σ i q γ} proj (checkb: Perm -> bool) (s:gset PID):
   ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb)  -∗
-  ghost_map_elem γ i (DfracOwn q) (GSet s) -∗
-  ⌜(get_pagetable_gmap σ proj checkb) !! i = Some (GSet s) ⌝.
+  ghost_map_elem γ i (DfracOwn q) s -∗
+  ⌜(get_pagetable_gmap σ proj checkb) !! i = Some s ⌝.
  Proof.
    iIntros  "Hσ Hpt".
    iApply (ghost_map_lookup with "Hσ Hpt").
@@ -1510,7 +1586,7 @@ Qed.
  Lemma gen_access_valid_lookup_Set σ i q s:
   ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ) -∗
   (A@ i :={q}[s] ) -∗
-  ⌜(get_access_gmap σ) !! i = Some (GSet s) ⌝.
+  ⌜(get_access_gmap σ) !! i = Some s ⌝.
  Proof.
    iIntros  "Hσ Hacc".
    rewrite access_mapsto_eq /access_mapsto_def.
@@ -1520,7 +1596,7 @@ Qed.
  Lemma gen_excl_valid_lookup_Set σ i q s:
   ghost_map_auth (gen_excl_name vmG) 1 (get_excl_gmap σ) -∗
   (E@ i :={q}[s] ) -∗
-  ⌜(get_excl_gmap σ) !! i = Some (GSet s)⌝.
+  ⌜(get_excl_gmap σ) !! i = Some s⌝.
  Proof.
    iIntros  "Hσ Hexcl".
    rewrite excl_mapsto_eq /excl_mapsto_def.
@@ -1539,13 +1615,13 @@ Qed.
 
  Lemma gen_pagetable_valid_Set{Perm: Type} {σ i q γ} proj (checkb: Perm -> bool) (s:gset PID):
   ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb) -∗
-  ghost_map_elem γ i (DfracOwn q) (GSet s) -∗
+  ghost_map_elem γ i (DfracOwn q) s -∗
   ([∗ set]  p ∈ s, ∃ perm, ⌜(proj (get_vm_page_table σ i)) !! p =Some perm ∧ checkb perm = true ⌝).
  Proof.
    iIntros "Hσ Hpt".
    iDestruct (gen_pagetable_valid_lookup_Set with "Hσ Hpt") as %Hvalid.
    iPureIntro.
-   apply (elem_of_list_to_map_2 _ i  (GSet s)) in Hvalid.
+   apply (elem_of_list_to_map_2 _ i s) in Hvalid.
    apply elem_of_list_In in Hvalid.
    apply in_map_iff in Hvalid.
    destruct Hvalid.
@@ -1660,6 +1736,25 @@ Qed.
    rewrite HIn //=.
  Qed.
 
+ Lemma gen_access_valid_addr_Set {σ i q} a p s:
+  addr_in_page a p ->
+  p ∈ s ->
+  ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ) -∗
+  (A@ i :={q}[s] ) -∗
+  ⌜(check_access_addr σ i a)= true ⌝.
+ Proof.
+   iIntros (HaIn HpIn) "Haccess Hacc".
+   iDestruct (gen_access_valid_Set with "Haccess Hacc") as %Hacc.
+   iPureIntro.
+   unfold check_access_addr.
+   apply to_pid_aligned_in_page in HaIn.
+   rewrite HaIn /check_access_page'.
+   pose proof (Hacc p HpIn).
+   destruct H.
+   destruct H.
+   rewrite H //.
+ Qed.
+
  Lemma gen_access_valid_addr_elem{ σ i q } a s:
   to_pid_aligned a ∈ s ->
   ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ) -∗
@@ -1731,19 +1826,19 @@ Qed.
  Qed.
 
  Lemma gen_pagetable_update_diff {Perm: Type} {σ i γ s} proj (checkb: Perm -> bool) sps:
-  ghost_map_elem γ i (DfracOwn 1) (GSet s) -∗
+  ghost_map_elem γ i (DfracOwn 1) s -∗
   ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb) ==∗
-  ghost_map_auth γ 1 (<[i:= (GSet (s∖sps))]>(get_pagetable_gmap σ proj checkb)) ∗
-  ghost_map_elem γ i (DfracOwn 1) (GSet (s∖sps)).
+  ghost_map_auth γ 1 (<[i:= (s∖sps)]>(get_pagetable_gmap σ proj checkb)) ∗
+  ghost_map_elem γ i (DfracOwn 1) (s∖sps).
  Proof.
    iIntros "Hpt Hσ".
-   iApply (ghost_map_update (GSet (s∖sps)) with "Hσ Hpt").
+   iApply (ghost_map_update (s∖sps) with "Hσ Hpt").
  Qed.
 
  Lemma gen_access_update_diff{σ i sacc} sps:
   A@i:={1}[sacc] -∗
   ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ)==∗
-  ghost_map_auth (gen_access_name vmG) 1 (<[i:= (GSet (sacc∖sps))]>(get_access_gmap σ)) ∗
+  ghost_map_auth (gen_access_name vmG) 1 (<[i:= (sacc∖sps)]>(get_access_gmap σ)) ∗
   A@i:={1}[sacc∖sps].
  Proof.
    iIntros "HA Hacc".
@@ -1754,7 +1849,7 @@ Qed.
  Lemma gen_excl_update_diff{σ i sexcl} sps:
   E@i:={1}[sexcl] -∗
   ghost_map_auth (gen_excl_name vmG) 1 (get_excl_gmap σ)==∗
-  ghost_map_auth (gen_excl_name vmG) 1 (<[i:= (GSet (sexcl∖sps))]>(get_excl_gmap σ)) ∗
+  ghost_map_auth (gen_excl_name vmG) 1 (<[i:= (sexcl∖sps)]>(get_excl_gmap σ)) ∗
   E@i:={1}[sexcl∖sps].
  Proof.
    iIntros "HE Hexcl".

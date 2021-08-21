@@ -26,7 +26,7 @@ endif
 
 %.vo: %.v _CoqProject
 	@echo "COQC $<"
-	@coqc -w none $(shell cat '_CoqProject') $< -o $@
+	@time coqc -w none $(shell cat '_CoqProject') $< -o $@
 
 clean:
 	@echo "CLEAN vo glob aux"

@@ -57,24 +57,25 @@ Section RunYield1.
       ∨ <<z>>{ 1%Qp } ∗ nainv_closed ⊤ ∗ tokI γ3
       ∨ <<i>>{ 1%Qp } ∗ nainv_closed ⊤ ∗ tokI γ1 ∗ tokI γ2 )%I.
 
-  Lemma machine_z_spec {γ1 γ2 γ3 z i q1 prog1page ι ι1} :
+  Lemma machine_z_spec {γ1 γ2 γ3 z i q1 sacc prog1page ι ι1} :
       ι ## ι1 ->
       fin_to_nat z = 0 ->
       z ≠ i ->
       seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
+      prog1page ∈ sacc ->
       tokI γ1 ∗
       program (program1 i) (of_pid prog1page) ∗
       inv ι (inv' z i γ1 γ2 γ3 ι1) ∗
       nainv ι1 (na_inv γ2 γ3 z i) ∗
-      A@z :={q1} prog1page
+      A@z :={q1}[sacc]
       ∗ PC @@ z ->r (of_pid prog1page)
       ⊢ (WP ExecI @ z
             {{ (λ m, ⌜m = HaltI⌝
             ∗ program (program1 i) (of_pid prog1page)
-            ∗ A@z :={q1} prog1page
+            ∗ A@z :={q1}[sacc]
             ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f)}}%I).
   Proof.
-    iIntros (Hdisj zP neH HIn) "(H△ & (p_1 & p_2 & p_3 & p_4 & _) & #Hinv & #Hnainv & Hacc & PCz )".
+    iIntros (Hdisj zP neH HIn HaccIn) "(H△ & (p_1 & p_2 & p_3 & p_4 & _) & #Hinv & #Hnainv & Hacc & PCz )".
     apply seq_in_page_forall in HIn.
     rewrite wp_sswp.
     iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑ι) ⊤).
@@ -189,26 +190,27 @@ Section RunYield1.
     iSplitL;done.
   Qed.
 
-  Lemma machine_i_spec {γ1 γ2 γ3 z i q1 prog2page r0_ ι ι1} :
+  Lemma machine_i_spec {γ1 γ2 γ3 z i q1 prog2page sacc r0_ ι ι1} :
       ι ## ι1 ->
       fin_to_nat z = 0 ->
       z ≠ i ->
       seq_in_page (of_pid prog2page) (length program2) prog2page ->
+      prog2page ∈ sacc ->
       program program2 (of_pid prog2page) ∗
       inv ι (inv' z i γ1 γ2 γ3 ι1) ∗
       nainv ι1 (na_inv  γ2 γ3 z i) ∗
-      A@i :={q1} prog2page
+      A@i :={q1}[sacc]
       ∗ PC @@ i ->r (of_pid prog2page)
       ∗ R0 @@ i ->r r0_
       ⊢ (WP ExecI @ i
             {{ (λ m, ⌜m = ExecI⌝
             ∗ tokI γ1
             ∗ program (program1 i) (of_pid prog2page)
-            ∗ A@i :={q1} prog2page
+            ∗ A@i :={q1}[sacc]
             ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
             ∗ R0 @@ i ->r yield_I)}}%I).
   Proof.
-    iIntros (Hdisj zP neH HIn) "((p_1 & p_2 & _) & #Hinv & #Hnainv & Hacc & PCi & R0i)".
+    iIntros (Hdisj zP neH HIn HpIn) "((p_1 & p_2 & _) & #Hinv & #Hnainv & Hacc & PCi & R0i)".
     apply seq_in_page_forall in HIn.
     (* mov_word_I R0 yield_I *)
     rewrite wp_sswp.
@@ -298,32 +300,34 @@ Section RunYield1.
       iApply (tokI_excl with "H△ H△'").
   Qed.
 
-  Lemma run_yield_1_spec' γ1 γ2 γ3 ι ι1 z i q1 q2 prog1page prog2page r0_:
+  Lemma run_yield_1_spec' γ1 γ2 γ3 ι ι1 z i q1 q2 prog1page prog2page sacc1 sacc2 r0_:
       ι ## ι1 ->
       fin_to_nat z = 0 ->
       z ≠ i ->
       prog1page ≠ prog2page ->
       seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
+      prog1page ∈ sacc1 ->
       seq_in_page (of_pid prog2page) (length program2) prog2page ->
+      prog2page ∈ sacc2 ->
       program (program1 i) (of_pid prog1page) ∗
       program (program2) (of_pid prog2page) ∗
       inv ι (inv' z i γ1 γ2 γ3 ι1) ∗
       nainv ι1 (na_inv  γ2 γ3 z i) ∗ tokI γ1 ∗
-      A@z :={q1} prog1page ∗ A@i :={q2} prog2page ∗
+      A@z :={q1}[sacc1] ∗ A@i :={q2}[sacc2] ∗
       PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page) ∗
       R0 @@ i ->r r0_
         ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝
             ∗ program (program1 i) (of_pid prog1page)
-            ∗ A@z :={q1} prog1page
+            ∗ A@z :={q1}[sacc1]
             ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f )}}%I)
        ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝
             ∗ tokI γ1
             ∗ program (program1 i) (of_pid prog2page)
-            ∗ A@i :={q2} prog2page
+            ∗ A@i :={q2}[sacc2]
             ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
             ∗ R0 @@ i ->r yield_I) }}%I).
   Proof.
-    iIntros (Hdisj Z Hvne Hpne HInz HIni) "(Hprogz & Hprogi & #Hinv & #Hnainv & H△ & Haccz & Hacci & PCz & PCi & R0i)".
+    iIntros (Hdisj Z Hvne Hpne HInz HpInz HIni HpIni) "(Hprogz & Hprogi & #Hinv & #Hnainv & H△ & Haccz & Hacci & PCz & PCi & R0i)".
     iSplitL  "Hprogz H△ Haccz PCz".
     - iApply machine_z_spec;eauto.
       iFrame.
@@ -343,27 +347,27 @@ Section RunYield1.
     done.
   Qed.
 
-  Lemma run_yield_1_spec z i q1 q2 prog1page prog2page r0_ r1_ r0_':
+  Lemma run_yield_1_spec z i q1 q2 prog1page prog2page sacc1 sacc2 r0_ r1_ r0_':
       fin_to_nat z = 0 ->
       z ≠ i ->
       prog1page ≠ prog2page ->
-      seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
-      seq_in_page (of_pid prog2page) (length program2) prog2page ->
+      prog1page ∈ sacc1 ->
+      prog2page ∈ sacc2 ->
       program (program1 i) (of_pid prog1page) ∗
       program (program2) (of_pid prog2page) ∗
       nainv_closed ⊤ ∗
       <<z>>{ 1%Qp} ∗ R0 @@ z ->r r0_ ∗ R1 @@ z ->r r1_ ∗
-      A@z :={q1} prog1page ∗ A@i :={q2} prog2page ∗
+      A@z :={q1}[sacc1] ∗ A@i :={q2}[sacc2] ∗
       PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page) ∗
       R0 @@ i ->r r0_'
         ⊢ |={⊤}=>
         (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝
             ∗ program (program1 i) (of_pid prog1page)
-            ∗ A@z :={q1} prog1page
+            ∗ A@z :={q1}[sacc1]
             ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f )}}%I)
        ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝
             ∗ program (program1 i) (of_pid prog2page)
-            ∗ A@i :={q2} prog2page
+            ∗ A@i :={q2}[sacc2]
             ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
             ∗ R0 @@ i ->r yield_I) }}%I).
   Proof.
@@ -376,9 +380,39 @@ Section RunYield1.
     iMod (inv_alloc invN _ (inv' z i γ1 γ2 γ3 nainvN) with "[Hstok Hnatok Htok3]") as "Hinv".
     { iNext. iRight;iLeft. iFrame. }
     iModIntro.
-    iDestruct (run_yield_1_spec' γ1 γ2 γ3 invN nainvN z i q1 q2 prog1page prog2page r0_'
+    iDestruct (run_yield_1_spec' γ1 γ2 γ3 invN nainvN z i q1 q2 prog1page prog2page sacc1 sacc2 r0_'
                  with "[Hprogz Hprogi Haccz Hacci PCz PCi R0i Htok1 Hnainv Hinv]") as "[WP1 WP2]";eauto.
     { apply namespace_disjoint. }
+    {
+      rewrite /seq_in_page.
+      split.
+      rewrite Z.leb_refl //.
+      split.
+      cbn.
+      pose proof (last_addr_in_bound prog1page).
+      solve_finz.
+      cbn.
+      destruct (((prog1page ^+ 4%nat)%f <=? (prog1page ^+ (1000 - 1))%f)%Z) eqn:Heqn.
+      done.
+      exfalso.
+      apply Z.leb_nle in Heqn.
+      solve_finz.
+    }
+    {
+      rewrite /seq_in_page.
+      split.
+      rewrite Z.leb_refl //.
+      split.
+      cbn.
+      pose proof (last_addr_in_bound prog2page).
+      solve_finz.
+      cbn.
+      destruct (((prog2page ^+ 2%nat)%f <=? (prog2page ^+ (1000 - 1))%f)%Z) eqn:Heqn.
+      done.
+      exfalso.
+      apply Z.leb_nle in Heqn.
+      solve_finz.
+    }
     { iFrame. }
     iFrame.
     iApply (wp_mono with "WP2").
