@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import machine weakestpre adequacy.
 From iris.bi Require Import big_op.
-From HypVeri Require Import reg_addr lifting.
+From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable.
 From HypVeri.examples Require Import run_yield_1.
 

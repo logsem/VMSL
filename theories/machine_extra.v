@@ -49,6 +49,44 @@ Proof.
   rewrite -H length_page_of_W0 //.
 Qed.
 
+Section list_of_vmids.
+Context `{HypervisorConstants}.
+
+(* list of all valid vmids, heavily used in state_interp *)
+Definition list_of_vmids  := vec_to_list (fun_to_vec (λ v: fin vm_count, v)).
+
+Lemma length_list_of_vmids : length list_of_vmids = vm_count.
+Proof.
+  rewrite /list_of_vmids.
+  apply vec_to_list_length.
+Qed.
+
+Lemma in_list_of_vmids v: In v list_of_vmids.
+Proof.
+  apply elem_of_list_In.
+  apply elem_of_vlookup.
+  exists v.
+  apply lookup_fun_to_vec.
+Qed.
+
+Lemma NoDup_list_of_vmids : NoDup list_of_vmids.
+Proof.
+  apply NoDup_alt.
+  rewrite /list_of_vmids.
+  intros ??? Hlk1 Hlk2.
+  rewrite <-vlookup_lookup' in Hlk1.
+  rewrite <-vlookup_lookup' in Hlk2.
+  destruct Hlk1 as [Hlt1 Hlk1], Hlk2 as [Hlt2 Hlk2].
+  rewrite lookup_fun_to_vec in Hlk1.
+  rewrite lookup_fun_to_vec in Hlk2.
+  rewrite -Hlk2 in Hlk1.
+  rewrite <-(fin_to_nat_to_fin i vm_count Hlt1).
+  rewrite <-(fin_to_nat_to_fin j vm_count Hlt2).
+  rewrite Hlk1 //.
+Qed.
+
+End list_of_vmids.
+
 (* an address is in the range of the page with PID p *)
 Definition addr_in_page (a: Addr ) (p:PID):=
   ((of_pid p) <=? a)%f ∧ (a <=? ((of_pid p) ^+ (page_size -1 )))%f.

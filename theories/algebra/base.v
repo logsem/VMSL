@@ -2,44 +2,43 @@ From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_
 From iris.algebra Require Export auth agree dfrac excl gmap gset frac_agree frac_auth.
 From iris.proofmode Require Export tactics.
 From HypVeri Require Import monad machine.
-From HypVeri Require Export lang.
-(* From stdpp Require Import fin_maps. *)
+From HypVeri Require Export machine_extra lang.
 
-  Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
+Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
-    gen_token_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO V)));
-    gen_mem_preG_inG :> gen_heapGpreS A W Σ;
-    gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
-    gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
-    gen_rx_agree_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
-    gen_rx_option_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
-    gen_owned_preG_inG :> gen_heapGpreS V (gset P) Σ;
-    gen_access_preG_inG :> gen_heapGpreS V (gset P) Σ;
-    gen_excl_preG_inG :> gen_heapGpreS V (gset P) Σ;
-    gen_trans_preG_inG :> gen_heapGpreS W (V * W*  V * (list P)*F) Σ;
-    gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
-    gen_retri_preG_inG :> gen_heapGpreS W bool Σ
-    }.
+  gen_token_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO V)));
+  gen_mem_preG_inG :> gen_heapGpreS A W Σ;
+  gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
+  gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
+  gen_rx_agree_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
+  gen_rx_option_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
+  gen_owned_preG_inG :> gen_heapGpreS V (gset P) Σ;
+  gen_access_preG_inG :> gen_heapGpreS V (gset P) Σ;
+  gen_excl_preG_inG :> gen_heapGpreS V (gset P) Σ;
+  gen_trans_preG_inG :> gen_heapGpreS W (V * W*  V * (list P)*F) Σ;
+  gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
+  gen_retri_preG_inG :> gen_heapGpreS W bool Σ
+  }.
 
+Class gen_VMG Σ := GenVMG{
+                       gen_VM_inG :> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ;
+                       gen_invG :> invGS Σ;
+                       gen_na_invG :> na_invG Σ;
+                       gen_nainv_name : na_inv_pool_name;
+                       gen_token_name : gname;
+                       gen_mem_name : gname;
+                       gen_reg_name : gname;
+                       gen_tx_name : gname;
+                       gen_rx_agree_name : gname;
+                       gen_rx_option_name : gname;
+                       gen_owned_name : gname;
+                       gen_access_name : gname;
+                       gen_excl_name : gname;
+                       gen_trans_name : gname;
+                       gen_hpool_name : gname;
+                       gen_retri_name : gname
+                     }.
 
-  Class gen_VMG Σ := GenVMG{
-                         gen_VM_inG :> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ;
-                         gen_invG :> invGS Σ;
-                         gen_na_invG :> na_invG Σ;
-                         gen_nainv_name : na_inv_pool_name;
-                         gen_token_name : gname;
-                         gen_mem_name : gname;
-                         gen_reg_name : gname;
-                         gen_tx_name : gname;
-                         gen_rx_agree_name : gname;
-                         gen_rx_option_name : gname;
-                         gen_owned_name : gname;
-                         gen_access_name : gname;
-                         gen_excl_name : gname;
-                         gen_trans_name : gname;
-                         gen_hpool_name : gname;
-                         gen_retri_name : gname
-                       }.
 Global Arguments gen_nainv_name {Σ} _.
 Global Arguments gen_token_name {Σ} _.
 Global Arguments gen_mem_name {Σ} _.
@@ -83,43 +82,6 @@ Global Instance subG_gen_VMPreG {Σ}:
 Proof.
   solve_inG.
 Qed.
-
-
-  (* list of all valid vmids *)
-  Definition list_of_vmids  := vec_to_list (fun_to_vec (λ v: fin vm_count, v)).
-
-  Lemma length_list_of_vmids : length list_of_vmids = vm_count.
-  Proof.
-      rewrite /list_of_vmids.
-      apply vec_to_list_length.
-  Qed.
-
-  Lemma in_list_of_vmids v: In v list_of_vmids.
-  Proof.
-    apply elem_of_list_In.
-    apply elem_of_vlookup.
-    exists v.
-    apply lookup_fun_to_vec.
-  Qed.
-
-  Lemma NoDup_list_of_vmids : NoDup list_of_vmids.
-  Proof.
-    apply NoDup_alt.
-    rewrite /list_of_vmids.
-    intros.
-    rewrite <-vlookup_lookup' in H.
-    rewrite <-vlookup_lookup' in H0.
-    destruct H, H0.
-    rewrite lookup_fun_to_vec in H.
-    rewrite lookup_fun_to_vec in H0.
-    rewrite -H in H0.
-    rewrite <-(fin_to_nat_to_fin i vm_count x0).
-    rewrite <-(fin_to_nat_to_fin j vm_count x1).
-    rewrite H0.
-    done.
-  Qed.
-
-
 
 Section definitions.
   Context `{vmG : !gen_VMG Σ}.
@@ -418,7 +380,7 @@ Section other_rules.
   Qed.
 
   (* all resources are timeless(▷ P -> P),
-    which means we can easily get rid of the later modality when opening invariants. *)
+    which means we can easily get rid of the later modalities of resources when opening invariants. *)
   Global Instance token_timeless i q : Timeless (<<i>>{ q }).
   Proof. rewrite token_agree_eq /token_agree_def. apply _. Qed.
 

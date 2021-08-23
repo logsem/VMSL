@@ -1,8 +1,7 @@
 From machine_program_logic.program_logic Require Import machine weakestpre.
 From HypVeri.algebra Require Import base token reg pagetable.
-From HypVeri Require Import rule_misc lifting.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
+From HypVeri Require Import lifting.
+From HypVeri.lang Require Import mem_extra reg_extra pagetable_extra current_extra trans_extra.
 Require Import stdpp.fin.
 
 Ltac rewrite_reg_all :=
@@ -21,7 +20,6 @@ Ltac rewrite_reg_all :=
     try rewrite -> update_offset_PC_preserve_hpool  ; try rewrite -> update_reg_global_preserve_hpool;
     try rewrite -> update_offset_PC_preserve_retri  ; try rewrite -> update_reg_global_preserve_retri
   end.
-
 
 Ltac rewrite_mem_all :=
   match goal with
@@ -106,9 +104,9 @@ Ltac rewrite_trans_all :=
 
 Ltac solve_reg_lookup :=
   match goal with
-  | _ : get_reg ?σ ?r = Some ?w |- algebra_base.get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r = Some ?w |- is_Some (algebra_base.get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(algebra_base.get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
+  | _ : get_reg ?σ ?r = Some ?w |- get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r = Some ?w |- is_Some (get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
     rewrite lookup_insert_ne; eauto
   end.
 

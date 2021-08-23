@@ -1,7 +1,7 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri Require Import rule_misc lifting rules.rules_base transaction.
+From HypVeri Require Import lifting rules.rules_base.
 From HypVeri Require Import base mem reg pagetable mailbox trans.
-Require Import stdpp.fin.
+From HypVeri Require Import lang_extra reg_extra mem_extra pagetable_extra trans_extra.
 
 Section retrieve.
 
@@ -89,7 +89,7 @@ Proof.
     rewrite (@transaction_retrieve_descriptor_valid j wh wf l psd σ1 des ptx) /= in Heqc2; eauto.    
     2: { rewrite Hcureq; auto. }
     rewrite Htrans /= Hcureq in Heqc2.    
-    assert (Hcheck : (i =? i) = true).
+    assert (Hcheck : (i =? i)%nat = true).
     { by apply <- Nat.eqb_eq. }
     rewrite Hcheck in Heqc2.
     pose proof Hretri1 as Hretri1''.

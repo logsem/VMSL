@@ -1,7 +1,7 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri Require Import rule_misc lifting rules.rules_base.
+From HypVeri Require Import lifting rules.rules_base.
 From HypVeri.algebra Require Import base reg mem pagetable.
-Require Import stdpp.fin.
+From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section br.
 
