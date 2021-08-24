@@ -92,10 +92,10 @@ Proof.
     rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
     rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W0 l psd σ1 des) /= in Heqc2;eauto.
-    assert (Hcheck : (i =? i) = true).
+    assert (Hcheck : (i =? i)%nat = true).
     { by apply   <- Nat.eqb_eq. }
     rewrite Hcureq Hcheck /= in Heqc2;clear Hcheck.
-    assert (Hcheck:  negb (i =? j) = true).
+    assert (Hcheck:  negb (i =? j)%nat = true).
        {apply negb_true_iff. apply  <- Nat.eqb_neq. intro. apply Hneq. by apply fin_to_nat_inj.  }
     rewrite Hcheck /= in Heqc2;clear Hcheck.
     destruct (forallb (λ v' : PID, check_perm_page σ1 i v' (Owned, ExclusiveAccess))
@@ -307,10 +307,10 @@ Proof.
     rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
     rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W1 l psd σ1 des) /= in Heqc2;eauto.
-    assert (Hcheck : (i =? i) = true).
+    assert (Hcheck : (i =? i)%nat = true).
     { by apply   <- Nat.eqb_eq. }
     rewrite Hcureq Hcheck /= in Heqc2;clear Hcheck.
-    assert (Hcheck:  negb (i =? j) = true).
+    assert (Hcheck:  negb (i =? j)%nat = true).
        {apply negb_true_iff. apply  <- Nat.eqb_neq. intro. apply Hneq. by apply fin_to_nat_inj.  }
     rewrite Hcheck /= in Heqc2;clear Hcheck.
     destruct (forallb (λ v' : PID, check_perm_page σ1 i v' (Owned, ExclusiveAccess))
