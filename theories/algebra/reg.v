@@ -285,4 +285,44 @@ Section reg_rules.
     by iFrame.
   Qed.
 
+  Lemma gen_reg_update4_global {σ w1 w2 w3 w4} r1 i1 w1' r2 i2 w2' r3 i3 w3' r4 i4 w4':
+   r1 ≠ r2 ∨ i1 ≠ i2 ->
+   r1 ≠ r3 ∨ i1 ≠ i3 ->
+   r3 ≠ r2 ∨ i3 ≠ i2 ->
+   r1 ≠ r4 ∨ i1 ≠ i4 ->
+   r2 ≠ r4 ∨ i2 ≠ i4 ->
+   r3 ≠ r4 ∨ i3 ≠ i4 ->
+   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   r1 @@ i1 ->r w1 -∗
+   r2 @@ i2 ->r w2 -∗
+   r3 @@ i3 ->r w3 -∗
+   r4 @@ i4 ->r w4==∗
+   ghost_map_auth (gen_reg_name vmG) 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']>
+                                                            (<[(r3,i3):= w3']> (<[(r4,i4):= w4']> (get_reg_gmap σ))))) ∗
+   r1 @@ i1 ->r w1'  ∗ r2 @@ i2 ->r w2' ∗ r3 @@ i3 ->r w3' ∗ r4 @@ i4 ->r w4'.
+  Proof.
+    iIntros (Hneq12 Hneq13 Hneq32 Hneq14 Hneq24 Hneq34) "Hreg Hr1 Hr2 Hr3 Hr4".
+    assert (Hlk1 : ∀ w4, ({[(r4, i4) := w4]}: gmap _ _) !! (r3, i3) = None).
+    intro. destruct Hneq34; rewrite !lookup_insert_None; split;eauto; intros P; by inversion P.
+    assert (Hlk2 : ∀ w3 w4, ({[(r3, i3) := w3; (r4, i4) := w4]}: gmap _ _) !! (r2, i2) = None).
+    intros. destruct Hneq32, Hneq24; rewrite !lookup_insert_None; split;eauto; set_solver.
+    assert (Hlk3 : ∀ w2 w3 w4, ({[(r2, i2) := w2; (r3, i3) := w3; (r4, i4) := w4]}: gmap _ _) !! (r1, i1) = None).
+    intros. destruct Hneq12, Hneq13, Hneq14; rewrite !lookup_insert_None; split;eauto; set_solver.
+    assert (Hlk: ∀ w3 ,  ({[(r3, i3) := w3]}: gmap _ _) !! (r2, i2) = None).
+    intro. destruct Hneq32; rewrite !lookup_insert_None; split;eauto; intros P; by inversion P.
+    assert (Hlk': ∀ w2 w3, ({[(r2, i2) := w2; (r3, i3) := w3]} : gmap _ _ ) !! (r1, i1) = None).
+    intros. destruct Hneq12; rewrite !lookup_insert_None; repeat split;eauto;
+    destruct Hneq13; intros P; by inversion P.
+    iDestruct ((gen_reg_update_Sep  {[(r1,i1):=w1; (r2,i2):=w2 ;(r3,i3):=w3;(r4,i4):=w4]}
+                                   {[(r1,i1):=w1'; (r2,i2):=w2'; (r3,i3):=w3'; (r4, i4):=w4']}) with "Hreg [Hr1 Hr2 Hr3 Hr4]")
+      as ">[Hreg Hr123]" ;eauto;[set_solver| | ].
+    rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+    iFrame.
+    rewrite !big_sepM_insert ?big_sepM_empty;eauto.
+    iDestruct "Hr123" as "(? & ? & ? & ? & _)".
+    rewrite ?insert_union_singleton_l !map_union_assoc.
+    simplify_map_eq.
+    by iFrame.
+  Qed.
+
 End reg_rules.

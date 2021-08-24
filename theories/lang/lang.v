@@ -708,7 +708,7 @@ Definition retrieve (s : state) : exec_mode * state :=
            (* it is fine because we only allow at most one receiver *)
            unit (update_access_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps ExclusiveAccess)
          | Donation =>
-           unit (update_access_batch (update_ownership_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
+           unit (update_access_batch (update_ownership_batch (update_reg (remove_transaction s'' handle) R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
          end)
       | _ => throw InvParam
       end
@@ -779,13 +779,19 @@ Program Definition yield (s : state) : exec_mode * state :=
 
 Definition send (s : state) : exec_mode * state :=
   let comp :=
+      let prim := @nat_to_fin 0 vm_count vm_count_pos in
       receiver <- lift_option (get_reg s R1) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
       l <- lift_option (get_reg s R2) ;;;
       st <- transfer_msg s l receiver' ;;;
-      unit (update_reg st R0 (encode_hvc_ret_code Succ))
+      if is_primary st
+      then
+        unit (st, prim)
+      else    
+        unit (update_reg_global (update_reg_global (update_reg_global st prim R0 (encode_hvc_func Send))
+                                                   prim R1 receiver) prim R2 l, prim)
   in
-  unpack_hvc_result_normal s comp.
+  unpack_hvc_result_yield s comp.
 
 Definition wait (s : state) : exec_mode * state :=
   let comp :=
