@@ -54,3 +54,20 @@ Proof. f_equal. Qed.
 Lemma update_current_vmid_preserve_retri σ i :
   get_retri_gmap (update_current_vmid σ i) = (get_retri_gmap σ).
 Proof. f_equal. Qed.
+
+Ltac rewrite_vmid_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_current_vmid_preserve_reg;
+    try rewrite -> update_current_vmid_preserve_mem;
+    try rewrite -> update_current_vmid_preserve_tx;
+    try rewrite -> update_current_vmid_preserve_rx1;
+    try rewrite -> update_current_vmid_preserve_rx2;
+    try rewrite -> update_current_vmid_preserve_owned;
+    try rewrite -> update_current_vmid_preserve_access;
+    try rewrite -> update_current_vmid_preserve_excl;
+    try rewrite -> update_current_vmid_preserve_trans;
+    try rewrite -> update_current_vmid_preserve_trans';
+    try rewrite -> update_current_vmid_preserve_hpool;
+    try rewrite -> update_current_vmid_preserve_retri
+  end.

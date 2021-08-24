@@ -50,6 +50,23 @@ Lemma update_memory_unsafe_preserve_retri σ a w :
   get_retri_gmap (update_memory_unsafe σ a w) = (get_retri_gmap σ).
 Proof. f_equal. Qed.
 
+Ltac rewrite_mem_unsafe :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_memory_unsafe_preserve_current_vm;
+    try rewrite -> update_memory_unsafe_preserve_reg;
+    try rewrite -> update_memory_unsafe_preserve_tx;
+    try rewrite -> update_memory_unsafe_preserve_rx1;
+    try rewrite -> update_memory_unsafe_preserve_rx2;
+    try rewrite -> update_memory_unsafe_preserve_owned;
+    try rewrite -> update_memory_unsafe_preserve_access;
+    try rewrite -> update_memory_unsafe_preserve_excl;
+    try rewrite -> update_memory_unsafe_preserve_trans;
+    try rewrite -> update_memory_unsafe_preserve_trans';
+    try rewrite -> update_memory_unsafe_preserve_hpool;
+    try rewrite -> update_memory_unsafe_preserve_retri
+  end.
+
 Lemma update_memory_unsafe_update_mem σ a w :
   is_Some((get_mem σ) !! a) ->
   get_mem (update_memory_unsafe σ a w) = <[a := w]>(get_mem σ).
@@ -260,6 +277,23 @@ Proof.
   cbn.
   apply IHl.
 Qed.
+
+Ltac rewrite_mem_zero :=
+  match goal with
+  | |- _ =>
+    try rewrite -> zero_pages_preserve_current_vm;
+    try rewrite -> zero_pages_preserve_reg;
+    try rewrite -> zero_pages_preserve_tx;
+    try rewrite -> zero_pages_preserve_rx1;
+    try rewrite -> zero_pages_preserve_rx2;
+    try rewrite -> zero_pages_preserve_owned;
+    try rewrite -> zero_pages_preserve_access;
+    try rewrite -> zero_pages_preserve_excl;
+    try rewrite -> zero_pages_preserve_trans;
+    try rewrite -> zero_pages_preserve_trans';
+    try rewrite -> zero_pages_preserve_hpool;
+    try rewrite -> zero_pages_preserve_retri
+  end.
 
 Lemma copy_page_segment_unsafe_preserve_current_vm σ src dst l:
   get_current_vm (copy_page_segment_unsafe σ src dst l) = get_current_vm σ.

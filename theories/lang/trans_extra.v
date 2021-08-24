@@ -41,6 +41,22 @@ Lemma insert_transaction_preserve_excl σ h trans:
   get_excl_gmap (insert_transaction σ h trans) = get_excl_gmap σ.
 Proof. f_equal. Qed.
 
+
+Ltac rewrite_trans_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> insert_transaction_preserve_current_vm;
+    try rewrite -> insert_transaction_preserve_regs;
+    try rewrite -> insert_transaction_preserve_mem;
+    try rewrite -> insert_transaction_preserve_tx;
+    try rewrite -> insert_transaction_preserve_rx1;
+    try rewrite -> insert_transaction_preserve_rx2;
+    try rewrite -> insert_transaction_preserve_owned;
+    try rewrite -> insert_transaction_preserve_access;
+    try rewrite -> insert_transaction_preserve_excl
+  end.
+
+
 Lemma insert_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran:
   (get_transactions_gmap (insert_transaction σ h tran) proj)
   = <[h:= (proj tran)]>(get_transactions_gmap σ proj).

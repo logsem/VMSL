@@ -52,17 +52,17 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite_reg_all.
+    rewrite_reg_pc.
+    rewrite_reg_global.
     rewrite Hcur. iFrame.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
       iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hσ".
       iApply "Hϕ".
-      iFrame.
-      iFrame.
+      iFrame "Hapc Hacc Hreg".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
@@ -78,8 +78,7 @@ Lemma mov_reg {E instr i qi w1 w3 q p s} a w2 ra rb :
           ∗ ▷ (ra @@ i ->r w2)
           ∗ ▷ (rb @@ i ->r w3) }}}
     ExecI @ i ;E
-  {{{ RET ExecI; <<i>>{ qi }
-                   ∗ PC @@ i ->r (a ^+ 1)%f
+  {{{ RET ExecI; PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
                    ∗ A@i:={q}[s]
                    ∗ ra @@ i ->r w3
@@ -97,7 +96,7 @@ Proof.
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   inversion Hvalidrb as [ HneqPCb HneqNZb ].
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrx1 & Hrx2 & Hown & Haccess & H2)".
   (* valid regs *)
   iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
@@ -116,17 +115,18 @@ Proof.
     rewrite /exec Hinstr (mov_reg_ExecI σ1 ra rb w3 HneqPCa HneqNZa HneqPCb HneqNZb Hrb)  /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.    (* unchanged part *)
-    rewrite_reg_all.
+    rewrite_reg_pc.
+    rewrite_reg_global.
     rewrite Hcur.
-    iFrame.
+    iFrame "Htok Hmem Htx Hrx1 Hrx2 Hown Haccess H2".
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
       iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hσ".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hapc Hacc Hrb Hreg".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.

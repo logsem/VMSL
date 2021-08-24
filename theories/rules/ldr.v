@@ -24,7 +24,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & Htxown & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Hσtok & Hmem & Hreg & Htxown & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | |]; subst src dst; clear Hvalidinstr.
@@ -61,8 +61,9 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite_reg_all.
-    iFrame.
+    rewrite_reg_pc.
+    rewrite_reg_global.
+    iFrame "Hσtok Hmem Htxown Hrx1 Hrx2 Hown Haccess Hrest".
     rewrite Hcur.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
@@ -70,9 +71,9 @@ Proof.
       iDestruct ((gen_reg_update2_global PC i ai (ai ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hσ".
       iApply "Hϕ".
-      iFrame.
+      iFrame "Htx Htok Hreg Hapc Harb Hacc Hra Hrb".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
@@ -94,7 +95,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & Htxown & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htxown & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | |]; subst src dst; clear Hvalidinstr.
@@ -172,7 +173,6 @@ Proof.
       inversion HstepP; subst.
       * rewrite /is_valid_PC HPC /= Hai // in H.
       * simplify_eq.
-        iFrame.
         rewrite /get_memory Hai /get_memory_unsafe in H1.
         simplify_eq.
         rewrite /exec /lang.ldr.
@@ -185,10 +185,10 @@ Proof.
         destruct (decide (to_pid_aligned a = p));
           rewrite /get_memory;          
           try (rewrite Ha);
-          simpl;
-          iFrame.
-        -- iApply "Hϕ".
-           iFrame.
+          simpl.
+        -- iFrame "Htok Hmem Hreg Htxown Hrx1 Hrx2 Hown Haccess Hrest".
+           iApply "Hϕ".
+           iFrame "Htx Hpc Hapc Hrb Harb Hacc Hra".
         -- simplify_eq.
 Qed.
 End ldr.

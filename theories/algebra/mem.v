@@ -296,7 +296,7 @@ Section mem_rules.
     done.
   Qed.
 
-  Lemma gen_mem_update_pages{wss} σ (ps: list PID) (wss': list (list Word)):
+  Lemma gen_mem_update_pages{wss σ} (ps: list PID) (wss': list (list Word)):
     (forall ws', ws' ∈ wss' -> length ws' = (Z.to_nat page_size)) ->
     length ps = length wss' ->
     ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗

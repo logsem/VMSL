@@ -7,23 +7,23 @@ Section str.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma str {instr i qi w1 w2 w3 q s prx} ai a ra rb :
+Lemma str {instr i w1 w2 w3 q s prx} ai a ra rb :
   instr = Str ra rb ->
   decode_instruction w1 = Some(instr) ->
   ai ≠ a ->
   prx ≠ (to_pid_aligned a) ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
-  {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a) ∗ ▷ (a ->a w3) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (RX@ i := prx)}}} ExecI @ i
-                                  {{{ RET ExecI; <<i>>{ qi } ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
+  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a) ∗ ▷ (a ->a w3) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (RX@ i := prx)}}} ExecI @ i
+                                  {{{ RET ExecI; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
                                       ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ∗ RX@i := prx }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hneqaia Hnotrx Hs ϕ) "(? & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra & >HRX) Hϕ".
+  iIntros (Hinstr Hdecode Hneqaia Hnotrx Hs ϕ) "(>Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra & >HRX) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxpage & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxpage & Hrx2 & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [ | | | src dst Hvalidra Hvalidrb Hneqrarb | | | |] .
@@ -61,10 +61,11 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite_mem_all.
-    rewrite_reg_all.
+    rewrite_mem_unsafe.
+    rewrite_reg_pc.
+    rewrite_reg_global.
     rewrite Hcur.
-    iFrame.
+    iFrame "Htx Hrxpage Hrx2 Hown Haccess Hrest".
     (* updated part *)
     rewrite update_memory_unsafe_preserve_current_vm.
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
@@ -72,9 +73,9 @@ Proof.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     rewrite Hcur.
     iModIntro.
-    iFrame.
+    iFrame "Htok Hmem Hreg".
     iApply "Hϕ".
-    iFrame.
+    iFrame "Hpc Hapc Hrb Harb Hacc Hra HRX".
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.
 
@@ -94,7 +95,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & Hrxown & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxown & Hrx2 & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [| | | src dst H3' H4' Hneqrarb | | | |]; subst src dst; clear Hvalidinstr.
@@ -140,7 +141,6 @@ Proof.
         rewrite Hai in H.
         done.
       * simplify_eq.
-        iFrame.
         rewrite /get_memory Hai /get_memory_unsafe in H1.
         simplify_eq.
         rewrite /exec /lang.str Hra.
@@ -153,9 +153,9 @@ Proof.
         rewrite check_access_page_mem_eq in Ha.
         rewrite /update_memory Ha.
         simpl.
-        iFrame.
+        iFrame "Hmem Hreg Htx Hrx2 Hown Haccess Hrest Htok Hrxown".
         iApply "Hϕ".
-        by iFrame.
+        by iFrame "Hrx Hpc Hapc Hrb Harb Hacc Hra".
   - iSplit.
     + iPureIntro.
       exists FailPageFaultI, σ1.

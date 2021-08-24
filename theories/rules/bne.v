@@ -21,7 +21,7 @@ Proof.
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(? & Hmem & Hreg & ? & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [ | | | | | | src Hvalidra|] .
@@ -48,23 +48,23 @@ Proof.
     (* branch here*)
     destruct  (w3 =? W1)%f;
     (* unchanged part *)
-    rewrite_reg_all;
+    [rewrite_reg_pc| rewrite_reg_global];
     rewrite Hcur;
-    iFrame.
+    iFrame "Htok Htx Hrxagree Hrxoption Howned Hrest".
     (* updated part *)
     + rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
       iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Hreg Haccess".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hpc Hra Hacc Hnz".
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
     + rewrite ->update_reg_global_update_reg; [|solve_reg_lookup].
       iDestruct ((gen_reg_update1_global PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
       iModIntro.
-      iFrame.
+      iFrame "Hmem Haccess Hreg".
       iApply "Hϕ".
-      by iFrame.
+      by iFrame "Hapc Hra Hacc Hnz Hpc".
 Qed.
 
 End bne.

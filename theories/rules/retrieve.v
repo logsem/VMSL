@@ -1,13 +1,13 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri Require Import lifting rules.rules_base.
-From HypVeri Require Import base mem reg pagetable mailbox trans.
-From HypVeri Require Import lang_extra reg_extra mem_extra pagetable_extra trans_extra.
+From HypVeri Require Import lifting rules.rules_base stdpp_extra.
+From HypVeri.algebra Require Import base mem reg pagetable mailbox trans.
+From HypVeri.lang Require Import lang_extra reg_extra mem_extra pagetable_extra trans_extra.
 
 Section retrieve.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_retrieve {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gset PID}
+Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j des ptx rxp l} {spsd: gset PID}
       ai r0 r1 wh wf (psd: list PID) :
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
@@ -96,109 +96,114 @@ Proof.
     pose proof Hretri2 as Hretri2''.
     rewrite Htrans in Hretri1.
     inversion Hretri1 as [Hretri1'].
-    rewrite <-Hretri1' in Hretri2.
-    simpl in Hretri2.
+    rewrite -Hretri1' //= in Hretri2.
     rewrite Hretri2 //= /transaction_write_rx /transaction_to_list_words /transaction_to_transaction_descriptor in Heqc2.
     pose proof (finz_of_z_to_z word_size l) as Htemp.
     rewrite Hlenl in Htemp.
-    rewrite /transfer_msg /transfer_msg_unsafe Hr1ps //= /get_current_vm //= /get_vm_mail_box /get_mail_boxes in Heqc2.
-    simpl in Heqc2.
+    rewrite /transfer_msg /transfer_msg_unsafe Hr1ps //= /get_current_vm //= /get_vm_mail_box /get_mail_boxes //in Heqc2.
     rewrite /get_vm_mail_box /get_mail_boxes in Htx Hrx2.
     pose proof (surjective_pairing (σ1.1.1.1.1.2 !!! i)) as Hpair.
     rewrite (surjective_pairing (σ1.1.1.1.1.2 !!! i).2) in Hpair.
     rewrite Htx Hrx1 Hrx2 in Hpair.
-    rewrite //= /fill_rx in Heqc2.
-    rewrite /get_vm_mail_box /get_mail_boxes in Heqc2.
-    simpl in Heqc2.
-    rewrite /get_mail_boxes in Heqc2.
-    simpl in Heqc2.
-    rewrite Hpair in Heqc2.
-    simpl in Heqc2.
+    rewrite //= /fill_rx /get_vm_mail_box /get_mail_boxes // /get_mail_boxes // in Heqc2.
+    rewrite Hpair //= in Heqc2.
     destruct HstepP; subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp /update_incr_PC /update_reg.
-    rewrite_reg_all.
-    rewrite update_access_batch_preserve_current_vm.
-    rewrite update_ownership_batch_preserve_current_vm.
-    rewrite_reg_all.
+    rewrite_reg_pc.
+    rewrite_reg_global.
     rewrite_access_all.
+    rewrite_ownership_all.
+    rewrite_reg_global.
     rewrite fill_rx_unsafe_preserve_current_vm.
     rewrite copy_page_segment_unsafe_preserve_current_vm.
-    rewrite /get_current_vm.
-    iSimpl.
-    iFrame.
-    rewrite update_ownership_batch_preserve_tx.
-    rewrite_reg_all.
+    iFrame "Hσhp".
     rewrite fill_rx_unsafe_preserve_tx.
     2 : {
       rewrite /get_tx_pid_global /get_vm_mail_box //= /get_mail_boxes.
     }
     rewrite copy_page_segment_unsafe_preserve_tx.
     rewrite /get_tx_agree.
+    iFrame "Hσtx".
+    rewrite fill_rx_unsafe_preserve_receivers copy_page_segment_unsafe_preserve_receivers.
+    rewrite fill_rx_unsafe_preserve_trans copy_page_segment_unsafe_preserve_trans.
+    rewrite fill_rx_unsafe_preserve_mem.
+    rewrite Hcureq.
+    rewrite /get_current_vm.
     iSimpl.
-    iFrame.
-    (* update regs *)
-     rewrite -> (update_offset_PC_update_PC1 _ i ai 1); eauto.
-     rewrite ?update_access_batch_preserve_regs ?update_ownership_batch_preserve_regs !update_reg_global_update_reg
-             ?fill_rx_unsafe_preserve_regs ?copy_page_segment_unsafe_preserve_regs; try solve_reg_lookup.
+    iFrame "Hcur".
+    rewrite fill_rx_unsafe_preserve_rx1.
      2 : {
-       exists r0.
-       rewrite get_reg_gmap_get_reg_Some; auto.
-       rewrite /get_reg /get_reg_global /get_vm_reg_file /get_reg_files //= ?Hcureq /get_current_vm //= in HR0 *.
+       rewrite /get_rx_pid_global /get_vm_mail_box /get_mail_boxes //=.
      }
-     2 : {
-       rewrite ?update_access_batch_preserve_regs ?update_ownership_batch_preserve_regs !update_reg_global_update_reg
-               ?fill_rx_unsafe_preserve_regs ?copy_page_segment_unsafe_preserve_regs;
-       try solve_reg_lookup.
-       rewrite !lookup_insert_ne; [|done].
-       rewrite get_reg_gmap_get_reg_Some; auto.
-       rewrite /get_reg /get_reg_global /get_vm_reg_file /get_reg_files //= ?Hcureq /get_current_vm //= in HPC *.
-       exists r0.
-       rewrite get_reg_gmap_get_reg_Some; auto.
-       rewrite /get_reg /get_reg_global /get_vm_reg_file /get_reg_files //= ?Hcureq /get_current_vm //= in HR0 *.
-     }
-     iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0") as ">[Hσreg [PC Hr0]]"; eauto.
-     iFrame.
-     (* update page table *)
+     rewrite copy_page_segment_unsafe_preserve_rx1.
+     iFrame "Hσrx1".
+     rewrite fill_rx_unsafe_update_mailbox.
+     rewrite copy_page_segment_unsafe_preserve_rx2.
      rewrite update_access_batch_preserve_ownerships.
-     rewrite (@update_ownership_batch_update_pagetable_union _ i sown spsd psd Hpsd); eauto.
-     iSimpl.
-     iDestruct ((gen_own_update_union spsd) with "HO Hσowned") as ">[Hσown' HO']"; eauto.
-     iFrame.
-     rewrite (@update_access_batch_update_pagetable_union _ i sacc ExclusiveAccess spsd psd Hpsd); eauto.
-     iSimpl.
-     iDestruct ((gen_access_update_union spsd) with "HA Hσaccess") as ">[Hσaccess' HA']"; eauto.
+
+    (* update regs *)
+    rewrite (update_offset_PC_update_PC1 _ i ai 1).
+    rewrite update_access_batch_preserve_regs update_ownership_batch_preserve_regs update_reg_global_update_reg
+             fill_rx_unsafe_preserve_regs copy_page_segment_unsafe_preserve_regs; try solve_reg_lookup.
+    2 : {
+      exists r0.
+      rewrite get_reg_gmap_get_reg_Some.
+      rewrite /get_reg /get_reg_global /get_vm_reg_file /get_reg_files //= Hcureq /get_current_vm //= in HR0 *.
+      f_equal.
+    }
+    2 : {
+      f_equal.
+    }
+    2:{
+      rewrite update_access_batch_preserve_regs update_ownership_batch_preserve_regs update_reg_global_update_reg.
+      (* try solve_reg_lookup. *)
+      rewrite !lookup_insert_ne; [|done].
+      rewrite get_reg_gmap_get_reg_Some.
+      rewrite /get_reg /get_reg_global /get_vm_reg_file /get_reg_files //= ?Hcureq /get_current_vm //= in HPC *.
+      f_equal.
+      exists r0.
+      rewrite get_reg_gmap_get_reg_Some; auto.
+      rewrite /get_reg /get_reg_global /get_vm_reg_file /get_reg_files //= ?Hcureq /get_current_vm //= in HR0 *.
+    }
+     iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0")
+      as ">[Hσreg [PC Hr0]]";try f_equal.
+    { left;done. }
+     iFrame "Hσreg".
+      (* update page table *)
+     rewrite (@update_ownership_batch_update_pagetable_union _ i sown spsd psd Hpsd); f_equal;eauto.
+     iDestruct ((gen_own_update_union spsd) with "HO Hσowned") as ">[Hσown' HO']"; f_equal.
+    { exact Hpsd. }
+     iFrame "Hσown'".
+     rewrite (@update_access_batch_update_pagetable_union _ i sacc ExclusiveAccess spsd psd Hpsd); f_equal;eauto.
+     iDestruct ((gen_access_update_union spsd) with "HA Hσaccess") as ">[Hσaccess' HA']";f_equal.
+     {exact Hpsd. }
      rewrite update_ownership_batch_preserve_access update_reg_global_preserve_access
              fill_rx_unsafe_preserve_access copy_page_segment_unsafe_preserve_access.
-     iFrame.
+     iFrame "Hσaccess'".
      2 : {
        by rewrite update_ownership_batch_preserve_access update_reg_global_preserve_access
                fill_rx_unsafe_preserve_access copy_page_segment_unsafe_preserve_access.
      }
-     rewrite (@update_exclusive_batch_update_pagetable_union _ i sexcl spsd psd Hpsd); eauto.
-     iDestruct ((gen_excl_update_union spsd) with "HE Hσexcl") as ">[Hσexcl' HE']"; eauto.
+     rewrite (@update_exclusive_batch_update_pagetable_union _ i sexcl spsd psd Hpsd);f_equal; eauto.
+     iDestruct ((gen_excl_update_union spsd) with "HE Hσexcl") as ">[Hσexcl' HE']"; f_equal.
+     { exact Hpsd. }
      rewrite update_ownership_batch_preserve_excl update_reg_global_preserve_excl
-             fill_rx_unsafe_preserve_excl copy_page_segment_unsafe_preserve_excl.     
-     iFrame.
+             fill_rx_unsafe_preserve_excl copy_page_segment_unsafe_preserve_excl.
+     iFrame "Hσexcl'".
      2 : {
        by rewrite update_ownership_batch_preserve_excl update_reg_global_preserve_excl
                fill_rx_unsafe_preserve_excl copy_page_segment_unsafe_preserve_excl.
      }
-     (* update mem *)
-     rewrite update_ownership_batch_preserve_mem update_reg_global_preserve_mem fill_rx_unsafe_preserve_mem.
-     
+
      (* update transactions *)
-     rewrite update_ownership_batch_preserve_trans update_reg_global_preserve_trans
-             fill_rx_unsafe_preserve_trans copy_page_segment_unsafe_preserve_trans.
      rewrite <-Hcureq.
      rewrite (@toggle_transaction_unsafe_preserve_trans _ _ b).
      2 : {
        rewrite Hcureq.
        assumption.
      }
-     iFrame.
+     iFrame "Htrans".
      (* update retri *)
-     rewrite update_ownership_batch_preserve_retri update_reg_global_preserve_retri
-             fill_rx_unsafe_preserve_receivers copy_page_segment_unsafe_preserve_receivers.
      assert (HTemp : (get_retri_gmap σ1) !! wh = Some false).
      {
        rewrite /get_retri_gmap /get_transactions_gmap.
@@ -232,54 +237,13 @@ Proof.
      }
      rewrite HTemp'.
      rewrite <-(@get_retri_gmap_to_get_transaction σ1 wh j wf true (get_current_vm σ1) psd Donation).
-     iFrame.
+     iFrame "Hrcv'".
      (* update rx *)
-     rewrite update_ownership_batch_preserve_rx1 update_reg_global_preserve_rx1.
-     rewrite fill_rx_unsafe_preserve_rx1. 
-     2 : {
-       rewrite /get_rx_pid_global /get_vm_mail_box /get_mail_boxes //=.
-       rewrite /get_mail_boxes //=.
-       rewrite Hcureq Hpair.
-       reflexivity.
-     }
-     rewrite copy_page_segment_unsafe_preserve_rx1.
-     iFrame.
-     rewrite update_ownership_batch_preserve_rx2 update_reg_global_preserve_rx2.
-     rewrite fill_rx_unsafe_update_mailbox.
-     rewrite copy_page_segment_unsafe_preserve_rx2.
-     Set Nested Proofs Allowed.
-     Lemma gen_rx_gmap_update_global_Some {_l _r} :
-       ∀ (σ : state) i l r rxp,
-         ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
-         RX@i:=(rxp!_l,_r) ==∗
-         ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, r)]>(get_rx_gmap σ)) ∗
-         RX@i:=(rxp!l,r).
-     Proof.
-       iIntros (?????) "Hσ Hrx".
-       rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
-       iDestruct "Hrx" as "(Hrx1 & Hrx2)".
-       iDestruct (ghost_map_update (Some (l, r)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
-       iFrame.
-       done.
-     Qed.
-     Lemma gen_rx_gmap_update_global_None :
-       ∀ (σ : state) i l r rxp,
-         ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
-         RX@i:=(rxp!) ==∗
-         ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, r)]>(get_rx_gmap σ)) ∗
-         RX@i:=(rxp!l,r).
-     Proof.
-       iIntros (?????) "Hσ Hrx".
-       rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
-       iDestruct "Hrx" as "(Hrx1 & Hrx2)".
-       iDestruct (ghost_map_update (Some (l, r)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
-       iFrame.
-       done.
-     Qed.
-     iCombine "HRX1 HRX2" as "HRX". 
-     iDestruct ((gen_rx_gmap_update_global_None σ1 (get_current_vm σ1) r1 (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
-     iFrame.
-     rewrite /copy_page_segment_unsafe /copy_from_addr_to_addr_unsafe //=.
+     iCombine "HRX1 HRX2" as "HRX".
+     iDestruct ((gen_rx_gmap_update_global_None (get_current_vm σ1) r1 (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
+     iFrame "Hσrx'".
+     (* update mem *)
+     rewrite /copy_page_segment_unsafe /copy_from_addr_to_addr_unsafe.
      rewrite /get_tx_pid_global /get_vm_mail_box /get_mail_boxes //=.
      rewrite <-Hcureq in Htx.
      rewrite Htx.
@@ -334,8 +298,6 @@ Proof.
      assumption.
      assert (Hzipeq : (zip (finz.seq rxp (length l0)) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)).
      {
-       (* snd_zip: ∀ (A B : Type) (l : list A) (k : list B), length k ≤ length l → (zip l k).*2 = k *)
-       (* zip_fst_snd: ∀ (A B : Type) (lk : list (A * B)), zip lk.*1 lk.*2 = lk *)
        rewrite <-(zip_fst_snd (zip (finz.seq rxp (Z.to_nat 1000)) des)).
        rewrite !snd_zip; auto.
        f_equal.
@@ -344,30 +306,6 @@ Proof.
        generalize dependent (of_pid rxp).
        induction des; first done.
        cbn.
-       Lemma length {A B} {l' : list A} {l1 l2 l3 : list B} :
-         length l' < length l1 -> l2 = l1 ++ l3 -> zip l1 l' = zip l2 l'.
-       Proof.
-         simpl.
-         generalize dependent l1.
-         generalize dependent l2.
-         generalize dependent l3.
-         induction l'.
-         - intros l3 l2 l1 H1 H2.
-           rewrite /zip.
-           destruct l2, l1; done.
-         - intros l3 l2 l1 H1 H2.
-           destruct l2, l1; try done.
-           simpl in H2.
-           inversion H2.
-           simpl in H1.
-           inversion H1.
-           inversion H2; subst.
-           simpl.
-           f_equal.
-           rewrite (IHl' l3 (l1 ++ l3) l1); try done.
-           simpl in H1.
-           lia.
-       Qed.
        destruct (Z.to_nat 1000) eqn:Heqn1000; first done.
        simpl.
        intros f.
@@ -375,7 +313,7 @@ Proof.
        assert (Hn : n = 999).
        lia.
        subst n.
-       rewrite (@length _ _ des (finz.seq (f ^+ 1)%f 999) (finz.seq (f ^+ 1)%f 1000) [(f ^+ 1000)%f]).
+       rewrite (@zip_length_le _ _ des (finz.seq (f ^+ 1)%f 999) (finz.seq (f ^+ 1)%f 1000) [(f ^+ 1000)%f]).
        simpl in Hlendesclt.
        rewrite IHdes.
        reflexivity.
@@ -387,7 +325,14 @@ Proof.
        f_equal.
        simpl.
        f_equal.
-       solve_finz.
+       rewrite Unnamed_thm12.
+       rewrite Z.add_comm.
+       assert (H999_1 : Z.add (Z.of_nat 999%nat) 1%Z = 1000%Z).
+       reflexivity.
+       rewrite H999_1.
+       reflexivity.
+       lia.
+       lia.
        lia.
        rewrite finz_seq_length.
        lia.
@@ -395,7 +340,7 @@ Proof.
      rewrite Hzipeq.
      iDestruct "Hmemupd" as ">[Hmemupd1 Hmemupd2]".
      iFrame "Hmemupd1".
-     iSplitR.
+          iSplitR.
      iPureIntro.
      rewrite dom_insert_lookup_L; eauto.
      split; [set_solver|].
@@ -407,10 +352,7 @@ Proof.
      assumption.
      iApply "HΦ".
      rewrite Hlen'.
-     rewrite Hcureq.
-     iFrame.
-     iModIntro.
-     done.
+     by iFrame.
 Qed.
 
 End retrieve.

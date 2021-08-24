@@ -4,6 +4,13 @@ From iris.algebra Require Import auth gmap gset.
 From iris.proofmode Require Import tactics.
 From stdpp Require Import list.
 
+Lemma check_access_page_mem_eq {σ i a} :
+  check_access_page' σ i (to_pid_aligned a) =
+  check_access_addr σ i a.
+Proof.
+  rewrite /check_access_addr; done.
+Qed.
+
 Lemma list_pid_to_addr_NoDup (ps:list PID):
   NoDup ps ->
   NoDup (list_pid_to_addr ps).

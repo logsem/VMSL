@@ -1,121 +1,17 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
+From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base token reg pagetable.
 From HypVeri Require Import lifting.
-From HypVeri.lang Require Import mem_extra reg_extra pagetable_extra current_extra trans_extra.
+From HypVeri.lang Require Import lang_extra.
 Require Import stdpp.fin.
 
-Ltac rewrite_reg_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_offset_PC_preserve_current_vm; try rewrite -> update_reg_global_preserve_current_vm;
-    try rewrite -> update_offset_PC_preserve_mem ; try rewrite -> update_reg_global_preserve_mem;
-    try rewrite -> update_offset_PC_preserve_tx ; try rewrite -> update_reg_global_preserve_tx;
-    try rewrite -> update_offset_PC_preserve_rx1 ; try rewrite  -> update_reg_global_preserve_rx1;
-    try rewrite -> update_offset_PC_preserve_rx2 ; try rewrite  -> update_reg_global_preserve_rx2;
-    try rewrite -> update_offset_PC_preserve_owned  ; try rewrite -> update_reg_global_preserve_owned;
-    try rewrite -> update_offset_PC_preserve_access  ; try rewrite -> update_reg_global_preserve_access;
-    try rewrite -> update_offset_PC_preserve_excl  ; try rewrite -> update_reg_global_preserve_excl;
-    try rewrite -> update_offset_PC_preserve_trans  ; try rewrite -> update_reg_global_preserve_trans;
-    try rewrite -> update_offset_PC_preserve_trans'  ; try rewrite -> update_reg_global_preserve_trans';
-    try rewrite -> update_offset_PC_preserve_hpool  ; try rewrite -> update_reg_global_preserve_hpool;
-    try rewrite -> update_offset_PC_preserve_retri  ; try rewrite -> update_reg_global_preserve_retri
-  end.
 
-Ltac rewrite_mem_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_memory_unsafe_preserve_current_vm;try rewrite -> zero_pages_preserve_current_vm;
-    try rewrite -> update_memory_unsafe_preserve_reg;try rewrite -> zero_pages_preserve_reg;
-    try rewrite -> update_reg_global_preserve_mem;
-    try rewrite -> update_memory_unsafe_preserve_tx;try rewrite -> zero_pages_preserve_tx;
-    try rewrite -> update_memory_unsafe_preserve_rx1;try rewrite -> zero_pages_preserve_rx1;
-    try rewrite -> update_memory_unsafe_preserve_rx2;try rewrite -> zero_pages_preserve_rx2;
-    try rewrite -> update_memory_unsafe_preserve_owned;try rewrite -> zero_pages_preserve_owned;
-    try rewrite -> update_memory_unsafe_preserve_access;try rewrite -> zero_pages_preserve_access;
-    try rewrite -> update_memory_unsafe_preserve_excl;try rewrite -> zero_pages_preserve_excl;
-    try rewrite -> update_memory_unsafe_preserve_trans;try rewrite -> zero_pages_preserve_trans;
-    try rewrite -> update_memory_unsafe_preserve_trans';try rewrite -> zero_pages_preserve_trans';
-    try rewrite -> update_memory_unsafe_preserve_hpool;try rewrite -> zero_pages_preserve_hpool;
-    try rewrite -> update_memory_unsafe_preserve_retri;try rewrite -> zero_pages_preserve_retri
-  end.
-
-Ltac rewrite_vmid_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_current_vmid_preserve_reg;
-    try rewrite -> update_current_vmid_preserve_mem;
-    try rewrite -> update_current_vmid_preserve_tx;
-    try rewrite -> update_current_vmid_preserve_rx1;
-    try rewrite -> update_current_vmid_preserve_rx2;
-    try rewrite -> update_current_vmid_preserve_owned;
-    try rewrite -> update_current_vmid_preserve_access;
-    try rewrite -> update_current_vmid_preserve_excl;
-    try rewrite -> update_current_vmid_preserve_trans;
-    try rewrite -> update_current_vmid_preserve_trans';
-    try rewrite -> update_current_vmid_preserve_hpool;
-    try rewrite -> update_current_vmid_preserve_retri
-  end.
-
-Ltac rewrite_ownership_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_ownership_batch_preserve_current_vm;
-    try rewrite -> update_ownership_batch_preserve_regs;
-    try rewrite -> update_ownership_batch_preserve_mem;
-    try rewrite -> update_ownership_batch_preserve_tx;
-    try rewrite -> update_ownership_batch_preserve_rx1;
-    try rewrite -> update_ownership_batch_preserve_rx2;
-    try rewrite -> update_ownership_batch_preserve_trans;
-    try rewrite -> update_ownership_batch_preserve_trans';
-    try rewrite -> update_ownership_batch_preserve_hpool;
-    try rewrite -> update_ownership_batch_preserve_retri
-  end.
-
-Ltac rewrite_access_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_access_batch_preserve_current_vm;
-    try rewrite -> update_access_batch_preserve_regs;
-    try rewrite -> update_access_batch_preserve_mem;
-    try rewrite -> update_access_batch_preserve_tx;
-    try rewrite -> update_access_batch_preserve_rx1;
-    try rewrite -> update_access_batch_preserve_rx2;
-    try rewrite -> update_access_batch_preserve_trans;
-    try rewrite -> update_access_batch_preserve_trans';
-    try rewrite -> update_access_batch_preserve_hpool;
-    try rewrite -> update_access_batch_preserve_retri
-  end.
-
-
-Ltac rewrite_trans_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> insert_transaction_preserve_current_vm;
-    try rewrite -> insert_transaction_preserve_regs;
-    try rewrite -> insert_transaction_preserve_mem;
-    try rewrite -> insert_transaction_preserve_tx;
-    try rewrite -> insert_transaction_preserve_rx1;
-    try rewrite -> insert_transaction_preserve_rx2;
-    try rewrite -> insert_transaction_preserve_owned;
-    try rewrite -> insert_transaction_preserve_access;
-    try rewrite -> insert_transaction_preserve_excl
-  end.
-
-
-Ltac solve_reg_lookup :=
-  match goal with
-  | _ : get_reg ?σ ?r = Some ?w |- get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r = Some ?w |- is_Some (get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
-    rewrite lookup_insert_ne; eauto
-  end.
-
-Section rules_base.
 Global Instance hyp_irisG `{gen_VMG Σ}: irisG hyp_machine Σ:=
   {
   iris_invG := gen_invG;
   state_interp := gen_vm_interp
   }.
+
+Section rules_base.
 
 Context `{vmG: !gen_VMG Σ}.
 Implicit Type a : Addr.
@@ -124,13 +20,6 @@ Implicit Type ra rb : reg_name.
 Implicit Type w: Word.
 Implicit Type q : Qp.
   
-
-Lemma check_access_page_mem_eq {σ i a} :
-  check_access_page' σ i (to_pid_aligned a) =
-  check_access_addr σ i a.
-Proof.
-  rewrite /check_access_addr; done.
-Qed.
 
 Lemma not_valid_pc {a i s} :
   (to_pid_aligned a) ∉ s ->
