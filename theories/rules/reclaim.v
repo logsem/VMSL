@@ -1,8 +1,7 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base transaction utils.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
-Require Import stdpp.fin.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import lifting rules.rules_base stdpp_extra.
+From HypVeri.algebra Require Import base mem reg mailbox pagetable trans.
+From HypVeri.lang Require Import reg_extra mem_extra pagetable_extra trans_extra.
 
 Section reclaim.
 

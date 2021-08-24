@@ -1,9 +1,6 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import reg_addr RAs rule_misc lifting.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri.algebra Require Import base.
 From HypVeri.rules Require Import rules_base mov halt run yield.
-From iris.proofmode Require Import tactics.
-From iris.base_logic.lib Require Import invariants na_invariants.
-From iris.algebra Require Import excl.
 
 Section RunYield1.
 
@@ -215,7 +212,7 @@ Section RunYield1.
     (* mov_word_I R0 yield_I *)
     rewrite wp_sswp.
     iDestruct
-      ((mov_word (of_pid prog2page) yield_I R0) with "[p_1 PCi Hacc R0i]") as "J";eauto.
+      ((mov.mov_word (of_pid prog2page) yield_I R0) with "[p_1 PCi Hacc R0i]") as "J";eauto.
     3:{iFrame. }
     by rewrite decode_encode_instruction.
     by inversion HIn.

@@ -30,7 +30,7 @@ endif
 
 clean:
 	@echo "CLEAN vo glob aux"
-	@rm -f $(ALL_VFILES:.v=.vo) $(ALL_VFILES:.v=.glob)
+	@rm -f $(ALL_VFILES:.v=.vo) $(ALL_VFILES:.v=.glob) $(ALL_VFILES:.v=.vok) $(ALL_VFILES:.v=.vos)
 	@find $(SRC_DIRS) -name ".*.aux" -exec rm {} \;
 	rm -f _CoqProject .coqdeps.d
 

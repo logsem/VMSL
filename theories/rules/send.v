@@ -1,13 +1,13 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base transaction utils.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import lifting rules.rules_base stdpp_extra.
+From HypVeri.algebra Require Import base reg mem pagetable mailbox.
+From HypVeri.lang Require Import lang_extra mem_extra reg_extra current_extra.
 Require Import stdpp.fin.
 
 Section send.
 
   Context `{vmG: !gen_VMG Σ}.
-  
+ (* TODO we forgot passing the control to vm0 *)
 Lemma hvc_send {wi r0 w sacc pi i j des ptx rxp l ai} :
   decode_instruction wi = Some(Hvc) ->
   addr_in_page ai pi ->
@@ -35,12 +35,12 @@ Proof.
   apply fin_to_nat_inj in Hcureq.
   iModIntro.
   iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hlen & Hrcv)".
-  iDestruct ((gen_reg_valid4 σ1 i PC ai R0 r0 R1 w R2 l Hcureq) with "Hσreg PC Hr0 Hr1 Hr2")
+  iDestruct ((gen_reg_valid4 i PC ai R0 r0 R1 w R2 l Hcureq) with "Hσreg PC Hr0 Hr1 Hr2")
     as "[%HPC [%HR0 [%HR1 %HR2]]]"; eauto.
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess HA") as %Haccai; eauto.
   { rewrite (to_pid_aligned_in_page _ pi); eauto. }
-  iDestruct ((gen_access_valid_lookup_Set _ _ _ sacc) with "Hσaccess HA") as %Hacc; eauto.
-  iDestruct (gen_mem_valid σ1 ai wi with "Hσmem Hai") as %Hai.
+  iDestruct ((gen_access_valid_pure sacc) with "Hσaccess HA") as %Hacc; eauto.
+  iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hmemr") as %Hadesc.
   {
     apply finz_seq_NoDup.
@@ -49,7 +49,7 @@ Proof.
     solve_finz.
   }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
-  iDestruct (gen_rx_none_valid with "HRX Hσrx2") as %Hrx2.
+  iDestruct (gen_rx_valid_none with "HRX Hσrx2") as %Hrx2.
   iDestruct "HRX" as "(HRX1 & HRX2)".
   iDestruct (gen_rx_pid_valid with "HRX1 Hσrx1") as %Hrx1.
   iSplit.
@@ -81,7 +81,8 @@ Proof.
     rewrite Hrx2 /= in Heqc2.
     destruct HstepP; subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp /update_incr_PC /update_reg.
-    rewrite_reg_all.
+    rewrite_reg_pc.
+    rewrite_reg_global.
     rewrite fill_rx_unsafe_preserve_current_vm fill_rx_unsafe_preserve_mem
             fill_rx_unsafe_preserve_rx1.
     2 : {
@@ -116,7 +117,7 @@ Proof.
       rewrite fill_rx_unsafe_preserve_regs copy_page_segment_unsafe_preserve_regs;
       try solve_reg_lookup.
     }
-    iDestruct ((gen_reg_update2_global σ1 PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0") as ">[Hσreg [PC Hr0]]"; eauto.
+    iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0") as ">[Hσreg [PC Hr0]]"; eauto.
     rewrite fill_rx_unsafe_preserve_regs copy_page_segment_unsafe_preserve_regs.
     rewrite Hcureq.
     iFrame "Hσreg".
@@ -124,7 +125,7 @@ Proof.
     rewrite fill_rx_unsafe_update_mailbox.
     rewrite copy_page_segment_unsafe_preserve_rx2.
     iCombine "HRX1 HRX2" as "HRX". 
-    iDestruct ((gen_rx_gmap_update_global_None σ1 j l (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
+    iDestruct ((gen_rx_gmap_update_global_None j l (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
     rewrite Hcureq.
     iFrame "Hσrx'".
     (* update mem *)
@@ -156,13 +157,14 @@ Proof.
     }
     rewrite Hlist.
     rewrite /write_mem_segment_unsafe //.
-    iDestruct ((gen_mem_update_Sep_list (finz.seq rxp (length l')) l' des) with "Hσmem Hmemr'") as "Hmemupd".
+    iDestruct ((gen_mem_update_SepL2 (finz.seq rxp (length l')) l' des) with "Hσmem Hmemr'") as "Hmemupd".
     rewrite Hlen'.
     apply finz_seq_NoDup'.
     pose proof last_addr_in_bound as Hbound.
     specialize (Hbound rxp).
     solve_finz.
     assumption.
+    (* TODO make a general lemma in lang_extra *)
     assert (Hzipeq : (zip (finz.seq rxp (length l')) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)).
     {
       rewrite <-(zip_fst_snd (zip (finz.seq rxp (Z.to_nat 1000)) des)).

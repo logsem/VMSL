@@ -1,6 +1,6 @@
 (* the operational semantics *)
 From stdpp Require Import gmap fin_maps list countable fin mapset fin_map_dom vector.
-From HypVeri Require Export machine monad reg_addr.
+From HypVeri Require Export monad machine  machine_extra.
 
 Import MonadNotation.
 Import Option.

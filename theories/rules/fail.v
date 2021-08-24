@@ -1,8 +1,7 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
-Require Import stdpp.fin.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import lifting rules.rules_base.
+From HypVeri.algebra Require Import base reg mem pagetable.
+From HypVeri.lang Require Import lang_extra.
 
 Section fail.
 
@@ -24,11 +23,11 @@ Proof.
   iModIntro.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
   (* valid regs *)
-  iDestruct ((gen_reg_valid1 σ1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
+  iDestruct ((gen_reg_valid1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr ai) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
-  iDestruct (gen_mem_valid σ1 ai w1  with "Hmem Hapc") as %Hmem.
+  iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.
   - (* reducible *)
     iPureIntro.

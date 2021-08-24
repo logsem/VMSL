@@ -1,7 +1,7 @@
-From machine_program_logic.program_logic Require Import machine weakestpre.
-From HypVeri Require Import RAs rule_misc lifting rules.rules_base.
-From iris.proofmode Require Import tactics.
-Require Import iris.base_logic.lib.ghost_map.
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import lifting rules.rules_base.
+From HypVeri.algebra Require Import base reg mem token pagetable.
+From HypVeri.lang Require Import lang_extra reg_extra current_extra.
 Require Import stdpp.fin.
 
 Section run.
@@ -37,13 +37,13 @@ Proof.
   iModIntro.
   iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & Htx & Hrx1 & Hrx2 & Hown & Haccessown & Hrest)".
   (* valid regs *)
-  iDestruct (gen_reg_valid1 σ1 PC z ai Hcur with "Hregown Hpc") as "%Hpc".
-  iDestruct (gen_reg_valid1 σ1 R0 z w2 Hcur with "Hregown Hr0") as "%Hr0".
-  iDestruct (gen_reg_valid1 σ1 R1 z w3 Hcur with "Hregown Hr1") as "%Hr1".
+  iDestruct (gen_reg_valid1 PC z ai Hcur with "Hregown Hpc") as "%Hpc".
+  iDestruct (gen_reg_valid1 R0 z w2 Hcur with "Hregown Hr0") as "%Hr0".
+  iDestruct (gen_reg_valid1 R1 z w3 Hcur with "Hregown Hr1") as "%Hr1".
   (* valid pt *)
   iDestruct (gen_access_valid_addr_Set ai p s with "Haccessown Hacc") as %Hacc;eauto.
   (* valid mem *)
-  iDestruct (gen_mem_valid σ1 ai w1 with "Hmemown Hapc") as "%Hmem".
+  iDestruct (gen_mem_valid ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -64,9 +64,9 @@ Proof.
     simpl.
     rewrite /gen_vm_interp /update_incr_PC.
     rewrite_vmid_all.
-    rewrite_reg_all.
+    rewrite_reg_pc.
     iFrame "Hrest Htx Hrx1 Hrx2 Hmemown Haccessown".
-    iDestruct ((gen_reg_update1_global σ1 PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
+    iDestruct ((gen_reg_update1_global PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
     iDestruct (token_update (get_current_vm σ1) (get_current_vm σ1) i with "Htok") as "HtokUpd".
     rewrite token_agree_eq /token_agree_def.
     iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
