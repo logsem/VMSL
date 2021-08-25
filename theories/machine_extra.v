@@ -49,6 +49,15 @@ Proof.
   rewrite -H length_page_of_W0 //.
 Qed.
 
+Definition hvcf_to_tt hvcf:=
+  match hvcf with
+    | Donate => Some Donation
+    | Lend => Some Lending
+    | Share => Some Sharing
+    | _ => None
+  end.
+
+
 Section list_of_vmids.
 Context `{HypervisorConstants}.
 

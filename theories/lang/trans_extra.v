@@ -42,7 +42,7 @@ Lemma insert_transaction_preserve_excl σ h trans:
 Proof. f_equal. Qed.
 
 
-Ltac rewrite_trans_all :=
+Ltac rewrite_trans_insert :=
   match goal with
   | |- _ =>
     try rewrite -> insert_transaction_preserve_current_vm;
@@ -392,104 +392,103 @@ Proof.
   apply (insert_transaction_update_transactions (λ tran, tran.1.1.1.2)).
 Qed.
 
+Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
+  dom (gset handle) (get_transactions_gmap σ proj) = dom (gset handle) (get_transactions σ).1.
+Proof.
+  apply set_eq.
+  split.
+  - intros.
+    apply elem_of_dom.
+    apply elem_of_dom in H.
+    destruct H.
+    rewrite /get_trans_gmap in H.
+    apply  elem_of_list_to_map_2 in H.
+    inv_map_in.
+    apply elem_of_list_In in H0.
+    destruct x1.
+    apply (elem_of_map_to_list) in H0.
+    inversion H;subst f.
+    eexists.
+    done.
+  - intros.
+    apply elem_of_dom.
+    apply elem_of_dom in H.
+    destruct H.
+    rewrite /get_trans_gmap.
+    exists (proj x0).
+    apply elem_of_list_to_map'.
+    intros.
+    inv_map_in.
+    inversion H1;subst x.
+    clear H5 H1.
+    apply elem_of_list_In in H2.
+    destruct x1.
+    apply (elem_of_map_to_list) in H2.
+    simpl in *.
+    rewrite H2 in H.
+    inversion H;subst t.
+    done.
+    inv_map_in.
+    exists (x,x0).
+    split;[done|].
+    apply elem_of_list_In.
+      by apply (elem_of_map_to_list).
+Qed.
 
-  Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
-   dom (gset handle) (get_transactions_gmap σ proj) = dom (gset handle) (get_transactions σ).1.
-  Proof.
-   apply set_eq.
-   split.
-   - intros.
-     apply elem_of_dom.
-     apply elem_of_dom in H.
-     destruct H.
-     rewrite /get_trans_gmap in H.
-     apply  elem_of_list_to_map_2 in H.
-     inv_map_in.
-     apply elem_of_list_In in H0.
-     destruct x1.
-     apply (elem_of_map_to_list) in H0.
-     inversion H;subst f.
-     eexists.
-     done.
-   - intros.
-     apply elem_of_dom.
-     apply elem_of_dom in H.
-     destruct H.
-     rewrite /get_trans_gmap.
-     exists (proj x0).
-     apply elem_of_list_to_map'.
-     intros.
-     inv_map_in.
-     inversion H1;subst x.
-     clear H5 H1.
-     apply elem_of_list_In in H2.
-     destruct x1.
-     apply (elem_of_map_to_list) in H2.
-     simpl in *.
-     rewrite H2 in H.
-     inversion H;subst t.
-     done.
-     inv_map_in.
-     exists (x,x0).
-     split;[done|].
-     apply elem_of_list_In.
-     by apply (elem_of_map_to_list).
-  Qed.
+Lemma get_trans_gmap_preserve_dom {σ}:
+  dom (gset handle) (get_trans_gmap σ) = dom (gset handle) (get_transactions σ).1.
+Proof.
+  apply get_transactions_gmap_preserve_dom.
+Qed.
 
-  Lemma get_trans_gmap_preserve_dom {σ}:
-   dom (gset handle) (get_trans_gmap σ) = dom (gset handle) (get_transactions σ).1.
-  Proof.
-    apply get_transactions_gmap_preserve_dom.
-  Qed.
+Lemma get_retri_gmap_preserve_dom {σ}:
+  dom (gset handle) (get_retri_gmap σ) = dom (gset handle) (get_transactions σ).1.
+Proof.
+  apply get_transactions_gmap_preserve_dom.
+Qed.
 
-  Lemma get_retri_gmap_preserve_dom {σ}:
-    dom (gset handle) (get_retri_gmap σ) = dom (gset handle) (get_transactions σ).1.
-  Proof.
-    apply get_transactions_gmap_preserve_dom.
-  Qed.
 
-  Lemma remove_transaction_preserve_current_vm σ h:
-    get_current_vm (remove_transaction σ h) = get_current_vm σ.
-  Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_current_vm σ h:
+  get_current_vm (remove_transaction σ h) = get_current_vm σ.
+Proof. f_equal. Qed.
 
-  Lemma remove_transaction_preserve_regs σ h:
-    get_reg_gmap (remove_transaction σ h) = get_reg_gmap σ.
-  Proof. f_equal. Qed.
-  
-  Lemma remove_transaction_preserve_mem σ h:
-    get_mem (remove_transaction σ h) = get_mem σ.
-  Proof. f_equal. Qed.
-  
-  Lemma remove_transaction_preserve_tx σ h:
-    get_tx_agree (remove_transaction σ h) = get_tx_agree σ.
-  Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_regs σ h :
+  get_reg_gmap (remove_transaction σ h ) = get_reg_gmap σ.
+Proof. f_equal. Qed.
 
-  Lemma remove_transaction_preserve_rx1 σ h:
-    get_rx_agree (remove_transaction σ h) = get_rx_agree σ.
-  Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_mem σ h :
+  get_mem (remove_transaction σ h ) = get_mem σ.
+Proof. f_equal. Qed.
 
-  Lemma remove_transaction_preserve_rx2 σ h:
-    get_rx_gmap(remove_transaction σ h) = get_rx_gmap σ.
-  Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_tx σ h :
+  get_tx_agree (remove_transaction σ h ) = get_tx_agree σ.
+Proof. f_equal. Qed.
 
-  Lemma remove_transaction_preserve_rx  σ h:
-    (get_rx_agree (remove_transaction σ h), get_rx_gmap (remove_transaction σ h) ) =
-    (get_rx_agree σ, get_rx_gmap σ).
-  Proof. f_equal. Qed.
-  
-  Lemma remove_transaction_preserve_owned σ h:
-    get_owned_gmap (remove_transaction σ h) = get_owned_gmap σ.
-  Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_rx1 σ h :
+  get_rx_agree (remove_transaction σ h ) = get_rx_agree σ.
+Proof. f_equal. Qed.
 
-  Lemma remove_transaction_preserve_access σ h:
-    get_access_gmap (remove_transaction σ h) = get_access_gmap σ.
-  Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_rx2 σ h :
+  get_rx_gmap(remove_transaction σ h ) = get_rx_gmap σ.
+Proof. f_equal. Qed.
 
-  Lemma remove_transaction_preserve_excl σ h:
-    get_excl_gmap (remove_transaction σ h) = get_excl_gmap σ.
-  Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_rx  σ h :
+  (get_rx_agree (remove_transaction σ h ), get_rx_gmap (remove_transaction σ h ) ) =
+  (get_rx_agree σ, get_rx_gmap σ).
+Proof. by rewrite remove_transaction_preserve_rx1 remove_transaction_preserve_rx2 . Qed.
 
-  Ltac rewrite_trans_remove :=
+Lemma remove_transaction_preserve_owned σ h :
+  get_owned_gmap (remove_transaction σ h ) = get_owned_gmap σ.
+Proof. f_equal. Qed.
+Lemma remove_transaction_preserve_access σ h :
+  get_access_gmap (remove_transaction σ h ) = get_access_gmap σ.
+Proof. f_equal. Qed.
+
+Lemma remove_transaction_preserve_excl σ h :
+  get_excl_gmap (remove_transaction σ h ) = get_excl_gmap σ.
+Proof. f_equal. Qed.
+
+Ltac rewrite_trans_remove :=
   match goal with
   | |- _ =>
     try rewrite -> remove_transaction_preserve_current_vm;
@@ -503,110 +502,110 @@ Qed.
     try rewrite -> remove_transaction_preserve_excl
   end.
 
-  Lemma remove_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h :
-    (get_transactions_gmap (remove_transaction σ h) proj)
-    = (delete h (get_transactions_gmap σ proj)).
-  Proof.
-    rewrite /get_transactions_gmap //=.
-    apply map_eq.
-    intro.
-    destruct (decide (h=i)).
-    - subst i;rewrite lookup_delete.
-      apply not_elem_of_list_to_map_1.
-      rewrite <-list_fmap_compose.
-      rewrite /compose.
-      cbn.
-      intro HIn.
-      apply elem_of_list_In in HIn.
-      apply in_map_iff in HIn.
-      destruct HIn as [? [Heqh HIn]].
-      subst h.
-      destruct x;cbn in HIn.
-      apply elem_of_list_In in HIn.
-      apply elem_of_map_to_list' in HIn.
-      cbn in HIn.
-      rewrite lookup_delete  //in HIn.
-    - rewrite lookup_delete_ne;eauto.
-      destruct (list_to_map (map (λ p : Addr * transaction, (p.1, (proj p.2) )) (map_to_list (get_transactions σ).1)) !! i) eqn:Heqn.
-      + apply elem_of_list_to_map_2 in Heqn.
-        apply elem_of_list_In in Heqn.
-        apply in_map_iff in Heqn.
-        destruct Heqn.
-        destruct H.
-        inversion H.
-        subst i.
-        destruct x;simpl in *.
-        apply elem_of_list_In in H0.
-        apply elem_of_map_to_list' in H0.
-        simpl in H0.
-        apply elem_of_list_to_map_1'.
-        * intros.
-          inv_map_in.
-          inversion H1.
-          subst f.
-          destruct x;simpl in *.
-          apply elem_of_list_In in H2.
-          apply elem_of_map_to_list' in H2.
-          simpl in H2.
-          rewrite lookup_delete_ne in H2;eauto.
-          rewrite H2 in H0.
-          inversion H0;subst t.
-          done.
-        * inv_map_in.
-          exists (f, t).
-          split.
-          done.
-          apply elem_of_list_In.
-          apply elem_of_map_to_list'.
-          simpl.
-          rewrite lookup_delete_ne;eauto.
-      + apply not_elem_of_list_to_map_1.
-        apply not_elem_of_list_to_map_2 in Heqn.
-        intro.
-        apply Heqn.
-        apply elem_of_list_In in H.
-        apply in_map_iff in H.
-        destruct H.
-        destruct H.
-        destruct H.
-        apply elem_of_list_In in H0.
-        apply elem_of_list_In in H0.
-        apply in_map_iff in H0.
-        destruct H0.
-        destruct H.
-        destruct x;inversion H.
-        apply elem_of_list_In in H0.
-        apply elem_of_map_to_list' in H0.
-        simpl in *.
+Lemma remove_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h :
+  (get_transactions_gmap (remove_transaction σ h) proj)
+  = (delete h (get_transactions_gmap σ proj)).
+Proof.
+  rewrite /get_transactions_gmap //=.
+  apply map_eq.
+  intro.
+  destruct (decide (h=i)).
+  - subst i;rewrite lookup_delete.
+    apply not_elem_of_list_to_map_1.
+    rewrite <-list_fmap_compose.
+    rewrite /compose.
+    cbn.
+    intro HIn.
+    apply elem_of_list_In in HIn.
+    apply in_map_iff in HIn.
+    destruct HIn as [? [Heqh HIn]].
+    subst h.
+    destruct x;cbn in HIn.
+    apply elem_of_list_In in HIn.
+    apply elem_of_map_to_list' in HIn.
+    cbn in HIn.
+    rewrite lookup_delete  //in HIn.
+  - rewrite lookup_delete_ne;eauto.
+    destruct (list_to_map (map (λ p : Addr * transaction, (p.1, (proj p.2) )) (map_to_list (get_transactions σ).1)) !! i) eqn:Heqn.
+    + apply elem_of_list_to_map_2 in Heqn.
+      apply elem_of_list_In in Heqn.
+      apply in_map_iff in Heqn.
+      destruct Heqn.
+      destruct H.
+      inversion H.
+      subst i.
+      destruct x;simpl in *.
+      apply elem_of_list_In in H0.
+      apply elem_of_map_to_list' in H0.
+      simpl in H0.
+      apply elem_of_list_to_map_1'.
+      * intros.
+        inv_map_in.
+        inversion H1.
         subst f.
-        rewrite lookup_delete_ne in H0;eauto.
-        apply elem_of_list_In.
-        apply in_map_iff.
-        exists (x0.1,i).
-        split;[done|].
-        apply in_map_iff.
-        exists (x0.1,x0.2).
-        subst i;split;[done|].
+        destruct x;simpl in *.
+        apply elem_of_list_In in H2.
+        apply elem_of_map_to_list' in H2.
+        simpl in H2.
+        rewrite lookup_delete_ne in H2;eauto.
+        rewrite H2 in H0.
+        inversion H0;subst t.
+        done.
+      * inv_map_in.
+        exists (f, t).
+        split.
+        done.
         apply elem_of_list_In.
         apply elem_of_map_to_list'.
-        apply H0.
-  Qed.
+        simpl.
+        rewrite lookup_delete_ne;eauto.
+    + apply not_elem_of_list_to_map_1.
+      apply not_elem_of_list_to_map_2 in Heqn.
+      intro.
+      apply Heqn.
+      apply elem_of_list_In in H.
+      apply in_map_iff in H.
+      destruct H.
+      destruct H.
+      destruct H.
+      apply elem_of_list_In in H0.
+      apply elem_of_list_In in H0.
+      apply in_map_iff in H0.
+      destruct H0.
+      destruct H.
+      destruct x;inversion H.
+      apply elem_of_list_In in H0.
+      apply elem_of_map_to_list' in H0.
+      simpl in *.
+      subst f.
+      rewrite lookup_delete_ne in H0;eauto.
+      apply elem_of_list_In.
+      apply in_map_iff.
+      exists (x0.1,i).
+      split;[done|].
+      apply in_map_iff.
+      exists (x0.1,x0.2).
+      subst i;split;[done|].
+      apply elem_of_list_In.
+      apply elem_of_map_to_list'.
+      apply H0.
+Qed.
 
-  Lemma remove_transaction_update_trans σ h :
-    (get_trans_gmap (remove_transaction σ h ))
-    = (delete h (get_trans_gmap σ)).
-  Proof.
-    apply (remove_transaction_update_transactions
-             (λ tran, (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2))).
-  Qed.
-  
-  Lemma remove_transaction_update_hpool σ h :
-    (get_hpool_gset (remove_transaction σ h )) = ((get_hpool_gset σ) ∪ {[h]}).
-  Proof. rewrite /remove_transaction /get_hpool_gset /= //. Qed.
-  
-  Lemma remove_transaction_update_retri σ h :
-    (get_retri_gmap (remove_transaction σ h )) = (delete h (get_retri_gmap σ)).
-  Proof.
-    apply (remove_transaction_update_transactions (λ tran, tran.1.1.1.2)).
-  Qed.
-  
+
+Lemma remove_transaction_update_trans σ h :
+  (get_trans_gmap (remove_transaction σ h ))
+  = (delete h (get_trans_gmap σ)).
+Proof.
+  apply (remove_transaction_update_transactions
+           (λ tran, (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2))).
+Qed.
+
+Lemma remove_transaction_update_hpool σ h :
+  (get_hpool_gset (remove_transaction σ h )) = ((get_hpool_gset σ) ∪ {[h]}).
+Proof. rewrite /remove_transaction /get_hpool_gset /= //. Qed.
+
+Lemma remove_transaction_update_retri σ h :
+  (get_retri_gmap (remove_transaction σ h )) = (delete h (get_retri_gmap σ)).
+Proof.
+  apply (remove_transaction_update_transactions (λ tran, tran.1.1.1.2)).
+Qed.

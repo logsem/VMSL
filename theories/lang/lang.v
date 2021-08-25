@@ -728,8 +728,8 @@ Definition relinquish (s : state) : exec_mode * state :=
 
 Definition no_borrowers (s : state) (h : handle) (v : VMID) : bool :=
   match (get_transaction s h) with
-  | None => true
-  | Some (vs, w1, b, r, ps, ty) => b
+  | None => false
+  | Some (vs, w1, b, r, ps, ty) => negb b
   end.
 
 Definition reclaim (s : state) : exec_mode * state :=
@@ -739,7 +739,9 @@ Definition reclaim (s : state) : exec_mode * state :=
       l <- unit ((get_memory_descriptor trn).2 );;;
       if no_borrowers s handle (get_current_vm s)
       then
-        unit (update_access_batch (update_ownership_batch (remove_transaction (update_reg s R0 (encode_hvc_ret_code Succ)) handle) l Owned) l ExclusiveAccess)
+        unit (update_reg  (update_access_batch
+                             (update_ownership_batch
+                                (remove_transaction s handle) l Owned) l ExclusiveAccess) R0 (encode_hvc_ret_code Succ))
       else throw Denied
   in
   unpack_hvc_result_normal s comp.
