@@ -698,17 +698,18 @@ Definition retrieve (s : state) : exec_mode * state :=
         (let (r, ps) := get_memory_descriptor trn in
          let ty := get_transaction_type trn in
          (* add receiver(caller) into the list of the transaction *)
-         s' <- toggle_transaction_retrieve s handle trn ;;;
-         s'' <- transfer_msg s' len (get_current_vm s') ;;;
+         s' <- transfer_msg s len (get_current_vm s) ;;;
          (* for all pages of the trancation ... (change the page table of the caller according to the type)*)
          match ty with
          | Sharing =>
+           s'' <- toggle_transaction_retrieve s' handle trn ;;;
            unit (update_access_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps SharedAccess)
          | Lending =>
+           s'' <- toggle_transaction_retrieve s' handle trn ;;;
            (* it is fine because we only allow at most one receiver *)
            unit (update_access_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps ExclusiveAccess)
          | Donation =>
-           unit (update_access_batch (update_ownership_batch (update_reg (remove_transaction s'' handle) R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
+           unit (update_access_batch (update_ownership_batch (update_reg (remove_transaction s' handle) R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
          end)
       | _ => throw InvParam
       end

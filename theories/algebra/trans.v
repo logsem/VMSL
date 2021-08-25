@@ -130,6 +130,16 @@ Section trans_rules.
     set_solver.
   Qed.
 
+  Lemma gen_trans_update_delete {σ} h i wf rc m f:
+    h ->t{1}(i,wf,rc,m,f) -∗
+    (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))==∗
+    (ghost_map_auth (gen_trans_name vmG) 1 ((delete h (get_trans_gmap σ)))).
+  Proof.
+    iIntros "Hh Htrans".
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iApply (ghost_map_delete with "Htrans Hh").
+  Qed.
+  
   Lemma gen_hpool_update_diff {σ s q} (h: handle):
     h ∈ s ->
     hp{ q }[ s ] -∗
@@ -191,6 +201,16 @@ Section trans_rules.
     apply gset_disj_alloc_local_update;by set_solver.
   Qed.
 
+  Lemma gen_retri_update_delete {σ b} (h: handle):
+    h ->re b -∗
+    ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
+    ghost_map_auth (gen_retri_name vmG) 1 (delete h (get_retri_gmap σ)).
+  Proof.
+    iIntros "Q H".
+    rewrite retri_mapsto_eq /retri_mapsto_def.
+    iApply ((ghost_map_delete ) with "H Q").
+  Qed.
+  
   Lemma gen_retri_update_insert {σ} (h: handle):
     (get_retri_gmap σ) !! h = None ->
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
