@@ -566,14 +566,20 @@ Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transa
     unit tt
   end.
 
-Definition insert_transaction (st : state) (h : handle) (t : transaction) : state :=
+Definition insert_transaction (st : state) (h : handle) (t : transaction) (shp: gset handle):=
   (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, get_mem st,
-   (<[h:=t]>(get_transactions st).1 , (get_transactions st).2 ∖ {[h]})).
+   (<[h:=t]>(get_transactions st).1 ,shp)).
+
+Definition alloc_transaction (st : state) (h : handle) (t : transaction) : state :=
+  (insert_transaction st h t ((get_transactions st).2 ∖ {[h]})).
+
+Definition update_transaction (st : state) (h : handle) (t : transaction) : state :=
+  (insert_transaction st h t (get_transactions st).2).
 
 Definition new_transaction (st : state) (v r : VMID)
            (tt : transaction_type) (flag : Word) (ps:(list PID))  : hvc_result (state * handle) :=
   h <- fresh_handle (get_transactions st) ;;;
-  unit (insert_transaction st h (v, flag, false, r, ps, tt), h).
+  unit (alloc_transaction st h (v, flag, false, r, ps, tt), h).
 
 Definition get_transaction (st : state) (h : handle) : option transaction :=
   ((get_transactions st).1) !! h.
@@ -646,10 +652,7 @@ Definition toggle_transaction_retrieve (s : state) (h : handle) (trn: transactio
       | false => throw Denied
       | _ => if b
              then throw Denied
-             else unit (get_reg_files s, get_mail_boxes s, get_page_tables s,
-                        get_current_vm s, get_mem s,
-                        (<[h:=(vs, w1, true, r, ps, ty)]>(get_transactions s).1,
-                         (get_transactions s).2 ))
+             else unit (update_transaction s h (vs, w1, true, r, ps, ty))
       end
   end.
 
@@ -659,10 +662,7 @@ Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : h
     match (v =? r) with
       | false => throw Denied
       | _ => if b
-             then unit (get_reg_files s, get_mail_boxes s, get_page_tables s,
-                        get_current_vm s, get_mem s,
-                        (<[h:=(vs, w1, false ,r, ps, ty)]>(get_transactions s).1,
-                         (get_transactions s).2 ))
+             then unit (update_transaction s h (vs, w1, false ,r, ps, ty))
              else throw Denied
     end
   | _ => throw InvParam
@@ -672,7 +672,7 @@ Definition relinquish_transaction (s : state)
            (h : handle) (f : Word) (t : transaction) : hvc_result state :=
   let ps := t.1.2 in
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
-  unit (update_access_batch (update_ownership_batch (update_reg s R0 (encode_hvc_ret_code Succ)) ps NotOwned) ps NoAccess).
+  unit (update_access_batch (update_reg s' R0 (encode_hvc_ret_code Succ)) ps NoAccess).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
   match t with
