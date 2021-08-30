@@ -1,6 +1,6 @@
 (* this file contains basic definitions and lemmas about registers and addresses *)
 From Coq Require Import ssreflect Eqdep_dec ZArith.
-From HypVeri Require Import machine monad.
+From HypVeri Require Import machine monad stdpp_extra.
 From stdpp Require Import fin_maps list countable fin vector.
 
 (* these definitions are frequently used *)
@@ -484,4 +484,49 @@ Proof.
     apply finz_seq_in1 in H1.
     apply pid_lt_lt in H4.
     solve_finz.
+Qed.
+
+Lemma finz_seq_zip_page (p: PID) (ws: list Word):
+  (length ws) <= (Z.to_nat page_size) ->
+  ((zip (finz.seq (of_pid p) (length ws)) ws) = (zip (finz.seq (of_pid p) (Z.to_nat page_size)) ws)).
+Proof.
+  intro Hlen.
+  rewrite <-(zip_fst_snd (zip (finz.seq _ (Z.to_nat page_size)) ws)).
+  rewrite !snd_zip; auto.
+  f_equal.
+  generalize dependent (of_pid p).
+  induction ws; first done.
+  cbn.
+  destruct (Z.to_nat page_size) eqn:Heqn; first done.
+  cbn.
+  intros f.
+  f_equal.
+  assert (Hn : n = ((Z.to_nat page_size) - 1)).
+  lia.
+  subst n.
+  rewrite (@zip_length_le _ _ ws
+                          (finz.seq (f ^+ 1)%f ((Z.to_nat page_size) -1))
+                          (finz.seq (f ^+ 1)%f (Z.to_nat page_size))
+                          [(f ^+ page_size)%f]).
+  simpl in Hlen.
+  rewrite finz_seq_length.
+  lia.
+  rewrite (finz_seq_decomposition _ (Z.to_nat page_size) _ ((Z.to_nat page_size) -1)).
+  lia.
+  f_equal.
+  simpl.
+  f_equal.
+  rewrite Unnamed_thm12.
+  lia.
+  lia.
+  rewrite Z.add_comm.
+  assert (H999_1 : Z.add (page_size - 1)%Z 1%Z = 1000%Z).
+  reflexivity.
+  rewrite H999_1.
+  reflexivity.
+  rewrite IHws.
+  simpl in Hlen.
+  lia.
+  rewrite -Heqn.
+  reflexivity.
 Qed.

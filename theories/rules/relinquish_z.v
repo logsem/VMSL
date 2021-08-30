@@ -3,7 +3,7 @@ From HypVeri Require Import lifting rules.rules_base stdpp_extra.
 From HypVeri.algebra Require Import base reg mem pagetable trans mailbox.
 From HypVeri.lang Require Import lang_extra mem_extra reg_extra pagetable_extra trans_extra.
 
-Section relinquish.
+Section relinquish_z.
 
 Context `{vmG: !gen_VMG Σ}.
 
@@ -238,3 +238,5 @@ Proof.
   rewrite Hexcleq.
   iFrame.
 Qed.
+
+End relinquish_z.

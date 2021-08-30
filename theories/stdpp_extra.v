@@ -7,7 +7,7 @@ Require Import stdpp.base.
 From Coq Require Import Lia.
 
 Lemma zip_length_le {A B} {l' : list A} {l1 l2 l3 : list B} :
-  length l' < length l1 -> l2 = l1 ++ l3 -> zip l1 l' = zip l2 l'.
+  length l' <= length l1 -> l2 = l1 ++ l3 -> zip l1 l' = zip l2 l'.
 Proof.
   simpl.
   generalize dependent l1.
