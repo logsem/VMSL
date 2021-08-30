@@ -672,6 +672,9 @@ Definition relinquish_transaction (s : state)
            (h : handle) (f : Word) (t : transaction) : hvc_result state :=
   let ps := t.1.2 in
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
+  if (f =? W1)%Z then
+    unit (update_access_batch (update_reg (zero_pages s' ps) R0 (encode_hvc_ret_code Succ)) ps NoAccess)
+  else
   unit (update_access_batch (update_reg s' R0 (encode_hvc_ret_code Succ)) ps NoAccess).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
@@ -722,7 +725,8 @@ Definition relinquish (s : state) : exec_mode * state :=
       h <- lift_option (get_memory_with_offset s b 0) ;;;
       f <- lift_option (get_memory_with_offset s b 1) ;;;
       trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
-      relinquish_transaction s h f trn
+      if (f >? W1)%Z then throw InvParam else
+       relinquish_transaction s h f trn
   in
   unpack_hvc_result_normal s comp.
 

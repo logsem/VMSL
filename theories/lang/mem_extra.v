@@ -278,6 +278,13 @@ Proof.
   apply IHl.
 Qed.
 
+Lemma zero_pages_update_mem σ ps:
+  (list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word (pages_of_W0 (length ps))))
+               ∪ get_mem σ) =  get_mem (zero_pages σ ps).
+Proof.
+  f_equal.
+Qed.
+
 Ltac rewrite_mem_zero :=
   match goal with
   | |- _ =>

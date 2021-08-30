@@ -1,0 +1,228 @@
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import lifting rules.rules_base stdpp_extra.
+From HypVeri.algebra Require Import base reg mem pagetable trans mailbox.
+From HypVeri.lang Require Import lang_extra mem_extra reg_extra pagetable_extra trans_extra.
+
+Section relinquish_nz.
+
+Context `{vmG: !gen_VMG Σ}.
+
+Lemma hvc_relinquish_nz {tt wi sacc pi sexcl i j des ptx} {spsd: gset PID}
+      ai r0 wh wf (psd: list PID) :
+  decode_instruction wi = Some(Hvc) ->
+  addr_in_page ai pi ->
+  decode_hvc_func r0 = Some(Relinquish) ->
+  pi ∈ sacc ->
+  (* the descriptor contains a handle and a flag *)
+  des = [wh; W0] ->
+  (* the whole descriptor resides in the TX page *)
+  seq_in_page (of_pid ptx) (length des) ptx ->
+  spsd = (list_to_set psd) ->
+  (* XXX: do we need this? spsd ## sown -> *)
+  spsd ⊆ sacc ->
+  tt = Lending ∧ spsd ⊆ sexcl
+   ∨ tt = Sharing ∧ spsd ## sexcl ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ ai ->a wi
+  ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl]
+  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx
+  ∗ ▷ wh ->t{1}(j, wf, i, psd, tt) ∗ ▷ wh ->re true }}}
+   ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+  ∗ E@i:={1}[sexcl∖spsd] ∗ A@i:={1}[sacc∖spsd]
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ wh ->t{1}(j, wf, i, psd, tt)
+  ∗ wh ->re false ∗ TX@ i := ptx ∗ mem_region des ptx }}}.
+Proof.
+  iIntros (Hdecodei Hinpi Hdecodef Hinai Hdesc Hindesc Hspsd Hsacc Hsexcl Φ).
+  iIntros "(>PC & >R0 & >Hai & >Hacc & >Hexcl & >TX & >Hadesc & >Htrans & >Hretri) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (σ1) "%Hsche Hσ".
+  inversion Hsche as [ Hcureq ]; clear Hsche.
+  apply fin_to_nat_inj in Hcureq.
+  iModIntro.
+  iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned
+         & Hσaccess & Hσexcl & Hσtrans & Hσhp & %Hdisj & %Hσpsdl & Hσretri)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid2 i PC ai R0 r0 Hcureq) with "Hσreg PC R0 ") as "(%HPC & %HR0)";eauto.
+  (* valid pt *)
+  iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess Hacc") as %Haccai;eauto.
+  { rewrite (to_pid_aligned_in_page _ pi);eauto. }
+  (* iDestruct ((gen_own_valid_SepS_pure sown) with "Hσowned Hown") as %Hown;eauto. *)
+  iDestruct ((gen_access_valid_pure sacc) with "Hσaccess Hacc") as %Hacc;eauto.
+  iDestruct ((gen_excl_valid_pure sexcl) with "Hσexcl Hexcl") as %Hexcl;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
+  unfold mem_region.
+  iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
+  { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
+  (* valid tx *)
+  iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
+  (* valid hpool *)
+  iDestruct (gen_trans_valid with "Htrans Hσtrans") as %[? Htrans].
+  iDestruct (gen_retri_valid with "Hretri Hσretri") as %[? [Hretri Hretrieved]].
+  rewrite Hretri in Htrans.
+  destruct x.
+  2: { inversion Htrans. rewrite H0 in Hretrieved. done. }
+  rewrite Htrans in Hretri.
+  clear x0 Hretrieved Htrans.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai wi);eauto.
+  - (* step *)
+    iModIntro.
+    iIntros (m2 σ2) "%HstepP".
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    remember (exec Hvc σ1) as c2 eqn:Hexec.
+    rewrite /exec /hvc HR0 Hdecodef /relinquish /= Hcureq /get_tx_pid_global Htx in Hexec.
+    assert (Hlkwh:  (get_memory_with_offset σ1 ptx 0) = Some wh).
+    {
+    rewrite /get_memory_with_offset /=.
+    assert (((of_pid ptx) + 0)%f = Some (of_pid ptx)) as ->. solve_finz.
+    eapply (Hadesc 0).
+    destruct Hindesc as [_ [HisSome Hltdeslen]].
+    apply finz_seq_lookup;try lia.
+    destruct des;[done|simpl;lia].
+    solve_finz.
+    by simplify_list_eq.
+    }
+    assert (Hlkwf: (get_memory_with_offset σ1 ptx 1) = Some W0).
+    {
+    rewrite /get_memory_with_offset /=.
+    pose proof (last_addr_in_bound ptx).
+    assert (((of_pid ptx) + 1)%f = Some (of_pid ptx ^+ 1)%f) as ->.
+    destruct Hindesc as [_ [HisSome Hltdeslen]].
+    solve_finz.
+    eapply (Hadesc 1).
+    apply finz_seq_lookup;try lia.
+    assert (length des = 2) as ->. rewrite Hdesc. compute_done.
+    lia.
+    solve_finz.
+    by simplify_list_eq.
+    }
+    rewrite Hlkwh Hlkwf /= /get_transaction Hretri /relinquish_transaction
+    /toggle_transaction_relinquish /get_transaction Hretri Hcureq /=in Hexec.
+    assert (Hcheck: ( i =? i )%nat = true).
+    { apply <- Nat.eqb_eq. reflexivity. }
+    rewrite Hcheck /= in Hexec. clear Hcheck.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp /update_incr_PC /update_reg.
+    rewrite_reg_pc.
+    rewrite_access_all.
+    rewrite update_access_batch_preserve_ownerships.
+    rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);auto.
+    rewrite (@update_access_batch_update_excl_diff _ i sexcl spsd psd);auto.
+    rewrite_reg_global.
+    rewrite_trans_update.
+    iFrame "Hcur Hσmem Hσrx1 Hσrx2 Hσtx".
+    (* update regs *)
+    rewrite (update_offset_PC_update_PC1 _ i ai 1);auto.
+    rewrite update_access_batch_preserve_regs update_reg_global_update_reg
+            update_transaction_preserve_regs;try solve_reg_lookup.
+    2 : {
+      rewrite  update_access_batch_preserve_regs update_reg_global_update_reg
+            update_transaction_preserve_regs;try solve_reg_lookup.
+      rewrite !lookup_insert_ne; [solve_reg_lookup|done].
+    }
+    iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ))
+                  with "Hσreg PC R0") as ">[Hσreg [PC R0]]";eauto.
+    rewrite Hcureq.
+    iFrame "Hσreg".
+     (* update page table *)
+    rewrite_trans_alloc.
+    iDestruct ((gen_access_update_diff spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
+    iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
+    iFrame "Hσaccess Hσowned Hσexcl".
+    (* update transactions *)
+    rewrite /update_transaction /insert_transaction.
+    rewrite (toggle_transaction_unsafe_preserve_trans _ _ Hretri ).
+    rewrite /get_transactions /=.
+    rewrite -get_retri_gmap_to_get_transaction.
+    iDestruct ((@gen_retri_update _ _ _ true false) with "Hretri Hσretri") as ">[Hσretri Hretri]".
+    {
+     eapply get_retri_gmap_lookup.
+     exact Hretri.
+    }
+    iFrame "Hσretri Hσhp Hσtrans".
+    iSplitR.
+    iPureIntro.
+    split.
+    rewrite /get_transactions in Hdisj Hretri.
+    rewrite dom_insert_lookup //.
+     intro.
+    intros.
+    apply lookup_insert_Some in H.
+    destruct H as [[_ <-] | [? ?]].
+    cbn.
+    pose proof (Hσpsdl wh (j, wf, true, i, psd, tt) Hretri) as Hlt.
+    cbn in Hlt.
+    assumption.
+    apply (Hσpsdl i0).
+    done.
+    iApply "HΦ".
+    by iFrame.
+Qed.
+
+Lemma hvc_relinquish_lend_nz {wi sacc pi sexcl i j des ptx} {spsd: gset PID}
+      ai r0 wh wf (psd: list PID) :
+  decode_instruction wi = Some(Hvc) ->
+  addr_in_page ai pi ->
+  decode_hvc_func r0 = Some(Relinquish) ->
+  pi ∈ sacc ->
+  (* the descriptor contains a handle and a flag *)
+  des = [wh; W0] ->
+  (* the whole descriptor resides in the TX page *)
+  seq_in_page (of_pid ptx) (length des) ptx ->
+  spsd = (list_to_set psd) ->
+  (* XXX: do we need this? spsd ## sown -> *)
+  spsd ⊆ sacc ->
+  spsd ⊆ sexcl ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ ai ->a wi
+  ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl]
+  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx
+  ∗ ▷ wh ->t{1}(j, wf, i, psd, Lending) ∗ ▷ wh ->re true }}}
+   ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+  ∗ E@i:={1}[sexcl∖spsd] ∗ A@i:={1}[sacc∖spsd]
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ wh ->t{1}(j, wf, i, psd, Lending)
+  ∗ wh ->re false ∗ TX@ i := ptx ∗ mem_region des ptx }}}.
+Proof.
+  iIntros (Hdecodei Hinpi Hdecodef Hinai Hdesc Hindesc Hspsd Hsacc Hsexcl Φ).
+  iApply hvc_relinquish_nz;auto.
+  exact Hinpi.
+  exact Hinai.
+Qed.
+
+Lemma hvc_relinquish_share_nz {wi sacc pi sexcl i j des ptx} {spsd: gset PID}
+      ai r0 wh wf (psd: list PID) :
+  decode_instruction wi = Some(Hvc) ->
+  addr_in_page ai pi ->
+  decode_hvc_func r0 = Some(Relinquish) ->
+  pi ∈ sacc ->
+  (* the descriptor contains a handle and a flag *)
+  des = [wh; W0] ->
+  (* the whole descriptor resides in the TX page *)
+  seq_in_page (of_pid ptx) (length des) ptx ->
+  spsd = (list_to_set psd) ->
+  spsd ⊆ sacc ->
+  spsd ## sexcl ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ ai ->a wi
+  ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl]
+  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx
+  ∗ ▷ wh ->t{1}(j, wf, i, psd, Sharing) ∗ ▷ wh ->re true }}}
+   ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+  ∗ E@i:={1}[sexcl] ∗ A@i:={1}[sacc∖spsd]
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ wh ->t{1}(j, wf, i, psd, Sharing)
+  ∗ wh ->re false ∗ TX@ i := ptx ∗ mem_region des ptx }}}.
+Proof.
+  iIntros (Hdecodei Hinpi Hdecodef Hinai Hdesc Hindesc Hspsd Hsacc Hsexcl Φ).
+   assert (sexcl ∖ spsd = sexcl) as Hexcleq.
+    { set_solver.  }
+    rewrite -Hexcleq.
+  iIntros "(>PC & >R0 & >Hai & >Hacc & >Hexcl & >TX & >Hadesc & >Htrans & >Hretri)".
+  iApply hvc_relinquish_nz;auto.
+  exact Hinpi.
+  exact Hdecodef.
+  exact Hinai.
+  rewrite Hexcleq.
+  iFrame.
+Qed.
+
+End relinquish_nz.
