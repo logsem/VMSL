@@ -7,7 +7,7 @@ Section retrieve.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j des ptx rxp l sh} {spsd: gset PID}
+Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j destx wf' desrx ptx rxp l sh} {spsd: gset PID}
       ai r0 r1 wh wf (psd: list PID) :
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
@@ -23,9 +23,10 @@ Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j des ptx rxp l sh} {spsd:
   spsd ## sacc ->
   spsd ## sown ->
   spsd ## sexcl ->
-  (finz.to_z l) = (Z.of_nat (length psd)) ->
-  des = ([of_imm (encode_vmid j); wf; wh; l; of_imm (encode_vmid i)] ++ map of_pid psd) ->
-  (finz.to_z r1) = (Z.of_nat (length des)) ->
+  (finz.to_nat l) = (length psd) ->
+  destx = ([of_imm (encode_vmid j); wf'; wh ;of_imm (encode_vmid i)] ) ->
+  desrx = ([of_imm (encode_vmid j); wf; wh; l; of_imm (encode_vmid i)] ++ map of_pid psd) ->
+  (finz.to_z r1) = (Z.of_nat (length destx)) ->
   seq_in_page (of_pid ptx) (length des) ptx ->
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗ ▷ A@i:={1}[sacc]
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ wh ->re false
