@@ -35,8 +35,3 @@ jobs:
       with:
           opam_file: './hypveri.opam'
           custom_image: 'kaptch/coq-iris:latest'
-          before_install: |
-                     startGroup "Print opam config"
-                     opam config list; opam repo list; opam list
-                     opam repo add iris-dev https://gitlab.mpi-sws.org/iris/opam.git
-                     endGroup
