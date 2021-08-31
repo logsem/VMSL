@@ -33,5 +33,6 @@ jobs:
     - name: Build
       uses: coq-community/docker-coq-action@v1
       with:
+          ocaml_version: 4.07-flambda
           opam_file: './hypveri.opam'
           custom_image: 'kaptch/coq-iris:latest'
