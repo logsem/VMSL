@@ -10,9 +10,6 @@ Context `{vmG: !gen_VMG Σ}.
 
 Lemma  mem_send_nz_update{i ai wi sown sacc sexcl r0 r1 r2 ptx sh q h fhs j psd spsd } {l:Word}  σ1 tt:
   get_current_vm σ1 = i ->
-  get_reg σ1 PC = Some ai ->
-  get_reg σ1 R0 = Some r0 ->
-  get_reg σ1 R1 = Some r1 ->
   (get_vm_mail_box σ1 i).1 = ptx ->
   (finz.to_z l) = (Z.of_nat (length psd)) ->
   spsd = ((list_to_set psd): gset PID) ->
@@ -38,11 +35,14 @@ Lemma  mem_send_nz_update{i ai wi sown sacc sexcl r0 r1 r2 ptx sh q h fhs j psd 
   ∗ ⌜h ∈ sh⌝ ∗ R2 @@ i ->r h ∗ h ->t{1}(i,W0,j , psd,tt)
   ∗ h ->re false  ∗ hp{1}[ (sh∖{[h]})].
 Proof.
-  iIntros (Hcur HPC HR0 HR1 Htx Hlenpsd Hspsd Hfhs Hhp).
+  iIntros (Hcur Htx Hlenpsd Hspsd Hfhs Hhp).
   iIntros "PC Hai Hown Hacc Hexcl R0 R1 R2 Hhp".
   iIntros "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hσpsdl & Hrcv)".
   (* valid regs *)
+  iDestruct ((gen_reg_valid1  R0 i r0 Hcur) with "Hσreg R0") as "%HR0";eauto.
+  iDestruct ((gen_reg_valid1  R1 i r1 Hcur) with "Hσreg R1") as "%HR1";eauto.
   iDestruct ((gen_reg_valid1  R2 i r2 Hcur) with "Hσreg R2") as "%HR2";eauto.
+  iDestruct ((gen_reg_valid1  PC i ai Hcur) with "Hσreg PC") as "%HPC";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_pure sacc) with "Hσaccess Hacc") as %Hacc;eauto.
   iDestruct ((gen_excl_valid_pure sexcl) with "Hσexcl Hexcl") as %Hexcl';eauto.
