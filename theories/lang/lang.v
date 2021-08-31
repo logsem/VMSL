@@ -443,17 +443,6 @@ Definition copy_from_addr_to_addr_unsafe (st : state) (src dst : Addr) (l : Word
 Definition copy_page_segment_unsafe (st : state) (src dst : PID) (l : Word) : state :=
   copy_from_addr_to_addr_unsafe st (of_pid src) (of_pid dst) l.
 
-Definition write_retrieve_msg (st:state) (dst: Addr) (wh:handle) (trn: transaction): option state:=
- match trn with
-  | (vs, f, _ ,vr, ls, t) =>
-    match finz.of_z (Z.of_nat (length ls)) with
-    | Some l =>
-      Some (write_mem_segment_unsafe st dst
-                                      ([of_imm (encode_vmid vs); f; wh; encode_transaction_type t ;l;
-                                       of_imm (encode_vmid vr)] ++ map of_pid ls))
-    | None => None
-    end
- end.
 
 Definition fill_rx_unsafe (st : state) (l : Word) (v r : VMID) (tx rx : PID) : state :=
   (get_reg_files st, vinsert r (tx, (rx, Some(l, v))) (get_mail_boxes st), get_page_tables st, get_current_vm st, get_mem st, get_transactions st).
@@ -464,6 +453,21 @@ Definition fill_rx (st : state) (l : Word) (v r : VMID) : hvc_result state :=
     unit (fill_rx_unsafe st l v r tx rx)
   | _ => throw Busy
   end.
+
+Definition write_retrieve_msg (st:state) (dst: Addr) (wh:handle) (trn: transaction): hvc_result state:=
+ match trn with
+  | (vs, f, _ ,vr, ls, t) =>
+    match finz.of_z (Z.of_nat (length ls)) with
+    | Some l =>
+      let des := ([of_imm (encode_vmid vs); f; wh; encode_transaction_type t ;l;
+                                       of_imm (encode_vmid vr)] ++ map of_pid ls) in
+      match finz.of_z (Z.of_nat (length des)) with
+      | Some l' => fill_rx (write_mem_segment_unsafe st dst des) l' vr vr
+      | None => throw InvParam
+      end
+    | None => throw InvParam
+    end
+ end.
 
 Definition transfer_msg_unsafe (st : state) (l : Word) (v : VMID) (r : VMID) : hvc_result state :=
   if (page_size <? l)%Z
@@ -654,7 +658,6 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   in
   unpack_hvc_result_normal s comp.
 
-(*TODO: zero the pages*)
 Definition toggle_transaction_retrieve (s : state) (h : handle) (trn: transaction)
   : hvc_result state :=
   let v := (get_current_vm s) in
@@ -712,7 +715,7 @@ Definition retrieve (s : state) : exec_mode * state :=
         trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
         (let (r, ps) := get_memory_descriptor trn in
          let ty := get_transaction_type trn in
-         s' <- lift_option_with_err (write_retrieve_msg s (get_rx_pid_global s (get_current_vm s)) handle trn) InvParam ;;;
+         s' <- (write_retrieve_msg s (get_rx_pid_global s (get_current_vm s)) handle trn) ;;;
          (* for all pages of the trancation ... (change the page table of the caller according to the type)*)
          match ty with
          | Sharing =>

@@ -7,7 +7,7 @@ Section retrieve.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j destx wf' desrx ptx rxp l sh} {spsd: gset PID}
+Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l sh} {spsd: gset PID}
       ai r0 r1 wh wf (psd: list PID) :
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
@@ -23,25 +23,26 @@ Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j destx wf' desrx ptx rxp 
   spsd ## sacc ->
   spsd ## sown ->
   spsd ## sexcl ->
-  (finz.to_nat l) = (length psd) ->
+  (finz.to_z l) = Z.of_nat (length psd) ->
   destx = ([of_imm (encode_vmid j); wf'; wh ;of_imm (encode_vmid i)] ) ->
-  desrx = ([of_imm (encode_vmid j); wf; wh; l; of_imm (encode_vmid i)] ++ map of_pid psd) ->
+  desrx = ([of_imm (encode_vmid j); wf; wh; l;encode_transaction_type Donation ; of_imm (encode_vmid i)] ++ map of_pid psd) ->
   (finz.to_z r1) = (Z.of_nat (length destx)) ->
-  seq_in_page (of_pid ptx) (length des) ptx ->
+  seq_in_page (of_pid ptx) (length destx) ptx ->
+  seq_in_page (of_pid prx) (length desrx) prx ->
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗ ▷ A@i:={1}[sacc]
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ wh ->re false
   ∗ ▷ (R1 @@ i ->r r1) ∗ ▷ wh ->t{1}(j, wf, i, psd, Donation)
   ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
-  ∗ ▷ mem_region des ptx ∗ ▷ RX@ i :=( rxp !) ∗ ▷ (∃l, mem_region l rxp ∗ ⌜ length l = length des ⌝)
+  ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)
   ∗ ▷ hp{ 1 }[ sh ] }}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
-  ∗ TX@ i := ptx ∗ RX@ i :=( rxp ! r1, i)
-  ∗ mem_region des ptx ∗ mem_region des rxp
+  ∗ TX@ i := ptx ∗ RX@ i :=( prx ! r1, i)
+  ∗ mem_region destx ptx ∗ mem_region desrx prx
   ∗ hp{ 1 }[ sh ∪ {[wh]} ] }}}.
 Proof.
-  iIntros (Hdecodei Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Hlenl Hdes Hdesl Hseq Φ).
+  iIntros (Hdecodei Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Hlenl Hdestx Hdesrx Hdestxl Hseqtx Hseqrx Φ).
   iIntros "(>PC & >Hai & >HA & >Hr0 & >Hwhf & >Hr1 & >Hwh & >HO & >HE & >HTX & >Hmemr & >HRX & >HRXCont & >Hpool) HΦ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -59,8 +60,8 @@ Proof.
   destruct Htrans as [b Htrans].
   iDestruct (gen_retri_valid with "Hwhf Hrcv") as %Hretri.
   destruct Hretri as [t [Hretri1 Hretri2]].
-  iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hmemr") as %Hadesc.
-  { apply finz_seq_NoDup. destruct Hseq as [? [HisSome ?]]. done. }
+  iDestruct (gen_mem_valid_SepL_pure _ destx with "Hσmem Hmemr") as %Hadesc.
+  { apply finz_seq_NoDup. destruct Hseqtx as [? [HisSome ?]]. done. }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
   iDestruct (gen_rx_valid_none with "HRX Hσrx2") as %Hrx2.
   iDestruct "HRX" as "(HRX1 & HRX2)".
@@ -78,19 +79,262 @@ Proof.
     apply (step_ExecI_normal i Hvc ai wi) in HstepP; eauto.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc HR0 Hdecodef /retrieve /get_transaction HR1 //= in Heqc2.
-    assert (Hlendesclt :((Z.of_nat (length des)) <= (page_size-1))%Z).
+    assert (Hlendesclt :((Z.of_nat (length destx)) <= (page_size-1))%Z).
     {
-      destruct Hseq as [? [HisSome Hltpagesize]].
+      destruct Hseqtx as [? [HisSome Hltpagesize]].
       apply (finz_plus_Z_le (of_pid ptx)); eauto.
       apply last_addr_in_bound.
       apply Z.leb_le.
-      destruct (((ptx ^+ length des)%f <=? (ptx ^+ (page_size - 1))%f)%Z).
+      destruct (((ptx ^+ length destx)%f <=? (ptx ^+ (page_size - 1))%f)%Z).
       done.
       contradiction.
     }
     destruct (page_size <? r1)%Z eqn:Hr1ps; [lia|].
     rewrite /get_tx_pid_global Hcureq Htx in Heqc2.
-    rewrite (@transaction_retrieve_descriptor_valid j wh wf l psd σ1 des ptx) /= in Heqc2; eauto.    
+    rewrite (@transaction_retrieve_descriptor_valid j wh wf' σ1 destx ptx) /= in Heqc2; eauto.
+    2: { rewrite Hcureq; auto. }
+    rewrite Htrans /= in Heqc2.
+    rewrite -Hlenl finz_of_z_to_z in Heqc2.
+    assert (finz.of_z (Z.of_nat (S (S (S (S (S (S (length (map of_pid psd))))))))) = Some (l ^+ 6%Z)%f).
+    {  rewrite Hdesrx in Hseqrx. destruct Hseqrx as [_ [HisSome Hltpagesize]]. cbn in HisSome, Hltpagesize.
+       assert (Heq: Z.of_nat(S (S (S (S (S (S (length (map of_pid psd))))))))
+               = ((Z.of_nat (length (map of_pid psd))) + 6%Z)%Z).
+       lia.
+       rewrite Heq map_length.
+       rewrite -Hlenl.
+       rewrite Heq map_length -Hlenl in Hltpagesize.
+       rewrite Heq map_length -Hlenl in HisSome.
+       pose proof (last_addr_in_bound prx).
+       assert (Hle:( (finz.to_z l + 6)%Z <= (page_size-1)%Z)%Z).
+       apply (finz_plus_Z_le (of_pid prx));auto.
+       apply Z.leb_le. destruct ((((of_pid prx) ^+ (finz.to_z l + 6)%Z)%f <=?((of_pid prx) ^+ (page_size-1)%Z)%f)%Z) eqn:Heqn;[done|contradiction].
+       unfold finz.of_z.
+       destruct (decide (finz.to_z l + 6 < word_size)%Z) eqn:Hdecide.
+       unfold decide  in Hdecide.
+       unfold decide_rel in Hdecide.
+       rewrite Hdecide.
+       2: {  lia. }
+       clear Hdecide.
+       destruct (decide (0<= finz.to_z l + 6 )%Z) eqn:Hdecide.
+       unfold decide  in Hdecide.
+       unfold decide_rel in Hdecide.
+       rewrite Hdecide /=.
+       2: {  lia. }
+       f_equal.
+       apply finz_to_z_eq.
+       cbn.
+       solve_finz.
+   }
+    rewrite H in Heqc2. clear H.
+    rewrite /fill_rx in Heqc2.
+    assert (Htemp : ∀ σ dst ws i, get_vm_mail_box (write_mem_segment_unsafe σ dst ws) i =
+                                  get_vm_mail_box σ i).
+    f_equal.
+    rewrite Htemp in Heqc2; clear Htemp.
+    assert (Hmb :  get_vm_mail_box σ1 i = (ptx, (prx,None))).
+    { destruct (get_vm_mail_box σ1 i).
+    destruct r.
+    cbn in Htx ,Hrx2, Hrx1.
+    subst t0 o p.
+    reflexivity.
+    }
+    rewrite /get_tx_pid_global /get_rx_pid_global Hmb /=  in Heqc2.
+    (* assert (Hcheck : (i =? i)%nat = true). *)
+    (* { by apply <- Nat.eqb_eq. } *)
+    (* rewrite Hcheck in Heqc2. *)
+    (* pose proof Hretri1 as Hretri1''. *)
+    (* pose proof Hretri2 as Hretri2''. *)
+    (* rewrite Htrans in Hretri1. *)
+    (* inversion Hretri1 as [Hretri1']. *)
+    (* rewrite -Hretri1' //= in Hretri2. *)
+    (* rewrite Hretri2 //= /transaction_write_rx /transaction_to_list_words /transaction_to_transaction_descriptor in Heqc2. *)
+    destruct c2 as [c21 c22].
+    destruct HstepP; subst m2 σ2; rewrite Heqc2.
+    simpl;clear Heqc2.
+    rewrite /gen_vm_interp /update_incr_PC /update_reg.
+    rewrite update_offset_PC_preserve_tx update_access_batch_preserve_tx update_ownership_batch_preserve_tx
+            update_reg_global_preserve_tx remove_transaction_preserve_tx fill_rx_unsafe_preserve_tx.
+    rewrite  write_mem_segment_unsafe_preserve_tx.
+    2 : {
+      rewrite /get_tx_pid_global /get_vm_mail_box //= /get_mail_boxes.
+    }
+    iFrame "Hσtx".
+    rewrite update_offset_PC_preserve_current_vm update_access_batch_preserve_current_vm
+            update_ownership_batch_preserve_current_vm
+            update_reg_global_preserve_current_vm remove_transaction_preserve_current_vm
+            fill_rx_unsafe_preserve_current_vm write_mem_segment_unsafe_preserve_current_vm.
+    rewrite Hcureq.
+    iFrame "Hcur".
+    rewrite update_offset_PC_preserve_rx1 update_access_batch_preserve_rx1 update_ownership_batch_preserve_rx1
+            update_reg_global_preserve_rx1 remove_transaction_preserve_rx1 fill_rx_unsafe_preserve_rx1.
+    rewrite  write_mem_segment_unsafe_preserve_rx1.
+     2 : {
+       rewrite /get_rx_pid_global /get_vm_mail_box /get_mail_boxes //=.
+     }
+     iFrame "Hσrx1".
+    (* update regs *)
+    rewrite (update_offset_PC_update_PC1 _ i ai 1).
+    rewrite update_access_batch_preserve_regs update_ownership_batch_preserve_regs
+            update_reg_global_update_reg remove_transaction_preserve_regs
+             fill_rx_unsafe_preserve_regs write_mem_segment_unsafe_preserve_regs; try solve_reg_lookup.
+    2:{
+      rewrite update_access_batch_preserve_current_vm update_ownership_batch_preserve_current_vm
+              update_reg_global_preserve_current_vm remove_transaction_preserve_current_vm
+       fill_rx_unsafe_preserve_current_vm write_mem_segment_unsafe_preserve_current_vm //.
+    }
+    2: {
+      rewrite update_access_batch_preserve_regs update_ownership_batch_preserve_regs
+              update_reg_global_update_reg remove_transaction_preserve_regs
+             fill_rx_unsafe_preserve_regs write_mem_segment_unsafe_preserve_regs; try solve_reg_lookup.
+      rewrite lookup_insert_ne; [solve_reg_lookup|done].
+    }
+     iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0")
+      as ">[Hσreg [PC Hr0]]";try f_equal.
+    { left;done. }
+     iFrame "Hσreg".
+    (* update page table *)
+    rewrite update_offset_PC_preserve_owned update_access_batch_preserve_ownerships.
+    rewrite (@update_ownership_batch_update_pagetable_union _ i sown spsd psd Hpsd); f_equal;eauto.
+    iDestruct ((gen_own_update_union spsd) with "HO Hσowned") as ">[Hσowned HO]";f_equal.
+    exact Hpsd.
+     rewrite update_reg_global_preserve_owned remove_transaction_preserve_owned
+            fill_rx_unsafe_preserve_owned write_mem_segment_unsafe_preserve_owned.
+    iFrame "Hσowned".
+    rewrite update_offset_PC_preserve_access.
+    rewrite (@update_access_batch_update_pagetable_union _ i sacc ExclusiveAccess spsd psd Hpsd); f_equal;eauto.
+    iDestruct ((gen_access_update_union spsd) with "HA Hσaccess") as ">[Hσaccess HA]";f_equal.
+    {exact Hpsd. }
+    rewrite update_ownership_batch_preserve_access update_reg_global_preserve_access remove_transaction_preserve_access
+    fill_rx_unsafe_preserve_access write_mem_segment_unsafe_preserve_access.
+    2: { rewrite update_ownership_batch_preserve_access update_reg_global_preserve_access remove_transaction_preserve_access
+    fill_rx_unsafe_preserve_access write_mem_segment_unsafe_preserve_access. done. }
+    iFrame "Hσaccess".
+    rewrite update_offset_PC_preserve_excl.
+    rewrite (@update_exclusive_batch_update_pagetable_union _ i sexcl spsd psd Hpsd);f_equal; eauto.
+    iDestruct ((gen_excl_update_union spsd) with "HE Hσexcl") as ">[Hσexcl HE]"; f_equal.
+    { exact Hpsd. }
+    rewrite update_ownership_batch_preserve_excl update_reg_global_preserve_excl remove_transaction_preserve_excl
+    fill_rx_unsafe_preserve_excl write_mem_segment_unsafe_preserve_excl.
+    2: { rewrite update_ownership_batch_preserve_excl update_reg_global_preserve_excl remove_transaction_preserve_excl
+    fill_rx_unsafe_preserve_excl write_mem_segment_unsafe_preserve_excl. done. }
+    iFrame "Hσexcl".
+    (* update rx *)
+    iCombine "HRX1 HRX2" as "HRX".
+    rewrite update_offset_PC_preserve_rx2 update_access_batch_preserve_rx2 update_ownership_batch_preserve_rx2
+            update_reg_global_preserve_rx2 remove_transaction_preserve_rx2.
+    iDestruct ((gen_rx_gmap_update_global_None i r1 i prx) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
+    rewrite fill_rx_unsafe_update_mailbox write_mem_segment_unsafe_preserve_rx2.
+    iFrame "Hσrx'".
+
+    (* TODO  *)
+
+
+    (* rewrite update_offset_PC_preserve_hpool update_access_batch_preserve_hpool *)
+    (*         update_reg_global_preserve_hpool update_transaction_preserve_hpool fill_rx_unsafe_preserve_hpool *)
+    (*         write_segment_unsafe_preserve_hpool. *)
+    (* iFrame "Hσhp". *)
+
+
+    (* update transactions *)
+    rewrite -get_trans_gmap_preserve_dom.
+    rewrite update_offset_PC_preserve_trans update_access_batch_preserve_trans
+            update_ownership_batch_preserve_trans update_reg_global_preserve_trans.
+    rewrite (@toggle_transaction_unsafe_preserve_trans _ _ b).
+    2 : {
+      cbn.
+      assumption.
+    }
+    rewrite fill_rx_unsafe_preserve_trans copy_page_segment_unsafe_preserve_trans.
+    iFrame "Htrans".
+      (* update retri *)
+    rewrite update_offset_PC_preserve_mem update_access_batch_preserve_mem
+            update_reg_global_preserve_mem update_transaction_preserve_mem fill_rx_unsafe_preserve_mem.
+    iDestruct ((@gen_retri_update _ _ _ false true wh) with "Hwhf Hrcv") as ">[Hrcv' Hwhf']".
+    { subst b t.
+      eapply get_retri_gmap_lookup.
+      exact Hretri1''.
+    }
+    rewrite update_offset_PC_preserve_retri update_access_batch_preserve_retri
+    update_reg_global_preserve_retri /update_transaction /insert_transaction.
+    rewrite -get_retri_gmap_to_get_transaction fill_rx_unsafe_preserve_receivers
+    copy_page_segment_unsafe_preserve_receivers.
+    iFrame "Hrcv'".
+    rewrite update_offset_PC_preserve_trans' update_access_batch_preserve_trans'
+            update_reg_global_preserve_trans' /get_transactions /=.
+    (* update mem *)
+    rewrite /copy_page_segment_unsafe /copy_from_addr_to_addr_unsafe.
+    rewrite /mem_region.
+    assert (Hlength: ((read_mem_segment_unsafe σ1 ptx r1)) = des).
+    {
+      rewrite /read_mem_segment_unsafe.
+      rewrite /get_mem in Hadesc.
+      apply (f_equal Z.to_nat) in Hdesl.
+      rewrite Hdesl.
+      rewrite Nat2Z.id.
+      clear Hdes Hdesl Hseq Hlendesclt Hmb.
+      generalize dependent (of_pid ptx).
+      induction des; first done.
+      simpl in IHdes.
+      simpl.
+      intros.
+      rewrite /get_memory_unsafe.
+      rewrite (Hadesc 0 f a).
+      simpl.
+      f_equal.
+      rewrite /get_memory_unsafe in IHdes.
+      rewrite (IHdes (f ^+ 1)%f).
+      reflexivity.
+      intros k y1 y2 H1 H2.
+      apply Hadesc with (S k); auto.
+      reflexivity.
+      reflexivity.
+    }
+    iDestruct "HRXCont" as "[%l0 [HRXCont' %Hlen']]".
+    rewrite Hlength.
+    rewrite /write_mem_segment_unsafe //.
+    cbn.
+    iDestruct ((gen_mem_update_SepL2 (finz.seq rxp (length l0)) l0 des) with "Hσmem HRXCont'")
+      as ">[Hσmem Hmem]".
+    { rewrite Hlen'.
+      apply finz_seq_NoDup'.
+      pose proof last_addr_in_bound as Hbound.
+      specialize (Hbound rxp).
+      solve_finz.
+    }
+    assumption.
+    assert ((zip (finz.seq rxp (length l0)) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)) as ->.
+    {
+      rewrite -finz_seq_zip_page;auto.
+      rewrite Hlen' //.
+      lia.
+    }
+    iFrame "Hσmem".
+    iSplitR.
+    iPureIntro.
+    split;[rewrite get_trans_gmap_preserve_dom // |].
+    apply map_Forall_insert_2; auto.
+    simpl.
+    rewrite <-Hlenl.
+    destruct (finz_spec word_size l) as [H _].
+    rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
+    assumption.
+    iApply "HΦ".
+    rewrite Hlen'.
+    by iFrame.
+Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+    rewrite (@transaction_retrieve_descriptor_valid j wh wf l psd σ1 destx ptx) /= in Heqc2; eauto.
     2: { rewrite Hcureq; auto. }
     rewrite Htrans /= in Heqc2.
     rewrite /transfer_msg /transfer_msg_unsafe Hr1ps //= /get_current_vm //= /get_vm_mail_box /get_mail_boxes //in Heqc2.
