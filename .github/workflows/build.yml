@@ -34,6 +34,7 @@ jobs:
       uses: coq-community/docker-coq-action@v1
       with:
           opam_file: './hypveri.opam'
+          custom_image: 'kaptch/coq-iris:latest'
           before_install: |
                      startGroup "Print opam config"
                      opam config list; opam repo list; opam list
