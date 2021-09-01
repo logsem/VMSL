@@ -407,7 +407,6 @@ Lemma write_mem_segment_unsafe_preserve_receivers σ dst ws:
 Proof. f_equal. Qed.
 
 
-
 Lemma fill_rx_unsafe_preserve_current_vm σ l v r tx rx :
   get_current_vm (fill_rx_unsafe σ l v r tx rx) = get_current_vm σ.
 Proof. f_equal. Qed.

@@ -94,6 +94,19 @@ Proof.
   rewrite Hlk1 //.
 Qed.
 
+Lemma lookup_list_of_vmids i (Hlt: i < vm_count):
+  list_of_vmids !! i = Some (nat_to_fin Hlt).
+Proof.
+  unfold list_of_vmids.
+  set (f := (nat_to_fin Hlt)).
+  assert ( i = fin_to_nat f ).
+  subst f.
+  rewrite fin_to_nat_to_fin //.
+  rewrite H0.
+  apply -> (@vlookup_lookup VMID).
+  apply lookup_fun_to_vec.
+Qed.
+
 End list_of_vmids.
 
 (* an address is in the range of the page with PID p *)
