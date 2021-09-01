@@ -130,10 +130,9 @@ Proof.
      apply (elem_of_dom) in HisSomewh.
      set_solver.
     }
-    iDestruct ((gen_hpool_update_union wh) with "[Hhp Hσhp]") as ">[Hσhp Hhp]".
+    iDestruct ((gen_hpool_update_union wh) with "Hhp Hσhp") as ">[Hσhp Hhp]".
     rewrite /get_hpool_gset //.
     iFrame.
-    iFrame "Hσhp".
     (* pure *)
     iModIntro.
     iSplitR.
