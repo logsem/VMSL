@@ -8,7 +8,139 @@ Section mem_send_z.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma mem_send_z_update{i ai wi sown sacc sexcl r0 r1 r2 ptx sh q h fhs j psd wss spsd } {l:Word}  σ1 tt:
+Lemma mem_send_z_share_update{i ai wi sown sacc sexcl r0 r1 r2 ptx sh q h fhs j psd wss spsd } {l:Word}  σ1 tt:
+  get_current_vm σ1 = i ->
+  get_reg σ1 PC = Some ai ->
+  get_reg σ1 R0 = Some r0 ->
+  get_reg σ1 R1 = Some r1 ->
+  get_reg σ1 R2 = Some r2 ->
+  (get_vm_mail_box σ1 i).1 = ptx ->
+  (finz.to_z l) = (Z.of_nat (length psd)) ->
+  spsd = ((list_to_set psd): gset PID) ->
+  (elements sh) = h :: fhs ->
+  (elements sh) = elements (get_transactions σ1).2 ->
+  spsd ⊆ sacc ->
+  PC @@ i ->r ai -∗
+  ai ->a wi -∗
+  O@i:={q}[sown] -∗
+  A@i:={1}[sacc] -∗
+  E@i:={1}[sexcl] -∗
+  R0 @@ i ->r r0-∗
+  R1 @@ i ->r r1-∗
+  R2 @@ i ->r r2-∗
+   ([∗ list] p;ws ∈ psd;wss, mem_page ws p) -∗
+  hp{1}[sh]-∗
+  gen_vm_interp σ1 ={⊤}=∗
+  gen_vm_interp
+    (update_incr_PC
+         (update_reg
+            (update_reg
+               (update_access_batch (zero_pages (insert_transaction σ1 h (i, W1, false, j, psd, tt)) psd)
+                  psd SharedAccess) R0 (encode_hvc_ret_code Succ)) R2 h))
+  ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+  ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc] ∗ E@i:={1}[sexcl∖spsd]
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
+  ∗ ⌜h ∈ sh⌝ ∗ R2 @@ i ->r h ∗ h ->t{1}(i,W1,j,psd,tt)
+  ∗ h ->re false  ∗ hp{1}[ (sh∖{[h]})] ∗ ([∗ list] p;ws ∈ psd;(pages_of_W0 (length psd)), mem_page ws p).
+Proof.
+  iIntros (Hcur HPC HR0 HR1 HR2 Htx Hlenpsd Hspsd Hfhs Hhp Hspsdacc).
+  iIntros "PC Hai Hown Hacc Hexcl R0 R1 R2 Hpgs Hhp".
+  iIntros "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl & Htrans & Hσhp & %Hdisj & %Hσpsdl & Hrcv)".
+  (* valid pt *)
+  iDestruct ((gen_access_valid_pure sacc) with "Hσaccess Hacc") as %Hacc;eauto.
+  iDestruct ((gen_excl_valid_pure sexcl) with "Hσexcl Hexcl") as %Hexcl';eauto.
+  rewrite /gen_vm_interp /update_incr_PC /update_reg.
+    (* unchanged part *)
+    rewrite_reg_pc.
+    rewrite_reg_global.
+    rewrite update_access_batch_preserve_current_vm
+            zero_pages_preserve_current_vm insert_transaction_preserve_current_vm.
+    rewrite_reg_global.
+    rewrite_access_all.
+    rewrite_mem_zero.
+    rewrite_trans_insert.
+    iFrame "Hcur Hσtx Hσrx1 Hσrx2".
+    (* update regs *)
+    rewrite (update_offset_PC_update_PC1 _ i ai 1);auto.
+    rewrite !update_reg_global_update_reg update_access_batch_preserve_regs zero_pages_preserve_reg
+            insert_transaction_preserve_regs;try solve_reg_lookup.
+    2 : {
+      exists r2.
+      rewrite lookup_insert_ne.
+      solve_reg_lookup.
+      done.
+    }
+    2 : {
+      rewrite !update_reg_global_update_reg update_access_batch_preserve_regs zero_pages_preserve_reg
+            insert_transaction_preserve_regs;try solve_reg_lookup.
+      rewrite !lookup_insert_ne; [solve_reg_lookup|done|done].
+      exists r2.
+      rewrite lookup_insert_ne;[solve_reg_lookup|done].
+    }
+     iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i h R0 i (encode_hvc_ret_code Succ) ) with "Hσreg PC R2 R0") as ">[Hσreg [PC [R2 R0]]]";eauto.
+     rewrite Hcur.
+     iFrame "Hσreg".
+     iDestruct ((gen_mem_update_pages psd (pages_of_W0 (length psd))) with "Hσmem Hpgs") as ">[Hσmem Hpgs]";eauto.
+     { apply length_pages_of_W0_forall. }
+     { rewrite length_pages_of_W0 //. }
+     (* update page table *)
+     rewrite (@update_access_batch_update_excl_diff _ i sexcl SharedAccess spsd psd);eauto.
+     rewrite zero_pages_preserve_current_vm insert_transaction_preserve_current_vm.
+     rewrite Hcur.
+     rewrite (@update_access_batch_update_pagetable_idempotent (zero_pages (insert_transaction σ1 h (i, W1, false, j, psd, tt)) psd) i sacc SharedAccess spsd); eauto.
+     rewrite zero_pages_preserve_access
+             insert_transaction_preserve_access.
+     rewrite update_access_batch_preserve_ownerships
+             zero_pages_preserve_owned
+             insert_transaction_preserve_owned.
+     rewrite zero_pages_preserve_excl.
+     rewrite insert_transaction_preserve_excl.
+     iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
+     iFrame "Hσaccess Hσexcl Hσowned Hσmem".
+     (* update transactions *)
+     rewrite insert_transaction_update_trans /=.
+     rewrite insert_transaction_update_hpool /=.
+     rewrite insert_transaction_update_retri /=.
+     assert (HhInfhs: h ∈ (get_transactions σ1).2). {
+        rewrite /get_fresh_handles in Hhp.
+        apply elem_of_elements.
+        rewrite -Hhp Hfhs.
+        apply <- (elem_of_cons fhs h h).
+        left;done.
+     }
+     iDestruct ((gen_trans_update_insert h i W1 j psd tt) with "Htrans") as ">[Hσtrans Htran]".
+     { apply not_elem_of_dom.
+       rewrite get_trans_gmap_preserve_dom.
+       set_solver.
+     }
+     assert (HhIn: h ∈ sh).
+      { apply elem_of_elements.
+       rewrite Hfhs.
+       apply <- (elem_of_cons fhs h h).
+       left;done.
+     }
+     iDestruct ((gen_hpool_update_diff h HhIn) with "Hhp Hσhp") as ">[Hσhp Hhp]".
+     iDestruct ((gen_retri_update_insert h) with "Hrcv") as ">[Hσrtrv Hrtrv]".
+     { apply not_elem_of_dom.
+       rewrite get_retri_gmap_preserve_dom.
+       set_solver.
+     }
+     iFrame "Hσhp Hσrtrv Hσtrans".
+     iModIntro.
+     iSplitR.
+     iPureIntro.
+     split; [set_solver|].
+     apply map_Forall_insert_2; auto.
+     simpl.
+     rewrite <-Hlenpsd.
+     destruct (finz_spec word_size l) as [H _].
+     rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
+     assumption.
+     iFrame.
+     done.
+Qed.
+
+Lemma mem_send_z_not_share_update{i ai wi sown sacc sexcl r0 r1 r2 ptx sh q h fhs j psd wss spsd } {l:Word}  σ1 tt:
   get_current_vm σ1 = i ->
   get_reg σ1 PC = Some ai ->
   get_reg σ1 R0 = Some r0 ->
@@ -92,7 +224,7 @@ Proof.
      rewrite update_access_batch_preserve_ownerships
              zero_pages_preserve_owned
              insert_transaction_preserve_owned.
-     rewrite (@update_access_batch_update_excl_diff _ i sexcl spsd psd);eauto.
+     rewrite (@update_access_batch_update_excl_diff _ i sexcl NoAccess spsd psd);eauto.
      rewrite zero_pages_preserve_current_vm insert_transaction_preserve_current_vm.
      rewrite zero_pages_preserve_excl
              insert_transaction_preserve_excl.
@@ -142,8 +274,16 @@ Proof.
      done.
 Qed.
 
-Lemma hvc_mem_send_z hvcf tt instr i wi r2 pi ptx sown q sacc sexcl des sh (l :Word) (spsd: gset PID)
+Inductive not_share_view_spec : transaction_type -> Type :=
+| NotShareP t : t = Lending \/ t = Donation -> not_share_view_spec t
+| ShareP t : t = Sharing -> not_share_view_spec t.
+
+Lemma not_share_viewP z : not_share_view_spec z.
+Proof. destruct z; [ constructor | constructor 2 | constructor ]; auto. Qed.
+
+Lemma hvc_mem_send_not_share_z hvcf tt instr i wi r2 pi ptx sown q sacc sexcl des sh (l :Word) (spsd: gset PID)
       ai r0 r1 j (psd: list PID):
+  tt ≠ Sharing ->
   (* the current instruction is hvc *)
   instr = Hvc ->
   (* the decoding of wi is correct *)
@@ -194,7 +334,8 @@ Lemma hvc_mem_send_z hvcf tt instr i wi r2 pi ptx sown q sacc sexcl des sh (l :W
   ∗ mem_region des ptx ∗ ([∗ list] p;ws ∈ psd;(pages_of_W0 (length psd)), mem_page ws p))
      end)}}}.
 Proof.
-  iIntros (Hinstr Hdecodei Hini Hdecodef Hismemsend Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne).
+  iIntros (Hnshar Hinstr Hdecodei Hini Hdecodef Hismemsend Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl).
+  iIntros (Hshne).
   iIntros (Φ) "(>PC & >Hai & >Hown & >Hacc & >Hexcl & >R0 & >R1 & >R2 & >TX & >Hadesc & Hpgs & >Hhp ) HΦ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -273,42 +414,11 @@ Proof.
      intro. rewrite -elem_of_elements Hfhs elem_of_elements. split;intro;set_solver. }
     rewrite /get_hpool_gset in Hhp.
     rewrite -Hhp Hfhs //= in Heqc2.
-    destruct hvcf; try inversion Hismemsend;subst tt;
-    destruct HstepP;subst m2 σ2; subst c2; simpl.
-    {
-    rewrite /gen_vm_interp /update_incr_PC /update_reg.
-    (* unchanged part *)
-    rewrite_reg_pc;
-    rewrite_reg_global;
-    rewrite_reg_global.
-    iFrame "Hcur Hσmem Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hretri".
-    rewrite Hcureq.
-    (* update regs *)
-    rewrite (update_offset_PC_update_PC1 _ i ai 1);auto.
-    rewrite !update_reg_global_update_reg ;try solve_reg_lookup.
-    2 : {
-      exists r2.
-      rewrite lookup_insert_ne.
-      solve_reg_lookup.
-      done.
-    }
-    2 : {
-      rewrite !update_reg_global_update_reg ;try solve_reg_lookup.
-      rewrite !lookup_insert_ne; [solve_reg_lookup|done|done].
-      exists r2.
-      rewrite lookup_insert_ne;[solve_reg_lookup|done].
-    }
-     iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i (encode_hvc_error InvParam)
-                R0 i (encode_hvc_ret_code Error) ) with "Hσreg PC R2 R0") as ">[Hσreg [PC [R2 R0]]]";eauto.
-     iFrame "Hσreg".
-     iModIntro.
-     iSplitR.
-     done.
-     iApply "HΦ".
-     iFrame.
-     }
+    destruct (not_share_viewP tt) as [? o | ? o]; [| done].
+    destruct hvcf; try inversion Hismemsend; subst t;
+      destruct HstepP;subst m2 σ2; subst c2; simpl; try done; destruct o; try done.
     { iDestruct "Hpgs" as (wss) "Hpgs".
-      iDestruct (mem_send_z_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hpgs Hhp
+      iDestruct (mem_send_z_not_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hpgs Hhp
      [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hretri]")
         as ">[Hσ' (? &?&?&?&?&?&?&?&?&?&?&?&?)]";eauto.
       rewrite Hhp //.
@@ -324,7 +434,7 @@ Proof.
       iFrame.
     }
     { iDestruct "Hpgs" as (wss) "Hpgs".
-      iDestruct (mem_send_z_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hpgs Hhp
+      iDestruct (mem_send_z_not_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hpgs Hhp
      [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hretri]")
         as ">[Hσ' (? &?&?&?&?&?&?&?&?&?&?&?&?)]";eauto.
       rewrite Hhp //.
@@ -340,7 +450,7 @@ Proof.
       iFrame.
     }
 Qed.
-
+(* TODO *)
 Lemma hvc_donate_z {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
       ai r0 r1 j (psd: list PID):
   (* the current instruction is hvc *)
