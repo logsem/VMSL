@@ -650,10 +650,18 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
                       then (zero_pages st ps)
                       else st)
            in
-          unit(update_reg (update_reg
-                      (update_access_batch st' ps NoAccess)
-                      R0 (encode_hvc_ret_code Succ))
-                      R2 hd)
+           match ty with
+           | Sharing =>
+             unit(update_reg (update_reg
+                                (update_access_batch st' ps SharedAccess)
+                                R0 (encode_hvc_ret_code Succ))
+                             R2 hd)
+           | _ => 
+             unit(update_reg (update_reg
+                                (update_access_batch st' ps NoAccess)
+                                R0 (encode_hvc_ret_code Succ))
+                             R2 hd)
+           end
         end
   in
   unpack_hvc_result_normal s comp.
