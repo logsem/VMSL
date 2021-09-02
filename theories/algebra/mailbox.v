@@ -209,5 +209,18 @@ Section mailbox_rules.
     done.
   Qed.
 
+  Lemma gen_rx_gmap_update_empty_global_Some {_l _a σ} i rxp:
+     ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
+     RX@i:=(rxp!_l,_a) ==∗
+     ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=None]>(get_rx_gmap σ)) ∗
+     RX@i:=(rxp!).
+  Proof.
+    iIntros "Hσ Hrx".
+    rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
+    iDestruct "Hrx" as "(Hrx1 & Hrx2)".
+    iDestruct (ghost_map_update None with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+    iFrame.
+    done.
+  Qed.
 
 End mailbox_rules.
