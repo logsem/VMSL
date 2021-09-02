@@ -13,7 +13,7 @@ Lemma hvc_relinquish_nz {tt wi sacc pi sexcl i j des ptx} {spsd: gset PID}
   decode_instruction wi = Some(Hvc) ->
   (* the location of instruction is in page pi *)
   addr_in_page ai pi ->
-  (*  the hvc call to invoke is relinquish *)
+  (* the hvc call to invoke is relinquish *)
   decode_hvc_func r0 = Some(Relinquish) ->
   (* has access to the page which the instruction is in *)
   pi ∈ sacc ->

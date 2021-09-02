@@ -7,43 +7,65 @@ Section retrieve.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_retrieve_donate_nz {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l sh} {spsd: gset PID}
+Lemma hvc_retrieve_donate {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l sh} {spsd: gset PID}
       ai r0 r1 wh wf (psd: list PID) :
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
   (* the instruction is in page pi *)
   addr_in_page ai pi ->
-  (* the decoding of R0 is FFA_DONATE *)
+  (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
-  (* pi page in spsd is accessible for VM i *)
+  (* has access to the page which the instruction is in *)
   pi ∈ sacc ->
-  (* spsd is the gset of all to-be-donated pages *)
+  (* spsd is the set of pids that are involved in this transaction *)
   spsd = (list_to_set psd) ->
+  (* has neither owership nor access to these pages *)
   spsd ## sacc ->
   spsd ## sown ->
   spsd ## sexcl ->
+  (* l is the number of involved pages, of type word *)
   (finz.to_z l) = Z.of_nat (length psd) ->
+  (* the descriptor in tx *)
   destx = ([of_imm (encode_vmid j); wf'; wh ;of_imm (encode_vmid i)] ) ->
+  (* the descriptor in rx *)
   desrx = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation;l] ++ map of_pid psd) ->
+  (* the length of the descriptor in tx is stored in R1 *)
   (finz.to_z r1) = (Z.of_nat (length destx)) ->
+  (* the two descriptors are in tx and rx pages seperately *)
   seq_in_page (of_pid ptx) (length destx) ptx ->
   seq_in_page (of_pid prx) (length desrx) prx ->
-  {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗ ▷ A@i:={1}[sacc]
-  ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ wh ->re false
-  ∗ ▷ (R1 @@ i ->r r1) ∗ ▷ wh ->t{1}(j, wf, i, psd, Donation)
-  ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
-  ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)
-  ∗ ▷ hp{ 1 }[ sh ] }}}
-   ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
-  ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
-  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
-  ∗ TX@ i := ptx ∗ RX@ i :=( prx ! (l ^+ 5)%f, i)
-  ∗ mem_region destx ptx ∗ mem_region desrx prx
-  ∗ hp{ 1 }[ sh ∪ {[wh]} ] }}}.
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0)∗ ▷ (R1 @@ i ->r r1) ∗
+       (* the pagetable *)
+       ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh ->t{1}(j, wf, i, psd, Donation) ∗
+       (* the tx page and the descriptor in it *)
+       ▷ TX@ i := ptx ∗ ▷ mem_region destx ptx ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝) ∗
+       (* the handle pool *)
+       ▷ hp{ 1 }[ sh ] }}}
+   ExecI @ i
+   {{{ RET ExecI ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗
+       (* gain exclusive access and ownership *)
+       O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)] ∗
+       (* the same tx *)
+       TX@ i := ptx ∗ mem_region destx ptx ∗
+       (* new descriptor in rx *)
+       RX@ i :=( prx ! (l ^+ 5)%f, i)∗ mem_region desrx prx ∗
+       (* the transaction is completed, deallocate it and release the handle *)
+       hp{ 1 }[ sh ∪ {[wh]} ] }}}.
 Proof.
   iIntros (Hdecodei Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Hlenl Hdestx Hdesrx Hdestxl Hseqtx Hseqrx Φ).
-  iIntros "(>PC & >Hai & >HA & >Hr0 & >Hwhf & >Hr1 & >Hwh & >HO & >HE & >HTX & >Hmemr & >HRX & >HRXCont & >Hpool) HΦ".
+  iIntros "(>PC & >Hai & >Hr0  & >Hr1  & >HO & >HE & >HA & >Hwhf & >Hwh & >HTX & >Hmemr & >HRX & >HRXCont & >Hpool) HΦ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [Hcureq]; clear Hsche.
@@ -307,10 +329,10 @@ Proof.
     by iFrame.
 Qed.
 
-
 Lemma retrieve_lend_share {sacc sexcl j desrx ptx prx l ai r0 wh wf} σ1 i tt sexcl' acc (spsd: gset PID)
        (psd: list PID):
-  tt = Lending ∧ sexcl' = sexcl ∪ spsd ∧ acc = ExclusiveAccess ∨ tt = Sharing ∧ sexcl' = sexcl ∧ acc = SharedAccess ->
+  tt = Lending ∧ sexcl' = sexcl ∪ spsd ∧ acc = ExclusiveAccess
+  ∨ tt = Sharing ∧ sexcl' = sexcl ∧ acc = SharedAccess ->
   spsd = list_to_set psd ->
   finz.to_z l = Z.of_nat (length psd) ->
   desrx = [of_imm (encode_vmid j); wf; wh; encode_transaction_type tt; l] ++ map of_pid psd ->
@@ -532,37 +554,61 @@ Lemma hvc_retrieve_lend_share {tt sexcl' wi sown sacc pi sexcl i j destx wf' des
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  tt = Lending ∧ sexcl' = (sexcl ∪ spsd) ∨ tt = Sharing ∧ sexcl' = sexcl->
   (* the instruction is in page pi *)
   addr_in_page ai pi ->
-  (* the decoding of R0 is FFA_RETRIEVE *)
+  (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
   (* pi page in spsd is accessible for VM i *)
   pi ∈ sacc ->
-  (* spsd is the gset of all to-be-donated pages *)
+  (* spsd is the set of pids that are involved in this transaction *)
   spsd = (list_to_set psd) ->
+  (* has neither owership nor access to these pages *)
   spsd ## sacc ->
   spsd ## sown ->
   spsd ## sexcl ->
+  (* for lending, gain exclusive access *)
+  tt = Lending ∧ sexcl' = (sexcl ∪ spsd)
+  (* for sharing , doesn't gain exclusive access*)
+  ∨ tt = Sharing ∧ sexcl' = sexcl->
+  (* l is the number of involved pages, of type word *)
   (finz.to_z l) = (Z.of_nat (length psd)) ->
+  (* the descriptor in tx *)
   destx = ([of_imm (encode_vmid j); wf'; wh ;of_imm (encode_vmid i)] ) ->
+  (* the descriptor in rx *)
   desrx = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type tt;l] ++ map of_pid psd) ->
   (finz.to_z r1) = (Z.of_nat (length destx)) ->
+  (* the two descriptors are in tx and rx pages seperately *)
   seq_in_page (of_pid ptx) (length destx) ptx ->
   seq_in_page (of_pid prx) (length desrx) prx ->
-  {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗ ▷ A@i:={1}[sacc]
-  ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ wh ->re false
-  ∗ ▷ (R1 @@ i ->r r1) ∗ ▷ wh ->t{1}(j, wf, i, psd, tt)
-  ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
-  ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
-   ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
-  ∗ O@i:={1}[(sown)] ∗ E@i:={1}[sexcl'] ∗ A@i:={1}[(sacc ∪ spsd)]
-  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗ wh ->t{1}(j, wf, i, psd, tt)
-  ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( prx ! (l ^+ 5)%f, i)
-  ∗ mem_region destx ptx ∗ mem_region desrx prx }}}.
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0)∗ ▷ (R1 @@ i ->r r1) ∗
+       (* the pagetable *)
+       ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh ->t{1}(j, wf, i, psd, tt) ∗
+       (* the tx page and the descriptor in it *)
+       ▷ TX@ i := ptx ∗ ▷ mem_region destx ptx ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
+   ExecI @ i
+   {{{ RET ExecI ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗
+       (* gain exclusive access and ownership *)
+       O@i:={1}[(sown)] ∗ E@i:={1}[(sexcl')] ∗ A@i:={1}[(sacc ∪ spsd)] ∗
+       (* the same tx *)
+       TX@ i := ptx ∗ mem_region destx ptx ∗
+       (* new descriptor in rx *)
+       RX@ i :=( prx ! (l ^+ 5)%f, i)∗ mem_region desrx prx ∗
+       (* the transaction is marked as retrieved *)
+       wh ->t{1}(j, wf, i, psd, tt) ∗ wh ->re true}}}.
 Proof.
-  iIntros (Hdecodei Htt Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Hlenl Hdestx Hdesrx Hdestxl Hseqtx Hseqrx).
-  iIntros (Φ) "(>PC & >Hai & >HA & >Hr0 & >Hwhf & >Hr1 & >Hwh & >HO & >HE & >HTX & >Hmemr & >HRX & >HRXCont) HΦ".
+  iIntros (Hdecodei Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Htt Hlenl Hdestx Hdesrx Hdestxl Hseqtx Hseqrx).
+  iIntros (Φ) "(>PC & >Hai & >Hr0  & >Hr1  & >HO & >HE & >HA & >Hwhf & >Hwh & >HTX & >Hmemr & >HRX & >HRXCont) HΦ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [Hcureq]; clear Hsche.
@@ -717,16 +763,10 @@ Qed.
 
 Lemma hvc_retrieve_lend {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} {spsd: gset PID}
       ai r0 r1 wh wf (psd: list PID) :
-  (* the current instruction is hvc *)
-  (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
   addr_in_page ai pi ->
-  (* the decoding of R0 is FFA_LEND *)
   decode_hvc_func r0 = Some(Retrieve) ->
-  (* pi page in spsd is accessible for VM i *)
   pi ∈ sacc ->
-  (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   spsd ## sacc ->
   spsd ## sown ->
@@ -743,10 +783,11 @@ Lemma hvc_retrieve_lend {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} {s
   ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
   ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
   ∗ O@i:={1}[(sown)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
-  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗ wh ->t{1}(j, wf, i, psd, Lending)
-  ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( prx ! (l ^+ 5)%f, i)
-  ∗ mem_region destx ptx ∗ mem_region desrx prx }}}.
+  ∗ TX@ i := ptx ∗ mem_region destx ptx
+  ∗ RX@ i :=( prx ! (l ^+ 5)%f, i) ∗ mem_region desrx prx
+  ∗ wh ->t{1}(j, wf, i, psd, Lending) ∗ wh ->re true }}}.
 Proof.
   iIntros (???????????????).
   iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?)".
@@ -754,22 +795,17 @@ Proof.
   exact H0.
   exact H1.
   exact H2.
+  exact H6.
   exact H8.
   iFrame.
 Qed.
 
 Lemma hvc_retrieve_share { wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} {spsd: gset PID}
       ai r0 r1 wh wf (psd: list PID) :
-  (* the current instruction is hvc *)
-  (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
   addr_in_page ai pi ->
-  (* the decoding of R0 is FFA_LEND *)
   decode_hvc_func r0 = Some(Retrieve) ->
-  (* pi page in spsd is accessible for VM i *)
   pi ∈ sacc ->
-  (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   spsd ## sacc ->
   spsd ## sown ->
@@ -786,10 +822,11 @@ Lemma hvc_retrieve_share { wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} 
   ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
   ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
   ∗ O@i:={1}[(sown)] ∗ E@i:={1}[sexcl] ∗ A@i:={1}[(sacc ∪ spsd)]
-  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1 ∗ wh ->t{1}(j, wf, i, psd, Sharing)
-  ∗ wh ->re true ∗ TX@ i := ptx ∗ RX@ i :=( prx ! (l ^+ 5)%f, i)
-  ∗ mem_region destx ptx ∗ mem_region desrx prx }}}.
+  ∗ TX@ i := ptx ∗ mem_region destx ptx
+  ∗ RX@ i :=( prx ! (l ^+ 5)%f, i) ∗ mem_region desrx prx
+  ∗ wh ->t{1}(j, wf, i, psd, Sharing) ∗ wh ->re true}}}.
 Proof.
   iIntros (???????????????).
   iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?)".
@@ -797,6 +834,7 @@ Proof.
   exact H0.
   exact H1.
   exact H2.
+  exact H6.
   exact H8.
   iFrame.
 Qed.

@@ -183,49 +183,12 @@ Proof.
     specialize (Hbound rxp).
     solve_finz.
     assumption.
-    (* TODO make a general lemma in lang_extra *)
-    assert (Hzipeq : (zip (finz.seq rxp (length l')) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)).
+    assert ((zip (finz.seq rxp (length l')) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)) as ->.
     {
-      rewrite <-(zip_fst_snd (zip (finz.seq rxp (Z.to_nat 1000)) des)).
-      rewrite !snd_zip; auto.
-      f_equal.
-      rewrite Hlen'.
-      clear Hlenl Hadesc Hlist Hlen' Hsize.
-      generalize dependent (of_pid rxp).
-      induction des; first done.
-      cbn.
-      destruct (Z.to_nat 1000) eqn:Heqn1000; first done.
-      simpl.
-      intros f.
-      f_equal.
-      assert (Hn : n = 999).
-      lia.
-      subst n.
-      rewrite (@zip_length_le _ _ des (finz.seq (f ^+ 1)%f 999) (finz.seq (f ^+ 1)%f 1000) [(f ^+ 1000)%f]).
-      simpl in Hlendesclt.
-      rewrite IHdes.
-      reflexivity.
-      lia.
-      simpl in Hlendesclt.
-      rewrite finz_seq_length.
-      lia.
-      rewrite (finz_seq_decomposition _ 1000 _ 999).
-      f_equal.
-      simpl.
-      f_equal.
-      rewrite Unnamed_thm12.
-      rewrite Z.add_comm.
-      assert (H999_1 : Z.add (Z.of_nat 999%nat) 1%Z = 1000%Z).
-      reflexivity.
-      rewrite H999_1.
-      reflexivity.
-      lia.
-      lia.
-      lia.
-      rewrite finz_seq_length.
+      rewrite <- (finz_seq_zip_page rxp).
+      rewrite Hlen' //.
       lia.
     }
-    rewrite Hzipeq.
     iDestruct "Hmemupd" as ">[Hmemupd1 Hmemupd2]".
     iFrame "Hmemupd1".
     iSplitR.
@@ -476,49 +439,12 @@ Proof.
     specialize (Hbound rxp).
     solve_finz.
     assumption.
-    (* TODO make a general lemma in lang_extra *)
-    assert (Hzipeq : (zip (finz.seq rxp (length l')) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)).
+    assert ((zip (finz.seq rxp (length l')) des) = (zip (finz.seq rxp (Z.to_nat 1000)) des)) as ->.
     {
-      rewrite <-(zip_fst_snd (zip (finz.seq rxp (Z.to_nat 1000)) des)).
-      rewrite !snd_zip; auto.
-      f_equal.
-      rewrite Hlen'.
-      clear Hlenl Hadesc Hlist Hlen' Hsize.
-      generalize dependent (of_pid rxp).
-      induction des; first done.
-      cbn.
-      destruct (Z.to_nat 1000) eqn:Heqn1000; first done.
-      simpl.
-      intros f.
-      f_equal.
-      assert (Hn : n = 999).
-      lia.
-      subst n.
-      rewrite (@zip_length_le _ _ des (finz.seq (f ^+ 1)%f 999) (finz.seq (f ^+ 1)%f 1000) [(f ^+ 1000)%f]).
-      simpl in Hlendesclt.
-      rewrite IHdes.
-      reflexivity.
-      lia.
-      simpl in Hlendesclt.
-      rewrite finz_seq_length.
-      lia.
-      rewrite (finz_seq_decomposition _ 1000 _ 999).
-      f_equal.
-      simpl.
-      f_equal.
-      rewrite Unnamed_thm12.
-      rewrite Z.add_comm.
-      assert (H999_1 : Z.add (Z.of_nat 999%nat) 1%Z = 1000%Z).
-      reflexivity.
-      rewrite H999_1.
-      reflexivity.
-      lia.
-      lia.
-      lia.
-      rewrite finz_seq_length.
+      rewrite <- (finz_seq_zip_page rxp).
+      rewrite Hlen' //.
       lia.
     }
-    rewrite Hzipeq.
     iDestruct "Hmemupd" as ">[Hmemupd1 Hmemupd2]".
     iFrame "Hmemupd1".
     iSplitR.
