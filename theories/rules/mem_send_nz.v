@@ -84,7 +84,7 @@ Proof.
      iFrame "Hσaccess".
      rewrite update_access_batch_preserve_ownerships alloc_transaction_preserve_owned.
      iFrame "Hσowned".
-     rewrite (@update_access_batch_update_excl_diff _ i sexcl spsd psd);eauto.
+     rewrite (@update_access_batch_update_excl_diff _ i sexcl _ spsd psd);eauto.
      rewrite_trans_alloc.
      iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
      rewrite Hcur.
@@ -153,7 +153,7 @@ Lemma  mem_send_nz_share_update{i ai wi sown sacc sexcl r0 r1 r2 ptx sh q h fhs 
   gen_vm_interp σ1 ={⊤}=∗
   gen_vm_interp
     (update_incr_PC (update_reg (update_reg
-      (update_access_batch (insert_transaction σ1 h (i, W0, false, j, psd, tt)) psd SharedAccess) R0
+      (update_access_batch (alloc_transaction σ1 h (i, W0, false, j, psd, tt)) psd SharedAccess) R0
       (encode_hvc_ret_code Succ)) R2 h))
   ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ O@i:={q}[sown] ∗ A@i:={1}[sacc] ∗ E@i:={1}[sexcl∖spsd]
@@ -176,16 +176,16 @@ Proof.
     (* unchanged part *)
     rewrite_reg_pc;
     rewrite_reg_global.
-    rewrite update_access_batch_preserve_current_vm insert_transaction_preserve_current_vm.
+    rewrite update_access_batch_preserve_current_vm alloc_transaction_preserve_current_vm.
     rewrite_reg_global;
     rewrite_access_all;
-    rewrite_trans_insert.
+    rewrite_trans_alloc.
     iFrame "Hcur Hσmem Hσtx Hσrx1 Hσrx2".
     rewrite Hcur.
     (* update regs *)
     rewrite (update_offset_PC_update_PC1 _ i ai 1);auto.
     rewrite !update_reg_global_update_reg update_access_batch_preserve_regs
-            insert_transaction_preserve_regs;try solve_reg_lookup.
+            alloc_transaction_preserve_regs;try solve_reg_lookup.
     2 : {
       exists r2.
       rewrite lookup_insert_ne.
@@ -194,7 +194,7 @@ Proof.
     }
     2 : {
       rewrite !update_reg_global_update_reg update_access_batch_preserve_regs
-            insert_transaction_preserve_regs;try solve_reg_lookup.
+            alloc_transaction_preserve_regs;try solve_reg_lookup.
       rewrite !lookup_insert_ne; [solve_reg_lookup|done|done].
       exists r2.
       rewrite lookup_insert_ne;[solve_reg_lookup|done].
@@ -204,17 +204,17 @@ Proof.
      iFrame "Hσreg".
      (* update page table *)
      iFrame "Hacc".
-     rewrite update_access_batch_preserve_ownerships insert_transaction_preserve_owned.
+     rewrite update_access_batch_preserve_ownerships alloc_transaction_preserve_owned.
      iFrame "Hσowned".
      rewrite (@update_access_batch_update_excl_diff _ i sexcl SharedAccess spsd psd);eauto.
-     rewrite_trans_insert.
+     rewrite_trans_alloc.
      iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
      rewrite Hcur.
      iFrame "Hσexcl".
      (* update transactions *)
-     rewrite insert_transaction_update_trans /=.
-     rewrite insert_transaction_update_hpool /=.
-     rewrite insert_transaction_update_retri /=.
+     rewrite alloc_transaction_update_trans /=.
+     rewrite alloc_transaction_update_hpool /=.
+     rewrite alloc_transaction_update_retri /=.
      assert (HhInfhs: h ∈ (get_transactions σ1).2). {
         rewrite /get_fresh_handles in Hhp.
         apply elem_of_elements.
@@ -241,8 +241,8 @@ Proof.
      }
      iFrame "Hσrtrv Hσhp Hσtrans".
      iModIntro.
-     rewrite (@update_access_batch_update_pagetable_idempotent (insert_transaction σ1 h (i, W0, false, j, psd, tt)) i sacc SharedAccess spsd); eauto.
-     rewrite_trans_insert.
+     rewrite (@update_access_batch_update_pagetable_idempotent (alloc_transaction σ1 h (i, W0, false, j, psd, tt)) i sacc SharedAccess spsd); eauto.
+     rewrite_trans_alloc.
      iFrame "Hσaccess".
      iSplitR.
      iPureIntro.

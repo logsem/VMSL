@@ -129,7 +129,7 @@ Proof.
     rewrite_access_all.
     rewrite update_access_batch_preserve_ownerships.
     rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);auto.
-    rewrite (@update_access_batch_update_excl_diff _ i sexcl spsd psd);auto.
+    rewrite (@update_access_batch_update_excl_diff _ i sexcl _ spsd psd);auto.
     rewrite_reg_global.
     rewrite_trans_update.
     iFrame "Hcur Hσmem Hσrx1 Hσrx2 Hσtx".
