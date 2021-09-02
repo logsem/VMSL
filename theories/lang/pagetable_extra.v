@@ -211,7 +211,6 @@ Proof.
   rewrite vlookup_insert_ne //.
 Qed.
 
-
 (* TODO rename hypotheses. *)
 Lemma update_access_batch_preserve_excl {sps sexcl:gset _} σ ps:
  sps = (list_to_set ps)->
