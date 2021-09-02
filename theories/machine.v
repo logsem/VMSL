@@ -343,7 +343,8 @@ Inductive hvc_func : Type :=
 | Relinquish
 | Reclaim
 | Send
-| Wait.
+| Wait
+| Poll.
 
 Inductive hvc_ret_code : Type :=
   Error

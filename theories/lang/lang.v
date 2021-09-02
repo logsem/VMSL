@@ -417,18 +417,17 @@ Definition get_rx_sender_global (st : state) (v : VMID) : option VMID:=
 Definition get_rx_sender (st : state) : option VMID:=
   get_rx_sender_global st (get_current_vm st).
 
-Definition empty_rx_global (st : state) (v : VMID) : option state :=
+Definition empty_rx_global (st : state) (v : VMID) : state :=
   match get_vm_mail_box st v with
-  | (txAddr, (rxAddr, Some(len, _))) =>
-    Some (get_reg_files st,
-          vinsert v (txAddr, (rxAddr,  None)) (get_mail_boxes st),
-          get_page_tables st,
-          get_current_vm st,
-          get_mem st, get_transactions st)
-  | _ => None
+  | (txAddr, (rxAddr, _)) =>
+    (get_reg_files st,
+     vinsert v (txAddr, (rxAddr,  None)) (get_mail_boxes st),
+     get_page_tables st,
+     get_current_vm st,
+     get_mem st, get_transactions st)
   end.
 
-Definition empty_rx (st : state) : option state :=
+Definition empty_rx (st : state) : state :=
   empty_rx_global st (get_current_vm st).
 
 Definition write_mem_segment_unsafe (st : state) (dst : Addr) (segment : list Word) : state :=
@@ -808,9 +807,19 @@ Definition wait (s : state) : exec_mode * state :=
   let comp :=
       if is_rx_ready s
       then unit (s, get_current_vm s)
-      else unit (s, (@nat_to_fin 0 _ vm_count_pos))
+      else unit ((update_reg_global s
+                      (@nat_to_fin 0 vm_count vm_count_pos) R1
+                      (encode_vmid (get_current_vm s))), (@nat_to_fin 0 _ vm_count_pos))
   in
   unpack_hvc_result_yield s comp.
+
+Definition poll (s : state) : exec_mode * state :=
+  let comp :=
+      if is_rx_ready s
+      then unit (empty_rx s)
+      else throw Denied
+  in
+  unpack_hvc_result_normal s comp.
 
 Definition hvc (s : state) : exec_mode * state :=
   match get_reg s R0 with
@@ -830,6 +839,7 @@ Definition hvc (s : state) : exec_mode * state :=
       | Reclaim => reclaim s
       | Send => send s
       | Wait => wait s
+      | Poll => poll s
       end
     end
   end.
