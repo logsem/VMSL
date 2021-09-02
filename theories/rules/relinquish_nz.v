@@ -9,27 +9,47 @@ Context `{vmG: !gen_VMG Σ}.
 
 Lemma hvc_relinquish_nz {tt wi sacc pi sexcl i j des ptx} {spsd: gset PID}
       ai r0 wh wf (psd: list PID) :
+  (* current instruction is hvc *)
   decode_instruction wi = Some(Hvc) ->
+  (* the location of instruction is in page pi *)
   addr_in_page ai pi ->
+  (* the hvc call to invoke is relinquish *)
   decode_hvc_func r0 = Some(Relinquish) ->
+  (* has access to the page which the instruction is in *)
   pi ∈ sacc ->
-  (* the descriptor contains a handle and a flag *)
+  (* the descriptor contains a handle and a zero-flag which is not set *)
   des = [wh; W0] ->
   (* the whole descriptor resides in the TX page *)
   seq_in_page (of_pid ptx) (length des) ptx ->
+  (* spsd is the set of pids that are involved in this transaction *)
   spsd = (list_to_set psd) ->
-  (* XXX: do we need this? spsd ## sown -> *)
+  (* XXX: do we need spsd ## sown ? *)
+  (* must have access to these involved pages *)
   spsd ⊆ sacc ->
+  (* for lending, has *exclusive* access *)
   tt = Lending ∧ spsd ⊆ sexcl
+  (* for sharing, has *shared* access *)
    ∨ tt = Sharing ∧ spsd ## sexcl ->
-  {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ ai ->a wi
-  ∗ ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl]
-  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx
-  ∗ ▷ wh ->t{1}(j, wf, i, psd, tt) ∗ ▷ wh ->re true }}}
-   ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
-  ∗ E@i:={1}[sexcl∖spsd] ∗ A@i:={1}[sacc∖spsd]
-  ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ wh ->t{1}(j, wf, i, psd, tt)
-  ∗ wh ->re false ∗ TX@ i := ptx ∗ mem_region des ptx }}}.
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ ai ->a wi ∗
+       (* the pagetable, the owership ra is not required *)
+       ▷ A@i:={1}[sacc] ∗ ▷ E@i:={1}[sexcl] ∗
+       (* the descriptor is ready in the tx page *)
+       ▷ TX@ i := ptx ∗ ▷ mem_region des ptx ∗
+       (* is the receiver and the transaction has been retrieved *)
+       ▷ wh ->t{1}(j, wf, i, psd, tt) ∗ ▷ wh ->re true }}}
+  ExecI @ i
+  {{{ RET ExecI ;
+      (* PC is incremented *)
+      PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+      (* donesn't have access to psd anymore *)
+      E@i:={1}[sexcl∖spsd] ∗ A@i:={1}[sacc∖spsd] ∗
+      (* return Succ to R0 *)
+      R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+      (* the transaction is marked as unretrieved *)
+      wh ->t{1}(j, wf, i, psd, tt) ∗ wh ->re false ∗
+      (* the same tx *)
+      TX@ i := ptx ∗ mem_region des ptx }}}.
 Proof.
   iIntros (Hdecodei Hinpi Hdecodef Hinai Hdesc Hindesc Hspsd Hsacc Hsexcl Φ).
   iIntros "(>PC & >R0 & >Hai & >Hacc & >Hexcl & >TX & >Hadesc & >Htrans & >Hretri) HΦ".
@@ -132,10 +152,9 @@ Proof.
     iDestruct ((gen_excl_update_diff spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]";eauto.
     iFrame "Hσaccess Hσowned Hσexcl".
     (* update transactions *)
-    rewrite /update_transaction /insert_transaction.
-    rewrite (toggle_transaction_unsafe_preserve_trans _ _ Hretri ).
-    rewrite /get_transactions /=.
-    rewrite -get_retri_gmap_to_get_transaction.
+    rewrite -get_trans_gmap_preserve_dom.
+    rewrite (update_transaction_preserve_trans _ _ true false);auto.
+    rewrite -get_retri_gmap_to_get_transaction get_trans_gmap_preserve_dom.
     iDestruct ((@gen_retri_update _ _ _ true false) with "Hretri Hσretri") as ">[Hσretri Hretri]".
     {
      eapply get_retri_gmap_lookup.
@@ -145,9 +164,9 @@ Proof.
     iSplitR.
     iPureIntro.
     split.
-    rewrite /get_transactions in Hdisj Hretri.
-    rewrite dom_insert_lookup //.
-     intro.
+    rewrite /get_transactions /update_transaction /insert_transaction //=.
+    intro.
+    rewrite /get_transactions /update_transaction /insert_transaction //=.
     intros.
     apply lookup_insert_Some in H.
     destruct H as [[_ <-] | [? ?]].
@@ -167,12 +186,9 @@ Lemma hvc_relinquish_lend_nz {wi sacc pi sexcl i j des ptx} {spsd: gset PID}
   addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Relinquish) ->
   pi ∈ sacc ->
-  (* the descriptor contains a handle and a flag *)
   des = [wh; W0] ->
-  (* the whole descriptor resides in the TX page *)
   seq_in_page (of_pid ptx) (length des) ptx ->
   spsd = (list_to_set psd) ->
-  (* XXX: do we need this? spsd ## sown -> *)
   spsd ⊆ sacc ->
   spsd ⊆ sexcl ->
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ ai ->a wi
@@ -196,9 +212,7 @@ Lemma hvc_relinquish_share_nz {wi sacc pi sexcl i j des ptx} {spsd: gset PID}
   addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Relinquish) ->
   pi ∈ sacc ->
-  (* the descriptor contains a handle and a flag *)
   des = [wh; W0] ->
-  (* the whole descriptor resides in the TX page *)
   seq_in_page (of_pid ptx) (length des) ptx ->
   spsd = (list_to_set psd) ->
   spsd ⊆ sacc ->

@@ -158,18 +158,45 @@ Proof.
   apply insert_transaction_update_transactions.
 Qed.
 
-Lemma toggle_transaction_unsafe_preserve_trans {j wf b b' i psd tt} σ wh :
+Lemma update_transaction_preserve_trans {j wf i psd tt} σ wh b b' :
   (get_transactions σ).1 !! wh = Some (j, wf, b, i, psd, tt) ->
-  (get_trans_gmap (get_reg_files σ, get_mail_boxes σ, get_page_tables σ, get_current_vm σ, get_mem σ,
-                   (<[wh := (j, wf, b', i, psd, tt)]> (get_transactions σ).1, (get_transactions σ).2))) = get_trans_gmap σ.
+   (get_trans_gmap (update_transaction σ wh (j, wf, b', i, psd, tt)))
+  = get_trans_gmap σ.
 Proof.
   intros H.
   rewrite /get_trans_gmap /get_transactions_gmap //=.
   apply map_eq.
   intros x.
-  destruct (list_to_map
-              (map (λ p : Addr * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
-                   (map_to_list (<[wh := (j, wf, b', i, psd, tt)]> (get_transactions σ).1))) !! x) eqn:Heqn.
+  assert (HlkSome : ∀  m k v,
+               m !! k = Some v ->
+               ((list_to_map
+    (map (λ p : handle * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
+       (map_to_list m))): gmap _ _) !! k =
+            Some (v.1.1.1.1.1, v.1.1.1.1.2, v.1.1.2, v.1.2, v.2)).
+    {
+      intros.
+    apply elem_of_list_to_map_1'.
+    - intros t P.
+      apply elem_of_list_In in P.
+      apply in_map_iff in P.
+      destruct P as [r [P1 P2]].
+      apply elem_of_list_In in P2.
+      apply elem_of_map_to_list' in P2.
+      inversion P1; subst; clear P1.
+      rewrite H0 in P2.
+      inversion P2.
+      done.
+    - apply elem_of_list_In.
+      apply in_map_iff.
+      exists (k,v).
+      split; auto.
+      apply elem_of_list_In.
+      apply elem_of_map_to_list'.
+      rewrite //=.
+    }
+  destruct (((list_to_map
+    (map (λ p : handle * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
+       (map_to_list (<[wh:= (j, wf, b', i, psd, tt)]> (get_transactions σ).1)))):gmap _ _) !! x) eqn:Heqn.
   - apply elem_of_list_to_map_2 in Heqn.
     apply elem_of_list_In in Heqn.
     apply in_map_iff in Heqn.
@@ -177,6 +204,7 @@ Proof.
     apply elem_of_list_In in Heqn2.
     apply elem_of_map_to_list' in Heqn2.
     inversion Heqn1; subst; clear Heqn1.
+    rewrite (HlkSome  (<[wh:= (j, wf, b', i, psd, tt)]> (get_transactions σ).1) y.1 y.2);auto.
     symmetry.
     apply elem_of_list_to_map_1'.
     + intros t P.
@@ -192,9 +220,9 @@ Proof.
         inversion Heqn2; subst; clear Heqn2.
         simpl.
         rewrite H1 in P2.
-        rewrite P2 in H.
-        inversion H; subst; clear H.
-        rewrite H3; reflexivity.
+        rewrite H in P2.
+        inversion P2.
+        reflexivity.
       * rewrite H1 in P2.
         rewrite lookup_insert_ne in Heqn2; auto.
         rewrite P2 in Heqn2.
@@ -210,16 +238,15 @@ Proof.
         split; auto.
         apply elem_of_list_In.
         apply elem_of_map_to_list'.
-        simpl.
-        assumption.
+        rewrite //=.
       * rewrite lookup_insert_ne in Heqn2; auto.
         exists (y.1, y.2).
         split; auto.
         apply elem_of_list_In.
         apply elem_of_map_to_list'.
-        simpl.
-        assumption.
-  - destruct (decide (wh = x)).
+        rewrite //=.
+  - rewrite Heqn.
+    destruct (decide (wh = x)).
     + subst wh.
       symmetry.
       apply not_elem_of_list_to_map_1.

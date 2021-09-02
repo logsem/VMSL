@@ -166,7 +166,7 @@ Section trans_rules.
     apply gset_disj_dealloc_op_local_update.
   Qed.
 
-  Lemma gen_retri_update {σ b b'} (h: handle):
+  Lemma gen_retri_update {σ} b b' (h: handle):
     (get_retri_gmap σ) !! h = Some b ->
     h ->re b -∗
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
@@ -190,12 +190,12 @@ Section trans_rules.
 
   Lemma gen_hpool_update_union {σ s q} (h: handle):
     h ∉ (get_hpool_gset σ) ->
-    hp{ q }[ s ] ∗
+    hp{ q }[ s ] -∗
     (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ)))) ==∗
     (own (gen_hpool_name vmG) (frac_auth_auth (GSet ( (get_hpool_gset σ) ∪ {[h]}))))∗
     hp{ q }[ s ∪ {[h]} ].
   Proof.
-    iIntros (HIn) "[Hhp HHp]".
+    iIntros (HIn) "Hhp HHp".
     iDestruct (gen_hpool_valid_subset with "Hhp HHp")as %Hvalid.
     rewrite hpool_mapsto_eq /hpool_mapsto_def.
     rewrite -own_op.

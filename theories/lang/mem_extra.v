@@ -354,6 +354,59 @@ Lemma copy_page_segment_unsafe_preserve_receivers σ src dst l:
   get_retri_gmap (copy_page_segment_unsafe σ src dst l) = get_retri_gmap σ.
 Proof. f_equal. Qed.
 
+Lemma write_mem_segment_unsafe_preserve_current_vm σ dst ws:
+  get_current_vm (write_mem_segment_unsafe σ dst ws) = get_current_vm σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_regs σ dst ws:
+  get_reg_gmap (write_mem_segment_unsafe σ dst ws) = get_reg_gmap σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_tx σ dst ws:
+  get_tx_agree (write_mem_segment_unsafe σ dst ws) = get_tx_agree σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_rx1 σ dst ws:
+  get_rx_agree (write_mem_segment_unsafe σ dst ws) = get_rx_agree σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_rx2 σ dst ws:
+  get_rx_gmap (write_mem_segment_unsafe σ dst ws) = get_rx_gmap σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_rx σ dst ws:
+  (get_rx_agree (write_mem_segment_unsafe σ dst ws),
+   get_rx_gmap (write_mem_segment_unsafe σ dst ws)) =
+  (get_rx_agree σ, get_rx_gmap σ).
+Proof. by rewrite write_mem_segment_unsafe_preserve_rx1
+                  write_mem_segment_unsafe_preserve_rx2 . Qed.
+
+Lemma write_mem_segment_unsafe_preserve_owned σ dst ws:
+  get_owned_gmap (write_mem_segment_unsafe σ dst ws) = get_owned_gmap σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_access σ dst ws:
+  get_access_gmap (write_mem_segment_unsafe σ dst ws) = get_access_gmap σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_excl σ dst ws:
+  get_excl_gmap (write_mem_segment_unsafe σ dst ws) = get_excl_gmap σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_trans σ dst ws:
+  (get_trans_gmap (write_mem_segment_unsafe σ dst ws))
+  = get_trans_gmap σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_hpool σ dst ws:
+  get_hpool_gset (write_mem_segment_unsafe σ dst ws) = get_hpool_gset σ.
+Proof. f_equal. Qed.
+
+Lemma write_mem_segment_unsafe_preserve_receivers σ dst ws:
+  get_retri_gmap (write_mem_segment_unsafe σ dst ws) = get_retri_gmap σ.
+Proof. f_equal. Qed.
+
+
 Lemma fill_rx_unsafe_preserve_current_vm σ l v r tx rx :
   get_current_vm (fill_rx_unsafe σ l v r tx rx) = get_current_vm σ.
 Proof. f_equal. Qed.
