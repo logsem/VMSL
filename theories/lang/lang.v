@@ -442,6 +442,7 @@ Definition copy_from_addr_to_addr_unsafe (st : state) (src dst : Addr) (l : Word
 Definition copy_page_segment_unsafe (st : state) (src dst : PID) (l : Word) : state :=
   copy_from_addr_to_addr_unsafe st (of_pid src) (of_pid dst) l.
 
+
 Definition fill_rx_unsafe (st : state) (l : Word) (v r : VMID) (tx rx : PID) : state :=
   (get_reg_files st, vinsert r (tx, (rx, Some(l, v))) (get_mail_boxes st), get_page_tables st, get_current_vm st, get_mem st, get_transactions st).
 
@@ -451,6 +452,21 @@ Definition fill_rx (st : state) (l : Word) (v r : VMID) : hvc_result state :=
     unit (fill_rx_unsafe st l v r tx rx)
   | _ => throw Busy
   end.
+
+Definition write_retrieve_msg (st:state) (dst: Addr) (wh:handle) (trn: transaction): hvc_result state:=
+ match trn with
+  | (vs, f, _ ,vr, ls, t) =>
+    match finz.of_z (Z.of_nat (length ls)) with
+    | Some l =>
+      let des := ([of_imm (encode_vmid vs); f; wh; encode_transaction_type t ;l]
+                    ++ map of_pid ls) in
+      match finz.of_z (Z.of_nat (length des)) with
+      | Some l' => fill_rx (write_mem_segment_unsafe st dst des) l' vr vr
+      | None => throw InvParam
+      end
+    | None => throw InvParam
+    end
+ end.
 
 Definition transfer_msg_unsafe (st : state) (l : Word) (v : VMID) (r : VMID) : hvc_result state :=
   if (page_size <? l)%Z
@@ -565,14 +581,20 @@ Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transa
     unit tt
   end.
 
-Definition insert_transaction (st : state) (h : handle) (t : transaction) : state :=
+Definition insert_transaction (st : state) (h : handle) (t : transaction) (shp: gset handle):=
   (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, get_mem st,
-   (<[h:=t]>(get_transactions st).1 , (get_transactions st).2 ∖ {[h]})).
+   (<[h:=t]>(get_transactions st).1 ,shp)).
+
+Definition alloc_transaction (st : state) (h : handle) (t : transaction) : state :=
+  (insert_transaction st h t ((get_transactions st).2 ∖ {[h]})).
+
+Definition update_transaction (st : state) (h : handle) (t : transaction) : state :=
+  (insert_transaction st h t (get_transactions st).2).
 
 Definition new_transaction (st : state) (v r : VMID)
            (tt : transaction_type) (flag : Word) (ps:(list PID))  : hvc_result (state * handle) :=
   h <- fresh_handle (get_transactions st) ;;;
-  unit (insert_transaction st h (v, flag, false, r, ps, tt), h).
+  unit (alloc_transaction st h (v, flag, false, r, ps, tt), h).
 
 Definition get_transaction (st : state) (h : handle) : option transaction :=
   ((get_transactions st).1) !! h.
@@ -643,7 +665,6 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   in
   unpack_hvc_result_normal s comp.
 
-(*TODO: zero the pages*)
 Definition toggle_transaction_retrieve (s : state) (h : handle) (trn: transaction)
   : hvc_result state :=
   let v := (get_current_vm s) in
@@ -653,10 +674,7 @@ Definition toggle_transaction_retrieve (s : state) (h : handle) (trn: transactio
       | false => throw Denied
       | _ => if b
              then throw Denied
-             else unit (get_reg_files s, get_mail_boxes s, get_page_tables s,
-                        get_current_vm s, get_mem s,
-                        (<[h:=(vs, w1, true, r, ps, ty)]>(get_transactions s).1,
-                         (get_transactions s).2 ))
+             else unit (update_transaction s h (vs, w1, true, r, ps, ty))
       end
   end.
 
@@ -666,10 +684,7 @@ Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : h
     match (v =? r) with
       | false => throw Denied
       | _ => if b
-             then unit (get_reg_files s, get_mail_boxes s, get_page_tables s,
-                        get_current_vm s, get_mem s,
-                        (<[h:=(vs, w1, false ,r, ps, ty)]>(get_transactions s).1,
-                         (get_transactions s).2 ))
+             then unit (update_transaction s h (vs, w1, false ,r, ps, ty))
              else throw Denied
     end
   | _ => throw InvParam
@@ -679,7 +694,10 @@ Definition relinquish_transaction (s : state)
            (h : handle) (f : Word) (t : transaction) : hvc_result state :=
   let ps := t.1.2 in
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
-  unit (update_access_batch (update_ownership_batch (update_reg s R0 (encode_hvc_ret_code Succ)) ps NotOwned) ps NoAccess).
+  if (f =? W1)%Z then
+    unit (update_access_batch (update_reg (zero_pages s' ps) R0 (encode_hvc_ret_code Succ)) ps NoAccess)
+  else
+  unit (update_access_batch (update_reg s' R0 (encode_hvc_ret_code Succ)) ps NoAccess).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
   match t with
@@ -702,22 +720,27 @@ Definition retrieve (s : state) : exec_mode * state :=
       match m with
       | (vs, Some handle, _, _, _) =>
         trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-        (let (r, ps) := get_memory_descriptor trn in
-         let ty := get_transaction_type trn in
-         (* add receiver(caller) into the list of the transaction *)
-         s' <- transfer_msg s len (get_current_vm s) ;;;
-         (* for all pages of the trancation ... (change the page table of the caller according to the type)*)
-         match ty with
-         | Sharing =>
-           s'' <- toggle_transaction_retrieve s' handle trn ;;;
-           unit (update_access_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps SharedAccess)
-         | Lending =>
-           s'' <- toggle_transaction_retrieve s' handle trn ;;;
-           (* it is fine because we only allow at most one receiver *)
-           unit (update_access_batch (update_reg s'' R0 (encode_hvc_ret_code Succ)) ps ExclusiveAccess)
-         | Donation =>
-           unit (update_access_batch (update_ownership_batch (update_reg (remove_transaction s' handle) R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
-         end)
+        match get_transaction s handle with
+         | Some (vs, w1, b,r, ps, ty) =>
+           match ((get_current_vm s) =? r) , b  with
+           | true, false =>
+             s' <- (write_retrieve_msg s (get_rx_pid_global s (get_current_vm s)) handle trn) ;;;
+             match ty with
+             | Sharing =>
+               unit (update_access_batch (update_reg (update_transaction s' handle (vs, w1, true ,r, ps, ty))
+                                                     R0 (encode_hvc_ret_code Succ)) ps SharedAccess)
+             | Lending =>
+               (* it is fine because we only allow at most one receiver *)
+               unit (update_access_batch (update_reg (update_transaction s' handle (vs, w1, true ,r, ps, ty))
+                                                     R0 (encode_hvc_ret_code Succ)) ps ExclusiveAccess)
+             | Donation =>
+               unit (update_access_batch (update_ownership_batch (update_reg (remove_transaction s' handle)
+                                                R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
+             end
+           | _ , _ => throw Denied
+           end
+         | None => throw InvParam
+         end
       | _ => throw InvParam
       end
   in
@@ -729,7 +752,8 @@ Definition relinquish (s : state) : exec_mode * state :=
       h <- lift_option (get_memory_with_offset s b 0) ;;;
       f <- lift_option (get_memory_with_offset s b 1) ;;;
       trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
-      relinquish_transaction s h f trn
+      if (f >? W1)%Z then throw InvParam else
+       relinquish_transaction s h f trn
   in
   unpack_hvc_result_normal s comp.
 

@@ -1,0 +1,38 @@
+name: make
+
+# Controls when the action will run:
+# https://help.github.com/en/actions/configuring-and-managing-workflows/configuring-a-workflow#filtering-for-specific-branches-tags-and-paths
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+  schedule:
+  - cron: 0 0 1 * * # once a month
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out main repo
+      uses: actions/checkout@v2
+    - name: Check out submodules
+      uses: actions/checkout@v2
+      with:
+          repository: logsem/machine_program_logic
+          path: vendor/machine_program_logic
+          token: ${{ secrets.HYPVERI_ACCESS_TOKEN }}
+          persist-credentials: false
+    - name: Check out submodules
+      uses: actions/checkout@v2
+      with:
+          repository: logsem/machine_utils
+          path: vendor/machine_utils
+          token: ${{ secrets.HYPVERI_ACCESS_TOKEN }}
+          persist-credentials: false
+    - name: Build
+      uses: coq-community/docker-coq-action@v1
+      with:
+          ocaml_version: 4.07-flambda
+          opam_file: './hypveri.opam'
+          custom_image: 'kaptch/coq-iris:latest'

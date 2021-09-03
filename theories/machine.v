@@ -1,7 +1,6 @@
 (* This file defines some basic types that will be used in the operational semantics *)
 From stdpp Require Import countable fin vector.
 From Coq Require Import ssreflect Bool Eqdep_dec ZArith.
-From ExtLib Require Import Structures.Monads.
 From machine_utils Require Export finz.
 
 Open Scope general_if_scope.

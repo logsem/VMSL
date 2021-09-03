@@ -1,0 +1,16 @@
+opam-version: "2.0"
+name: "hypveri"
+synopsis: "A project on hypervisor verification."
+authors: "anonymous"
+maintainer : "Zongyuan Liu, Sergei Stepanenko"
+license: "MIT"
+build: [
+  [make "clean"]
+  [make]
+]
+install: [make]
+depends: [
+  "coq" { (>= "8.13" ) }
+  "coq-iris" { (>= "dev") }
+  "coq-stdpp" { (>= "dev") }
+]

@@ -211,6 +211,156 @@ Proof.
   rewrite vlookup_insert_ne //.
 Qed.
 
+(* TODO rename hypotheses. *)
+Lemma update_access_batch_preserve_excl {sps sexcl:gset _} σ ps:
+ sps = (list_to_set ps)->
+ get_excl_gmap σ !! (get_current_vm σ) = Some sexcl ->
+ sps ## sexcl ->
+ (get_excl_gmap (update_access_batch σ ps SharedAccess)) = (get_excl_gmap σ).
+Proof.
+  rewrite /get_excl_gmap /get_pagetable_gmap.
+  intros.
+  f_equal.
+  apply (list_eq_same_length _ _ vm_count).
+  - rewrite map_length.
+    apply length_list_of_vmids.
+  - rewrite map_length.
+    apply length_list_of_vmids.
+  - intros ? ? ? Hlt Hl1 Hl2.
+    rewrite list_lookup_fmap /=in Hl1.
+    pose proof (lookup_list_of_vmids i Hlt) as Hv.
+    rewrite Hv /=in Hl1.
+    inversion Hl1.
+    rewrite list_lookup_fmap /=in Hl2.
+    rewrite Hv /= in Hl2.
+    inversion Hl2.
+    f_equal.
+    apply elem_of_list_to_map_2 in H0.
+    apply elem_of_list_In in H0.
+    apply in_map_iff in H0.
+    destruct H0 as [?[Heq _]].
+    inversion Heq.
+    subst x0.
+    set (v:= (nat_to_fin Hlt)) in *.
+    clear Hl1 Hl2 H3 H4 Heq.
+    destruct (decide ((get_current_vm σ) = v)).
+    + rewrite e in H5. rewrite H5.
+      rewrite /get_pagetable_gset /=.
+      apply set_eq.
+      intros.
+      split.
+      *  rewrite elem_of_list_to_set.
+         intro.
+         apply elem_of_list_In in H0.
+         apply in_map_iff in H0.
+         destruct H0 as [? [<- Hin]].
+         apply elem_of_list_In in Hin.
+         destruct x1.
+         apply elem_of_map_to_list in Hin.
+         apply map_filter_lookup_Some in Hin.
+         destruct Hin.
+         rewrite -H5 /get_pagetable_gset /=.
+         rewrite elem_of_list_to_set.
+         apply elem_of_list_In.
+         apply in_map_iff.
+         exists (p,a).
+         split;auto.
+         apply elem_of_list_In.
+         apply elem_of_map_to_list.
+         apply map_filter_lookup_Some.
+         split;auto.
+         rewrite /get_vm_page_table /get_page_tables /= in H0.
+         rewrite -e in H0.
+         rewrite vlookup_insert /=in H0.
+         generalize dependent  sps.
+         induction ps.
+         cbn in H0.
+         rewrite -e //.
+         intros.
+         cbn in H0.
+         destruct (decide (a0 = p)).
+         subst a0.
+         rewrite lookup_insert in H0.
+         inversion H0.
+         subst a.
+         cbn in H2.
+         done.
+         rewrite lookup_insert_ne in H0.
+         apply (IHps H0 (list_to_set ps));auto.
+         cbn in H.
+         subst sps.
+         apply disjoint_union_l  in H1.
+         destruct H1.
+         assumption.
+         done.
+      *  rewrite elem_of_list_to_set.
+         intro.
+         rewrite -H5 in H0.
+         rewrite /get_pagetable_gset /get_vm_page_table /get_page_tables /= in H0.
+         apply elem_of_list_to_set in H0.
+         apply elem_of_list_In in H0.
+         apply in_map_iff in H0.
+         destruct H0 as [? [<- Hin]].
+         apply elem_of_list_In in Hin.
+         destruct x1.
+         apply elem_of_map_to_list in Hin.
+         apply map_filter_lookup_Some in Hin.
+         destruct Hin.
+         apply elem_of_list_In.
+         apply in_map_iff.
+         exists (p,a).
+         split;auto.
+         apply elem_of_list_In.
+         apply elem_of_map_to_list.
+         apply map_filter_lookup_Some.
+         split;auto.
+         rewrite /get_vm_page_table /get_page_tables /=.
+         rewrite -e.
+         rewrite vlookup_insert /=.
+         generalize dependent  sps.
+         induction ps.
+         intros.
+         cbn.
+         rewrite e //.
+         intros.
+         cbn.
+         destruct (decide (a0 = p)).
+         -- assert (Hpin: p ∈ sexcl ).
+            {
+              rewrite -H5.
+              rewrite /get_pagetable_gset /get_vm_page_table /get_page_tables /=.
+              apply elem_of_list_to_set.
+              apply elem_of_list_In.
+              apply in_map_iff.
+              exists (p,a).
+              split;auto.
+              apply elem_of_list_In.
+              apply elem_of_map_to_list.
+              apply map_filter_lookup_Some.
+              split;done.
+            }
+            subst a0.
+            assert (Hpin': p ∈ sps).
+            {
+              set_solver.
+            }
+            set_solver.
+         --
+         rewrite lookup_insert_ne;auto.
+         apply (IHps (list_to_set ps));auto.
+         cbn in H.
+         subst sps.
+         apply disjoint_union_l  in H1.
+         destruct H1.
+         assumption.
+    + rewrite /get_pagetable_gset /=.
+      do 3 f_equal.
+      rewrite /get_vm_page_table /get_page_tables /update_access_batch /update_access_global_batch /=.
+      rewrite vlookup_insert_ne;auto.
+    Qed.
+
+
+
 Ltac rewrite_access_all :=
   match goal with
   | |- _ =>
