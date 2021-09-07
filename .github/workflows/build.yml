@@ -37,7 +37,7 @@ jobs:
       with:
           before_script: |
             startGroup "Build project"
-	      sudo chown -R coq:coq .
+              sudo chown -R coq:coq .
               make ci
             endGroup
           ocaml_version: 4.07-flambda
