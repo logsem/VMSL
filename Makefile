@@ -35,15 +35,7 @@ clean:
 	@find $(SRC_DIRS) -name ".*.aux" -exec rm {} \;
 	rm -f _CoqProject .coqdeps.d
 
-Makefile.coq:
-	coq_makefile -f _CoqProject -o Makefile.coq
-
-Makefile.coq.conf:
-	coq_makefile -f _CoqProject -o Makefile.coq
-
-include Makefile.coq.conf
-
-skip-qed: Makefile.coq.conf
+skip-qed: 
 	./disable-qed.sh $(shell find $(THRS_DIR) -name "*.v")
 
 ci: skip-qed
