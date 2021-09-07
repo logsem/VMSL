@@ -6,6 +6,7 @@ maintainer : "Zongyuan Liu, Sergei Stepanenko"
 license: "MIT"
 build: [
   [make "clean"]
+  [make "ci"]
   [make]
 ]
 install: [make]

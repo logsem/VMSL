@@ -1,4 +1,5 @@
-SRC_DIRS := 'theories' $(shell test -d 'vendor' && echo 'vendor')
+THRS_DIR := 'theories'
+SRC_DIRS := $(THRS_DIR) $(shell test -d 'vendor' && echo 'vendor')
 ALL_VFILES := $(shell find $(SRC_DIRS) -name "*.v")
 TEST_VFILES := $(shell find 'theories' -name "*Tests.v")
 PROJ_VFILES := $(shell find 'theories' -name "*.v")
@@ -34,7 +35,20 @@ clean:
 	@find $(SRC_DIRS) -name ".*.aux" -exec rm {} \;
 	rm -f _CoqProject .coqdeps.d
 
+Makefile.coq:
+	coq_makefile -f _CoqProject -o Makefile.coq
+
+Makefile.coq.conf:
+	coq_makefile -f _CoqProject -o Makefile.coq
+
+include Makefile.coq.conf
+
+skip-qed: Makefile.coq.conf
+	./disable-qed.sh $(shell find $(THRS_DIR) -name "*.v")
+
+ci: skip-qed
+
 # TODO add new options examples and all
 # TODO the default option skips examples
-.PHONY: default test clean
+.PHONY: default test clean ci
 .DELETE_ON_ERROR:

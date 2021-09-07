@@ -30,9 +30,15 @@ jobs:
           path: vendor/machine_utils
           token: ${{ secrets.HYPVERI_ACCESS_TOKEN }}
           persist-credentials: false
+    - name: Change permissions
+      run: chmod a+x disable-qed.sh
     - name: Build
       uses: coq-community/docker-coq-action@v1
       with:
+          before_script: |
+            startGroup "Build project"
+              make ci
+            endGroup
           ocaml_version: 4.07-flambda
           opam_file: './hypveri.opam'
           custom_image: 'kaptch/coq-iris:latest'
