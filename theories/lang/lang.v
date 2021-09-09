@@ -414,8 +414,17 @@ Definition get_rx_sender_global (st : state) (v : VMID) : option VMID:=
   | _ => None
   end.
 
+Definition get_rx_length_global (st : state) (v : VMID) : option Word :=
+  match get_vm_mail_box st v with
+  | (_, (_, Some (v', _))) => Some v'
+  | _ => None
+  end.
+
 Definition get_rx_sender (st : state) : option VMID:=
   get_rx_sender_global st (get_current_vm st).
+
+Definition get_rx_length (st : state) : option Word :=
+  get_rx_length_global st (get_current_vm st).
 
 Definition empty_rx_global (st : state) (v : VMID) : state :=
   match get_vm_mail_box st v with
@@ -840,7 +849,10 @@ Definition wait (s : state) : exec_mode * state :=
 Definition poll (s : state) : exec_mode * state :=
   let comp :=
       if is_rx_ready s
-      then unit (empty_rx s)
+      then
+        l <- lift_option (get_rx_length s) ;;;
+        n <- lift_option (get_rx_sender s) ;;;
+        unit (update_reg (update_reg (update_reg (empty_rx s) R0 (encode_hvc_func Send)) R1 l) R2 (encode_vmid n))
       else throw Denied
   in
   unpack_hvc_result_normal s comp.
