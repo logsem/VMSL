@@ -13,9 +13,22 @@ Lemma str {instr i w1 w2 w3 q s prx} ai a ra rb :
   ai ≠ a ->
   prx ≠ (to_pid_aligned a) ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
-  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a) ∗ ▷ (a ->a w3) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (RX@ i := prx)}}} ExecI @ i
-                                  {{{ RET ExecI; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
-                                      ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 ∗ RX@i := prx }}}.
+  {SS{{ ▷ (PC @@ i ->r ai) ∗
+        ▷ (ai ->a w1) ∗
+        ▷ (rb @@ i ->r a) ∗
+        ▷ (a ->a w3) ∗
+        ▷ (A@i:={q}[s]) ∗
+        ▷ (ra @@ i ->r w2) ∗
+        ▷ (RX@ i := prx)}}}
+    ExecI @ i
+    {{{ RET ExecI;
+        PC @@ i ->r (ai ^+ 1)%f ∗
+        ai ->a w1 ∗
+        rb @@ i ->r a ∗
+        a ->a w2 ∗
+        A@i:={q}[s] ∗
+        ra @@ i ->r w2 ∗
+        RX@i := prx }}}.
 Proof.
   iIntros (Hinstr Hdecode Hneqaia Hnotrx Hs ϕ) "(>Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra & >HRX) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
