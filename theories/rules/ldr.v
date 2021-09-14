@@ -7,18 +7,29 @@ Section ldr.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma ldr {instr i qi w1 w2 w3 q s p} ai a ra rb :
+Lemma ldr {instr i w1 w2 w3 q p} ai a ra rb s:
   instr = Ldr ra rb ->
   decode_instruction w1 = Some(instr) ->
-  ai ≠ a ->
   (to_pid_aligned a) ≠ p ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
-  {SS{{ ▷ (TX@ i := p) ∗ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
-          ∗ ▷ (a ->a w2) ∗ ▷ (A@i:={q}[s]) ∗ ▷ (ra @@ i ->r w3)}}} ExecI @ i
-                                  {{{ RET ExecI; TX@ i := p ∗ <<i>>{ qi} ∗ PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ rb @@ i ->r a ∗ a ->a w2
-                                      ∗ A@i:={q}[s] ∗ ra @@ i ->r w2 }}}.
+  {SS{{ ▷ (PC @@ i ->r ai) ∗
+        ▷ (ai ->a w1) ∗
+        ▷ (rb @@ i ->r a) ∗
+        ▷ (a ->a w2) ∗
+        ▷ (ra @@ i ->r w3) ∗
+        ▷ (A@i:={q}[s]) ∗
+        ▷ (TX@ i := p)}}}
+    ExecI @ i
+    {{{ RET ExecI;
+        PC @@ i ->r (ai ^+ 1)%f ∗
+        ai ->a w1 ∗
+        rb @@ i ->r a ∗
+        a ->a w2 ∗
+        ra @@ i ->r w2 ∗
+        A@i:={q}[s] ∗
+        TX@ i := p }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hneqaia Hmm Hs ϕ) "(>Htx & >Htok & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra ) Hϕ".
+  iIntros (Hinstr Hdecode Hmm Hs ϕ) "(>Hpc & >Hapc & >Hrb & >Harb & >Hra & >Hacc & >Htx) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -37,7 +48,7 @@ Proof.
   iDestruct ((gen_access_valid_addr_elem a s Has) with "Haccess Hacc") as "%Ha".
   iDestruct ((gen_access_valid_addr_elem ai s Hais) with "Haccess Hacc") as "%Hai".
   (* valid mem *)
-  iDestruct (gen_mem_valid2 ai w1 a w2 Hneqaia with "Hmem Hapc Harb ") as "[%Hmemai %Hmema]".
+  iDestruct (gen_mem_valid2 ai w1 a w2 with "Hmem Hapc Harb") as "[%Hmemai %Hmema]".
   iDestruct (gen_tx_valid i p with "Htx Htxown") as %Htx.
   iSplit.
   - (* reducible *)
@@ -73,7 +84,7 @@ Proof.
       iModIntro.
       iFrame "Hσ".
       iApply "Hϕ".
-      iFrame "Htx Htok Hreg Hapc Harb Hacc Hra Hrb".
+      iFrame "Hreg Hapc Harb Hra Hrb Hacc Htx".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.

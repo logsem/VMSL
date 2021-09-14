@@ -275,6 +275,12 @@ Proof.
   rewrite Heqiv'' // .
 Qed.
 
+Lemma finz_plus_assoc {fb} (a : finz fb) (n m : Z):
+  (0 <= n)%Z ->
+  (0 <= m)%Z ->
+  ((a ^+ n) ^+ m)%f = (a ^+ (n + m)%Z)%f.
+Proof. solve_finz. Qed.
+
 (* complementing lemmas for finz.seq *)
 Lemma finz_seq_notin2{b} (f f' : finz.finz b) n :
   (f' ^+ ((Z.of_nat n)-1) < f)%f -> f ∉ finz.seq f' n.

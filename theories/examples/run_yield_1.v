@@ -1,17 +1,9 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base.
 From HypVeri.rules Require Import rules_base mov halt run yield.
+From HypVeri.examples Require Import instr.
 
 Section RunYield1.
-
-  Definition mov_word_I ra w := encode_instruction (Mov ra (inl w)).
-  Definition str_I ra rb := encode_instruction (Str ra rb).
-  Definition halt_I := encode_instruction Halt.
-  Definition hvc_I := encode_instruction Hvc.
-  
-  Definition run_I := encode_hvc_func Run.
-  Definition yield_I := encode_hvc_func Yield.
-  
 
   Definition program1 (i : VMID) : list Word :=
     [
@@ -30,9 +22,6 @@ Section RunYield1.
   Class tokG Σ := tok_G :> inG Σ (exclR unitO).
 
   Context `{gen_VMG Σ, tokG Σ} (N : namespace).
-
-  Definition program (instr: list Word) (b:Addr):=
-    ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
 
   Definition tokI γ := own γ (Excl ()).
 

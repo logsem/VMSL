@@ -2,7 +2,7 @@ From machine_program_logic.program_logic Require Import machine weakestpre adequ
 From iris.bi Require Import big_op.
 From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable.
-From HypVeri.examples Require Import run_yield_1.
+From HypVeri.examples Require Import instr run_yield_1.
 
  Definition run_vms (ms: list exec_mode) (z i: VMID):=
     ms !! (fin_to_nat i) = Some ExecI ∧
