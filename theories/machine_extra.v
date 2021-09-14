@@ -22,6 +22,12 @@ Solve Obligations with lia.
 Program Definition R2 :reg_name := (R 2 _).
 Solve Obligations with lia.
 
+Program Definition R3 :reg_name := (R 3 _).
+Solve Obligations with lia.
+
+Program Definition R4 :reg_name := (R 4 _).
+Solve Obligations with lia.
+
 Definition page_of_W0: list Word:=
   map (λ _, W0) (seq 0 (Z.to_nat page_size)).
 
