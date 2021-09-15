@@ -225,7 +225,6 @@ Proof.
     }
     iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0")
       as ">[Hσreg [PC Hr0]]";try f_equal.
-    { left;done. }
     iFrame "Hσreg".
     (* update page table *)
     rewrite update_offset_PC_preserve_owned update_access_batch_preserve_ownerships.
@@ -426,7 +425,6 @@ Proof.
   }
   iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC R0")
     as ">[Hσreg [PC R0]]";try f_equal.
-  { left;done. }
   iFrame "Hσreg".
   (* update transactions *)
   rewrite -get_trans_gmap_preserve_dom.

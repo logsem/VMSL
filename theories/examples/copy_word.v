@@ -15,7 +15,7 @@ Section copy_word.
   Definition program' (instr: list Word) (b:Addr):=
     ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
   
-  Lemma copy_word {ptx prx progpage srcpage dstpage sacc i q qi w w_ r0_ r1_} src dst :
+  Lemma copy_word {ptx prx progpage srcpage dstpage sacc i q w w_ r0_ r1_} src dst :
     ptx ≠ srcpage ->
     prx ≠ dstpage ->
     seq_in_page (of_pid progpage) (length (program src dst)) progpage ->
@@ -34,7 +34,6 @@ Section copy_word.
     ∗ (R0 @@ i ->r r0_)
     ∗ (R1 @@ i ->r r1_)
     ∗ (TX@ i := ptx)
-    ∗ (<<i>>{ qi })
     ∗ (RX@ i := prx)
     ⊢ (PARWP ExecI @ i
           {{ (λ m, ⌜m = ExecI⌝
@@ -45,11 +44,10 @@ Section copy_word.
           ∗ dst ->a w
           ∗ R0 @@ i ->r dst
           ∗ R1 @@ i ->r w
-          ∗ (<<i>>{ qi })
           ∗ (RX@ i := prx)
           ∗ (TX@ i := ptx))}}%I).
   Proof.
-    iIntros (Hneq Hneq' Hseqp Hnin Hnin' Hsrcp Hdstp Hprpain Hsrcpain Hdstpain) "(Hbstar & Hai & Hpc & Hsrc & Hdst & Hr0 & Hr1 & HTX & Hi & HRX)".
+    iIntros (Hneq Hneq' Hseqp Hnin Hnin' Hsrcp Hdstp Hprpain Hsrcpain Hdstpain) "(Hbstar & Hai & Hpc & Hsrc & Hdst & Hr0 & Hr1 & HTX & HRX)".
     apply seq_in_page_forall in Hseqp.
     rewrite <-parwp_sswp.
     iDestruct "Hbstar" as "(p_start & Hbstar)".
@@ -64,20 +62,7 @@ Section copy_word.
     iIntros "(Hpc & Hinstr1 & Hacc & Hr0)".
     rewrite <-parwp_sswp.
     iDestruct "Hbstar" as "(p_start & Hbstar)".
-    iDestruct ((ldr (of_pid progpage ^+ 1)%f src R1 R0) with "[Hpc Hacc Hr0 Hr1 Hsrc p_start HTX Hi]") as "J".
-    3 : { intros C.
-          rewrite ->Forall_forall in Hseqp.
-          specialize (Hseqp (progpage ^+ 1)%f).
-          rewrite C in Hseqp.
-          apply Hnin.
-          apply Hseqp.
-          rewrite <-C.
-          rewrite finz_seq_cons.
-          set_solver.
-          rewrite /program.
-          simpl.
-          lia.
-    }
+    iDestruct ((ldr (of_pid progpage ^+ 1)%f src R1 R0) with "[Hpc Hacc Hr0 Hr1 Hsrc p_start HTX]") as "J".
     instantiate (1 := Ldr R1 R0).
     reflexivity.
     instantiate (1 := encode_instruction (Ldr R1 R0)).
@@ -103,7 +88,7 @@ Section copy_word.
     iFrame.
     iApply "J".
     iModIntro.
-    iIntros "(HTX & Hi & Hpc & Hinstr2 & Hr0 & Hsrc & Hacc & Hr1)".
+    iIntros "(Hpc & Hinstr2 & Hr0 & Hsrc & Hr1 & Hacc & HTX)".
     rewrite <-parwp_sswp.
     iDestruct "Hbstar" as "(p_start & Hbstar)".
     iDestruct ((mov_word ((of_pid progpage ^+ 1) ^+ 1)%f dst R0) with "[Hpc Hacc Hr0 p_start]") as "J".
@@ -122,18 +107,6 @@ Section copy_word.
     reflexivity.
     instantiate (1 := encode_instruction (Str R1 R0)).
     by rewrite decode_encode_instruction.
-    intros C.
-    rewrite ->Forall_forall in Hseqp.
-    specialize (Hseqp (((progpage ^+ 1) ^+ 1) ^+ 1)%f).
-    rewrite C in Hseqp.
-    apply Hnin'.
-    apply Hseqp.
-    rewrite <-C.
-    rewrite finz_seq_cons.
-    set_solver.
-    rewrite /program.
-    simpl.
-    lia.
     instantiate (1 := prx).
     intros C.
     rewrite C in Hneq'.
@@ -155,7 +128,7 @@ Section copy_word.
     iFrame.
     iApply "J".
     iModIntro.
-    iIntros "(Hpc & Hinstr4 & Hr0 & Hdst & Hacc & Hr1 & HRX)".
+    iIntros "(Hpc & Hinstr4 & Hr0 & Hdst & Hr1 & Hacc & HRX)".
     iApply parwp_finish.
     iFrame.
     iSplit; auto.
