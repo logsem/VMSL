@@ -28,7 +28,7 @@ Proof.
   subst src .
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
-  iDestruct ((gen_reg_valid2 i PC ai ra w2 Hcur HneqPCa) with "Hreg Hpc Hra") as "[%HPC %Hra]";eauto.
+  iDestruct ((gen_reg_valid2 i PC ai ra w2 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr ai) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
