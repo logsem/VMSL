@@ -26,11 +26,11 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | src dst Hvalidra | | |] .
+  inversion Hvalidinstr as [ | | | | src dst Hvalidra | | | | |] .
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
-  iDestruct ((gen_reg_valid3 i PC ai ra w3 NZ w4 Hcur HneqPCa) with "Hreg Hpc Hra Hnz") as "[%HPC [%Hra %HNZ]]";eauto.
+  iDestruct ((gen_reg_valid3 i PC ai ra w3 NZ w4 Hcur) with "Hreg Hpc Hra Hnz") as "[%HPC [%Hra %HNZ]]";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr ai pi) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
@@ -100,12 +100,12 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | | src dst Hvalidra Hvalidrb Hneqrarb | |] .
+  inversion Hvalidinstr as [ | | | | | src dst Hvalidra Hvalidrb Hneqrarb | | | |] .
   subst src dst.
   destruct  Hvalidra as [ HneqPCa HneqNZa ].
   destruct  Hvalidrb as [ HneqPCb HneqNZb ].
   (* valid regs *)
-  iDestruct ((gen_reg_valid4 i PC ai ra w2 rb w3 NZ w4 Hcur) with "Hreg Hpc Hra Hrb Hnz") as "[%HPC [%Hra [%Hrb %HNZ]]]";eauto.
+  iDestruct ((gen_reg_valid4 i PC ai ra w2 rb w3 NZ w4 Hcur) with "Hreg Hpc Hra Hrb Hnz") as "[%HPC [%Hra [%Hrb %HNZ]]]";auto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr ai pi) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)

@@ -98,13 +98,13 @@ Section reg_rules.
 
   Lemma gen_reg_valid2 {σ} i r1 w1 r2 w2:
     (get_current_vm σ) = i ->
-    r1 ≠ r2->
     ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
     r1 @@ i ->r w1 -∗
     r2 @@ i ->r w2 -∗
     ⌜(get_reg σ r1) = Some w1⌝ ∗ ⌜(get_reg σ r2) = Some w2⌝.
   Proof.
-    iIntros (Hcur Hneq) "Hreg Hr1 Hr2".
+    iIntros (Hcur) "Hreg Hr1 Hr2".
+    iDestruct (reg_neq with "Hr1 Hr2") as %[Hneq|];[|contradiction].
     iDestruct ((gen_reg_valid_Sep i (<[(r1,i):=w1]>{[(r2,i):=w2]}))
                  with "Hreg [Hr1 Hr2]") as "%Hreg";eauto.
     rewrite !big_sepM_insert ?big_sepM_empty;eauto.
@@ -121,16 +121,16 @@ Section reg_rules.
 
   Lemma gen_reg_valid3 {σ} i r1 w1 r2 w2 r3 w3:
    (get_current_vm σ) = i ->
-   r1 ≠ r2->
-   r1 ≠ r3->
-   r2 ≠ r3->
    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
    r1 @@ i ->r w1 -∗
    r2 @@ i ->r w2 -∗
    r3 @@ i ->r w3 -∗
    ⌜(get_reg σ r1) = Some w1⌝ ∗ ⌜(get_reg σ r2) =Some w2⌝ ∗ ⌜(get_reg σ r3) = Some w3⌝.
   Proof.
-    iIntros (Hcur Hneq1 Hneq2 Hneq3) "Hreg Hr1 Hr2 Hr3".
+    iIntros (Hcur ) "Hreg Hr1 Hr2 Hr3".
+    iDestruct (reg_neq with "Hr1 Hr2") as %[Hneq1|];[|contradiction].
+    iDestruct (reg_neq with "Hr2 Hr3") as %[Hneq2|];[|contradiction].
+    iDestruct (reg_neq with "Hr1 Hr3") as %[Hneq3|];[|contradiction].
     iDestruct ((gen_reg_valid_Sep i ({[(r1,i):=w1;(r2,i):=w2;(r3,i):=w3]}))
                  with "Hreg [Hr1 Hr2 Hr3]") as "%Hreg";eauto.
     rewrite !big_sepM_insert ?big_sepM_empty;eauto.
@@ -155,12 +155,6 @@ Section reg_rules.
 
   Lemma gen_reg_valid4 {σ} i r1 w1 r2 w2 r3 w3 r4 w4:
    (get_current_vm σ) = i ->
-   r1 ≠ r2->
-   r1 ≠ r3->
-   r2 ≠ r3->
-   r1 ≠ r4->
-   r2 ≠ r4->
-   r3 ≠ r4->
    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
    r1 @@ i ->r w1 -∗
    r2 @@ i ->r w2 -∗
@@ -169,7 +163,13 @@ Section reg_rules.
    ⌜(get_reg σ r1) = Some w1⌝ ∗ ⌜(get_reg σ r2) =Some w2⌝ ∗
    ⌜(get_reg σ r3) = Some w3⌝ ∗ ⌜(get_reg σ r4) = Some w4⌝.
   Proof.
-    iIntros (Hi Hneq1 Hneq2 Hneq3 Hneq4 Hneq5 Hneq6) "Hreg Hr1 Hr2 Hr3 Hr4".
+    iIntros (Hi) "Hreg Hr1 Hr2 Hr3 Hr4".
+    iDestruct (reg_neq with "Hr1 Hr2") as %[Hneq1|];[|contradiction].
+    iDestruct (reg_neq with "Hr2 Hr3") as %[Hneq2|];[|contradiction].
+    iDestruct (reg_neq with "Hr1 Hr3") as %[Hneq3|];[|contradiction].
+    iDestruct (reg_neq with "Hr1 Hr4") as %[Hneq4|];[|contradiction].
+    iDestruct (reg_neq with "Hr2 Hr4") as %[Hneq5|];[|contradiction].
+    iDestruct (reg_neq with "Hr3 Hr4") as %[Hneq6|];[|contradiction].
     iDestruct ((gen_reg_valid_Sep i ({[(r1,i):=w1;(r2,i):=w2;(r3,i):=w3;(r4,i):=w4]}))
                  with "Hreg [Hr1 Hr2 Hr3 Hr4]") as "%Hreg";eauto.
     rewrite !big_sepM_insert ?big_sepM_empty;first iFrame;
@@ -232,14 +232,14 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update2_global {σ} r1 i1 w1 w1' r2 i2 w2 w2':
-   r1 ≠ r2 ∨ i1 ≠ i2 ->
    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
    r1 @@ i1 ->r w1 -∗
    r2 @@ i2 ->r w2==∗
    ghost_map_auth (gen_reg_name vmG) 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']> (get_reg_gmap σ))) ∗
    r1 @@ i1 ->r w1' ∗ r2 @@ i2 ->r w2'.
   Proof.
-    iIntros (Hneq) "Hreg Hr1 Hr2".
+    iIntros "Hreg Hr1 Hr2".
+    iDestruct (reg_neq with "Hr1 Hr2") as %Hneq.
     iDestruct ((gen_reg_update_Sep {[(r1,i1):=w1; (r2,i2):=w2]}
                                    {[(r1,i1):=w1'; (r2,i2):=w2']}) with "Hreg [Hr1 Hr2]")
       as ">[Hreg Hr12]" ;eauto;[set_solver| | ].
@@ -256,9 +256,6 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update3_global {σ w1 w2 w3} r1 i1 w1' r2 i2 w2' r3 i3 w3':
-   r1 ≠ r2 ∨ i1 ≠ i2 ->
-   r1 ≠ r3 ∨ i1 ≠ i3 ->
-   r3 ≠ r2 ∨ i3 ≠ i2 ->
    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
    r1 @@ i1 ->r w1 -∗
    r2 @@ i2 ->r w2 -∗
@@ -267,7 +264,10 @@ Section reg_rules.
                                                             (<[(r3,i3):= w3']>(get_reg_gmap σ)))) ∗
    r1 @@ i1 ->r w1'  ∗ r2 @@ i2 ->r w2' ∗ r3 @@ i3 ->r w3'.
   Proof.
-    iIntros (Hneq12 Hneq13 Hneq32) "Hreg Hr1 Hr2 Hr3".
+    iIntros "Hreg Hr1 Hr2 Hr3".
+    iDestruct (reg_neq with "Hr1 Hr2") as %Hneq12.
+    iDestruct (reg_neq with "Hr3 Hr2") as %Hneq32.
+    iDestruct (reg_neq with "Hr1 Hr3") as %Hneq13.
     assert (Hlk: ∀ w3 ,  ({[(r3, i3) := w3]}: gmap _ _) !! (r2, i2) = None).
     intro. destruct Hneq32; rewrite !lookup_insert_None; split;eauto; intros P; by inversion P.
     assert (Hlk': ∀ w2 w3, ({[(r2, i2) := w2; (r3, i3) := w3]} : gmap _ _ ) !! (r1, i1) = None).
@@ -286,12 +286,6 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update4_global {σ w1 w2 w3 w4} r1 i1 w1' r2 i2 w2' r3 i3 w3' r4 i4 w4':
-   r1 ≠ r2 ∨ i1 ≠ i2 ->
-   r1 ≠ r3 ∨ i1 ≠ i3 ->
-   r3 ≠ r2 ∨ i3 ≠ i2 ->
-   r1 ≠ r4 ∨ i1 ≠ i4 ->
-   r2 ≠ r4 ∨ i2 ≠ i4 ->
-   r3 ≠ r4 ∨ i3 ≠ i4 ->
    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
    r1 @@ i1 ->r w1 -∗
    r2 @@ i2 ->r w2 -∗
@@ -301,7 +295,13 @@ Section reg_rules.
                                                             (<[(r3,i3):= w3']> (<[(r4,i4):= w4']> (get_reg_gmap σ))))) ∗
    r1 @@ i1 ->r w1'  ∗ r2 @@ i2 ->r w2' ∗ r3 @@ i3 ->r w3' ∗ r4 @@ i4 ->r w4'.
   Proof.
-    iIntros (Hneq12 Hneq13 Hneq32 Hneq14 Hneq24 Hneq34) "Hreg Hr1 Hr2 Hr3 Hr4".
+    iIntros "Hreg Hr1 Hr2 Hr3 Hr4".
+    iDestruct (reg_neq with "Hr1 Hr2") as %Hneq12.
+    iDestruct (reg_neq with "Hr3 Hr2") as %Hneq32.
+    iDestruct (reg_neq with "Hr1 Hr3") as %Hneq13.
+    iDestruct (reg_neq with "Hr3 Hr4") as %Hneq34.
+    iDestruct (reg_neq with "Hr2 Hr4") as %Hneq24.
+    iDestruct (reg_neq with "Hr1 Hr4") as %Hneq14.
     assert (Hlk1 : ∀ w4, ({[(r4, i4) := w4]}: gmap _ _) !! (r3, i3) = None).
     intro. destruct Hneq34; rewrite !lookup_insert_None; split;eauto; intros P; by inversion P.
     assert (Hlk2 : ∀ w3 w4, ({[(r3, i3) := w3; (r4, i4) := w4]}: gmap _ _) !! (r2, i2) = None).

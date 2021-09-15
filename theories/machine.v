@@ -156,7 +156,7 @@ destruct (finz_eq_dec word_size w w0).
 Defined.
 
 
-(* there are 31 general purpose registers and two system registers PC and NZ *)
+(* there are 31 general purpose registers and three system registers PC NZ *)
 Inductive reg_name : Type :=
 | PC
 | NZ
@@ -164,7 +164,7 @@ Inductive reg_name : Type :=
 
 Global Instance eq_decision_reg_name : EqDecision reg_name.
 Proof.
-  intros x y. destruct x as [| | n fin], y as [| | n' fin']; try (by left); try (by right).
+  intros x y. destruct x as [| |n fin], y as [| | n' fin']; try (by left); try (by right).
   destruct (nat_eq_dec n n').
   - subst n'; left; f_equal; apply proof_irrel.
   - right; congruence.
@@ -179,13 +179,14 @@ Defined.
 Global Instance countable_reg_name : Countable reg_name.
 Proof.
   refine {| encode r := encode match r with
-                               | PC => inl false
-                               | NZ => inl true
+                               | PC => inl 0
+                               | NZ => inl 1
                                | R n fin => inr n
                                end;
             decode n := match (decode n) with
-                        | Some (inl false) => Some PC
-                        | Some (inl true) => Some NZ
+                        | Some (inl 0) => Some PC
+                        | Some (inl 1) => Some NZ
+                        | Some (inl _) => None
                         | Some (inr n) => n_to_regname n
                         | None => None
                         end;
@@ -257,6 +258,8 @@ Inductive instruction : Type :=
 | Ldr (dst : reg_name) (src : reg_name)
 | Str (src : reg_name) (dst : reg_name)
 | Cmp (arg1 : reg_name) (arg2 : Imm + reg_name)
+| Add (op1: reg_name) (op2: reg_name)
+| Sub (op1: reg_name) (op2: reg_name)
 | Bne (arg : reg_name)
 | Br (arg : reg_name)
 | Halt
@@ -264,8 +267,10 @@ Inductive instruction : Type :=
 | Hvc.
 
 (* these conditions describe a valid instruction *)
-Definition reg_valid_cond (r : reg_name) : Prop :=
+Definition is_general_reg (r : reg_name) : Prop :=
   PC ≠ r /\ NZ ≠ r.
+
+Notation reg_valid_cond := is_general_reg.
 
 Inductive valid_instruction : instruction -> Prop :=
 | valid_mov_imm imm dst : reg_valid_cond dst ->
@@ -288,6 +293,12 @@ Inductive valid_instruction : instruction -> Prop :=
                       reg_valid_cond src ->
                       dst ≠ src ->
                       valid_instruction (Cmp dst (inr src))
+| valid_add src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      valid_instruction (Add src dst)
+| valid_sub src dst : reg_valid_cond dst ->
+                      reg_valid_cond src ->
+                      valid_instruction (Sub src dst)
 | valid_bne r : reg_valid_cond r ->
                 valid_instruction (Bne r)
 | valid_br r : reg_valid_cond r ->

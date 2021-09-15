@@ -281,6 +281,45 @@ Proof.
   rewrite Heqiv'' // .
 Qed.
 
+Lemma finz_plus_assoc {fb} (a : finz fb) (n m : Z):
+  (0 <= n)%Z ->
+  (0 <= m)%Z ->
+  ((a ^+ n) ^+ m)%f = (a ^+ (n + m)%Z)%f.
+Proof. solve_finz. Qed.
+
+(* subtraction *)
+
+Program Definition decr{b} (f : finz b) (off : Z) : option (finz b) :=
+  let z := (finz.to_z f - off)%Z in
+  match (Z_lt_dec z b) with
+  | left _ =>
+    match (Z_le_dec 0%Z z) with
+    | left _ => Some (finz.FinZ z _ _)
+    | right _ => None
+    end
+  | right _ => None
+  end.
+Next Obligation.
+  intros. apply Z.ltb_lt; auto.
+Defined.
+Next Obligation.
+  intros. apply Z.leb_le; auto.
+Defined.
+
+Program Definition smallest {b} (ex: finz b) : finz b:=
+  finz.FinZ 0 _ _.
+Next Obligation. inversion 1. lia. Defined.
+Next Obligation. lia. Defined.
+
+Definition decr_default{b} (f : finz b) (off : Z) : finz b:=
+  match decr f off with
+  | Some f' => f'
+  | None => smallest f
+  end.
+
+Notation "f1 - z" := (decr f1 z) : finz_scope.
+Notation "f ^- off" := (decr_default f off) (at level 50) : finz_scope.
+
 (* complementing lemmas for finz.seq *)
 Lemma finz_seq_notin2{b} (f f' : finz.finz b) n :
   (f' ^+ ((Z.of_nat n)-1) < f)%f -> f ∉ finz.seq f' n.

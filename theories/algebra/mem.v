@@ -91,13 +91,13 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_valid2 {σ} a1 w1 a2 w2:
-    a1 ≠ a2 ->
     ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
     a1 ->a w1 -∗
     a2 ->a w2 -∗
     ⌜(get_mem σ) !! a1 = Some w1⌝ ∗ ⌜(get_mem σ) !! a2 = Some w2⌝.
   Proof.
-    iIntros (Hneq) "Hσ Ha1 Ha2".
+    iIntros "Hσ Ha1 Ha2".
+    iDestruct (mem_neq with "Ha1 Ha2") as "%Hne".
     iDestruct (gen_mem_valid_SepM {[a1:=w1;a2:=w2]} with "Hσ [Ha1 Ha2]") as "%Hforall";eauto.
     { rewrite !big_sepM_insert ?big_sepM_empty;eauto.
       iFrame.
