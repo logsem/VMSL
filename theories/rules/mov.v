@@ -30,11 +30,11 @@ Proof.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [imm dst Hvalidra | | | | | | | ].
+  inversion Hvalidinstr as [imm dst Hvalidra | | | | | | | | | ].
   subst imm dst.
   inversion Hvalidra as [HneqPC HneqNZ].
   (* valid regs *)
-  iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur HneqPC) with "Hreg Hpc Hra") as "[%HPC %Hra]".
+  iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)
   iDestruct (gen_access_valid_addr_Set a p s with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
@@ -48,7 +48,7 @@ Proof.
     iIntros (m2 σ2) "%HstepP".
     apply (step_ExecI_normal i instr a w1) in HstepP;eauto.
     remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (mov_word_ExecI σ1 ra _ HneqPC HneqNZ)  /update_incr_PC /update_reg  in Heqc2.
+    rewrite /exec Hinstr (mov_word_ExecI σ1 ra _ HneqPC HneqNZ) /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
@@ -92,13 +92,13 @@ Proof.
   iModIntro.
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | src dst Hvalidra Hvalidrb Hneqrarb  | | | | | |] .
+  inversion Hvalidinstr as [ | src dst Hvalidra Hvalidrb Hneqrarb | | | | | | | |] .
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   inversion Hvalidrb as [ HneqPCb HneqNZb ].
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrx1 & Hrx2 & Hown & Haccess & H2)".
   (* valid regs *)
-  iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur HneqPCa HneqPCb Hneqrarb) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
   iDestruct (gen_access_valid_addr_Set a p s with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)

@@ -1,6 +1,6 @@
 (* the operational semantics *)
 From stdpp Require Import gmap fin_maps list countable fin mapset fin_map_dom vector.
-From HypVeri Require Export monad machine  machine_extra.
+From HypVeri Require Export monad machine machine_extra.
 
 Import MonadNotation.
 Import Option.
@@ -319,6 +319,25 @@ Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode *
               Some (update_reg s NZ W0)
              else Some (update_reg s NZ W1)) ;;;
       Some(update_incr_PC m)
+  in
+  (option_state_unpack s comp).
+
+
+
+
+Definition add (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
+  let comp :=
+      arg1' <- get_reg s arg1 ;;;
+      arg2' <- get_reg s arg2 ;;;
+      Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^+ (finz.to_z (arg2':Word)))%f))
+  in
+  (option_state_unpack s comp).
+
+Definition sub (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
+  let comp :=
+      arg1' <- get_reg s arg1 ;;;
+      arg2' <- get_reg s arg2 ;;;
+      Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^- (finz.to_z (arg2':Word)))%f))
   in
   (option_state_unpack s comp).
 
@@ -886,6 +905,8 @@ Definition exec (i : instruction) (s : state) : exec_mode * state :=
   | Mov dst (inr srcReg) => mov_reg s dst srcReg
   | Ldr dst src => ldr s dst src
   | Str src dst => str s src dst
+  | Add op1 op2 => add s op1 op2
+  | Sub op1 op2 => sub s op1 op2
   | Cmp arg1 (inl arg2) => cmp_word s arg1 arg2
   | Cmp arg1 (inr arg2) => cmp_reg s arg1 arg2
   | Bne arg => bne s arg

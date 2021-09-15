@@ -459,6 +459,38 @@ Qed.
     done.
   Qed.
 
+  Lemma add_ExecI  σ1 r1 w1 r2 w2:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 ->  NZ ≠ r2 ->
+   (get_reg σ1 r1) = Some w1 ->
+   (get_reg σ1 r2) = Some w2 ->
+   (add σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 (w1 ^+ (finz.to_z w2))%f))).
+  Proof.
+    intros.
+    unfold add.
+    (* destruct r1;[contradiction|contradiction|]. *)
+    (* destruct r2; [contradiction|contradiction|]. *)
+    (* TODO: add validity check of regs in opsem *)
+    rewrite H3 H4.
+    done.
+  Qed.
+
+  Lemma sub_ExecI σ1 r1 w1 r2 w2:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 ->  NZ ≠ r2 ->
+   (get_reg σ1 r1) = Some w1 ->
+   (get_reg σ1 r2) = Some w2 ->
+   (sub σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 (w1 ^- (finz.to_z w2))%f))).
+  Proof.
+    intros.
+    unfold sub.
+    (* destruct r1;[contradiction|contradiction|]. *)
+    (* destruct r2; [contradiction|contradiction|]. *)
+    (* TODO: add validity check of regs in opsem *)
+    rewrite H3 H4.
+    done.
+  Qed.
+
   Lemma bne_ExecI  σ1 w1 r w2:
    PC ≠ r ->  NZ ≠ r ->
    (get_reg σ1 r) = Some w2 ->
