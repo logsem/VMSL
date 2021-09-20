@@ -336,7 +336,7 @@ Definition decr_default{b} (f : finz b) (off : Z) : finz b:=
   end.
 
 Notation "f1 - z" := (decr f1 z) : finz_scope.
-Notation "f ^- off" := (decr_default f off) (at level 50) : finz_scope.
+Notation "f ^- off" := (f ^+ (-off))%f (at level 51) : finz_scope. (* (decr_default f off) (at level 50) : finz_scope. *)
 
 (* complementing lemmas for finz.seq *)
 Lemma finz_seq_notin2{b} (f f' : finz.finz b) n :
