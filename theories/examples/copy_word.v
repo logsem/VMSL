@@ -284,6 +284,7 @@ Section copy_word.
       iFrame.
       iExists r8.
       iFrame.
+      iApply parwp_parwp.
       iApply (parwp_strong_mono with "[J]").
       instantiate (1 := ⊤).
       set_solver.
@@ -370,26 +371,41 @@ Section copy_word.
       3 : { iFrame. }
       auto.
       by rewrite decode_encode_instruction.
-      Set Nested Proofs Allowed.  
-      Lemma parwp_sswp id E m Φ :
-        PARWP m @ id; E {{m', PARWP m' @ id; E {{ Φ }} }} ⊢ PARWP m @ id; E {{ Φ }}.
-    Proof.
-      rewrite parwp_unfold.
-      rewrite /parwp_pre /parwp_def.
-      iIntros "H".
-      iMod "H" as "[H|H]".
-      - iMod "H".
-        done.
-      - iDestruct "H"as "[% ?]".
+      iApply parwp_sswp.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr4 & Hacc & Hr8)".
+      iApply parwp_sswp.
+      iDestruct "U" as "(p_start & U)".
+
+      (*
+      iDestruct ((mov_word ((progpage ^+ 3) ^+ length (prog step))%f I1 R8) with "[Hpc Hacc Hr8 p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
+            do 3 right.
+            assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
+            solve_finz.
+            rewrite Htemp.
+            clear Htemp.
+            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            apply in_or_app.
+            right.
+            rewrite <-elem_of_list_In.
+            rewrite minus_plus.
+            set_solver.
+      }
+      3 : { apply Hprpain. }
+      3 : { iFrame. }
+      auto.
+      by rewrite decode_encode_instruction.
         
-      iModIntro; iLeft.
-      iMod "H" as "[H|H]".
-      
-        rewrite Hm.
-        iDestruct "H"as "[% ?]"; done.
-      - iIntros "H"; iRight; iModIntro.
-        iSplit; done.
-    Qed.
+      iDestruct "U" as "(p_start & U)".
+      iDestruct ((mov_word (of_pid progpage) step R5) with "[Hpc Hacc Hr5 p_start]") as "J".
+      3 : { rewrite ->Forall_forall in seq. apply seq. set_solver. }
+      3 : { apply Hprpain. }
+      3 : { iFrame. }
+      auto.
+*)
+(*      
       iDestruct ("J" with ) as "J".
       iApply "J".
       iModIntro.
@@ -533,8 +549,9 @@ Section copy_word.
     solve_finz.
     rewrite Hp.
     iFrame.
-  Qed.
-  
+*)
+  Admitted.
+  (*
   Definition program_c step src dst :=
     [
     mov_word_I R5 step; (* remaining runs *)
