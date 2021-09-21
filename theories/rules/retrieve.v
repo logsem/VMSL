@@ -224,7 +224,7 @@ Proof.
       rewrite lookup_insert_ne; [solve_reg_lookup|done].
     }
     iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC Hr0")
-      as ">[Hσreg [PC Hr0]]";try f_equal.
+      as ">[Hσreg [PC Hr0]]";f_equal.
     iFrame "Hσreg".
     (* update page table *)
     rewrite update_offset_PC_preserve_owned update_access_batch_preserve_ownerships.
@@ -424,7 +424,7 @@ Proof.
             fill_rx_unsafe_preserve_regs write_mem_segment_unsafe_preserve_regs; try solve_reg_lookup.
   }
   iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "Hσreg PC R0")
-    as ">[Hσreg [PC R0]]";try f_equal.
+    as ">[Hσreg [PC R0]]";f_equal.
   iFrame "Hσreg".
   (* update transactions *)
   rewrite -get_trans_gmap_preserve_dom.

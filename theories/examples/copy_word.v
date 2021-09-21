@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base.
-From HypVeri.rules Require Import rules_base mov ldr str.
+From HypVeri.rules Require Import rules_base mov ldr str sub cmp bne.
 
 Section copy_word.
   Definition mov_word_I ra w := encode_instruction (Mov ra (inl w)).
@@ -50,7 +50,7 @@ Section copy_word.
     iIntros (Hneq Hneq' Hseqp Hnin Hnin' Hsrcp Hdstp Hprpain Hsrcpain Hdstpain) "(Hbstar & Hai & Hpc & Hsrc & Hdst & Hr0 & Hr1 & HTX & HRX)".
     apply seq_in_page_forall in Hseqp.
     rewrite <-parwp_sswp.
-    iDestruct "Hbstar" as "(p_start & Hbstar)".
+    iDestruct "Hbstar" as "(p_start & Hbstar)". 
     iDestruct ((mov_word (of_pid progpage) src R0) with "[Hpc Hai Hr0 p_start]") as "J".
     3 : { rewrite ->Forall_forall in Hseqp. apply Hseqp. set_solver. }
     3 : { apply Hprpain. }
@@ -161,89 +161,341 @@ Section copy_word.
   Program Definition I2 : Imm := (I (finz.FinZ 2 _ _) _).
   Solve Obligations with (try lia; solve_finz).
 
-  Definition c_pre step :=
+  Definition c_pre step base :=
     [
     mov_word_I R5 step; (* remaining runs *)
     mov_word_I R6 I0;    (* counter *)
-(*    mov_word_I R7 base    (* program base address *) *)
+    mov_word_I R7 base    (* program base address *)
     ].
 
   Definition c_post :=
     [
     (* incr counter *)
     mov_word_I R8 I1;
-    add_reg_I R6 R8;
+    sub_reg_I R5 R8;
     (* conditional jump *)
     (* might be a good idea to have a separate rule for branches *)
     cmp_I R6 R5;
     bne_I R7
     ].
 
-  Definition cycle prog step := c_pre step ++ prog ++ c_post.
+  Definition cycle prog step base := c_pre step base ++ (prog step) ++ c_post.
 
-  Lemma c_loop {progpage sacc i q} {n : nat} (body : list Word) step prog (P : Word -> iProp Σ) :
-    n = Z.to_nat (finz.to_z (of_imm step)) ->
-    (1 <= step)%Z ->
+  Lemma c_loop {progpage sacc i q} {base : Imm} {n : nat} (body : list Word) step prog (P : Word -> iProp Σ) :
+    of_imm base = ((of_pid progpage) ^+ 3)%f ->
+    S n = Z.to_nat (finz.to_z (of_imm step)) ->
     progpage ∈ sacc ->
-    seq_in_page (of_pid progpage) (length (cycle prog step)) progpage ->
+    seq_in_page (of_pid progpage) (length (cycle prog step base)) progpage ->
     (∀ v, ⌜(v <= step)%f⌝ -∗ {PAR{{ (P v) ∗ PC @@ i ->r ((of_pid progpage) ^+ 3)%f
                          ∗ R6 @@ i ->r v
                          ∗ R5 @@ i ->r step
-                         ∗ R7 @@ i ->r ((of_pid progpage) ^+ 2)%f
-                         ∗ R8 @@ i ->r I2                     
+                         ∗ R7 @@ i ->r ((of_pid progpage) ^+ 3)%f
+                         ∗ (∃ r, R8 @@ i ->r r)
+                         ∗ (∃ nz, NZ @@ i ->r nz)             
                          ∗ A@i :={q}[sacc]
-                         ∗ (program' (cycle prog step) (of_pid progpage))
+                         ∗ (program' (cycle prog step base) (of_pid progpage))
             }}} ExecI @ i
-    {{{ RET ExecI; (P (v ^+ 1)%f) ∗ PC @@ i ->r (((of_pid progpage) ^+ 2)%f ^+ (length prog))%f
+    {{{ RET ExecI; (P (v ^+ 1)%f) ∗ PC @@ i ->r (((of_pid progpage) ^+ 3)%f ^+ (length (prog step)))%f
                          ∗ R6 @@ i ->r v
                          ∗ R5 @@ i ->r step
-                         ∗ R7 @@ i ->r ((of_pid progpage) ^+ 2)%f
+                         ∗ R7 @@ i ->r ((of_pid progpage) ^+ 3)%f
                          ∗ (∃ r, R8 @@ i ->r r)
+                         ∗ (∃ nz, NZ @@ i ->r nz)  
                          ∗ A@i :={q}[sacc]
-                         ∗ (program' (cycle prog step) (of_pid progpage))
+                         ∗ (program' (cycle prog step base) (of_pid progpage))
     }}}%I)
     ⊢  {PAR{{ (P I0) ∗ PC @@ i ->r (of_pid progpage)
                        ∗ (∃ r5, R5 @@ i ->r r5)
                        ∗ (∃ r6, R6 @@ i ->r r6)
                        ∗ (∃ r7, R7 @@ i ->r r7)
                        ∗ (∃ r8, R8 @@ i ->r r8)
+                       ∗ (∃ nz, NZ @@ i ->r nz)
                        ∗ A@i :={q}[sacc]
-                       ∗ program' (cycle prog step) (of_pid progpage)
+                       ∗ program' (cycle prog step base) (of_pid progpage)
        }}} ExecI @ i
-    {{{ RET ExecI; (P step) ∗ PC @@ i ->r (of_pid progpage ^+ (length (cycle prog step)))%f
+    {{{ RET ExecI; (P step) ∗ PC @@ i ->r (of_pid progpage ^+ (length (cycle prog step base)))%f
                           ∗ R5 @@ i ->r step
                           ∗ R6 @@ i ->r step
-                          ∗ R7 @@ i ->r ((of_pid progpage) ^+ 2)%f
-                          ∗ R8 @@ i ->r I2               
+                          ∗ R7 @@ i ->r ((of_pid progpage) ^+ 3)%f
+                          ∗ R8 @@ i ->r I2
+                          ∗ (∃ nz, NZ @@ i ->r nz)                    
                           ∗ A@i :={q}[sacc]
-                          ∗ program' (cycle prog step ((of_pid progpage) ^+ 2)%f) (of_pid progpage)
+                          ∗ program' (cycle prog step base) (of_pid progpage)
     }}}%I.
   Proof.
-    iIntros (Hn Hle Hprpain Hseq) "#Htriple".
+    iIntros (Hbase Hn Hprpain Hseq) "#Htriple".
     generalize dependent step.
     induction n.
     - intros step eq c.
-      lia.
-    - intros step eq c seq.
+      apply seq_in_page_forall in c.
+      iIntros (Φ).
+      iModIntro.
+      iIntros "(HPstep & Hpc & [% Hr5] & [% Hr6] & [% Hr7] & [% Hr8] &[% Hnz] & Hacc & Hprog) HΦ".
+      rewrite <-parwp_sswp.
+      iDestruct "Hprog" as "(p_start & Hprog)". 
+      iDestruct ((mov_word (of_pid progpage) step R5) with "[Hpc Hacc Hr5 p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. set_solver. }
+      3 : { apply Hprpain. }
+      3 : { iFrame. }
+      auto.
+      by rewrite decode_encode_instruction.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr1 & Hacc & Hr5)".
+      rewrite <-parwp_sswp.
+      iDestruct "Hprog" as "(p_start & Hprog)".
+      iDestruct ((mov_word (of_pid progpage ^+ 1)%f I0 R6) with "[Hpc Hacc Hr6 p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. set_solver. }
+      3 : { apply Hprpain. }
+      3 : { iFrame. }
+      auto.
+      by rewrite decode_encode_instruction.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr2 & Hacc & Hr6)".
+      rewrite <-parwp_sswp.
+      iDestruct "Hprog" as "(p_start & Hprog)".
+      iDestruct ((mov_word ((of_pid progpage ^+ 1) ^+ 1)%f base R7) with "[Hpc Hacc Hr7 p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. set_solver. }
+      3 : { apply Hprpain. }
+      3 : { iFrame. }
+      auto.
+      by rewrite decode_encode_instruction.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr3 & Hacc & Hr7)".
+      iDestruct ("Htriple" $! I0 _ with "") as "#HprogSpec".
+      Unshelve.
+      2 : {
+        solve_finz.
+      }
+      iSpecialize ("HprogSpec" $! (fun k => (⌜k = ExecI⌝
+                                     ∗ P (I0 ^+ 1)%f
+                                            ∗ PC @@ i ->r ((progpage ^+ 3) ^+ length (prog step))%f
+                                            ∗ R5 @@ i ->r step
+                                            ∗ R6 @@ i ->r I0
+                                            ∗ R7 @@ i ->r (progpage ^+ 3)%f
+                                            ∗ (∃ r : handle, R8 @@ i ->r r)
+                                            ∗ (∃ nz, NZ @@ i ->r nz)             
+                                            ∗ A@i:={q}[sacc]
+                                            ∗ program' (cycle prog step base) progpage)%I) with "").
+      iDestruct ("HprogSpec" with "[HPstep Hpc Hr5 Hr6 Hr7 Hr8 Hnz Hacc Hprog Hinstr1 Hinstr2 Hinstr3]") as "J".
+      iFrame.
+      rewrite Hbase.
+      assert (Hn : (progpage ^+ 3)%f = (((progpage ^+ 1) ^+ 1) ^+ 1)%f).
+      solve_finz.
+      rewrite Hn.
+      clear Hn.
+      iFrame.
+      iSplitL "Hr8".
+      iExists r8.
+      iFrame.
+      iExists nz.
+      iFrame.
+      iApply parwp_parwp.
+      iApply (parwp_strong_mono with "[J]").
+      instantiate (1 := ⊤).
+      set_solver.
+      iApply "J".
+      iModIntro.
+      iIntros "(? & ? & ? & ? & ? & ? & ? & ? & ?)".
+      iFrame.
+      done.
+      iIntros (k) "(%Heq & HP & Hpc & Hr5 & Hr6 & Hr7 & [%r8' Hr8] & [%nz' Hnz] & Hacc & Hprog)".
+      subst k.
+      iModIntro.
+      assert (Hn : cycle prog step base = (c_pre step base ++ (prog step)) ++ c_post).
+      auto.
+      rewrite /program'.
+      assert (Hn' : finz.seq progpage (length (cycle prog step base)) = (finz.seq progpage 3 ++ finz.seq (progpage ^+ 3)%f (length (prog step))) ++ finz.seq ((progpage ^+ 3) ^+ (length (prog step)))%f 4).
+      {
+        assert (Htemp : (finz.seq progpage 3 ++ finz.seq (progpage ^+ 3)%f (length (prog step) + 3 - 3)) = finz.seq progpage (length (prog step) + 3)).
+        {
+          rewrite (finz_seq_decomposition _ ((length (prog step)) + 3) progpage 3).
+          reflexivity.
+          lia.
+        }
+        assert (Htemp' : length (prog step) = (length (prog step) + 3 - 3)).
+        lia.
+        rewrite <-Htemp' in Htemp.
+        clear Htemp'.
+        rewrite Htemp.
+        clear Htemp.
+        assert (Htemp : (finz.seq progpage (length (prog step) + 3) ++ finz.seq ((progpage ^+ 3) ^+ length (prog step))%f 4) = finz.seq progpage (length (cycle prog step base))).
+        {
+          rewrite (finz_seq_decomposition _ (length (cycle prog step base)) progpage (length (prog step) + 3)).
+          f_equal.
+          assert (Htemp' : ((progpage ^+ 3) ^+ length (prog step))%f = (progpage ^+ (length (prog step) + 3)%nat)%f).
+          solve_finz.
+          rewrite Htemp'.
+          clear Htemp'.
+          assert (Htemp' : (length (cycle prog step base) - (length (prog step) + 3)) = 4).
+          rewrite /cycle.
+          simpl.
+          rewrite Nat.add_comm.
+          simpl.
+          rewrite app_length.
+          rewrite minus_plus.
+          rewrite /c_post.
+          reflexivity.
+          rewrite Htemp'.
+          clear Htemp'.
+          reflexivity.
+          rewrite /cycle.
+          do 2 (rewrite app_length).
+          rewrite PeanoNat.Nat.add_assoc.          
+          rewrite (Nat.add_comm (length (c_pre step base))).
+          rewrite <-PeanoNat.Nat.add_assoc.
+          apply plus_le_compat_l.
+          simpl.
+          lia.
+        }
+        rewrite <-Htemp.
+        clear Htemp.
+        reflexivity.
+      }
+      rewrite Hn'.
+      rewrite /cycle.
+      rewrite (app_assoc (c_pre step base)).
+      iDestruct (big_sepL2_app_inv with "Hprog") as "(_ & U)".
+      simpl.
+      by right.      
+      iDestruct "U" as "(p_start & U)".
+      iDestruct ((mov_word ((progpage ^+ 3) ^+ length (prog step))%f I1 R8) with "[Hpc Hacc Hr8 p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
+            do 3 right.
+            assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
+            solve_finz.
+            rewrite Htemp.
+            clear Htemp.
+            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            apply in_or_app.
+            right.
+            rewrite <-elem_of_list_In.
+            rewrite minus_plus.
+            set_solver.
+      }
+      3 : { apply Hprpain. }
+      3 : { iFrame. }
+      auto.
+      by rewrite decode_encode_instruction.
+      iApply parwp_sswp.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr4 & Hacc & Hr8)".
+      iApply parwp_sswp.
+      iDestruct "U" as "(p_start & U)".
+      iDestruct ((sub (((progpage ^+ 3) ^+ length (prog step)) ^+ 1)%f R5 R8) with "[Hpc Hacc Hr5 Hr8 p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
+            do 3 right.
+            assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
+            solve_finz.
+            rewrite Htemp.
+            clear Htemp.
+            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            apply in_or_app.
+            right.
+            rewrite <-elem_of_list_In.
+            rewrite minus_plus.
+            set_solver.
+      }
+      3 : { apply Hprpain. }
+      3 : { iFrame. }
+      auto.
+      by rewrite decode_encode_instruction.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr5 & Hr5 & Hr8 & Hacc)".
+      iApply parwp_sswp.
+      iDestruct "U" as "(p_start & U)".
+      iDestruct ((cmp_reg ((((progpage ^+ 3) ^+ length (prog step)) ^+ 1) ^+ 1)%f R6 R5) with "[Hpc Hacc Hr5 Hr6 Hnz p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
+            do 3 right.
+            assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
+            solve_finz.
+            rewrite Htemp.
+            clear Htemp.
+            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            apply in_or_app.
+            right.
+            rewrite <-elem_of_list_In.
+            rewrite minus_plus.
+            set_solver.
+      }
+      reflexivity.
+      apply decode_encode_instruction.
+      apply Hprpain.
+      iFrame.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr6 & Hr6 & Hr5 & Hacc & Hnz)".
+      assert (Htemp : (I0 <? step ^- I1)%f = true).
+      {
+        admit.
+      }
+      rewrite Htemp.
+      clear Htemp.
+      iApply parwp_sswp.
+      iDestruct "U" as "(p_start & U)".      
+      iDestruct ((bne (((((progpage ^+ 3) ^+ length (prog step)) ^+ 1) ^+ 1) ^+ 1)%f R7) with "[Hpc Hacc Hr7 Hnz p_start]") as "J".
+      3 : {
+        rewrite ->Forall_forall in c.
+        apply c.
+        rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
+            do 3 right.
+            assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
+            solve_finz.
+            rewrite Htemp.
+            clear Htemp.
+            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            apply in_or_app.
+            right.
+            rewrite <-elem_of_list_In.
+            rewrite minus_plus.
+            set_solver.
+      }
+      reflexivity.
+      apply decode_encode_instruction.
+      apply Hprpain.
+      iFrame.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr6 & Hr6 & Hr5 & Hacc & Hnz)".
+(*      
+      iDestruct ("J" with ) as "J".
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr3 & Hacc & Hr7)".
+    - intros step eq seq.
       iIntros (Φ).
       iModIntro.
       iIntros "(HPstep & Hpc & [% Hr5] & [% Hr6] & [% Hr7] & [% Hr8] & Hacc & Hprog)".
       assert (Hn : n = Z.to_nat (step ^- 1)%f).
       {
-        rewrite /decr_default.
-        rewrite /decr.
-        destruct (Z_le_dec 0%Z (step - 1)%Z) eqn:heq; [|lia].
-        destruct (Z_lt_dec (step - 1)%Z 2000000%Z).
-        - simpl.
-          lia.
-        - exfalso.
-          apply n0.
-          destruct step.
-          simpl.
-          destruct (decide ((w < 1000000)%Z)); [|lia].
-          lia.
+        solve_finz.
       } 
       iIntros "Hϕ".
+      assert (Hn' : exists i : Imm, of_imm i = (step ^- 1)%f).
+      {
+        eexists (I (step ^- 1)%f _).
+        simpl.
+        reflexivity.
+        Unshelve.
+        rewrite Z.ltb_lt.
+        assert ((step ^- 1)%f < step)%f.
+        solve_finz.
+        assert (step < 1000000)%Z.
+        destruct step.
+        simpl; lia.
+        assert ((step ^- 1)%f < step)%Z.
+        lia.
+        solve_finz.
+      }
+      destruct Hn' as [i' Hn'].
+      specialize (IHn i').
+      rewrite Hn' in IHn.
+      specialize (IHn Hn).
+      
     apply seq_in_page_forall in seq.
     rewrite <-parwp_sswp.
     iDestruct "Hprog" as "(p_start & Hprog)".
@@ -353,8 +605,9 @@ Section copy_word.
     solve_finz.
     rewrite Hp.
     iFrame.
-  Qed.
-  
+*)
+  Admitted.
+  (*
   Definition program_c step src dst :=
     [
     mov_word_I R5 step; (* remaining runs *)
