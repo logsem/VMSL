@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base.
-From HypVeri.rules Require Import rules_base mov ldr str.
+From HypVeri.rules Require Import rules_base mov ldr str sub cmp bne.
 
 Section copy_word.
   Definition mov_word_I ra w := encode_instruction (Mov ra (inl w)).
@@ -191,6 +191,7 @@ Section copy_word.
                          ∗ R5 @@ i ->r step
                          ∗ R7 @@ i ->r ((of_pid progpage) ^+ 3)%f
                          ∗ (∃ r, R8 @@ i ->r r)
+                         ∗ (∃ nz, NZ @@ i ->r nz)             
                          ∗ A@i :={q}[sacc]
                          ∗ (program' (cycle prog step base) (of_pid progpage))
             }}} ExecI @ i
@@ -199,6 +200,7 @@ Section copy_word.
                          ∗ R5 @@ i ->r step
                          ∗ R7 @@ i ->r ((of_pid progpage) ^+ 3)%f
                          ∗ (∃ r, R8 @@ i ->r r)
+                         ∗ (∃ nz, NZ @@ i ->r nz)  
                          ∗ A@i :={q}[sacc]
                          ∗ (program' (cycle prog step base) (of_pid progpage))
     }}}%I)
@@ -207,6 +209,7 @@ Section copy_word.
                        ∗ (∃ r6, R6 @@ i ->r r6)
                        ∗ (∃ r7, R7 @@ i ->r r7)
                        ∗ (∃ r8, R8 @@ i ->r r8)
+                       ∗ (∃ nz, NZ @@ i ->r nz)
                        ∗ A@i :={q}[sacc]
                        ∗ program' (cycle prog step base) (of_pid progpage)
        }}} ExecI @ i
@@ -214,7 +217,8 @@ Section copy_word.
                           ∗ R5 @@ i ->r step
                           ∗ R6 @@ i ->r step
                           ∗ R7 @@ i ->r ((of_pid progpage) ^+ 3)%f
-                          ∗ R8 @@ i ->r I2               
+                          ∗ R8 @@ i ->r I2
+                          ∗ (∃ nz, NZ @@ i ->r nz)                    
                           ∗ A@i :={q}[sacc]
                           ∗ program' (cycle prog step base) (of_pid progpage)
     }}}%I.
@@ -226,7 +230,7 @@ Section copy_word.
       apply seq_in_page_forall in c.
       iIntros (Φ).
       iModIntro.
-      iIntros "(HPstep & Hpc & [% Hr5] & [% Hr6] & [% Hr7] & [% Hr8] & Hacc & Hprog) HΦ".
+      iIntros "(HPstep & Hpc & [% Hr5] & [% Hr6] & [% Hr7] & [% Hr8] &[% Hnz] & Hacc & Hprog) HΦ".
       rewrite <-parwp_sswp.
       iDestruct "Hprog" as "(p_start & Hprog)". 
       iDestruct ((mov_word (of_pid progpage) step R5) with "[Hpc Hacc Hr5 p_start]") as "J".
@@ -272,9 +276,10 @@ Section copy_word.
                                             ∗ R6 @@ i ->r I0
                                             ∗ R7 @@ i ->r (progpage ^+ 3)%f
                                             ∗ (∃ r : handle, R8 @@ i ->r r)
+                                            ∗ (∃ nz, NZ @@ i ->r nz)             
                                             ∗ A@i:={q}[sacc]
                                             ∗ program' (cycle prog step base) progpage)%I) with "").
-      iDestruct ("HprogSpec" with "[HPstep Hpc Hr5 Hr6 Hr7 Hr8 Hacc Hprog Hinstr1 Hinstr2 Hinstr3]") as "J".
+      iDestruct ("HprogSpec" with "[HPstep Hpc Hr5 Hr6 Hr7 Hr8 Hnz Hacc Hprog Hinstr1 Hinstr2 Hinstr3]") as "J".
       iFrame.
       rewrite Hbase.
       assert (Hn : (progpage ^+ 3)%f = (((progpage ^+ 1) ^+ 1) ^+ 1)%f).
@@ -282,7 +287,10 @@ Section copy_word.
       rewrite Hn.
       clear Hn.
       iFrame.
+      iSplitL "Hr8".
       iExists r8.
+      iFrame.
+      iExists nz.
       iFrame.
       iApply parwp_parwp.
       iApply (parwp_strong_mono with "[J]").
@@ -290,10 +298,10 @@ Section copy_word.
       set_solver.
       iApply "J".
       iModIntro.
-      iIntros "(? & ? & ? & ? & ? & ? & ? & ?)".
+      iIntros "(? & ? & ? & ? & ? & ? & ? & ? & ?)".
       iFrame.
       done.
-      iIntros (k) "(%Heq & HP & Hpc & Hr5 & Hr6 & Hr7 & [%r8' Hr8] & Hacc & Hprog)".
+      iIntros (k) "(%Heq & HP & Hpc & Hr5 & Hr6 & Hr7 & [%r8' Hr8] & [%nz' Hnz] & Hacc & Hprog)".
       subst k.
       iModIntro.
       assert (Hn : cycle prog step base = (c_pre step base ++ (prog step)) ++ c_post).
@@ -377,9 +385,7 @@ Section copy_word.
       iIntros "(Hpc & Hinstr4 & Hacc & Hr8)".
       iApply parwp_sswp.
       iDestruct "U" as "(p_start & U)".
-
-      (*
-      iDestruct ((mov_word ((progpage ^+ 3) ^+ length (prog step))%f I1 R8) with "[Hpc Hacc Hr8 p_start]") as "J".
+      iDestruct ((sub (((progpage ^+ 3) ^+ length (prog step)) ^+ 1)%f R5 R8) with "[Hpc Hacc Hr5 Hr8 p_start]") as "J".
       3 : { rewrite ->Forall_forall in c. apply c. rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
             do 3 right.
             assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
@@ -397,14 +403,64 @@ Section copy_word.
       3 : { iFrame. }
       auto.
       by rewrite decode_encode_instruction.
-        
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr5 & Hr5 & Hr8 & Hacc)".
+      iApply parwp_sswp.
       iDestruct "U" as "(p_start & U)".
-      iDestruct ((mov_word (of_pid progpage) step R5) with "[Hpc Hacc Hr5 p_start]") as "J".
-      3 : { rewrite ->Forall_forall in seq. apply seq. set_solver. }
-      3 : { apply Hprpain. }
-      3 : { iFrame. }
-      auto.
-*)
+      iDestruct ((cmp_reg ((((progpage ^+ 3) ^+ length (prog step)) ^+ 1) ^+ 1)%f R6 R5) with "[Hpc Hacc Hr5 Hr6 Hnz p_start]") as "J".
+      3 : { rewrite ->Forall_forall in c. apply c. rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
+            do 3 right.
+            assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
+            solve_finz.
+            rewrite Htemp.
+            clear Htemp.
+            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            apply in_or_app.
+            right.
+            rewrite <-elem_of_list_In.
+            rewrite minus_plus.
+            set_solver.
+      }
+      reflexivity.
+      apply decode_encode_instruction.
+      apply Hprpain.
+      iFrame.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr6 & Hr6 & Hr5 & Hacc & Hnz)".
+      assert (Htemp : (I0 <? step ^- I1)%f = true).
+      {
+        admit.
+      }
+      rewrite Htemp.
+      clear Htemp.
+      iApply parwp_sswp.
+      iDestruct "U" as "(p_start & U)".      
+      iDestruct ((bne (((((progpage ^+ 3) ^+ length (prog step)) ^+ 1) ^+ 1) ^+ 1)%f R7) with "[Hpc Hacc Hr7 Hnz p_start]") as "J".
+      3 : {
+        rewrite ->Forall_forall in c.
+        apply c.
+        rewrite /cycle. rewrite elem_of_list_In. rewrite (app_assoc (c_pre step base)). do 2 (rewrite app_length).  simpl.
+            do 3 right.
+            assert (Htemp : (((progpage ^+ 1) ^+ 1) ^+ 1)%f = (progpage ^+ 3)%f).
+            solve_finz.
+            rewrite Htemp.
+            clear Htemp.
+            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            apply in_or_app.
+            right.
+            rewrite <-elem_of_list_In.
+            rewrite minus_plus.
+            set_solver.
+      }
+      reflexivity.
+      apply decode_encode_instruction.
+      apply Hprpain.
+      iFrame.
+      iApply "J".
+      iModIntro.
+      iIntros "(Hpc & Hinstr6 & Hr6 & Hr5 & Hacc & Hnz)".
 (*      
       iDestruct ("J" with ) as "J".
       iApply "J".
