@@ -38,7 +38,7 @@ Proof.
   iDestruct "Hσ" as "(Hσtok & Hmem & Hreg & Htxown & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | |]; subst src dst; clear Hvalidinstr.
+  inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
   destruct H4' as [HneqPCb HneqNZb].
   iDestruct ((gen_reg_valid3 i PC ai ra w3 rb a Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
@@ -109,7 +109,7 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htxown & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | |]; subst src dst; clear Hvalidinstr.
+  inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
   destruct H4' as [HneqPCb HneqNZb].
   iDestruct ((gen_reg_valid3 i PC ai ra w3 rb a Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
