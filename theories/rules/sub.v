@@ -49,7 +49,7 @@ Proof.
     remember (exec instr σ1) as c2 eqn:Heqc2.
     pose proof (decode_instruction_valid wi instr Hdecode) as Hvalidinstr.
     rewrite Hinstr in Hvalidinstr.
-    inversion Hvalidinstr as [ | | | | | | | ra' rb' Hvalidrb Hvalidra | |] .
+    inversion Hvalidinstr as [ | | | | | | | ra' rb' Hvalidrb Hvalidra | | |] .
     subst ra' rb'.
     inversion Hvalidra as [ HneqPCa HneqNZa ].
     inversion Hvalidrb as [ HneqPCb HneqNZb ].
