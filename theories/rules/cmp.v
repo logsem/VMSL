@@ -26,7 +26,7 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | src dst Hvalidra | | | | |] .
+  inversion Hvalidinstr as [ | | | | src dst Hvalidra | | | | | |] .
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
@@ -101,7 +101,7 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | | src dst Hvalidra Hvalidrb Hneqrarb | | | |] .
+  inversion Hvalidinstr as [ | | | | | src dst Hvalidra Hvalidrb Hneqrarb | | | | |] .
   subst src dst.
   destruct  Hvalidra as [ HneqPCa HneqNZa ].
   destruct  Hvalidrb as [ HneqPCb HneqNZb ].
