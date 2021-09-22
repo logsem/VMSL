@@ -234,9 +234,9 @@ Qed.
          apply (H2 (k+5) _).
          assert (Hlenmapeq: length ( map (λ pid : PID, (of_pid pid)) psd) = length psd).
         apply fmap_length.
-         apply (finz_seq_lookup _ _ y1).
+         apply (finz_seq_lookup _ y1).
          assert (Hklt: k < length ( map (λ pid : PID, (of_pid pid)) psd)).
-         rewrite <-(finz_seq_length _ ((p ^+ 3) ^+ 2)%f).
+         rewrite <-(finz_seq_length ((p ^+ 3) ^+ 2)%f).
          apply lookup_lt_is_Some.
          by exists y1.
         rewrite Hlenmapeq in Hklt.

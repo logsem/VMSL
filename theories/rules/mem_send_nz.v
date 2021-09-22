@@ -126,7 +126,7 @@ Proof.
      apply map_Forall_insert_2; auto.
      simpl.
      rewrite -Hlenpsd.
-     destruct (finz_spec word_size l) as [H _].
+     destruct (finz_spec l) as [H _].
      rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
      assumption.
      iFrame.
@@ -251,7 +251,7 @@ Proof.
      apply map_Forall_insert_2; auto.
      simpl.
      rewrite -Hlenpsd.
-     destruct (finz_spec word_size l) as [H _].
+     destruct (finz_spec l) as [H _].
      rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
      assumption.
      iFrame.

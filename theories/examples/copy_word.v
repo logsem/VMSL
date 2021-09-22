@@ -324,7 +324,7 @@ Section copy_word.
       {
         assert (Htemp : (finz.seq progpage 3 ++ finz.seq (progpage ^+ 3)%f (length (prog step) + 3 - 3)) = finz.seq progpage (length (prog step) + 3)).
         {
-          rewrite (finz_seq_decomposition _ ((length (prog step)) + 3) progpage 3).
+          rewrite (finz_seq_decomposition ((length (prog step)) + 3) progpage 3).
           reflexivity.
           lia.
         }
@@ -336,7 +336,7 @@ Section copy_word.
         clear Htemp.
         assert (Htemp : (finz.seq progpage (length (prog step) + 3) ++ finz.seq ((progpage ^+ 3) ^+ length (prog step))%f 4) = finz.seq progpage (length (cycle prog step base))).
         {
-          rewrite (finz_seq_decomposition _ (length (cycle prog step base)) progpage (length (prog step) + 3)).
+          rewrite (finz_seq_decomposition (length (cycle prog step base)) progpage (length (prog step) + 3)).
           f_equal.
           assert (Htemp' : ((progpage ^+ 3) ^+ length (prog step))%f = (progpage ^+ (length (prog step) + 3)%nat)%f).
           solve_finz.
@@ -381,7 +381,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.
@@ -405,7 +405,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.
@@ -428,7 +428,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.
@@ -471,7 +471,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.
@@ -616,7 +616,7 @@ Section copy_word.
       {
         assert (Htemp : (finz.seq progpage 3 ++ finz.seq (progpage ^+ 3)%f (length (prog step) + 3 - 3)) = finz.seq progpage (length (prog step) + 3)).
         {
-          rewrite (finz_seq_decomposition _ ((length (prog step)) + 3) progpage 3).
+          rewrite (finz_seq_decomposition ((length (prog step)) + 3) progpage 3).
           reflexivity.
           lia.
         }
@@ -628,7 +628,7 @@ Section copy_word.
         clear Htemp.
         assert (Htemp : (finz.seq progpage (length (prog step) + 3) ++ finz.seq ((progpage ^+ 3) ^+ length (prog step))%f 4) = finz.seq progpage (length (cycle prog step base))).
         {
-          rewrite (finz_seq_decomposition _ (length (cycle prog step base)) progpage (length (prog step) + 3)).
+          rewrite (finz_seq_decomposition (length (cycle prog step base)) progpage (length (prog step) + 3)).
           f_equal.
           assert (Htemp' : ((progpage ^+ 3) ^+ length (prog step))%f = (progpage ^+ (length (prog step) + 3)%nat)%f).
           solve_finz.
@@ -673,7 +673,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.
@@ -697,7 +697,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.
@@ -720,7 +720,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.
@@ -755,7 +755,7 @@ Section copy_word.
             solve_finz.
             rewrite Htemp.
             clear Htemp.
-            rewrite (finz_seq_decomposition _ (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
+            rewrite (finz_seq_decomposition (length (prog step) + 4) (progpage ^+ 3)%f (length (prog step))); [|lia].           
             apply in_or_app.
             right.
             rewrite <-elem_of_list_In.

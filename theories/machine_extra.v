@@ -361,7 +361,7 @@ Proof.
     exfalso.
     assert (Hlt: (a < b )%f).
     solve_finz.
-    apply (finz_seq_notin _ _ _ l )in Hlt.
+    apply (finz_seq_notin _ _ l)in Hlt.
     contradiction.
   - destruct l.
     inversion H0.
@@ -440,7 +440,7 @@ Proof.
     done.
     rewrite lookup_cons_ne_0 in H0;eauto.
     apply elem_of_list_lookup_2 in H0.
-    pose proof (finz_seq_notin _ f (f ^+ 1)%f n).
+    pose proof (finz_seq_notin f (f ^+ 1)%f n).
     assert ( (f < f ^+ 1)%f) as Hlt.
     solve_finz.
     apply H1 in Hlt.
@@ -554,7 +554,7 @@ Proof.
   simpl in Hlen.
   rewrite finz_seq_length.
   lia.
-  rewrite (finz_seq_decomposition _ (Z.to_nat page_size) _ ((Z.to_nat page_size) -1)).
+  rewrite (finz_seq_decomposition (Z.to_nat page_size) _ ((Z.to_nat page_size) -1)).
   lia.
   f_equal.
   simpl.

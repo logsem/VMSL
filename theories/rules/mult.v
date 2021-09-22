@@ -68,3 +68,4 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     + done.
 Qed.
+End mult.
