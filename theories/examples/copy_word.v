@@ -186,7 +186,7 @@ Section copy_word.
     S n = Z.to_nat (finz.to_z (of_imm step)) ->
     progpage ∈ sacc ->
     seq_in_page (of_pid progpage) (length (cycle prog step base)) progpage ->
-    (forall l, length (cycle prog l base) = length (cycle prog step base)) ->
+    (forall l step, length (cycle prog l base) = length (cycle prog step base)) ->
     (∀ v (v' : Word) v'' (step : Imm), ⌜v = Z.to_nat (finz.to_z v') ∧ (v <= S n)⌝ -∗ {PAR{{ (P (v' ^+ 1)%f) ∗ PC @@ i ->r ((of_pid progpage) ^+ 3)%f
                          ∗ R6 @@ i ->r v''
                          ∗ R5 @@ i ->r step
@@ -512,6 +512,7 @@ Section copy_word.
       iFrame.
     - rename Hn into eq.
       rename Hseq into c.
+      pose proof c as Hseq.
       apply seq_in_page_forall in c. 
       assert (Htemp : S n = Z.to_nat (step ^- 1)%f).
       solve_finz.
@@ -524,9 +525,8 @@ Section copy_word.
       2 : {
         admit.
       }
-      destruct Htemp' as [im Htemp'].
-      rewrite Htemp' in Htemp.
-      clear Htemp'.
+      destruct Htemp' as [im Himeq].
+      rewrite Himeq in Htemp.
       iIntros (Φ').
       iModIntro.
       iIntros "(HPstep & Hpc & [% Hr5] & [% Hr6] & [% Hr7] & [% Hr8] &[% Hnz] & Hacc & Hprog) HΦ".
@@ -734,18 +734,10 @@ Section copy_word.
       iApply "J".
       iModIntro.
       iIntros "(Hpc & Hinstr6 & Hr6 & Hr5 & Hacc & Hnz)".
-      assert (Htemp : (I0 <? step ^- I1)%f = false).
+      assert ((I0 <? step ^- I1)%f = true) as ->.
       {
         admit.
       }
-      rewrite Htemp.
-      clear Htemp.
-      assert (Htemp : (step ^- I1 <? I0)%f = false).
-      {
-        admit.
-      }
-      rewrite Htemp.
-      clear Htemp.
       iApply parwp_sswp.
       iDestruct "U" as "(p_start & U)".      
       iDestruct ((bne (((((progpage ^+ 3) ^+ length (prog step)) ^+ 1) ^+ 1) ^+ 1)%f R7) with "[Hpc Hacc Hr7 Hnz p_start]") as "J".
@@ -770,7 +762,27 @@ Section copy_word.
       iModIntro.
       iSimpl.
       iIntros "(Hpc & Hinstr7 & Hr7 & Hacc & Hnz)".
-      
+      iApply ("IH" $! im with "[] [] [] [] [HP Hpc Hr5 Hr6 Hr7 Hr8 Hnz Hacc Uold Hinstr4 Hinstr5 Hinstr6 Hinstr7]").
+      {
+      iPureIntro.
+      rewrite -Himeq.
+        solve_finz.
+      }
+      {
+        iPureIntro.
+        rewrite (Hlen im step).
+        assumption.
+      }
+      {
+      done.
+      }
+      iModIntro.
+      iIntros (v_ v'_ v''_ step0_) "%Hv_".
+      iApply ("Htriple" $! v_ v'_ v''_ step0_).
+      { iPureIntro.
+        split;lia.
+      }
+      iFrame.
   Admitted.
   (*
   Definition program_c step src dst :=
