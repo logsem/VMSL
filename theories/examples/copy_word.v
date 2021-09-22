@@ -331,7 +331,81 @@ Section copy_word.
       - iDestruct ("Htriple" $! 0 I0 with "") as "#HprogSpec".
       iSpecialize ("HprogSpec"   with "[//] [] []").
       iPureIntro;lia.
-      { admit.  }
+      { iPureIntro.
+        assert (forall b l l' p, l < l' -> seq_in_page b l' p -> seq_in_page b l p).
+        {
+          intros b l l' p Hp HP.
+          rewrite /seq_in_page.
+          rewrite /seq_in_page in HP.
+          destruct HP as [HP1 [HP2 HP3]].
+          split; auto.
+          split.
+          destruct HP2 as [b' HP2].
+          rewrite /finz.incr in HP2.
+          case_match; try done.
+          case_match; try done.
+          inversion HP2 as [HP2'].
+          eexists (finz.FinZ (b + l) _ _).
+          rewrite /finz.incr.
+          case_match; try done.
+          case_match; try done.
+          2 : {
+            solve_finz.
+          }
+          2 : {
+            solve_finz.
+          }
+          2 : {
+            rewrite /Z.leb.
+            rewrite /Z.compare.
+            case_match; try solve_finz.
+            exfalso.
+            case_match; try solve_finz.
+            assert (0%Z < (finz.to_z (p ^+ (1000 - 1))%f))%Z.
+            destruct p.
+            simpl.
+            destruct z.
+            simpl.
+            solve_finz.
+            case_match; try done.
+            rewrite ->Positive_as_OT.compare_gt_iff in Heqc0.
+            assert (p0 <= p1)%positive.
+            assert (forall x y, (Z.pos x <= Z.pos y)%Z -> (x <= y)%positive).
+            lia.
+            apply H1.
+            rewrite <-Heqz.
+            assert ((b ^+ l)%f <= (b ^+ l')%f)%Z.
+            solve_finz.
+            apply Z.le_trans with (b ^+ l')%f; auto.
+            rewrite Zle_is_le_bool.
+            rewrite /Z.leb in HP3.
+            rewrite /Z.compare in HP3.
+            destruct (finz.to_z (b ^+ l')%f) eqn:Heqn'; try done.
+            destruct ((p2 ?= p1)%positive) eqn:Heqn; try done.
+            apply Positive_as_OT.compare_eq in Heqn.
+            subst p2.
+            lia.
+            apply Pos.compare_nge_iff in Heqn.
+            rewrite <-Heqn'.
+            assert (forall x y, (x < y)%positive -> (Z.pos x < Z.pos y)%Z).
+            lia.
+            apply H3 in Heqc0.
+            rewrite <-Heqz in Heqc0.
+            lia.
+            lia.
+          }
+          solve_finz.
+        }
+        apply (H0 progaddr (length prog) (length (c_loop prog)) progpage).
+        rewrite /c_loop.
+        rewrite app_length.
+        apply Nat.lt_add_pos_r.
+        rewrite /c_post.
+        simpl.
+        lia.
+        assumption.
+      }
+      
         assert (Htemp : (finz.seq progaddr (length prog)  ++ finz.seq (progaddr ^+ (length prog))%f 4) = finz.seq progaddr (length (prog ++ c_post))).
         { rewrite app_length.
           assert (length c_post = 4) as ->.
@@ -544,7 +618,9 @@ Section copy_word.
         last (iExists W1; iFrame).
       assert ((((((progaddr ^+ length prog) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f =
                       (progaddr ^+ (length (prog ++ c_post)))%f) as ->.
-      admit.
+      rewrite app_length.
+      rewrite /c_post.
+      solve_finz.
       iFrame.
     -
       pose proof c as Hseq.
@@ -557,7 +633,7 @@ Section copy_word.
       reflexivity.
       Unshelve.
       2 : {
-        admit.
+        lia.
       }
       destruct Htemp' as [im Himeq].
       rewrite Himeq in Hstep.
@@ -579,63 +655,78 @@ Section copy_word.
 
       Unshelve.
       { iPureIntro.
-        apply seq_in_page_forall in Hseq.
-        rewrite ->Forall_forall in Hseq.
-        unfold seq_in_page.
-        rewrite /addr_in_page in Hprogaddrin.
-        destruct Hprogaddrin.
-        split.
-        done.
-        split.
-        pose proof (Hseq (progaddr ^+ (length (c_loop prog) -1))%f).
-        assert ((progaddr ^+ (length (c_loop prog) -1))%f ∈ finz.seq progaddr (length (c_loop prog))) as Hin.
-        admit.
-        specialize (Hseq (progaddr ^+ length prog)%f).
-        assert ((progaddr ^+ length prog)%f ∈ finz.seq progaddr (length (c_loop prog))) as Hin'.
-        rewrite /c_loop -Htemp.
-        apply elem_of_list_In.
-        apply in_or_app.
-        right.
-        apply elem_of_list_In.
-        set_solver.
-        apply Hseq in Hin'.
-        rewrite /addr_in_page in Hin, Hin'.
-        destruct Hin.
-        destruct (decide ((progaddr ^+ length prog <= progpage ^+ (1000 - 1))%f)).
-        pose proof (last_addr_in_bound progpage).
-        destruct H4.
-        apply incr_default_incr in H4.
-        rewrite H4 in l.
-        assert (((of_pid progpage) ^+ length prog <= x)%f).
-        rewrite /finz.leb in H0.
-        rewrite /Is_true in H0.
-        destruct (decide  (progpage <= progaddr)%f).
-        solve_finz.
-        case_match.
-        apply Z.leb_le in Heqb.
-        contradiction.
-        contradiction.
-        solve_finz.
-        eexists (finz.FinZ ((finz.to_z progaddr) + (length prog))%Z _ _).
-        Unshelve.
-        4: { apply Z.ltb_lt.
-
-        rewrite /finz.incr_default in H4.
-        case_match;try done.
-        rewrite /finz.incr in Heqo.
-         case_match;try done.
-         case_match;try done.
-         subst f.
-             lia.
-        solve_finz.
-        Locate "+".
-        rewrite /finz.incr in H4.
-        cbn in H4.
-        case_match;try done.
-         case_match;try done.
-        inversion H4.
-         cbn in *.
-        solve_finz.
+        assert (forall b l l' p, l < l' -> seq_in_page b l' p -> seq_in_page b l p).
+        {
+          intros b l l' p Hp HP.
+          rewrite /seq_in_page.
+          rewrite /seq_in_page in HP.
+          destruct HP as [HP1 [HP2 HP3]].
+          split; auto.
+          split.
+          destruct HP2 as [b' HP2].
+          rewrite /finz.incr in HP2.
+          case_match; try done.
+          case_match; try done.
+          inversion HP2 as [HP2'].
+          eexists (finz.FinZ (b + l) _ _).
+          rewrite /finz.incr.
+          case_match; try done.
+          case_match; try done.
+          2 : {
+            solve_finz.
+          }
+          2 : {
+            solve_finz.
+          }
+          2 : {
+            rewrite /Z.leb.
+            rewrite /Z.compare.
+            case_match; try solve_finz.
+            exfalso.
+            case_match; try solve_finz.
+            assert (0%Z < (finz.to_z (p ^+ (1000 - 1))%f))%Z.
+            destruct p.
+            simpl.
+            destruct z.
+            simpl.
+            solve_finz.
+            case_match; try done.
+            rewrite ->Positive_as_OT.compare_gt_iff in Heqc0.
+            assert (p0 <= p1)%positive.
+            assert (forall x y, (Z.pos x <= Z.pos y)%Z -> (x <= y)%positive).
+            lia.
+            apply H1.
+            rewrite <-Heqz.
+            assert ((b ^+ l)%f <= (b ^+ l')%f)%Z.
+            solve_finz.
+            apply Z.le_trans with (b ^+ l')%f; auto.
+            rewrite Zle_is_le_bool.
+            rewrite /Z.leb in HP3.
+            rewrite /Z.compare in HP3.
+            destruct (finz.to_z (b ^+ l')%f) eqn:Heqn'; try done.
+            destruct ((p2 ?= p1)%positive) eqn:Heqn; try done.
+            apply Positive_as_OT.compare_eq in Heqn.
+            subst p2.
+            lia.
+            apply Pos.compare_nge_iff in Heqn.
+            rewrite <-Heqn'.
+            assert (forall x y, (x < y)%positive -> (Z.pos x < Z.pos y)%Z).
+            lia.
+            apply H3 in Heqc0.
+            rewrite <-Heqz in Heqc0.
+            lia.
+            lia.
+          }
+          solve_finz.
+        }
+        apply (H0 progaddr (length prog) (length (c_loop prog)) progpage).
+        rewrite /c_loop.
+        rewrite app_length.
+        apply Nat.lt_add_pos_r.
+        rewrite /c_post.
+        simpl.
+        lia.
+        assumption.
       }
                rewrite /program' /c_loop .
         rewrite -Htemp.
@@ -648,7 +739,7 @@ Section copy_word.
         solve_finz.
         }
       iFrame.
-      2: {  assumption. }
+      2: { destruct b.  solve_finz. }
       iApply parwp_parwp.
       iApply (parwp_strong_mono with "[J]").
       instantiate (1 := ⊤).
@@ -788,8 +879,16 @@ Section copy_word.
       assert ((step ^- S (S n))%f = (im ^- S n)%f) as ->.
       solve_finz.
       iFrame.
-
-
+      destruct w.
+      simpl in *.
+      solve_finz.
+      assumption.
+      Unshelve.
+      lia.
+      destruct b.
+      simpl in *.
+      lia.
+      Qed.
       (* iIntros (Φ'). *)
       (* iModIntro. *)
       (* iIntros "(HPstep & Hpc & [% Hr5] & [% Hr6] & [% Hr7] & [% Hr8] &[% Hnz] & Hacc & Hprog) HΦ". *)
