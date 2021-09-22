@@ -563,11 +563,7 @@ Section copy_word.
       rewrite Himeq in Hstep.
 
       iDestruct ("Htriple" $! (S n) im _ with "") as "#HprogSpec".
-      iSpecialize ("HprogSpec"   with "[] [] ").
-      iPureIntro;lia.
-      Unshelve.
-      { admit.  }
-        assert (Htemp : (finz.seq progaddr (length prog)  ++ finz.seq (progaddr ^+ (length prog))%f 4) = finz.seq progaddr (length (prog ++ c_post))).
+       assert (Htemp : (finz.seq progaddr (length prog)  ++ finz.seq (progaddr ^+ (length prog))%f 4) = finz.seq progaddr (length (prog ++ c_post))).
         { rewrite app_length.
           assert (length c_post = 4) as ->.
           done.
@@ -576,7 +572,72 @@ Section copy_word.
           reflexivity.
           lia.
         }
-        rewrite /program' /c_loop .
+
+      iSpecialize ("HprogSpec"   with "[] [] ").
+      iPureIntro;lia.
+
+
+      Unshelve.
+      { iPureIntro.
+        apply seq_in_page_forall in Hseq.
+        rewrite ->Forall_forall in Hseq.
+        unfold seq_in_page.
+        rewrite /addr_in_page in Hprogaddrin.
+        destruct Hprogaddrin.
+        split.
+        done.
+        split.
+        pose proof (Hseq (progaddr ^+ (length (c_loop prog) -1))%f).
+        assert ((progaddr ^+ (length (c_loop prog) -1))%f ∈ finz.seq progaddr (length (c_loop prog))) as Hin.
+        admit.
+        specialize (Hseq (progaddr ^+ length prog)%f).
+        assert ((progaddr ^+ length prog)%f ∈ finz.seq progaddr (length (c_loop prog))) as Hin'.
+        rewrite /c_loop -Htemp.
+        apply elem_of_list_In.
+        apply in_or_app.
+        right.
+        apply elem_of_list_In.
+        set_solver.
+        apply Hseq in Hin'.
+        rewrite /addr_in_page in Hin, Hin'.
+        destruct Hin.
+        destruct (decide ((progaddr ^+ length prog <= progpage ^+ (1000 - 1))%f)).
+        pose proof (last_addr_in_bound progpage).
+        destruct H4.
+        apply incr_default_incr in H4.
+        rewrite H4 in l.
+        assert (((of_pid progpage) ^+ length prog <= x)%f).
+        rewrite /finz.leb in H0.
+        rewrite /Is_true in H0.
+        destruct (decide  (progpage <= progaddr)%f).
+        solve_finz.
+        case_match.
+        apply Z.leb_le in Heqb.
+        contradiction.
+        contradiction.
+        solve_finz.
+        eexists (finz.FinZ ((finz.to_z progaddr) + (length prog))%Z _ _).
+        Unshelve.
+        4: { apply Z.ltb_lt.
+
+        rewrite /finz.incr_default in H4.
+        case_match;try done.
+        rewrite /finz.incr in Heqo.
+         case_match;try done.
+         case_match;try done.
+         subst f.
+             lia.
+        solve_finz.
+        Locate "+".
+        rewrite /finz.incr in H4.
+        cbn in H4.
+        case_match;try done.
+         case_match;try done.
+        inversion H4.
+         cbn in *.
+        solve_finz.
+      }
+               rewrite /program' /c_loop .
         rewrite -Htemp.
         iDestruct (big_sepL2_app_inv with "Hprog") as "(Hprog & Hcpost)".
         { rewrite finz_seq_length.  left;done. }
