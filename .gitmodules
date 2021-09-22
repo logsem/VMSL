@@ -1,6 +1,6 @@
 [submodule "vendor/machine_program_logic"]
 	path = vendor/machine_program_logic
-	url = https://github.com/logsem/machine_program_logic.git
+	url = git@github.com:logsem/machine_program_logic.git
 [submodule "vendor/machine_utils"]
 	path = vendor/machine_utils
-	url = https://github.com/logsem/machine_utils.git
+	url = git@github.com:logsem/machine_utils.git
