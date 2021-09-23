@@ -40,7 +40,9 @@ Section StoreSingle.
             ∗ RX@ v := prx) }}%I).
   Proof.
     iIntros (HIn HppgIn Htop Hneprx HpIn) "((p_1 & p_2 & _) & Hacc & PC & R0 & R1 & Hmem & Hrx )".
-    apply seq_in_page_forall in HIn.
+    pose proof (seq_in_page_forall1 _ _ _ HIn) as Hforall.
+    clear HIn; rename Hforall into HIn.
+    apply Forall_forall in HIn.
     rewrite -parwp_sswp.
     iDestruct "R0" as (?) "R0".
     iDestruct
