@@ -13,7 +13,8 @@ Section instr.
   Definition yield_I := encode_hvc_func Yield.
 
 
-
+  Definition encode_instructions (l: list instruction) :=
+    map encode_instruction l.
 
   Context `{gen_VMG Σ}.
 

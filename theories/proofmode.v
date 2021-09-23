@@ -17,7 +17,8 @@ Class FramableAccessPointsto (i: VMID) (s: gset PID) := {}.
 Class FramableTXPointsto (i: VMID) (p: PID) := {}.
 #[export] Hint Mode FramableTXPointsto + - : typeclass_instances.
 
-(* TODO: RX *)
+Class FramableRXPointsto (i: VMID) (p: PID) := {}.
+#[export] Hint Mode FramableRXPointsto + - : typeclass_instances.
 
 Instance FramableRegisterPointsto_default r i w :
   FramableRegisterPointsto r i w
@@ -33,6 +34,10 @@ Instance FramableAccessPointsto_default i s :
 
 Instance FramableTXPointsto_default i p :
   FramableTXPointsto i p
+| 100. Qed.
+
+Instance FramableRXPointsto_default i p :
+  FramableRXPointsto i p
 | 100. Qed.
 
 Instance FramableMachineResource_reg `{gen_VMG Σ} r i w :
@@ -53,4 +58,9 @@ Qed.
 Instance FramableMachineResource_TX `{gen_VMG Σ} i p :
   FramableTXPointsto i p →
   FramableMachineResource (TX@i := p).
+Qed.
+
+Instance FramableMachineResource_RX `{gen_VMG Σ} i p :
+  FramableRXPointsto i p →
+  FramableMachineResource (RX@i := p).
 Qed.
