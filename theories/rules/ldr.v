@@ -7,9 +7,8 @@ Section ldr.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma ldr {instr i w1 w2 w3 q p} ai a ra rb s:
-  instr = Ldr ra rb ->
-  decode_instruction w1 = Some(instr) ->
+Lemma ldr {i w1 w2 w3 q p} ai a ra rb s:
+  decode_instruction w1 = Some (Ldr ra rb) ->
   (to_pid_aligned a) ≠ p ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
   {SS{{ ▷ (PC @@ i ->r ai) ∗
@@ -29,15 +28,14 @@ Lemma ldr {instr i w1 w2 w3 q p} ai a ra rb s:
         A@i:={q}[s] ∗
         TX@ i := p }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hmm Hs ϕ) "(>Hpc & >Hapc & >Hrb & >Harb & >Hra & >Hacc & >Htx) Hϕ".
+  iIntros (Hdecode Hmm Hs ϕ) "(>Hpc & >Hapc & >Hrb & >Harb & >Hra & >Hacc & >Htx) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(Hσtok & Hmem & Hreg & Htxown & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
-  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
-  rewrite Hinstr in Hvalidinstr.
+  pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
   destruct H4' as [HneqPCb HneqNZb].
@@ -53,13 +51,13 @@ Proof.
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr ai w1);eauto.
+    eapply (reducible_normal i _ ai w1);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (ldr_ExecI σ1 ra rb a w2 HneqPCa HneqNZa HneqPCb HneqNZb _ Hrb)
+    eapply (step_ExecI_normal i _ ai w1 ) in HstepP;eauto.
+    remember (exec _ σ1) as c2 eqn:Heqc2.
+    rewrite /exec (ldr_ExecI σ1 ra rb a w2 HneqPCa HneqNZa HneqPCb HneqNZb _ Hrb)
             /update_incr_PC /update_reg in Heqc2.
     2: {
       rewrite /get_vm_mail_box -Hcur in Htx.
@@ -90,9 +88,8 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
 
-Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
-  instr = Ldr ra rb ->
-  decode_instruction w1 = Some(instr) ->
+Lemma ldr_error {i w1 w2 w3 s p} ai a ra rb :
+  decode_instruction w1 = Some (Ldr ra rb) ->
   (to_pid_aligned a ∉ s \/ (to_pid_aligned a) = p) ->
   to_pid_aligned ai ∈ s ->
   {SS{{ ▷ (TX@ i := p) ∗ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (rb @@ i ->r a)
@@ -100,15 +97,14 @@ Lemma ldr_error {instr i w1 w2 w3 s p} ai a ra rb :
     {{{ RET FailPageFaultI; TX@ i := p ∗ PC @@ i ->r ai ∗ ai ->a w1
        ∗ rb @@ i ->r a ∗ a ->a w2 ∗ A@i:={1}[s] ∗ ra @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hs Hais ϕ) "(>Htx & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra ) Hϕ".
+  iIntros (Hdecode Hs Hais ϕ) "(>Htx & >Hpc & >Hapc & >Hrb & >Harb & >Hacc & >Hra ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htxown & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
-  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
-  rewrite Hinstr in Hvalidinstr.
+  pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
   destruct H4' as [HneqPCb HneqNZb].
