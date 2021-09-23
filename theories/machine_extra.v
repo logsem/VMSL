@@ -139,12 +139,13 @@ Definition addr_in_page (a: Addr ) (p:PID):=
 
 (* a sequence of addresses is in the range of the page with PID p *)
 Definition seq_in_page (b :Addr) (l: nat) (p:PID) :=
+  l > 0 ∧
   (* the starting address b is greater than the base addr of the page *)
   ((of_pid p) <=? b)%Z
   (* the ending address doesn't excess the boundary of address space *)
-  ∧ is_Some (b + (Z.of_nat l))%f
+  ∧ is_Some (b + (Z.of_nat l - 1))%f
   (* the ending address is less than or equal to the last address of the page *)
-  ∧ ((b ^+ (Z.of_nat l))%f <=? ((of_pid p) ^+ (page_size-1))%f)%Z.
+  ∧ ((b ^+ (Z.of_nat l -1))%f <=? ((of_pid p) ^+ (page_size-1))%f)%Z.
 
 (* we can always get the last address of a page *)
 Lemma last_addr_in_bound (p:PID):
@@ -338,12 +339,11 @@ Qed.
 
 (* if the sequcence is included in a page,
 then every address in the sequcence is in the page *)
-Definition seq_in_page_forall (b: Addr) (l:nat) (p:PID) :
-  seq_in_page b l p -> Forall  (λ a, addr_in_page a p) (finz.seq b l).
+Definition seq_in_page_forall1 (b: Addr) (l:nat) (p:PID) :
+  seq_in_page b l p -> (∀ a, a ∈ (finz.seq b l) -> addr_in_page a p).
 Proof.
   intros.
-  apply Forall_forall.
-  intros a H0.
+  (* apply Forall_forall. *)
   unfold addr_in_page.
   destruct H.
   split.
@@ -355,7 +355,8 @@ Proof.
     destruct ((((of_pid p) <=? b))%Z) eqn:Heqn.
     apply Z.leb_le in Heqn.
     solve_finz.
-    congruence.
+    destruct H1.
+    inversion H1.
     apply Z.leb_le in Hap.
     rewrite Hap //=.
     exfalso.
@@ -364,39 +365,43 @@ Proof.
     apply (finz_seq_notin _ _ l)in Hlt.
     contradiction.
   - destruct l.
-    inversion H0.
+    inversion H.
     destruct H1.
-    destruct H1.
-    rewrite (incr_default_incr b x _ ) in H2;eauto.
+    destruct H2.
+    destruct H2.
+    rewrite (incr_default_incr b x _ ) in H3;eauto.
     pose proof (last_addr_in_bound p).
-    destruct H3.
-    rewrite (incr_default_incr (of_pid p) x0 _ ) in H2;eauto.
+    destruct H4.
+    rewrite (incr_default_incr (of_pid p) x0 _ ) in H3;eauto.
     rewrite (incr_default_incr (of_pid p) x0 _ );eauto.
-    apply  finz_incr_z_plus in H3.
+    apply  finz_incr_z_plus in H4.
     apply finz_seq_in2 in H0.
-    apply  finz_incr_z_plus in H1.
-    assert (H1': (b + (Z.of_nat l))%Z = (x-1)%Z ). by lia.
+    apply  finz_incr_z_plus in H2.
+    assert (H1': (b + (Z.of_nat l -1))%Z = (x-1)%Z ). by lia.
     assert(Hl : ((Z.of_nat (S l) - 1)%Z = (Z.of_nat l))%Z).  by lia.
     rewrite Hl  in H0 H1.
-    rewrite -H3 in H2.
-    rewrite -H1 in H2.
+    rewrite -H4 in H3.
+    rewrite -H2 in H3.
     unfold finz.leb.
-    rewrite -H3.
+    rewrite -H4.
     assert (H0': (a <= b + (Z.of_nat l))%Z).
     solve_finz.
-    rewrite -H1 in H1'.
+    rewrite -H2 in H1'.
     destruct (decide (a <= (of_pid p) + (page_size - 1)))%Z.
     apply Z.leb_le in l0.
     solve_finz.
     exfalso.
-    destruct ((b + Z.of_nat (S l) <=? (of_pid p) + (page_size - 1))%Z) eqn:Heqn.
+    destruct ((b + Z.of_nat l <=? (of_pid p) + (page_size - 1))%Z) eqn:Heqn.
     apply Z.leb_le in Heqn.
     lia.
+    rewrite Hl in H3.
+    rewrite Heqn in H3.
     contradiction.
 Qed.
 
+
 Lemma finz_seq_lookup'{b} (f0 fi:(finz.finz b)) (i n : nat) :
-  is_Some(f0 + (Z.of_nat n))%f ->
+  is_Some(f0 + (Z.of_nat n - 1))%f ->
   finz.seq f0 n !! i = Some fi ->
   i < n ∧ (f0 + (Z.of_nat i))%f = Some fi.
 Proof using.
@@ -409,7 +414,16 @@ Proof using.
       apply IHn in HSome.
       destruct HSome.
       split.
-      lia. rewrite -H0. solve_finz. solve_finz. } }
+      lia. rewrite -H0. solve_finz.
+      assert (Hlt: i < n).
+      {
+        apply lookup_lt_Some in HSome.
+        rewrite finz_seq_length in HSome.
+        done.
+      }
+      solve_finz.
+    }
+    }
 Qed.
 
 Lemma finz_seq_cons {b} (f: finz.finz b) (l:nat) :
@@ -421,6 +435,87 @@ Proof.
   cbn.
   repeat f_equal.
   lia.
+Qed.
+
+
+(* Definition seq_in_page_forall2 (b: Addr) (l:nat) (p:PID) : *)
+(*    l > 0 -> (∀ a, a ∈ (finz.seq b l) -> addr_in_page a p) -> seq_in_page b l p. *)
+(* Proof. *)
+(*   intros Hl Hforall. *)
+(*   rewrite /seq_in_page. *)
+(*   assert (b ∈ finz.seq b l) as Hb. *)
+(*   rewrite finz_seq_cons;auto. *)
+(*   set_solver. *)
+(*   apply (Hforall b) in Hb. *)
+(*   rewrite /addr_in_page in Hb. *)
+(*   destruct Hb as [Hbge Hble]. *)
+(*   split. *)
+(*   solve_finz. *)
+(*   assert ((b ^+ (Z.of_nat l -1 ))%f ∈ finz.seq b l) as Hbl. *)
+(*   admit. *)
+(*   pose proof Hbl as Hbl'. *)
+(*   apply (Hforall (b ^+ (Z.of_nat l -1 ))%f) in Hbl. *)
+(*   rewrite /addr_in_page in Hbl. *)
+(*   destruct Hbl. *)
+(*   split;[|solve_finz]. *)
+(*   pose proof (last_addr_in_bound p). *)
+(*   (* don't know how to prove it ... seems the def of addr_in_page need to be changed. *) *)
+(*   Admitted. *)
+
+(* fin_to_nat vec_to_list of_imm of_pid finz.to_z NonPropType.frame Is_true NonPropType.callee *)
+Lemma seq_in_page_append1 (b:Word) (l l' : nat) p:
+  (0 < l) -> (l < l') -> seq_in_page b l' p -> seq_in_page b l p.
+Proof.
+  intros Hlpos Hlt Hseq.
+  rewrite /seq_in_page.
+  split;[done|].
+  rewrite /seq_in_page in Hseq.
+  destruct Hseq as (Hl'pos & Hple & Hbl'isSome & Hbl'le).
+  split; auto.
+  split.
+  solve_finz.
+  assert (Hllt: ((Z.of_nat l - 1) < (Z.of_nat l' -1))%Z).
+  solve_finz.
+  assert (((b ^+ (Z.of_nat l - 1))%f < (b ^+ (Z.of_nat l' - 1)))%f).
+  solve_finz.
+  rewrite /Is_true in Hbl'le.
+  case_match.
+  apply Z.leb_le in Heqb0.
+  rewrite /Is_true.
+  case_match.
+  done.
+  solve_finz.
+  done.
+Qed.
+
+
+Lemma seq_in_page_append2 (b :Word) (l o : nat) p:
+  o<l ->
+  is_Some (b + (Z.of_nat o))%f->
+  seq_in_page b l p ->
+  seq_in_page (b ^+ (Z.of_nat o))%f (l - o) p.
+Proof.
+  intros Holt Hb'in Hseq.
+  rewrite /seq_in_page.
+  rewrite /seq_in_page in Hseq.
+  destruct Hseq as (Hlpos & Hple & HblisSome & Hblle).
+  split.
+  lia.
+  split.
+  rewrite /Is_true in Hple.
+  case_match;[|done].
+  apply Z.leb_le in Heqb0.
+  rewrite /Is_true.
+  case_match;[done|].
+  solve_finz.
+  split.
+  solve_finz.
+  rewrite /Is_true in Hblle.
+  case_match;[|done].
+  apply Z.leb_le in Heqb0.
+  rewrite /Is_true.
+  case_match;[done|].
+  solve_finz.
 Qed.
 
 Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).

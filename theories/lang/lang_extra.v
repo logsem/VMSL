@@ -194,7 +194,7 @@ Qed.
   Proof.
     intros.
     rewrite /parse_transaction_descriptor /get_memory_with_offset.
-    destruct H1 as [_ [? _]].
+    destruct H1 as [_ [_ [? _]]].
     pose proof (trans_desc_length des H0 H) as Hlen.
     assert (HpSome: ((of_pid p) + 0)%f = Some ((of_pid p) ^+ 0)%f).
     solve_finz.
@@ -241,10 +241,10 @@ Qed.
          by exists y1.
         rewrite Hlenmapeq in Hklt.
         lia.
-        apply (finz_seq_lookup'  _ y1 k _ ) in H3.
+        apply (finz_seq_lookup' _ y1 k _ ) in H3.
         2: { rewrite Hlenmapeq. solve_finz. }
         destruct H3.
-        rewrite Hlenmapeq in H3.
+        (* rewrite Hlenmapeq in H3. *)
         solve_finz.
         rewrite H0 /serialized_transaction_descriptor.
         simpl.
