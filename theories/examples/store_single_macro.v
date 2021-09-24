@@ -2,6 +2,7 @@ From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base.
 From HypVeri.rules Require Import rules_base mov str.
 From HypVeri.examples Require Import instr.
+From HypVeri Require Import proofmode.
 
 Section StoreSingle.
 (* this is a very simple program that will store a word w to memory cell dst *)
@@ -9,9 +10,9 @@ Section StoreSingle.
 (* the side-effect of it is the values of R0 will be changed *)
 
   Definition store_single (w:Imm) : list Word :=
-    [
-    mov_word_I R0 w;
-    str_I R0 R1
+    encode_instructions [
+      Mov R0 (inl w);
+      Str R0 R1
     ].
 
   Context `{gen_VMG Σ}.
@@ -45,13 +46,9 @@ Section StoreSingle.
     apply Forall_forall in HIn.
     rewrite -parwp_sswp.
     iDestruct "R0" as (?) "R0".
-    iDestruct
-      ((mov_word proga w R0) with "[p_1 PC Hacc R0]") as "J";auto.
-    4:{  iFrame. }
-    by rewrite decode_encode_instruction.
+    iApply (mov_word with "[p_1 PC Hacc R0]"); iFrameAutoSolve.
     by inversion HIn.
     auto.
-    iApply "J".
     iNext.
     iIntros "(PC & p_1 & Hacc & R0)".
     iDestruct "Hmem" as (?) "Hmem".
@@ -62,17 +59,11 @@ Section StoreSingle.
         apply to_pid_aligned_in_page.
         auto.
     }
-    iDestruct
-      ((str (proga ^+ 1)%f a R0 R1 sacc) with "[p_2 PC Hacc R0 R1 Hmem Hrx]") as "J".
-    5:{ iFrame. }
-    all: auto.
-    by rewrite decode_encode_instruction.
-    rewrite -Htop in Hneprx. exact Hneprx.
-    set_solver.
     rewrite -parwp_sswp.
-    iApply "J".
-    iNext.
-    iIntros "(p_2 & PC & Hacc & Hmem & R1 & R0 & Hrx)".
+    iApply (str with "[p_2 PC Hacc R0 R1 Hmem Hrx]"); iFrameAutoSolve.
+    { rewrite -Htop in Hneprx. exact Hneprx. }
+    { set_solver. }
+    iIntros "!> (p_2 & PC & Hacc & Hmem & R1 & R0 & Hrx)".
     iApply parwp_finish.
     iFrame.
     iSplitR.

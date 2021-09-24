@@ -52,9 +52,9 @@ Section copy_word.
     rewrite <-parwp_sswp.
     iDestruct "Hbstar" as "(p_start & Hbstar)". 
     iDestruct ((mov_word (of_pid progpage) src R0) with "[Hpc Hai Hr0 p_start]") as "J".
-    3 : {  apply Hseq. set_solver. }
-    3 : { apply Hprpain. }
-    3 : { iFrame. }
+    2 : {  apply Hseq. set_solver. }
+    2 : { apply Hprpain. }
+    2 : { iFrame. }
     auto.
     by rewrite decode_encode_instruction.
     iApply "J".
@@ -63,8 +63,6 @@ Section copy_word.
     rewrite <-parwp_sswp.
     iDestruct "Hbstar" as "(p_start & Hbstar)".
     iDestruct ((ldr (of_pid progpage ^+ 1)%f src R1 R0) with "[Hpc Hacc Hr0 Hr1 Hsrc p_start HTX]") as "J".
-    instantiate (1 := Ldr R1 R0).
-    reflexivity.
     instantiate (1 := encode_instruction (Ldr R1 R0)).
     by rewrite decode_encode_instruction.
     instantiate (1 := ptx).
@@ -91,9 +89,9 @@ Section copy_word.
     rewrite <-parwp_sswp.
     iDestruct "Hbstar" as "(p_start & Hbstar)".
     iDestruct ((mov_word ((of_pid progpage ^+ 1) ^+ 1)%f dst R0) with "[Hpc Hacc Hr0 p_start]") as "J".
-    3 : { apply Hseq. set_solver. }
-    3 : { apply Hprpain. }
-    3 : { iFrame. }
+    2 : { apply Hseq. set_solver. }
+    2 : { apply Hprpain. }
+    2 : { iFrame. }
     auto.
     by rewrite decode_encode_instruction.
     iApply "J".
@@ -102,8 +100,6 @@ Section copy_word.
     rewrite <-parwp_sswp.
     iDestruct "Hbstar" as "(p_start & Hbstar)".
     iDestruct ((str (((of_pid progpage ^+ 1) ^+ 1) ^+ 1)%f dst R1 R0) with "[Hpc Hacc Hr0 p_start Hdst Hr1 HRX]") as "J".
-    instantiate (1 := Str R1 R0).
-    reflexivity.
     instantiate (1 := encode_instruction (Str R1 R0)).
     by rewrite decode_encode_instruction.
     instantiate (1 := prx).
@@ -294,15 +290,15 @@ Proof.
     iModIntro.
     iDestruct "Hcpost" as "(p_start & Hcpost)".
     iDestruct ((mov_word (progaddr ^+ length prog )%f I1 R8) with "[Hpc Hacc Hr8 p_start]") as "J".
-    5:{ iFrame. }
-    3:{ instantiate (1:= progpage). apply c. rewrite /c_loop. rewrite elem_of_list_In.
+    4:{ iFrame. }
+    2:{ instantiate (1:= progpage). apply c. rewrite /c_loop. rewrite elem_of_list_In.
           rewrite -Htemp.
           apply in_or_app.
           right.
           rewrite <-elem_of_list_In.
           set_solver.
     }
-    3:{ apply Hprpain. }
+    2:{ apply Hprpain. }
     auto.
     rewrite decode_encode_instruction //.
     iApply parwp_sswp.
@@ -474,15 +470,15 @@ Proof.
     iModIntro.
     iDestruct "Hcpost" as "(p_start & Hcpost)".
     iDestruct ((mov_word (progaddr ^+ length prog )%f I1 R8) with "[Hpc Hacc Hr8 p_start]") as "J".
-    5: { iFrame. }
-    3: { instantiate (1:= progpage).  apply c. rewrite /c_loop. rewrite elem_of_list_In.
+    4: { iFrame. }
+    2: { instantiate (1:= progpage).  apply c. rewrite /c_loop. rewrite elem_of_list_In.
           rewrite -Htemp.
           apply in_or_app.
           right.
           rewrite <-elem_of_list_In.
           set_solver.
     }
-    3 : { apply Hprpain. }
+    2 : { apply Hprpain. }
     auto.
       by rewrite decode_encode_instruction.
       instantiate (1 := (fun m' => (PARWP m' @ i {{ v, Φ v }})%I )).
@@ -654,9 +650,9 @@ Proof.
   { rewrite finz_seq_length.  left;done. }
   iDestruct "Hcpre" as "(p_start & Hprog)".
   iDestruct ((mov_word (of_pid progpage) step R5) with "[Hpc Hacc Hr5 p_start]") as "J".
-  3:{ apply c. set_solver. }
-  3:{ apply Hprpain. }
-  3:{ iFrame. }
+  2:{ apply c. set_solver. }
+  2:{ apply Hprpain. }
+  2:{ iFrame. }
   auto.
   rewrite decode_encode_instruction //.
   iApply "J".
@@ -665,9 +661,9 @@ Proof.
   rewrite <-parwp_sswp.
   iDestruct "Hprog" as "(p_start & Hprog)".
   iDestruct ((mov_word (of_pid progpage ^+ 1)%f I0 R6) with "[Hpc Hacc Hr6 p_start]") as "J".
-  3:{ apply c. set_solver. }
-  3:{ apply Hprpain. }
-  3:{ iFrame. }
+  2:{ apply c. set_solver. }
+  2:{ apply Hprpain. }
+  2:{ iFrame. }
   auto.
   rewrite decode_encode_instruction //.
   iApply "J".
@@ -676,9 +672,9 @@ Proof.
   rewrite <-parwp_sswp.
   iDestruct "Hprog" as "(p_start & Hprog)".
   iDestruct ((mov_word ((of_pid progpage ^+ 1) ^+ 1)%f base R7) with "[Hpc Hacc Hr7 p_start]") as "J".
-  3:{ apply c. set_solver. }
-  3:{ apply Hprpain. }
-  3:{ iFrame. }
+  2:{ apply c. set_solver. }
+  2:{ apply Hprpain. }
+  2:{ iFrame. }
   auto.
   rewrite decode_encode_instruction //.
   iApply "J".
