@@ -2,6 +2,7 @@
 *.vos
 *.vok
 *.glob
+*.vio
 .*.aux
 .lia.cache
 .coqdeps.d
@@ -25,5 +26,8 @@ _CoqProject
 *.toc
 *.nav
 *.log
+
+*~
+\#*\#
 
 
