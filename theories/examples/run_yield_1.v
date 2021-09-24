@@ -62,7 +62,9 @@ Section RunYield1.
             ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f)}}%I).
   Proof.
     iIntros (Hdisj zP neH HIn HaccIn) "(H△ & (p_1 & p_2 & p_3 & p_4 & _) & #Hinv & #Hnainv & Hacc & PCz )".
-    apply seq_in_page_forall in HIn.
+    pose proof (seq_in_page_forall1 _ _ _ HIn) as Hforall.
+    clear HIn; rename Hforall into HIn.
+    apply Forall_forall in HIn.
     rewrite wp_sswp.
     iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑ι) ⊤).
     iInv ι as ">Inv" "HIClose".
@@ -197,7 +199,9 @@ Section RunYield1.
             ∗ R0 @@ i ->r yield_I)}}%I).
   Proof.
     iIntros (Hdisj zP neH HIn HpIn) "((p_1 & p_2 & _) & #Hinv & #Hnainv & Hacc & PCi & R0i)".
-    apply seq_in_page_forall in HIn.
+    pose proof (seq_in_page_forall1 _ _ _ HIn) as Hforall.
+    clear HIn; rename Hforall into HIn.
+    apply Forall_forall in HIn.
     (* mov_word_I R0 yield_I *)
     rewrite wp_sswp.
     iDestruct
@@ -372,20 +376,23 @@ Section RunYield1.
     {
       rewrite /seq_in_page.
       split.
+      simpl;lia.
+      split.
       rewrite Z.leb_refl //.
       split.
       cbn.
       pose proof (last_addr_in_bound prog1page).
       solve_finz.
       cbn.
-      destruct (((prog1page ^+ 4%nat)%f <=? (prog1page ^+ (1000 - 1))%f)%Z) eqn:Heqn.
-      done.
-      exfalso.
-      apply Z.leb_nle in Heqn.
+      rewrite /Is_true.
+      case_match;[done|].
+      apply Z.leb_nle in Heqb.
       solve_finz.
     }
     {
       rewrite /seq_in_page.
+      split.
+      simpl;lia.
       split.
       rewrite Z.leb_refl //.
       split.
@@ -393,10 +400,9 @@ Section RunYield1.
       pose proof (last_addr_in_bound prog2page).
       solve_finz.
       cbn.
-      destruct (((prog2page ^+ 2%nat)%f <=? (prog2page ^+ (1000 - 1))%f)%Z) eqn:Heqn.
-      done.
-      exfalso.
-      apply Z.leb_nle in Heqn.
+      rewrite /Is_true.
+      case_match;[done|].
+      apply Z.leb_nle in Heqb.
       solve_finz.
     }
     { iFrame. }
