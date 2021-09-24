@@ -72,7 +72,7 @@ Proof.
   iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   unfold mem_region.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
-  { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. admit. }
+  { apply finz_seq_NoDup'. destruct Hindesc as [? [? [HisSome ?]]]. solve_finz. }
   (* valid tx *)
   iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
   (* valid hpool *)
@@ -178,7 +178,7 @@ Proof.
     done.
     iApply "HΦ".
     by iFrame.
-Admitted.
+Qed.
 
 Lemma hvc_relinquish_lend_nz {wi sacc pi sexcl i j des ptx} {spsd: gset PID}
       ai r0 wh wf (psd: list PID) :
