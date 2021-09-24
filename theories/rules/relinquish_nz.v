@@ -72,7 +72,7 @@ Proof.
   iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   unfold mem_region.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
-  { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
+  { apply finz_seq_NoDup'. destruct Hindesc as [? [? [HisSome ?]]]. solve_finz. }
   (* valid tx *)
   iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
   (* valid hpool *)

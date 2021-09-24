@@ -194,7 +194,7 @@ Qed.
   Proof.
     intros.
     rewrite /parse_transaction_descriptor /get_memory_with_offset.
-    destruct H1 as [_ [? _]].
+    destruct H1 as [_ [_ [? _]]].
     pose proof (trans_desc_length des H0 H) as Hlen.
     assert (HpSome: ((of_pid p) + 0)%f = Some ((of_pid p) ^+ 0)%f).
     solve_finz.
@@ -234,17 +234,17 @@ Qed.
          apply (H2 (k+5) _).
          assert (Hlenmapeq: length ( map (λ pid : PID, (of_pid pid)) psd) = length psd).
         apply fmap_length.
-         apply (finz_seq_lookup _ _ y1).
+         apply (finz_seq_lookup _ y1).
          assert (Hklt: k < length ( map (λ pid : PID, (of_pid pid)) psd)).
-         rewrite <-(finz_seq_length _ ((p ^+ 3) ^+ 2)%f).
+         rewrite <-(finz_seq_length ((p ^+ 3) ^+ 2)%f).
          apply lookup_lt_is_Some.
          by exists y1.
         rewrite Hlenmapeq in Hklt.
         lia.
-        apply (finz_seq_lookup'  _ y1 k _ ) in H3.
+        apply (finz_seq_lookup' _ y1 k _ ) in H3.
         2: { rewrite Hlenmapeq. solve_finz. }
         destruct H3.
-        rewrite Hlenmapeq in H3.
+        (* rewrite Hlenmapeq in H3. *)
         solve_finz.
         rewrite H0 /serialized_transaction_descriptor.
         simpl.
@@ -488,6 +488,20 @@ Qed.
     (* destruct r2; [contradiction|contradiction|]. *)
     (* TODO: add validity check of regs in opsem *)
     rewrite H3 H4.
+    done.
+  Qed.
+
+  Lemma mult_word_ExecI (σ1: state) r1 w1 w2:
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   (get_reg σ1 r1) = Some w1 ->
+   (lang.mult σ1 r1 w2)= (ExecI, (update_incr_PC (update_reg σ1 r1 (w1 ^* (finz.to_z w2))%f))).
+  Proof.
+    intros.
+    unfold lang.mult.
+    (* destruct r1;[contradiction|contradiction|]. *)
+    (* destruct r2; [contradiction|contradiction|]. *)
+    (* TODO: add validity check of regs in opsem *)
+    rewrite H1.
     done.
   Qed.
 

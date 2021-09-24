@@ -341,6 +341,13 @@ Definition sub (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * sta
   in
   (option_state_unpack s comp).
 
+Definition mult (s : state) (arg1 : reg_name) (arg2 : Imm) : exec_mode * state :=
+  let comp :=
+      arg1' <- get_reg s arg1 ;;;
+      Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^* (finz.to_z (arg2:Word)))%f))
+  in
+  (option_state_unpack s comp).
+
 Definition bne (s : state) (arg : reg_name) : exec_mode * state :=
   let comp :=
       arg' <- get_reg s arg ;;;
@@ -907,6 +914,7 @@ Definition exec (i : instruction) (s : state) : exec_mode * state :=
   | Str src dst => str s src dst
   | Add op1 op2 => add s op1 op2
   | Sub op1 op2 => sub s op1 op2
+  | Mult op1 op2 => mult s op1 op2
   | Cmp arg1 (inl arg2) => cmp_word s arg1 arg2
   | Cmp arg1 (inr arg2) => cmp_reg s arg1 arg2
   | Bne arg => bne s arg

@@ -117,7 +117,7 @@ Defined.
 Global Instance pid_eq_dec: EqDecision PID.
 intros x y.
 destruct x,y .
-destruct (finz_eq_dec word_size z z0).
+destruct (finz_eq_dec z z0).
 - left. subst z0. f_equal. apply eq_proofs_unicity; decide equality; decide equality.
 - right. inversion 1. contradiction.
 Defined.
@@ -150,7 +150,7 @@ Coercion of_imm: Imm >-> Word.
 
 Global Instance imm_eq_dec: EqDecision Imm.
 intros x y. destruct x,y.
-destruct (finz_eq_dec word_size w w0).
+destruct (finz_eq_dec w w0).
 - left. subst w0. f_equal. apply eq_proofs_unicity; decide equality.
 - right. inversion 1. contradiction.
 Defined.
@@ -260,6 +260,7 @@ Inductive instruction : Type :=
 | Cmp (arg1 : reg_name) (arg2 : Imm + reg_name)
 | Add (op1: reg_name) (op2: reg_name)
 | Sub (op1: reg_name) (op2: reg_name)
+| Mult (op1: reg_name) (op2: Imm)
 | Bne (arg : reg_name)
 | Br (arg : reg_name)
 | Halt
@@ -299,6 +300,8 @@ Inductive valid_instruction : instruction -> Prop :=
 | valid_sub src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
                       valid_instruction (Sub src dst)
+| valid_mult src dst : reg_valid_cond dst ->
+                      valid_instruction (Mult dst src)
 | valid_bne r : reg_valid_cond r ->
                 valid_instruction (Bne r)
 | valid_br r : reg_valid_cond r ->

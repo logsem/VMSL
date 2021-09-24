@@ -133,7 +133,7 @@ Proof.
      apply map_Forall_insert_2; auto.
      simpl.
      rewrite <-Hlenpsd.
-     destruct (finz_spec word_size l) as [H _].
+     destruct (finz_spec l) as [H _].
      rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
      assumption.
      iFrame.
@@ -267,7 +267,7 @@ Proof.
      apply map_Forall_insert_2; auto.
      simpl.
      rewrite <-Hlenpsd.
-     destruct (finz_spec word_size l) as [H _].
+     destruct (finz_spec l) as [H _].
      rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
      assumption.
      iFrame.
@@ -346,7 +346,7 @@ Proof.
   (* valid mem *)
   iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
-  { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
+  { apply finz_seq_NoDup'. destruct Hindesc as [? [? [HisSome ?]]]. solve_finz. }
   (* valid tx *)
   iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
   (* valid hpool *)
@@ -360,9 +360,15 @@ Proof.
     iIntros (m2 σ2) "%HstepP".
     apply (step_ExecI_normal i instr ai wi) in HstepP;eauto.
     remember (exec instr σ1) as c2 eqn:Heqc2.
-    assert (Hlendesclt :((Z.of_nat (length des)) <= (page_size-1))%Z).
-    {  destruct Hindesc as [? [HisSome Hltpagesize]]. apply (finz_plus_Z_le (of_pid ptx));eauto.
-       apply last_addr_in_bound.  apply Z.leb_le. destruct (((ptx ^+ length des)%f <=? (ptx ^+ (page_size - 1))%f)%Z). done. contradiction. }
+    assert (Hlendesclt :((Z.of_nat (length des) -1) <= (page_size-1))%Z).
+    {  destruct Hindesc as [? [? [HisSome Hltpagesize]]].
+       apply (finz_plus_Z_le (of_pid ptx));eauto.
+       apply last_addr_in_bound.
+       rewrite /Is_true in Hltpagesize.
+       case_match;[|done].
+       apply Z.leb_le in Heqb.
+       done.
+    }
     rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
     rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W1 l psd σ1 des) /= in Heqc2;eauto.
@@ -506,7 +512,7 @@ Proof.
   (* valid mem *)
   iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hadesc") as %Hadesc.
-  { apply finz_seq_NoDup. destruct Hindesc as [? [HisSome ?]]. done. }
+  { apply finz_seq_NoDup'. destruct Hindesc as [? [? [HisSome ?]]]. solve_finz. }
   (* valid tx *)
   iDestruct (gen_tx_valid with "TX Hσtx") as %Htx.
   (* valid hpool *)
@@ -520,9 +526,15 @@ Proof.
     iIntros (m2 σ2) "%HstepP".
     apply (step_ExecI_normal i instr ai wi) in HstepP;eauto.
     remember (exec instr σ1) as c2 eqn:Heqc2.
-    assert (Hlendesclt :((Z.of_nat (length des)) <= (page_size-1))%Z).
-    {  destruct Hindesc as [? [HisSome Hltpagesize]]. apply (finz_plus_Z_le (of_pid ptx));eauto.
-       apply last_addr_in_bound.  apply Z.leb_le. destruct (((ptx ^+ length des)%f <=? (ptx ^+ (page_size - 1))%f)%Z). done. contradiction. }
+    assert (Hlendesclt :((Z.of_nat (length des)-1) <= (page_size-1))%Z).
+    {  destruct Hindesc as [? [? [HisSome Hltpagesize]]].
+       apply (finz_plus_Z_le (of_pid ptx));eauto.
+       apply last_addr_in_bound.
+       rewrite /Is_true in Hltpagesize.
+       case_match;[|done].
+       apply Z.leb_le in Heqb.
+       done.
+    }
     rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
     rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W1 l psd σ1 des) /= in Heqc2;eauto.

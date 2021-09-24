@@ -7,15 +7,16 @@ Section bne.
 
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma bne {instr i w1 w2 w3 q} ai ra :
+Lemma bne {instr i w1 w2 w3 q pi sacc} ai ra :
   instr = Bne ra ->
   decode_instruction w1 = Some(instr) ->
-  addr_in_page ai (to_pid_aligned ai) ->
-  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai)%f) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
+  addr_in_page ai pi ->
+  pi ∈ sacc ->
+  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q}[sacc]) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
                                   {{{ RET ExecI; PC @@ i ->r (if (w3 =? W1)%f then  (ai ^+ 1)%f else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
-                       ∗ A@i:={q} (to_pid_aligned ai) ∗ NZ @@ i ->r w3 }}}.
+                       ∗ A@i:={q}[sacc] ∗ NZ @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hdecode HIn ϕ) "(>Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
+  iIntros (Hinstr Hdecode HIn Hsin ϕ) "(>Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -24,13 +25,13 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | | | | | src Hvalidra|] .
+  inversion Hvalidinstr as [ | | | | | | | | | src Hvalidra|] .
   subst src .
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
   iDestruct ((gen_reg_valid3 i PC ai ra w2 NZ w3 Hcur) with "Hreg Hpc Hra Hnz") as "[%HPC [%Hra %HNZ]]";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr ai) with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct ((gen_access_valid_addr_Set ai) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.

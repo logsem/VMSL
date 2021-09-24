@@ -7,9 +7,10 @@ Section mov.
 
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma mov_word {E instr i w1 w3 q p s} a w2 ra :
-  instr = Mov ra (inl w2) ->
-  decode_instruction w1 = Some(instr) ->
+
+
+Lemma mov_word {E i w1 w3 q p s} a w2 ra :
+  decode_instruction w1 = Some (Mov ra (inl w2)) ->
   addr_in_page a p ->
   p ∈ s ->
   {SS{{  ▷ (PC @@ i ->r a)
@@ -21,16 +22,15 @@ Lemma mov_word {E instr i w1 w3 q p s} a w2 ra :
                    ∗ A@i:={q}[s]
                    ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin HpIn ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hdecode Hin HpIn ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
-  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
-  rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [imm dst Hvalidra | | | | | | | | | ].
+  pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
+  inversion Hvalidinstr as [imm dst Hvalidra | | | | | | | | | | ].
   subst imm dst.
   inversion Hvalidra as [HneqPC HneqNZ].
   (* valid regs *)
@@ -42,13 +42,13 @@ Proof.
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr a w1);eauto.
+    eapply (reducible_normal i _ a w1);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr a w1) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (mov_word_ExecI σ1 ra _ HneqPC HneqNZ) /update_incr_PC /update_reg  in Heqc2.
+    eapply (step_ExecI_normal i _ a w1) in HstepP;eauto.
+    remember (exec _ σ1) as c2 eqn:Heqc2.
+    rewrite /exec (mov_word_ExecI σ1 ra _ HneqPC HneqNZ) /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
@@ -68,9 +68,8 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-Lemma mov_reg {E instr i qi w1 w3 q p s} a w2 ra rb :
-  instr = Mov ra (inr rb)->
-  decode_instruction w1 = Some(instr) ->
+Lemma mov_reg {E i qi w1 w3 q p s} a w2 ra rb :
+  decode_instruction w1 = Some (Mov ra (inr rb)) ->
   addr_in_page a p ->
   p ∈ s ->
   {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r a)
@@ -84,15 +83,14 @@ Lemma mov_reg {E instr i qi w1 w3 q p s} a w2 ra rb :
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin HpIn ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
+  iIntros (Hdecode Hin HpIn ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
-  rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | src dst Hvalidra Hvalidrb Hneqrarb | | | | | | | |] .
+  pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
+  inversion Hvalidinstr as [ | src dst Hvalidra Hvalidrb Hneqrarb | | | | | | | | |] .
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   inversion Hvalidrb as [ HneqPCb HneqNZb ].
@@ -106,13 +104,13 @@ Proof.
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr a w1);eauto.
+    eapply (reducible_normal i _ a w1);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr a w1) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (mov_reg_ExecI σ1 ra rb w3 HneqPCa HneqNZa HneqPCb HneqNZb Hrb)  /update_incr_PC /update_reg  in Heqc2.
+    eapply (step_ExecI_normal i _ a w1) in HstepP;eauto.
+    remember (exec _ σ1) as c2 eqn:Heqc2.
+    rewrite /exec (mov_reg_ExecI σ1 ra rb w3 HneqPCa HneqNZa HneqPCb HneqNZb Hrb)  /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.    (* unchanged part *)
     rewrite_reg_pc.

@@ -26,7 +26,7 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | src dst Hvalidra | | | | |] .
+  inversion Hvalidinstr as [ | | | | src dst Hvalidra | | | | | |] .
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
@@ -80,18 +80,19 @@ Proof.
       by simplify_map_eq /=.
 Qed.
 
-Lemma cmp_reg {instr i w1 w2 w3 w4 q pi} ai ra rb :
+Lemma cmp_reg {instr i w1 w2 w3 w4 q pi sacc} ai ra rb :
   instr = Cmp ra (inr rb) ->
   decode_instruction w1 = Some(instr) ->
   addr_in_page ai pi ->
+  pi ∈ sacc ->
   {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗
         ▷ (ra @@ i ->r w2) ∗ ▷ (rb @@ i ->r w3) ∗
-        ▷ (A@i:={q} pi) ∗ ▷ (NZ @@ i ->r w4)}}}
+        ▷ (A@i:={q}[sacc]) ∗ ▷ (NZ @@ i ->r w4)}}}
     ExecI @ i
     {{{ RET ExecI;  PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a w1 ∗ ra @@ i ->r w2 ∗ rb @@ i ->r w3 ∗
-              A@i:={q} pi ∗ NZ @@ i ->r (if (w2 <? w3)%f then W2 else if (w3 <? w2)%f then W0 else W1) }}}.
+              A@i:={q}[sacc] ∗ NZ @@ i ->r (if (w2 <? w3)%f then W2 else if (w3 <? w2)%f then W0 else W1) }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hra & >Hrb & >Hacc & >Hnz ) Hϕ".
+  iIntros (Hinstr Hdecode Hin Hsin ϕ) "( >Hpc & >Hapc & >Hra & >Hrb & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -100,14 +101,14 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | | src dst Hvalidra Hvalidrb Hneqrarb | | | |] .
+  inversion Hvalidinstr as [ | | | | | src dst Hvalidra Hvalidrb Hneqrarb | | | | |] .
   subst src dst.
   destruct  Hvalidra as [ HneqPCa HneqNZa ].
   destruct  Hvalidrb as [ HneqPCb HneqNZb ].
   (* valid regs *)
   iDestruct ((gen_reg_valid4 i PC ai ra w2 rb w3 NZ w4 Hcur) with "Hreg Hpc Hra Hrb Hnz") as "[%HPC [%Hra [%Hrb %HNZ]]]";auto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr ai pi) with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct ((gen_access_valid_addr_Set ai pi) with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.
