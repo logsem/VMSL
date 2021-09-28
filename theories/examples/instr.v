@@ -13,7 +13,12 @@ Section instr.
   Definition yield_I := encode_hvc_func Yield.
 
 
+  Definition encode_instructions (l: list instruction) :=
+    map encode_instruction l.
 
+  Lemma encode_instructions_length l :
+   length (encode_instructions l) = length l.
+  Proof. rewrite map_length //. Qed.
 
   Context `{gen_VMG Σ}.
 
