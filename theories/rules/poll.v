@@ -9,7 +9,7 @@ Section poll.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma poll {w1 r0 q p s E rxp l j r1 r2} ai i :
+Lemma poll {w1 r0 q p s E l j r1 r2} ai i :
   decode_instruction w1 = Some Hvc ->
   decode_hvc_func r0 = Some Poll ->
   addr_in_page ai p ->
@@ -20,7 +20,7 @@ Lemma poll {w1 r0 q p s E rxp l j r1 r2} ai i :
           ∗ ▷ (R2 @@ i ->r r2)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@i :={q}[s] )
-          ∗ ▷ (RX@ i :=( rxp ! l, j))}}}
+          ∗ ▷ (RX@ i :=(l, j))}}}
     ExecI @ i ;E
     {{{ RET ExecI; PC @@ i ->r (ai ^+ 1)%f
                      ∗ R0 @@ i ->r (encode_hvc_func Send)
@@ -28,7 +28,7 @@ Lemma poll {w1 r0 q p s E rxp l j r1 r2} ai i :
                      ∗ R2 @@ i ->r (encode_vmid j)             
                      ∗ ai ->a w1
                      ∗ A@i :={q}[s]
-                     ∗ RX@ i :=( rxp !)}}}.
+                     ∗ RX@ i :=()}}}.
 Proof.
   iIntros (Hdecinstr Hdechvc Haddr Hins ϕ) "(>HPC & >HR0 & >HR1 & >HR2 & >Hai & >Hacc & >Hrx) Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
@@ -47,7 +47,7 @@ Proof.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hai") as "%Hmem".
   (* valid rx *)
-  iDestruct (gen_rx_valid_some i rxp l j with "Hrx Hrx2") as %Hrx.    
+  iDestruct (gen_rx_valid_some i l j with "Hrx Hrx2") as %Hrx.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -89,7 +89,7 @@ Proof.
     rewrite !update_reg_global_update_reg.
     rewrite empty_rx_global_preserve_regs.
     iFrame.
-    iDestruct (gen_rx_gmap_update_empty_global_Some (get_current_vm σ1) rxp with "Hrx2 Hrx") as "Hrx'".
+    iDestruct (gen_rx_gmap_update_empty_global_Some (get_current_vm σ1) with "Hrx2 Hrx") as "Hrx'".
     iMod "Hrx'".
     iDestruct "Hrx'" as "[? ?]".
     iModIntro.

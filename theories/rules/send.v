@@ -19,16 +19,16 @@ Lemma hvc_send_primary {wi r0 w sacc pi i j des ptx rxp l ai} :
   fin_to_nat i = 0 -> 
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗ ▷ A@i:={1}[sacc]
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r w) ∗ ▷ (R2 @@ i ->r l)
-  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx ∗ ▷ RX@ j :=( rxp !)
+  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx ∗ ▷ RX@ j := rxp ∗ ▷ RX@ j :=()
   ∗ ▷ (∃l', mem_region l' rxp ∗ ⌜length l' = length des⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ A@i:={1}[(sacc)] 
   ∗ R0 @@ i ->r r0 ∗ R1 @@ i ->r w ∗ R2 @@ i ->r l
-  ∗ TX@ i := ptx ∗ RX@ j :=( rxp ! l, i)
+  ∗ TX@ i := ptx ∗ RX@ j := rxp ∗ RX@ j :=(l, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
   iIntros (Hdecodei Hinpi Hdecodef Hdecvmid Hpiacc Hlenl Hsize Hz Φ).
-  iIntros "(>PC & >Hai & >HA & >Hr0 & >Hr1 & >Hr2 & >HTX & >Hmemr & >HRX & >Hmemr') HΦ".
+  iIntros "(>PC & >Hai & >HA & >Hr0 & >Hr1 & >Hr2 & >HTX & >Hmemr & >HRX1 & >HRX2 & >Hmemr') HΦ".
   iDestruct "Hmemr'" as "[%l' [Hmemr' %Hlen']]".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -50,8 +50,7 @@ Proof.
     solve_finz.
   }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
-  iDestruct (gen_rx_valid_none with "HRX Hσrx2") as %Hrx2.
-  iDestruct "HRX" as "(HRX1 & HRX2)".
+  iDestruct (gen_rx_valid_none with "HRX2 Hσrx2") as %Hrx2.
   iDestruct (gen_rx_pid_valid with "HRX1 Hσrx1") as %Hrx1.
   iSplit.
   - (* reducible *)
@@ -143,8 +142,7 @@ Proof.
     (* update rx *)
     rewrite fill_rx_unsafe_update_mailbox.
     rewrite copy_page_segment_unsafe_preserve_rx2.
-    iCombine "HRX1 HRX2" as "HRX". 
-    iDestruct ((gen_rx_gmap_update_global_None j l (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
+    iDestruct ((gen_rx_gmap_update_global_None j l (get_current_vm σ1)) with "Hσrx2 HRX2") as ">[Hσrx' HRX2]".
     rewrite Hcureq.
     iFrame "Hσrx'".
     (* update mem *)
@@ -212,17 +210,17 @@ Lemma hvc_send_secondary {wi r0 w sacc pi i j des ptx rxp l ai z a b c} :
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗ ▷ A@i:={1}[sacc] ∗ ▷ (<<i>>{ 1%Qp })
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r w) ∗ ▷ (R2 @@ i ->r l)
   ∗ ▷ (R0 @@ z ->r a) ∗ ▷ (R1 @@ z ->r b) ∗ ▷ (R2 @@ z ->r c)
-  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx ∗ ▷ RX@ j :=( rxp !)
+  ∗ ▷ TX@ i := ptx ∗ ▷ mem_region des ptx ∗ ▷ RX@ j := rxp ∗ ▷ RX@ j :=()
   ∗ ▷ (∃l', mem_region l' rxp ∗ ⌜length l' = length des⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ A@i:={1}[(sacc)] ∗ <<z>>{ 1%Qp }
   ∗ R0 @@ i ->r r0 ∗ R1 @@ i ->r w ∗ R2 @@ i ->r l
   ∗ R0 @@ z ->r (encode_hvc_func Send) ∗ R1 @@ z ->r w ∗ R2 @@ z ->r l                     
-  ∗ TX@ i := ptx ∗ RX@ j :=( rxp ! l, i)
+  ∗ TX@ i := ptx ∗ RX@ j := rxp ∗ RX@j :=(l, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
   iIntros (Hdecodei Hinpi Hdecodef Hdecvmid Hpiacc Hlenl Hsize Hz Hzine Φ).
-  iIntros "(>PC & >Hai & >HA & >Htoki & >Hr0 & >Hr1 & >Hr2 & >Hr0' & >Hr1' & >Hr2' & >HTX & >Hmemr & >HRX & >Hmemr') HΦ".
+  iIntros "(>PC & >Hai & >HA & >Htoki & >Hr0 & >Hr1 & >Hr2 & >Hr0' & >Hr1' & >Hr2' & >HTX & >Hmemr & >HRX1 & >HRX2 & >Hmemr') HΦ".
   iDestruct "Hmemr'" as "[%l' [Hmemr' %Hlen']]".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -247,8 +245,7 @@ Proof.
     solve_finz.
   }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
-  iDestruct (gen_rx_valid_none with "HRX Hσrx2") as %Hrx2.
-  iDestruct "HRX" as "(HRX1 & HRX2)".
+  iDestruct (gen_rx_valid_none with "HRX2 Hσrx2") as %Hrx2.
   iDestruct (gen_rx_pid_valid with "HRX1 Hσrx1") as %Hrx1.
   iSplit.
   - (* reducible *)
@@ -399,8 +396,7 @@ Proof.
     (* update rx *)
     rewrite fill_rx_unsafe_update_mailbox.
     rewrite copy_page_segment_unsafe_preserve_rx2.
-    iCombine "HRX1 HRX2" as "HRX". 
-    iDestruct ((gen_rx_gmap_update_global_None j l (get_current_vm σ1) rxp) with "Hσrx2 HRX") as ">[Hσrx' [HRX1 HRX2]]".
+    iDestruct ((gen_rx_gmap_update_global_None j l (get_current_vm σ1)) with "Hσrx2 HRX2") as ">[Hσrx' HRX2]".
     iEval (rewrite /get_current_vm) in "Hσrx'".
     iFrame "Hσrx'".
     (* update mem *)

@@ -8,7 +8,7 @@ Section wait.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma wait_filled {w1 r0 q p s E rxp l j} ai i :
+Lemma wait_filled {w1 r0 q p s E l j} ai i :
   decode_instruction w1 = Some Hvc ->
   decode_hvc_func r0 = Some Wait ->
   addr_in_page ai p ->
@@ -18,14 +18,14 @@ Lemma wait_filled {w1 r0 q p s E rxp l j} ai i :
           ∗ ▷ (R0 @@ i ->r r0)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@i :={q}[s] )
-          ∗ ▷ (RX@ i :=( rxp ! l, j))}}}
+          ∗ ▷ (RX@ i :=(l, j))}}}
     ExecI @ i ;E
     {{{ RET ExecI; <<i>>{ 1%Qp }
                      ∗ PC @@ i ->r (ai ^+ 1)%f
                      ∗ R0 @@ i ->r r0
                      ∗ ai ->a w1
                      ∗ A@i :={q}[s]
-                     ∗ RX@ i :=( rxp ! l, j)}}}.
+                     ∗ RX@ i :=(l, j)}}}.
 Proof.
   iIntros (Hdecinstr Hdechvc Haddr Hins ϕ) "(>Htok & >HPC & >HR0 & >Hai & >Hacc & >Hrx) Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
@@ -42,7 +42,7 @@ Proof.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hai") as "%Hmem".
   (* valid rx *)
-  iDestruct (gen_rx_valid_some i rxp l j with "Hrx Hrx2") as %Hrx.    
+  iDestruct (gen_rx_valid_some i l j with "Hrx Hrx2") as %Hrx.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -93,7 +93,7 @@ Proof.
     by iFrame.
 Qed.
 
-Lemma wait_empty {w1 r0 q p s E rxp z b_} ai i :
+Lemma wait_empty {w1 r0 q p s E z b_} ai i :
   decode_instruction w1 = Some Hvc ->
   decode_hvc_func r0 = Some Wait ->
   addr_in_page ai p ->
@@ -104,7 +104,7 @@ Lemma wait_empty {w1 r0 q p s E rxp z b_} ai i :
           ∗ ▷ (R0 @@ i ->r r0)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@i :={q}[s] )
-          ∗ ▷ (RX@ i :=( rxp !))
+          ∗ ▷ (RX@ i :=())
           ∗ ▷ (R1 @@ z ->r b_)}}}
     ExecI @ i ;E
     {{{ RET ExecI; <<z>>{ 1%Qp }
@@ -112,7 +112,7 @@ Lemma wait_empty {w1 r0 q p s E rxp z b_} ai i :
                      ∗ R0 @@ i ->r r0
                      ∗ ai ->a w1
                      ∗ A@i :={q}[s]
-                     ∗ RX@ i :=( rxp !)
+                     ∗ RX@ i :=()
                      ∗ R1 @@ z ->r (encode_vmid i)}}}.
 Proof.
   iIntros (Hdecinstr Hdechvc Haddr Hins Heqz ϕ) "(>Htok & >HPC & >HR0 & >Hai & >Hacc & >Hrx & >HR1') Hϕ".
@@ -131,7 +131,7 @@ Proof.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hai") as "%Hmem".
   (* valid rx *)
-  iDestruct (gen_rx_valid_none i rxp with "Hrx Hrx2") as %Hrx.    
+  iDestruct (gen_rx_valid_none i with "Hrx Hrx2") as %Hrx.
   iSplit.
   - (* reducible *)
     iPureIntro.

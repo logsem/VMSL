@@ -22,8 +22,177 @@ Section proof.
 
   Context `{hypparams: !HypervisorParameters}.
 
-  (* STSs *)
+  (** programs **)
 
+  (* the program of VM0
+    ipage is the PID of the page to lend
+    l is the length of the descriptor/message,
+    NOTE: we assume the descriptor is already written to the TX page, and R3 -> ptx+2*)
+  Definition code0 (ipage : Imm) (l : Imm)  : list Word :=
+    encode_instructions
+    [
+    (* store the page address to R1 *)
+    (* tx -> memory descriptor *des* *)
+    (* R3 -> address of a handle in *des* *)
+    Mov R1 (inl ipage);
+    (* store the initial value to R0 *)
+    (* tx -> memory descriptor *des* *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> p *)
+    Mov R0 (inl I0);
+    (* write v to p *)
+    (* tx -> memory descriptor *des* *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> p *)
+    (* R0 -> v *)
+    Str R1 R0;
+    (* tx is populated with memory descriptor *)
+    (* lend initiation *)
+    (* tx -> memory descriptor *des* *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> p *)
+    (* R0 -> v  *)
+    (* p -> 0 *)
+    Mov R0 (inl (encode_hvc_func Lend));
+    (* tx -> memory descriptor *des* *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> p *)
+    (* R0 -> Lend  *)
+    (* p -> 0 *)
+    Hvc;
+    (* R3 is populated with address of handle in the memory descriptor *)
+    (* Lend returns a new handle in R2 *)
+    (* write h to memory descriptor *)
+    (* tx -> memory descriptor *des* *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> p *)
+    (* R0 -> Succ *)
+    (* p -> 0 *)
+    (* R2 -> h *)
+    (* h ->  transaction entry *)
+    Str R3 R2;
+    (* send tx to VM1 *)
+    (* tx -> memory descriptor *des* with h *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> p *)
+    (* R0 -> Succ *)
+    (* p -> 0 *)
+    (* R2 -> h *)
+    (* h ->  transaction entry *)
+    Mov R0 (inl (encode_hvc_func Send));
+    Mov R1 (inl I1);
+    Mov R2 (inl l);
+    Hvc;
+    (* run VM1 *)
+    (* tx -> memory descriptor *des* with h *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> 1 *)
+    (* R0 -> Succ *)
+    (* p -> 0 *)
+    (* R2 -> l *)
+    (* h ->  transaction entry *)
+    Mov R0 (inl run_I);
+    Hvc;
+    (* store the handle to R1 *)
+    (* tx -> memory descriptor *des* with h *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> 1 *)
+    (* R0 -> Run *)
+    (* p -> 1 *)
+    (* R2 -> l *)
+    (* h -> transaction entry *)
+    Ldr R1 R3;
+    (* reclaim *)
+    Mov R0 (inl (encode_hvc_func Reclaim));
+    Hvc;
+    (* load the first word from the page to R1 *)
+    (* tx -> memory descriptor *des* with h *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> h *)
+    (* R0 -> Succ *)
+    (* p -> 1 *)
+    (* R2 -> l *)
+    Mov R1 (inl ipage);
+    Ldr R0 R1;
+    (* stop *)
+    (* tx -> memory descriptor *des* with h *)
+    (* R3 -> address of a handle in *des* *)
+    (* R1 -> p *)
+    (* R0 -> v' *)
+    (* p -> 1 *)
+    (* R2 -> l *)
+    Halt
+    ].
+
+  (* program of VM1
+    l is the length of the message
+   ibase is the base address of the loop body
+   iprx and iptx are the PIDs of RX and TX pages of VM1
+   ipage is the PID of the page to lend *)
+  (* TODO: VM1 knows l via msg_wait/poll *)
+  Definition code1 (l : Imm) (ibase : Imm) (iprx iptx : Imm) (ipage: Imm) : list Word :=
+    encode_instructions
+    [
+    (* loop init *)
+    Mov R5 (inl l);
+    Mov R6 (inl I0);
+    Mov R7 (inl ibase);
+
+    (* copy word from rx + l to tx + l *)
+    Mov R0 (inl I1);
+    Mov R1 (inl iprx);
+    Add R1 R5;
+    Sub R1 R0;
+    Ldr R2 R1;
+    Mov R1 (inl iptx);
+    Add R1 R5;
+    Sub R1 R5;
+    Str R1 R2;
+
+    (* loop end *)
+    Mov R8 (inl I1);
+    Sub R5 R8;
+    Cmp R6 (inr R5);
+    Bne R7;
+
+    (* tx -> descriptor *)
+    (* h -> transaction entry *)
+    (* h -> not taken *)
+    Mov R0 (inl (encode_hvc_func Retrieve));
+    Mov R1 (inl l);
+    Hvc;
+    (* tx -> descriptor *)
+    (* h -> transaction entry *)
+    (* h -> taken *)
+    (* store a new value *)
+    Mov R1 (inl ipage);
+    Mov R0 (inl I1);
+    Str R1 R0;
+    (* tx -> descriptor *)
+    (* h -> transaction entry *)
+    (* h -> taken *)
+    (* p -> 1 *)
+    (* prepare a new retrieve descriptor [h, 0] *)
+    (* copy h from rx + 1 to tx + 0 *)
+    Mov R1 (inl iprx);
+    Mov R0 (inl I1);
+    Add R1 R0;
+    Ldr R0 R1;
+    Mov R1 (inl iptx);
+    Str R1 R0;
+    (* relinquish *)
+    Mov R0 (inl (encode_hvc_func Relinquish));
+    Hvc;
+    (* poll *)
+    Mov R0 (inl (encode_hvc_func Poll));
+    Hvc;
+    (* yield *)
+    Mov R0 (inl yield_I);
+    Hvc
+    ].
+
+
+  (** STSs **)
   (* the STS used in the invariant
      VMID is the VMID of the currently running VM
      coPoset is the set of names of na invariants that can be open
@@ -163,18 +332,18 @@ Section proof.
      - γ_access: VM0 will lose it when switching to VM1.
    *)
 
-  Definition inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched ι : iProp Σ:=
+  Definition inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : iProp Σ:=
     ∃ (i : VMID) P b, <<i>>{ 1%Qp } ∗ nainv_closed P ∗ inv_state_exact γ_invm (i,P,b) ∗
     (if b then True else token γ_unchanged) ∗
     (match (fin_to_nat i,b) with
     | (0, false) => (⌜P = ⊤⌝ → token γ_access ∗ nainv_state_atleast γ_nainvm (b, None)) ∗
-                    (⌜P = ⊤ ∖↑ ι⌝ → token γ_closed)
+                    (⌜P = ⊤ ∖↑ nainv_name⌝ → token γ_closed)
     | (0, true) =>  (⌜P = ⊤⌝ → token γ_done ∗
                     ∃ h, nainv_state_atleast γ_nainvm (b, Some h)) ∗
-                    (⌜P = ⊤ ∖↑ ι⌝ → token γ_closed ∗ token γ_access)
+                    (⌜P = ⊤ ∖↑ nainv_name⌝ → token γ_closed ∗ token γ_access)
     | (1, false) => (⌜P = ⊤⌝ → token γ_done ∗
                     ∃ h, nainv_state_atleast γ_nainvm (b, Some h))
-    | (1, true) =>  (⌜P = ⊤ ∖ ↑ι⌝ → token γ_switched)
+    | (1, true) =>  (⌜P = ⊤ ∖ ↑ nainv_name⌝ → token γ_switched)
     | _ => True
     end).
 
@@ -195,9 +364,123 @@ Section proof.
                          ⌜finz.to_z wl =Z.of_nat (length des)⌝
     | (true, Some h) => ⌜r0 = of_imm run_I⌝ ∗ ⌜r0' = of_imm yield_I⌝ ∗ ⌜r1 = W1⌝ ∗
                         token γ_switched ∗ token γ_access
-    | (true, None) => ⌜r0 = of_imm run_I⌝ ∗ ⌜r0' = of_imm yield_I⌝ ∗ ⌜r1 = W1⌝ ∗
+    | (true, None) => ⌜r0 = W1⌝ ∗ ⌜r0' = of_imm yield_I⌝ ∗ ⌜r1 = W1⌝ ∗
                       token γ_done
-
     end).
+
+  Definition machine0_spec {sown qo sacc sexcl qe sh}
+             (ppage pprog ptx prx: PID)
+             (* the page to lend *)
+             (ippage : Imm)
+             (Hppageeq : of_pid ppage = ippage)
+             (* the des in TX *)
+             (des : list Word)
+             (Hdeseq : des = serialized_transaction_descriptor V0 V1 W0 I1 [ppage] W0)
+             (* ilen is the length of msg *)
+             (ilen : Imm)
+             (Hileq : Z.to_nat (finz.to_z ilen) = length des)
+             (* the whole program is in page pprog *)
+             (Hseq : seq_in_page pprog (length (code0 ippage ilen)) pprog)
+             (* has access to all involved pages *)
+             (Hacc : {[ppage; pprog; ptx]} ⊆ sacc)
+             (* at least owns ppage *)
+             (Hown : ppage ∈ sacc)
+             (* at least has exclusive access to ppage *)
+             (Hown : ppage ∈ sexcl)
+             (* the handle pool is not empty *)
+             (Hsh : sh ≠ ∅)
+             (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
+    : iProp Σ :=
+    {{{ PC @@ V0 ->r pprog
+    ∗ hp{ 1 }[ sh ]
+    ∗ O@V0 :={qo}[sown]
+    ∗ A@V0 :={1}[sacc]
+    ∗ E@V0 :={qe}[sexcl]
+    ∗ TX@V0 := ptx
+    ∗ RX@V1 := prx
+    ∗ mem_region des ptx
+    ∗ (∃ r2, R2 @@ V0 ->r r2)
+    ∗ R3 @@ V0 ->r (ptx ^+ 2)%f
+    ∗ (∃ w, ppage ->a w)
+    ∗ program (code0 ippage ilen) pprog
+    (*invariants and ghost variables *)
+    ∗ inv inv_name (inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched)
+    ∗ nainv nainv_name (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx ppage)
+    ∗ token γ_done
+    ∗ token γ_closed
+    ∗ inv_state_atleast γ_invm (V0,⊤,false)
+    }}}
+    ExecI @ V0
+      {{{ RET HaltI ;
+          PC @@ V0 ->r (pprog ^+ (length (code0 ippage ilen)))%f
+          ∗ hp{ 1 }[ sh ]
+          ∗ O@V0 :={qo}[sown]
+          ∗ A@V0 :={1}[sacc]
+          ∗ E@V0 :={qe}[sexcl]
+          ∗ TX@V0 := ptx
+          (* ∗ ∃ h, ⌜des' = serialized_transaction_descriptor V0 V1 h I1 [ppage] W0⌝ *)
+          ∗ (∃ des, mem_region des ptx)
+          ∗ R2 @@ V0 ->r ilen
+          ∗ R3 @@ V0 ->r (ptx ^+ 2)%f
+          ∗ program (code0 ippage ilen) pprog
+      }}}.
+
+
+  Definition machine1_spec {sacc}
+             (ppage pprog ptx prx : PID)
+             (ippage iptx iprx : Imm)
+             (* ibase is the base addr of the loop body *)
+             (ibase : Imm)
+             (Hibaseeq : of_imm ibase = (pprog ^+ 3)%f)
+             (Hptxeq : of_imm iptx = ptx)
+             (Hprxeq : of_imm iprx = prx)
+             (Hppageeq : of_imm ippage = ppage)
+             (* has access to RX, TX, and pprog *)
+             (Hacc : {[ptx;prx;pprog]} ⊆ sacc)
+             (* cannot have access to ppage *)
+             (HaccnIn: ppage ∉ sacc)
+             (* ilen is the length of msg *)
+             (nlen :nat)
+             (ilen : Imm)
+             (Hileneq : Z.to_nat (finz.to_z ilen) = nlen)
+             (* the whole program is in page pprog *)
+             (Hseq : seq_in_page pprog (length (code1 ilen ibase iprx iptx ippage)) pprog)
+             (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
+    : iProp Σ :=
+    {{{
+    PC @@ V1 ->r pprog
+    ∗ A@V1 :={1}[sacc]
+    ∗ TX@ V1 := ptx
+    ∗ RX@V1 := prx
+    ∗ (∃ des', mem_region des' ptx ∗ ⌜length des'= nlen⌝)
+    ∗ (∃ r, R1 @@ V1 ->r r)
+    ∗ (∃ r, R2 @@ V1 ->r r)
+    ∗ (∃ r, R5 @@ V1 ->r r)
+    ∗ (∃ r, R6 @@ V1 ->r r)
+    ∗ (∃ r, R7 @@ V1 ->r r)
+    ∗ (∃ r, R8 @@ V1 ->r r)
+    ∗ program (code1 ilen ibase iprx iptx ippage) pprog
+    (*invariants and ghost variables *)
+    ∗ inv inv_name (inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched)
+    ∗ nainv nainv_name (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx ppage)
+    ∗ token γ_switched
+    ∗ inv_state_atleast γ_invm (V0,⊤,false)
+    }}}
+      ExecI @ V1
+    {{{ RET ExecI ;
+        True
+          (* PC @@ V1 ->r (pprog ^+ (length (code1 ilen ibase iprx iptx ippage)))%f *)
+          (* ∗ A@V1 :={1}[sacc] *)
+          (* ∗ TX@ V1 := ptx *)
+          (* ∗ (∃ des', mem_region des' ptx ∗ ⌜length des'= length des⌝) *)
+          (* ∗ (∃ r, R1 @@ V1 ->r r) *)
+          (* ∗ (∃ r, R2 @@ V1 ->r r) *)
+          (* ∗ (∃ r, R5 @@ V1 ->r r) *)
+          (* ∗ (∃ r, R6 @@ V1 ->r r) *)
+          (* ∗ (∃ r, R7 @@ V1 ->r r) *)
+          (* ∗ (∃ r, R8 @@ V1 ->r r) *)
+          (* ∗ program (code1 ilen ibase iprx iptx ippage) pprog *)
+      }}}.
+
 
 End proof.

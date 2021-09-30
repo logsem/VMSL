@@ -47,7 +47,7 @@ Lemma hvc_retrieve_donate {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l s
        (* the tx page and the descriptor in it *)
        ▷ TX@ i := ptx ∗ ▷ mem_region destx ptx ∗
        (* the rx page and locations that the rx descriptor will be at *)
-       ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝) ∗
+       ▷ RX@ i :=() ∗ ▷ RX@ i := prx ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝) ∗
        (* the handle pool *)
        ▷ hp{ 1 }[ sh ] }}}
    ExecI @ i
@@ -61,12 +61,12 @@ Lemma hvc_retrieve_donate {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l s
        (* the same tx *)
        TX@ i := ptx ∗ mem_region destx ptx ∗
        (* new descriptor in rx *)
-       RX@ i :=( prx ! (l ^+ 5)%f, i)∗ mem_region desrx prx ∗
+       RX@ i :=((l ^+ 5)%f, i) ∗ RX@ i := prx ∗ mem_region desrx prx ∗
        (* the transaction is completed, deallocate it and release the handle *)
        hp{ 1 }[ sh ∪ {[wh]} ] }}}.
 Proof.
   iIntros (Hdecodei Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Hlenl Hdestx Hdesrx Hdestxl Hseqtx Hseqrx Φ).
-  iIntros "(>PC & >Hai & >Hr0  & >Hr1  & >HO & >HE & >HA & >Hwhf & >Hwh & >HTX & >Hmemr & >HRX & >HRXCont & >Hpool) HΦ".
+  iIntros "(>PC & >Hai & >Hr0  & >Hr1  & >HO & >HE & >HA & >Hwhf & >Hwh & >HTX & >Hmemr & >HRX2 & >HRX1 & >HRXCont & >Hpool) HΦ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [Hcureq]; clear Hsche.
@@ -86,8 +86,7 @@ Proof.
   iDestruct (gen_mem_valid_SepL_pure _ destx with "Hσmem Hmemr") as %Hadesc.
   { apply finz_seq_NoDup'. destruct Hseqtx as [_ [_ [HisSome _]]]. solve_finz. }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
-  iDestruct (gen_rx_valid_none with "HRX Hσrx2") as %Hrx2.
-  iDestruct "HRX" as "(HRX1 & HRX2)".
+  iDestruct (gen_rx_valid_none with "HRX2 Hσrx2") as %Hrx2.
   iDestruct (gen_rx_pid_valid with "HRX1 Hσrx1") as %Hrx1.
   iDestruct ((gen_own_valid_pure sown) with "Hσowned HO") as %Hown; eauto.
   iDestruct ((gen_excl_valid_pure sexcl) with "Hσexcl HE") as %Hexcl; eauto.
@@ -254,8 +253,7 @@ Proof.
     (* update rx *)
     rewrite update_offset_PC_preserve_rx2 update_access_batch_preserve_rx2 update_ownership_batch_preserve_rx2
             update_reg_global_preserve_rx2 remove_transaction_preserve_rx2.
-    iDestruct ((gen_rx_gmap_update_global_None i (l ^+ 5)%f i prx) with "Hσrx2 [HRX1 HRX2]") as ">[Hσrx' [HRX1 HRX2]]".
-    { iFrame. }
+    iDestruct ((gen_rx_gmap_update_global_None i (l ^+ 5)%f i) with "Hσrx2 HRX2") as ">[Hσrx' HRX2]".
     rewrite fill_rx_unsafe_update_mailbox write_mem_segment_unsafe_preserve_rx2.
     iFrame "Hσrx'".
     (* update transactions *)
@@ -349,7 +347,6 @@ Lemma retrieve_lend_share {sacc sexcl j desrx ptx prx l ai r0 wh wf} σ1 i tt se
   R0 @@ i ->r r0 -∗
   wh->t{1}(j,wf,i,psd,tt) -∗
   wh->refalse -∗
-  RX@i:=prx -∗
   rx_option_mapsto i None -∗
   (∃ l0 : list handle, mem_region l0 prx ∗ ⌜length l0 = length desrx⌝) -∗
   gen_vm_interp σ1 ={⊤}=∗
@@ -365,7 +362,6 @@ Lemma retrieve_lend_share {sacc sexcl j desrx ptx prx l ai r0 wh wf} σ1 i tt se
   ∗ wh->t{1}(j,wf,i,psd,tt)
   ∗ PC @@ i ->r (ai ^+ 1)%f
   ∗ R0 @@ i ->r encode_hvc_ret_code Succ
-  ∗ RX@i:=prx
   ∗ rx_option_mapsto i (Some ((l ^+ 5)%f, i))
   ∗ wh->retrue
   ∗ ([∗ list] a;w' ∈ finz.seq prx (length desrx);(of_imm (encode_vmid j) :: wf :: wh :: encode_transaction_type tt
@@ -373,7 +369,8 @@ Lemma retrieve_lend_share {sacc sexcl j desrx ptx prx l ai r0 wh wf} σ1 i tt se
   ∗ A@i:={1}[sacc ∪ spsd]
   ∗ E@i:={1}[sexcl'].
 Proof.
-  iIntros (Htt Hpsd Hlenl Hdesrx Hseqrx Htx Hrx1 Hcureq HPC HR1 Hsacc Hsexcl Htrans) "PC Hacc Hexcl R0 Htrans Hretri Hrx1 Hrx2 Hmemdesrx Hσ".
+  iIntros (Htt Hpsd Hlenl Hdesrx Hseqrx Htx Hrx1 Hcureq HPC HR1 Hsacc Hsexcl Htrans)
+          "PC Hacc Hexcl R0 Htrans Hretri Hrx2 Hmemdesrx Hσ".
   iDestruct "Hσ" as "(Hcur & Hσmem & Hσreg & Hσtx & Hσrx1 & Hσrx2 & Hσowned & Hσaccess & Hσexcl
           & Hσtrans & Hσhp & %Hdisj & %Hlen & Hσretri)".
   iDestruct ((gen_access_valid_pure sacc) with "Hσaccess Hacc") as %Hacc; eauto.
@@ -433,10 +430,9 @@ Proof.
   rewrite fill_rx_unsafe_preserve_trans write_mem_segment_unsafe_preserve_trans.
   iFrame "Hσtrans".
   (* update rx *)
-  iCombine "Hrx1 Hrx2" as "Hrx".
   rewrite update_offset_PC_preserve_rx2 update_access_batch_preserve_rx2
           update_reg_global_preserve_rx2 update_transaction_preserve_rx2.
-  iDestruct ((gen_rx_gmap_update_global_None i (l ^+ 5)%f i prx) with "Hσrx2 Hrx") as ">[Hσrx [Hrx1 Hrx2]]".
+  iDestruct ((gen_rx_gmap_update_global_None i (l ^+ 5)%f i) with "Hσrx2 Hrx2") as ">[Hσrx Hrx2]".
   rewrite fill_rx_unsafe_update_mailbox.
   iFrame "Hσrx".
   (* update retri *)
@@ -505,7 +501,8 @@ Proof.
     fill_rx_unsafe_preserve_excl write_mem_segment_unsafe_preserve_excl.
     iFrame "Hσexcl".
     rewrite Hlen' -Hdesrx.
-    iFrame "Htrans PC R0 Hrx1 Hrx2 Hretri Hmem Hacc Hexcl".
+    iFrame "Htrans PC R0 Hrx2 Hretri Hmem Hacc Hexcl".
+    iModIntro.
     iPureIntro.
     split;[rewrite get_trans_gmap_preserve_dom // |].
     apply map_Forall_insert_2; auto.
@@ -532,7 +529,7 @@ Proof.
     fill_rx_unsafe_preserve_excl write_mem_segment_unsafe_preserve_excl.
     iFrame "Hσexcl".
     rewrite Hlen' -Hdesrx.
-    iFrame "Htrans PC R0 Hrx1 Hrx2 Hretri Hmem Hacc Hexcl".
+    iFrame "Htrans PC R0 Hrx2 Hretri Hmem Hacc Hexcl".
     iPureIntro.
     split;[rewrite get_trans_gmap_preserve_dom // |].
     apply map_Forall_insert_2; auto.
@@ -587,7 +584,7 @@ Lemma hvc_retrieve_lend_share {tt sexcl' wi sown sacc pi sexcl i j destx wf' des
        (* the tx page and the descriptor in it *)
        ▷ TX@ i := ptx ∗ ▷ mem_region destx ptx ∗
        (* the rx page and locations that the rx descriptor will be at *)
-       ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
+       ▷ RX@ i := prx ∗ ▷ RX@ i :=() ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
    ExecI @ i
    {{{ RET ExecI ;
        (* PC is incremented *)
@@ -599,12 +596,12 @@ Lemma hvc_retrieve_lend_share {tt sexcl' wi sown sacc pi sexcl i j destx wf' des
        (* the same tx *)
        TX@ i := ptx ∗ mem_region destx ptx ∗
        (* new descriptor in rx *)
-       RX@ i :=( prx ! (l ^+ 5)%f, i)∗ mem_region desrx prx ∗
+       RX@ i := prx ∗ RX@i :=((l ^+ 5)%f, i)∗ mem_region desrx prx ∗
        (* the transaction is marked as retrieved *)
        wh ->t{1}(j, wf, i, psd, tt) ∗ wh ->re true}}}.
 Proof.
   iIntros (Hdecodei Hinpi Hdecodef Hpiacc Hpsd Hsown Hsacc Hsexcl Htt Hlenl Hdestx Hdesrx Hdestxl Hseqtx Hseqrx).
-  iIntros (Φ) "(>PC & >Hai & >Hr0  & >Hr1  & >HO & >HE & >HA & >Hwhf & >Hwh & >HTX & >Hmemr & >HRX & >HRXCont) HΦ".
+  iIntros (Φ) "(>PC & >Hai & >Hr0  & >Hr1  & >HO & >HE & >HA & >Hwhf & >Hwh & >HTX & >Hmemr & >HRX1 & >HRX2 & >HRXCont) HΦ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [Hcureq]; clear Hsche.
@@ -624,8 +621,7 @@ Proof.
   iDestruct (gen_mem_valid_SepL_pure _ destx with "Hσmem Hmemr") as %Hadesc.
   { apply finz_seq_NoDup'. destruct Hseqtx as [_ [_ [HisSome _]]]. solve_finz. }
   iDestruct (gen_tx_valid with "HTX Hσtx") as %Htx.
-  iDestruct (gen_rx_valid_none with "HRX Hσrx2") as %Hrx2.
-  iDestruct "HRX" as "(HRX1 & HRX2)".
+  iDestruct (gen_rx_valid_none with "HRX2 Hσrx2") as %Hrx2.
   iDestruct (gen_rx_pid_valid with "HRX1 Hσrx1") as %Hrx1.
   iDestruct ((gen_own_valid_pure sown) with "Hσowned HO") as %Hown; eauto.
   iDestruct ((gen_excl_valid_pure sexcl) with "Hσexcl HE") as %Hexcl; eauto.
@@ -726,7 +722,8 @@ Proof.
     simpl;clear Heqc2.
     {
     iDestruct ((retrieve_lend_share σ1 i Lending (sexcl ∪ spsd) ExclusiveAccess spsd psd)
-                 with "PC HA HE Hr0 Hwh Hwhf HRX1 HRX2 HRXCont [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hrcv]") as ">[Hσ Hres]";try done.
+                 with "PC HA HE Hr0 Hwh Hwhf HRX2 HRXCont [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hrcv]")
+        as ">[Hσ Hres]";try done.
     left.
     repeat split;done.
     iFrame.
@@ -734,20 +731,21 @@ Proof.
     iFrame "Hσ".
     iApply "HΦ".
     iFrame.
-    iDestruct "Hres" as "(?&?&?&?&?&?&?&?&?)".
+    iDestruct "Hres" as "(?&?&?&?&?&?&?&?)".
     rewrite Hdesrx.
     by iFrame.
     }
     {
     iDestruct ((retrieve_lend_share σ1 i Sharing sexcl SharedAccess spsd psd)
-                 with "PC HA HE Hr0 Hwh Hwhf HRX1 HRX2 HRXCont [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hrcv]") as ">[Hσ Hres]";try done.
+                 with "PC HA HE Hr0 Hwh Hwhf HRX2 HRXCont [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hrcv]")
+        as ">[Hσ Hres]";try done.
     right;done.
     iFrame.
     done.
     iFrame "Hσ".
     iApply "HΦ".
     iFrame.
-    iDestruct "Hres" as "(?&?&?&?&?&?&?&?&?)".
+    iDestruct "Hres" as "(?&?&?&?&?&?&?&?)".
     rewrite Hdesrx.
     by iFrame.
     }
@@ -774,16 +772,16 @@ Lemma hvc_retrieve_lend {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} {s
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ wh ->re false
   ∗ ▷ (R1 @@ i ->r r1) ∗ ▷ wh ->t{1}(j, wf, i, psd, Lending)
   ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
-  ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
+  ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i := prx ∗ ▷ RX@ i :=() ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
   ∗ O@i:={1}[(sown)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
   ∗ TX@ i := ptx ∗ mem_region destx ptx
-  ∗ RX@ i :=( prx ! (l ^+ 5)%f, i) ∗ mem_region desrx prx
+  ∗ RX@ i := prx ∗ RX@i :=((l ^+ 5)%f, i) ∗ mem_region desrx prx
   ∗ wh ->t{1}(j, wf, i, psd, Lending) ∗ wh ->re true }}}.
 Proof.
   iIntros (???????????????).
-  iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?)".
+  iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?&?)".
   iApply hvc_retrieve_lend_share;eauto.
   iFrame.
 Qed.
@@ -808,16 +806,16 @@ Lemma hvc_retrieve_share { wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} 
   ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ wh ->re false
   ∗ ▷ (R1 @@ i ->r r1) ∗ ▷ wh ->t{1}(j, wf, i, psd, Sharing)
   ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ TX@ i := ptx
-  ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=( prx !) ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
+  ∗ ▷ mem_region destx ptx ∗ ▷ RX@ i :=prx ∗ ▷RX@i :=() ∗ ▷ (∃l, mem_region l prx ∗ ⌜ length l = length desrx ⌝)}}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@ i ->r r1
   ∗ O@i:={1}[(sown)] ∗ E@i:={1}[sexcl] ∗ A@i:={1}[(sacc ∪ spsd)]
   ∗ TX@ i := ptx ∗ mem_region destx ptx
-  ∗ RX@ i :=( prx ! (l ^+ 5)%f, i) ∗ mem_region desrx prx
+  ∗ RX@ i := prx ∗ RX@ i:=((l ^+ 5)%f, i) ∗ mem_region desrx prx
   ∗ wh ->t{1}(j, wf, i, psd, Sharing) ∗ wh ->re true}}}.
 Proof.
   iIntros (???????????????).
-  iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?)".
+  iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?&?)".
   iApply hvc_retrieve_lend_share;eauto.
   iFrame.
 Qed.
