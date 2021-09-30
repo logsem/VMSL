@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra mem_extra reg_extra pagetable_extra 
 
 Section relinquish_nz.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
 Lemma hvc_relinquish_nz {tt wi sacc pi sexcl i j des ptx} {spsd: gset PID}
@@ -80,7 +81,7 @@ Proof.
   iDestruct (gen_retri_valid with "Hretri Hσretri") as %[? [Hretri Hretrieved]].
   rewrite Hretri in Htrans.
   destruct x.
-  2: { inversion Htrans. rewrite H0 in Hretrieved. done. }
+  2: { inversion Htrans. rewrite H1 in Hretrieved. done. }
   rewrite Htrans in Hretri.
   clear x0 Hretrieved Htrans.
   iSplit.
@@ -128,8 +129,8 @@ Proof.
     rewrite_reg_pc.
     rewrite_access_all.
     rewrite update_access_batch_preserve_ownerships.
-    rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);auto.
-    rewrite (@update_access_batch_update_excl_diff _ i sexcl _ spsd psd);auto.
+    rewrite (@update_access_batch_update_access_diff _ _ i sacc spsd psd);auto.
+    rewrite (@update_access_batch_update_excl_diff _ _ i sexcl _ spsd psd);auto.
     rewrite_reg_global.
     rewrite_trans_update.
     iFrame "Hcur Hσmem Hσrx1 Hσrx2 Hσtx".
@@ -155,7 +156,7 @@ Proof.
     rewrite -get_trans_gmap_preserve_dom.
     rewrite (update_transaction_preserve_trans _ _ true false);auto.
     rewrite -get_retri_gmap_to_get_transaction get_trans_gmap_preserve_dom.
-    iDestruct ((@gen_retri_update _ _ _ true false) with "Hretri Hσretri") as ">[Hσretri Hretri]".
+    iDestruct ((@gen_retri_update _ _ _ _ true false) with "Hretri Hσretri") as ">[Hσretri Hretri]".
     {
      eapply get_retri_gmap_lookup.
      exact Hretri.
@@ -167,9 +168,9 @@ Proof.
     rewrite /get_transactions /update_transaction /insert_transaction //=.
     intro.
     rewrite /get_transactions /update_transaction /insert_transaction //=.
-    intros.
-    apply lookup_insert_Some in H.
-    destruct H as [[_ <-] | [? ?]].
+    intros ? HxIn.
+    apply lookup_insert_Some in HxIn.
+    destruct HxIn as [[_ <-] | [? ?]].
     cbn.
     pose proof (Hσpsdl wh (j, wf, true, i, psd, tt) Hretri) as Hlt.
     cbn in Hlt.

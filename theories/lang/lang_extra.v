@@ -4,6 +4,11 @@ From iris.algebra Require Import auth gmap gset.
 From iris.proofmode Require Import tactics.
 From stdpp Require Import list.
 
+Section lang_extra.
+
+Context `{HyperConst : !HypervisorConstants}.
+Context `{HyperParams : !HypervisorParameters}.
+
 Lemma check_access_page_mem_eq {σ i a} :
   check_access_page' σ i (to_pid_aligned a) =
   check_access_addr σ i a.
@@ -529,3 +534,5 @@ Qed.
     destruct r;[contradiction|contradiction|].
     rewrite H1 //.
   Qed.
+
+End lang_extra.

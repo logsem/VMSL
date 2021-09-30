@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section mult.
 
+Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
 Lemma mult_word {E instr i w1 w3 q p s} a w2 ra :

@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section br.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma br {instr i w1 w2 q} ai  ra :

@@ -1,6 +1,8 @@
 From HypVeri.algebra Require Import base.
 
 Section trans_rules.
+
+  Context `{HyperConst : !HypervisorConstants}.
   Context `{vmG :!gen_VMG Σ}.
 
 (* rules for transactions *)

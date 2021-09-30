@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section cmp.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma cmp_word {instr i w1 w2 w3 w4 q pi} ai ra :

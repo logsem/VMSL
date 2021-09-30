@@ -5,6 +5,8 @@ From HypVeri.examples Require Import instr.
 
 Section RunYield1.
 
+  Context `{hypparams:HypervisorParameters}.
+
   Definition program1 (i : VMID) : list Word :=
     [
     mov_word_I R0 run_I;
@@ -21,7 +23,7 @@ Section RunYield1.
   
   Class tokG Σ := tok_G :> inG Σ (exclR unitO).
 
-  Context `{gen_VMG Σ, tokG Σ} (N : namespace).
+  Context `{!gen_VMG Σ, tokG Σ} (N : namespace).
 
   Definition tokI γ := own γ (Excl ()).
 

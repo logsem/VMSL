@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra mem_extra pagetable_extra 
 
 Section reclaim.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
 Lemma hvc_reclaim wi sown sacc pi sexcl i j sh tt sacc' (spsd: gset PID)
@@ -122,12 +123,12 @@ Proof.
     iFrame "Hσreg".
     (* update pt *)
     rewrite update_access_batch_preserve_ownerships.
-    rewrite (@update_ownership_batch_update_pagetable_union _ i sown spsd psd Heqpsd); f_equal;eauto.
+    rewrite (@update_ownership_batch_update_pagetable_union _ _ i sown spsd psd Heqpsd); f_equal;eauto.
     rewrite remove_transaction_preserve_owned.
     iDestruct ((gen_own_update_union spsd) with "Hown Hσowned") as ">[Hσowned Hown]"; f_equal.
     { exact Heqpsd. }
     iFrame "Hσowned".
-    rewrite (@update_exclusive_batch_update_pagetable_union _ i sexcl spsd psd Heqpsd); f_equal;eauto.
+    rewrite (@update_exclusive_batch_update_pagetable_union _ _ i sexcl spsd psd Heqpsd); f_equal;eauto.
     2: { rewrite update_ownership_batch_preserve_excl remove_transaction_preserve_excl. exact Hexcl. }
     rewrite update_ownership_batch_preserve_excl remove_transaction_preserve_excl.
     iDestruct ((gen_excl_update_union spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]"; f_equal.
@@ -151,7 +152,7 @@ Proof.
     iFrame.
     destruct Htt as [(-> & Hsacc & ->)|(-> & Hsacc & ->)].
     {
-    rewrite (@update_access_batch_update_pagetable_union _ i sacc ExclusiveAccess spsd psd Heqpsd); f_equal;eauto.
+    rewrite (@update_access_batch_update_pagetable_union _ _ i sacc ExclusiveAccess spsd psd Heqpsd); f_equal;eauto.
     2: { rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access. exact Hacc.  }
     rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access.
     iDestruct ((gen_access_update_union spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]"; f_equal.
@@ -164,34 +165,33 @@ Proof.
     split.
     set_solver.
     intro.
-    intros.
-    apply lookup_delete_Some in H.
-    destruct H as [_ Hlk].
+    intros ? Hdelete.
+    apply lookup_delete_Some in Hdelete.
+    destruct Hdelete as [_ Hlk].
     apply (Hσpsdl i0 _ Hlk).
     iApply "HΦ".
     iFrame.
     }
     {
-     rewrite (@update_access_batch_update_pagetable_idempotent _ i sacc ExclusiveAccess spsd psd);auto.
-    2: {
-      rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access. exact Hacc.  }
-rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access.
-    iFrame "Hσaccess".
-    (* pure *)
-    iModIntro.
-    iSplitR.
-    iPureIntro.
-    split.
-    set_solver.
-    intro.
-    intros.
-    apply lookup_delete_Some in H.
-    destruct H as [_ Hlk].
-    apply (Hσpsdl i0 _ Hlk).
-    iApply "HΦ".
-    iFrame.
+     rewrite (@update_access_batch_update_pagetable_idempotent _ _ i sacc ExclusiveAccess spsd psd);auto.
+     2: { rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access. exact Hacc.  }
+     rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access.
+     iFrame "Hσaccess".
+     (* pure *)
+     iModIntro.
+     iSplitR.
+     iPureIntro.
+     split.
+     set_solver.
+     intro.
+     intros ? Hdelete.
+     apply lookup_delete_Some in Hdelete.
+     destruct Hdelete as [_ Hlk].
+     apply (Hσpsdl i0 _ Hlk).
+     iApply "HΦ".
+     iFrame.
     }
-    Qed.
+Qed.
 
 
 Lemma hvc_reclaim_lend {wi sown sacc pi sexcl i j sh} {spsd: gset PID}

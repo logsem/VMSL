@@ -1,6 +1,9 @@
 From HypVeri Require Import machine.
 From HypVeri.algebra Require Import base.
 
+Section reg_extra.
+
+Context `{HyperConst : HypervisorConstants}.
 
 Lemma update_reg_global_preserve_current_vm σ i r w :
   (get_current_vm (update_reg_global σ i r w)) = (get_current_vm σ).
@@ -52,23 +55,6 @@ Proof. f_equal. Qed.
 Lemma update_reg_global_preserve_retri σ i r w :
   get_retri_gmap (update_reg_global σ i r w) = (get_retri_gmap σ).
 Proof. f_equal. Qed.
-
-Ltac rewrite_reg_global :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_reg_global_preserve_current_vm;
-    try rewrite -> update_reg_global_preserve_mem;
-    try rewrite -> update_reg_global_preserve_tx;
-    try rewrite  -> update_reg_global_preserve_rx1;
-    try rewrite  -> update_reg_global_preserve_rx2;
-    try rewrite -> update_reg_global_preserve_owned;
-    try rewrite -> update_reg_global_preserve_access;
-    try rewrite -> update_reg_global_preserve_excl;
-    try rewrite -> update_reg_global_preserve_trans;
-    try rewrite -> update_reg_global_preserve_trans';
-    try rewrite -> update_reg_global_preserve_hpool;
-    try rewrite -> update_reg_global_preserve_retri
-  end.
 
 
 Lemma update_offset_PC_preserve_current_vm σ o :
@@ -185,23 +171,6 @@ Proof.
   rewrite /update_reg update_reg_global_preserve_retri;done.
   done.
 Qed.
-
-Ltac rewrite_reg_pc :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_offset_PC_preserve_current_vm;
-    try rewrite -> update_offset_PC_preserve_mem;
-    try rewrite -> update_offset_PC_preserve_tx;
-    try rewrite -> update_offset_PC_preserve_rx1;
-    try rewrite -> update_offset_PC_preserve_rx2;
-    try rewrite -> update_offset_PC_preserve_owned;
-    try rewrite -> update_offset_PC_preserve_access;
-    try rewrite -> update_offset_PC_preserve_excl;
-    try rewrite -> update_offset_PC_preserve_trans;
-    try rewrite -> update_offset_PC_preserve_trans';
-    try rewrite -> update_offset_PC_preserve_hpool;
-    try rewrite -> update_offset_PC_preserve_retri
-  end.
 
 
 Lemma get_reg_global_update_reg_global_ne_vmid {σ i j R1 R2 A B} :
@@ -322,13 +291,6 @@ Proof.
   unfold get_reg,get_reg_global;subst;done.
 Qed.
 
-Ltac solve_reg_lookup :=
-  match goal with
-  | _ : get_reg ?σ ?r = Some ?w |- get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r = Some ?w |- is_Some (get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
-  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
-    rewrite lookup_insert_ne; eauto
-  end.
 
 Lemma update_reg_global_update_reg σ i r w :
   is_Some((get_reg_gmap σ) !! (r,i)) ->
@@ -394,3 +356,48 @@ Proof.
   exists x0.2.
     by rewrite H4.
 Qed.
+
+End reg_extra.
+
+
+Ltac rewrite_reg_global :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_reg_global_preserve_current_vm;
+    try rewrite -> update_reg_global_preserve_mem;
+    try rewrite -> update_reg_global_preserve_tx;
+    try rewrite  -> update_reg_global_preserve_rx1;
+    try rewrite  -> update_reg_global_preserve_rx2;
+    try rewrite -> update_reg_global_preserve_owned;
+    try rewrite -> update_reg_global_preserve_access;
+    try rewrite -> update_reg_global_preserve_excl;
+    try rewrite -> update_reg_global_preserve_trans;
+    try rewrite -> update_reg_global_preserve_trans';
+    try rewrite -> update_reg_global_preserve_hpool;
+    try rewrite -> update_reg_global_preserve_retri
+  end.
+
+Ltac solve_reg_lookup :=
+  match goal with
+  | _ : get_reg ?σ ?r = Some ?w |- get_reg_gmap ?σ !! (?r, ?i) = Some ?w => rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r = Some ?w |- is_Some (get_reg_gmap ?σ !! (?r, ?i)) => eexists;rewrite get_reg_gmap_get_reg_Some;eauto
+  | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
+    rewrite lookup_insert_ne; eauto
+  end.
+
+Ltac rewrite_reg_pc :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_offset_PC_preserve_current_vm;
+    try rewrite -> update_offset_PC_preserve_mem;
+    try rewrite -> update_offset_PC_preserve_tx;
+    try rewrite -> update_offset_PC_preserve_rx1;
+    try rewrite -> update_offset_PC_preserve_rx2;
+    try rewrite -> update_offset_PC_preserve_owned;
+    try rewrite -> update_offset_PC_preserve_access;
+    try rewrite -> update_offset_PC_preserve_excl;
+    try rewrite -> update_offset_PC_preserve_trans;
+    try rewrite -> update_offset_PC_preserve_trans';
+    try rewrite -> update_offset_PC_preserve_hpool;
+    try rewrite -> update_offset_PC_preserve_retri
+  end.

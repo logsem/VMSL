@@ -5,9 +5,8 @@ From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section mov.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
-
-
 
 Lemma mov_word {E i w1 w3 q p s} a w2 ra :
   decode_instruction w1 = Some (Mov ra (inl w2)) ->

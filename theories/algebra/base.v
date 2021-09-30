@@ -4,7 +4,7 @@ From iris.proofmode Require Export tactics.
 From HypVeri Require Import monad machine.
 From HypVeri Require Export machine_extra lang.
 
-Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
+Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
   gen_token_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO V)));
   gen_mem_preG_inG :> gen_heapGpreS A W Σ;
@@ -19,6 +19,9 @@ Class gen_VMPreG (A V W R P F: Type) (Σ:gFunctors)
   gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
   gen_retri_preG_inG :> gen_heapGpreS W bool Σ
   }.
+
+Section gen_vmG.
+Context `{hypconst : !HypervisorConstants}.
 
 Class gen_VMG Σ := GenVMG{
                        gen_VM_inG :> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ;
@@ -77,14 +80,19 @@ Definition gen_VMΣ : gFunctors :=
     gen_heapΣ Word bool
    ].
 
+
 Global Instance subG_gen_VMPreG {Σ}:
   subG gen_VMΣ Σ -> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ.
 Proof.
   solve_inG.
 Qed.
 
+End gen_vmG.
+
+
 Section definitions.
-  Context `{vmG : !gen_VMG Σ}.
+  Context `{vmG : gen_VMG Σ}.
+
   Implicit Type σ: state.
 
   Definition get_token  (v:VMID) :=
@@ -286,7 +294,10 @@ Notation "hp{ q }[ s ]" := (hpool_mapsto q s) (at level 20, format "hp{ q }[ s ]
 Section alloc_rules.
   (* these rules cannot be parametrized by gen_vmG, otherwise it is not possible to prove any
    adequacy lemmas for examples. *)
-  Context `{! gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ}.
+
+  Context `{HyperConst : !HypervisorConstants}.
+  Context `{HyperParams : !HypervisorParameters}.
+  Context `{!gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ}.
   Lemma gen_token_alloc i :
    ⊢ |==> ∃ γ, own γ (get_token i) ∗ own γ (frac_auth_frag 1%Qp (to_agree (i: leibnizO VMID))).
   Proof.
@@ -370,6 +381,8 @@ Section alloc_rules.
 End alloc_rules.
 
 Section other_rules.
+  Context `{HyperConst : !HypervisorConstants}.
+  Context `{HyperParams : !HypervisorParameters}.
   Context `{vmG : !gen_VMG Σ}.
 
   Lemma nainv_alloc γ E P :  ▷ P ={E}=∗ na_inv (gen_nainv_name vmG) γ P.

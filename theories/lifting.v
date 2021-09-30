@@ -3,15 +3,17 @@ From HypVeri Require Import lang.
 From iris.proofmode Require Import tactics.
 
 
+Section lifting.
+
+Context `{HyperConst : !HypervisorConstants}.
+Context `{HyperParams : !HypervisorParameters}.
 Lemma machine_mixin : MachineMixin terminated step.
 Proof.
   refine {| mixin_terminated_stuck := terminated_stuck |}.
 Qed.
 
-Canonical Structure hyp_machine :=
+Global Canonical Structure hyp_machine :=
   Machine terminated step (Some scheduler) machine_mixin.
-
-Section lifting.
 
 Context `{_ : !irisG hyp_machine Σ}.
 

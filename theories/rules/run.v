@@ -6,6 +6,7 @@ Require Import stdpp.fin.
 
 Section run.
 
+Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma run {z w1 w2 w3 q p s E} ai i :

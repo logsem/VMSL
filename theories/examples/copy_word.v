@@ -10,7 +10,7 @@ Section copy_word.
     encode_instructions
     [
       Mov R2 (inr R5); (* move the # of iterations to R2 *)
-      Mov R3 (inl I0);
+      Mov R3 (inl I1);
       Sub R2 R3; (* R5 - 1 = R2 (offset) *)
       Mov R3 (inr R2); (* copy R2 to R3 *)
       Mov R0 (inl src);
@@ -21,7 +21,8 @@ Section copy_word.
       Str R3 R1
     ].
 
-  Context `{gen_VMG Σ}.
+  Context `{hypparams:HypervisorParameters}.
+  Context `{vmG: !gen_VMG Σ}.
 
   Lemma copy_word {ptx prx progpage: PID} {sacc: gset PID} {ws ws' : list Word}
         {w r0_ r1_ r2_ r3_:Word} {i q}{iprx iptx: Imm}
@@ -62,7 +63,7 @@ Section copy_word.
           ∗ (TX@ i := ptx)
           ∗ (∃ ws', mem_region ws' ptx ∗ ⌜ ∀ i, i <= (len - (noff-1)) -> ws !! i = ws' !! i ⌝))}}%I).
   Proof.
-    Admitted.
+  Admitted.
 
   (* TODO: prove another spec that combine loop and the program above together, shouldn't be difficult *)
 
@@ -132,3 +133,5 @@ Section copy_word.
   (*   solve_finz. *)
   (*   iFrame. *)
   (* Qed. *)
+
+  End copy_word.

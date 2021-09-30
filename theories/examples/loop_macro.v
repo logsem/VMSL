@@ -7,8 +7,8 @@ Section loop_macro.
   (* TODOs:
      - branch rule ???
    *)
-
-  Context `{gen_VMG Σ}.
+  Context `{hypparams: HypervisorParameters}.
+  Context `{vmG: !gen_VMG Σ}.
 
   Definition l_pre step base :=
     [

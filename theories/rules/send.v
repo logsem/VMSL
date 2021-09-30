@@ -5,7 +5,7 @@ From HypVeri.lang Require Import lang_extra mem_extra reg_extra current_extra.
 Require Import stdpp.fin.
 
 Section send.
-
+  Context `{hypparams: HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
 Lemma hvc_send_primary {wi r0 w sacc pi i j des ptx rxp l ai} :
@@ -92,8 +92,8 @@ Proof.
     rewrite -Hcureq in Heqc2.
     assert (Htemp : forall σ σ', (get_current_vm σ) = (get_current_vm σ') ->
                                  update_current_vmid σ (get_current_vm σ') = σ).
-    intros σ σ' H.
-    rewrite -H /update_current_vmid
+    intros σ σ' Hcureq'.
+    rewrite -Hcureq' /update_current_vmid
             /get_reg_files /get_mail_boxes
             /get_page_tables /get_current_vm
             /get_mem /get_transactions.

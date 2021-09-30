@@ -4,8 +4,8 @@ From HypVeri Require Import lifting.
 From HypVeri.lang Require Import lang_extra.
 Require Import stdpp.fin.
 
-
-Global Instance hyp_irisG `{gen_VMG Σ}: irisG hyp_machine Σ:=
+Global Instance hyp_irisG `{HypervisorParameters} `{!gen_VMG Σ} :
+  irisG hyp_machine Σ:=
   {
   iris_invG := gen_invG;
   state_interp := gen_vm_interp
@@ -13,13 +13,16 @@ Global Instance hyp_irisG `{gen_VMG Σ}: irisG hyp_machine Σ:=
 
 Section rules_base.
 
+Context `{hypconst: HypervisorConstants}.
+Context `{hypparams: !HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
+
 Implicit Type a : Addr.
 Implicit Type i : VMID.
 Implicit Type ra rb : reg_name.
 Implicit Type w: Word.
 Implicit Type q : Qp.
-  
+
 
 Lemma not_valid_pc {a i s} :
   (to_pid_aligned a) ∉ s ->

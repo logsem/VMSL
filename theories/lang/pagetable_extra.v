@@ -1,6 +1,10 @@
 From HypVeri Require Import machine machine_extra tactics.
 From HypVeri.algebra Require Import base.
 
+Section pagetable_extra.
+
+Context `{HyperConst : HypervisorConstants}.
+
 Lemma update_ownership_batch_preserve_current_vm σ (ps: list PID) perm:
  get_current_vm (update_ownership_batch σ ps perm) = get_current_vm σ.
 Proof. f_equal. Qed.
@@ -110,21 +114,6 @@ Proof.
   rewrite vlookup_insert_ne //.
 Qed.
 
-
-Ltac rewrite_ownership_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_ownership_batch_preserve_current_vm;
-    try rewrite -> update_ownership_batch_preserve_regs;
-    try rewrite -> update_ownership_batch_preserve_mem;
-    try rewrite -> update_ownership_batch_preserve_tx;
-    try rewrite -> update_ownership_batch_preserve_rx1;
-    try rewrite -> update_ownership_batch_preserve_rx2;
-    try rewrite -> update_ownership_batch_preserve_trans;
-    try rewrite -> update_ownership_batch_preserve_trans';
-    try rewrite -> update_ownership_batch_preserve_hpool;
-    try rewrite -> update_ownership_batch_preserve_retri
-  end.
 
 
 Lemma update_access_batch_preserve_current_vm σ (ps: list PID) perm:
@@ -358,24 +347,6 @@ Proof.
       rewrite /get_vm_page_table /get_page_tables /update_access_batch /update_access_global_batch /=.
       rewrite vlookup_insert_ne;auto.
     Qed.
-
-
-
-Ltac rewrite_access_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_access_batch_preserve_current_vm;
-    try rewrite -> update_access_batch_preserve_regs;
-    try rewrite -> update_access_batch_preserve_mem;
-    try rewrite -> update_access_batch_preserve_tx;
-    try rewrite -> update_access_batch_preserve_rx1;
-    try rewrite -> update_access_batch_preserve_rx2;
-    try rewrite -> update_access_batch_preserve_trans;
-    try rewrite -> update_access_batch_preserve_trans';
-    try rewrite -> update_access_batch_preserve_hpool;
-    try rewrite -> update_access_batch_preserve_retri
-  end.
-
 
 
 Lemma get_pagetable_gmap_checkb {Perm:Type} {σ i s} proj (checkb: Perm -> bool) p:
@@ -1289,3 +1260,36 @@ Proof.
       simpl in H2;inversion H3.
         by subst.
 Qed.
+
+
+End pagetable_extra.
+
+Ltac rewrite_ownership_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_ownership_batch_preserve_current_vm;
+    try rewrite -> update_ownership_batch_preserve_regs;
+    try rewrite -> update_ownership_batch_preserve_mem;
+    try rewrite -> update_ownership_batch_preserve_tx;
+    try rewrite -> update_ownership_batch_preserve_rx1;
+    try rewrite -> update_ownership_batch_preserve_rx2;
+    try rewrite -> update_ownership_batch_preserve_trans;
+    try rewrite -> update_ownership_batch_preserve_trans';
+    try rewrite -> update_ownership_batch_preserve_hpool;
+    try rewrite -> update_ownership_batch_preserve_retri
+  end.
+
+Ltac rewrite_access_all :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_access_batch_preserve_current_vm;
+    try rewrite -> update_access_batch_preserve_regs;
+    try rewrite -> update_access_batch_preserve_mem;
+    try rewrite -> update_access_batch_preserve_tx;
+    try rewrite -> update_access_batch_preserve_rx1;
+    try rewrite -> update_access_batch_preserve_rx2;
+    try rewrite -> update_access_batch_preserve_trans;
+    try rewrite -> update_access_batch_preserve_trans';
+    try rewrite -> update_access_batch_preserve_hpool;
+    try rewrite -> update_access_batch_preserve_retri
+  end.

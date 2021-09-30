@@ -1,6 +1,10 @@
 From HypVeri Require Import machine machine_extra tactics.
 From HypVeri.algebra Require Import base.
 
+Section trans_extra.
+
+Context `{HyperConst : HypervisorConstants}.
+
 Lemma alloc_transaction_preserve_current_vm σ h trans:
   get_current_vm (alloc_transaction σ h trans) = get_current_vm σ.
 Proof. f_equal. Qed.
@@ -42,19 +46,6 @@ Lemma alloc_transaction_preserve_excl σ h trans:
 Proof. f_equal. Qed.
 
 
-Ltac rewrite_trans_alloc :=
-  match goal with
-  | |- _ =>
-    try rewrite -> alloc_transaction_preserve_current_vm;
-    try rewrite -> alloc_transaction_preserve_regs;
-    try rewrite -> alloc_transaction_preserve_mem;
-    try rewrite -> alloc_transaction_preserve_tx;
-    try rewrite -> alloc_transaction_preserve_rx1;
-    try rewrite -> alloc_transaction_preserve_rx2;
-    try rewrite -> alloc_transaction_preserve_owned;
-    try rewrite -> alloc_transaction_preserve_access;
-    try rewrite -> alloc_transaction_preserve_excl
-  end.
 
 Lemma insert_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran shp:
   (get_transactions_gmap (insert_transaction σ h tran shp) proj)
@@ -471,20 +462,6 @@ Lemma update_transaction_preserve_hpool σ h tran:
   (get_hpool_gset (update_transaction σ h tran)) = (get_hpool_gset σ).
 Proof. f_equal. Qed.
 
-Ltac rewrite_trans_update :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_transaction_preserve_current_vm;
-    try rewrite -> update_transaction_preserve_regs;
-    try rewrite -> update_transaction_preserve_mem;
-    try rewrite -> update_transaction_preserve_tx;
-    try rewrite -> update_transaction_preserve_rx1;
-    try rewrite -> update_transaction_preserve_rx2;
-    try rewrite -> update_transaction_preserve_owned;
-    try rewrite -> update_transaction_preserve_access;
-    try rewrite -> update_transaction_preserve_excl;
-    try rewrite -> update_transaction_preserve_hpool
-  end.
 
 Lemma update_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran:
   (get_transactions_gmap (update_transaction σ h tran) proj)
@@ -602,19 +579,6 @@ Lemma remove_transaction_preserve_excl σ h :
   get_excl_gmap (remove_transaction σ h ) = get_excl_gmap σ.
 Proof. f_equal. Qed.
 
-Ltac rewrite_trans_remove :=
-  match goal with
-  | |- _ =>
-    try rewrite -> remove_transaction_preserve_current_vm;
-    try rewrite -> remove_transaction_preserve_regs;
-    try rewrite -> remove_transaction_preserve_mem;
-    try rewrite -> remove_transaction_preserve_tx;
-    try rewrite -> remove_transaction_preserve_rx1;
-    try rewrite -> remove_transaction_preserve_rx2;
-    try rewrite -> remove_transaction_preserve_owned;
-    try rewrite -> remove_transaction_preserve_access;
-    try rewrite -> remove_transaction_preserve_excl
-  end.
 
 Lemma remove_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h :
   (get_transactions_gmap (remove_transaction σ h) proj)
@@ -750,3 +714,49 @@ Proof.
   simpl.
   assumption.
 Qed.
+
+End trans_extra.
+
+
+Ltac rewrite_trans_alloc :=
+  match goal with
+  | |- _ =>
+    try rewrite -> alloc_transaction_preserve_current_vm;
+    try rewrite -> alloc_transaction_preserve_regs;
+    try rewrite -> alloc_transaction_preserve_mem;
+    try rewrite -> alloc_transaction_preserve_tx;
+    try rewrite -> alloc_transaction_preserve_rx1;
+    try rewrite -> alloc_transaction_preserve_rx2;
+    try rewrite -> alloc_transaction_preserve_owned;
+    try rewrite -> alloc_transaction_preserve_access;
+    try rewrite -> alloc_transaction_preserve_excl
+  end.
+
+Ltac rewrite_trans_update :=
+  match goal with
+  | |- _ =>
+    try rewrite -> update_transaction_preserve_current_vm;
+    try rewrite -> update_transaction_preserve_regs;
+    try rewrite -> update_transaction_preserve_mem;
+    try rewrite -> update_transaction_preserve_tx;
+    try rewrite -> update_transaction_preserve_rx1;
+    try rewrite -> update_transaction_preserve_rx2;
+    try rewrite -> update_transaction_preserve_owned;
+    try rewrite -> update_transaction_preserve_access;
+    try rewrite -> update_transaction_preserve_excl;
+    try rewrite -> update_transaction_preserve_hpool
+  end.
+
+Ltac rewrite_trans_remove :=
+  match goal with
+  | |- _ =>
+    try rewrite -> remove_transaction_preserve_current_vm;
+    try rewrite -> remove_transaction_preserve_regs;
+    try rewrite -> remove_transaction_preserve_mem;
+    try rewrite -> remove_transaction_preserve_tx;
+    try rewrite -> remove_transaction_preserve_rx1;
+    try rewrite -> remove_transaction_preserve_rx2;
+    try rewrite -> remove_transaction_preserve_owned;
+    try rewrite -> remove_transaction_preserve_access;
+    try rewrite -> remove_transaction_preserve_excl
+  end.

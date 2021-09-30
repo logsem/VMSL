@@ -2,7 +2,8 @@ From iris.base_logic.lib Require Import gen_heap ghost_map.
 From HypVeri.algebra Require Import base.
 
 Section pagetable_rules.
-  Context `{vmG :!gen_VMG Σ}.
+
+  Context `{vmG :gen_VMG Σ}.
 
 (*
   (* rules for pagetables  *)

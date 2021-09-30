@@ -2,9 +2,12 @@ From iris.base_logic.lib Require Import ghost_map.
 From HypVeri.algebra Require Import base.
 
 Section token_rules.
-  Context `{vmG :!gen_VMG Σ}.
 
- Lemma token_frag_valid i1 i2 q1 q2 :
+  Context `{hypconsts: !HypervisorConstants}.
+  Context `{vmG: !gen_VMG Σ}.
+
+
+  Lemma token_frag_valid i1 i2 q1 q2 :
    << i1 >>{ q1 } -∗
    << i2 >>{ q2 } -∗
    ⌜ i1 = i2 ⌝ ∧ ⌜ ((q1 + q2) ≤ 1)%Qp ⌝.

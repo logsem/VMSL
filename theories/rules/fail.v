@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra.
 
 Section fail.
 
+Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma fail {instr i w1 q} ai :

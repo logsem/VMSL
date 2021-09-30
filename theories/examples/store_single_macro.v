@@ -14,8 +14,8 @@ Section StoreSingle.
       Mov R0 (inl w);
       Str R0 R1
     ].
-
-  Context `{gen_VMG Σ}.
+  Context `{hypparams:HypervisorParameters}.
+  Context `{vmG:!gen_VMG Σ}.
 
   Definition store_single_spec { v q sacc ppg proga w a pa prx} :
       seq_in_page proga (length (store_single w)) ppg ->
