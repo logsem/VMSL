@@ -1,6 +1,10 @@
 From HypVeri Require Import machine machine_extra.
 From HypVeri.algebra Require Import base.
 
+Section current_extra.
+
+Context `{HyperConst : HypervisorConstants}.
+
 Lemma update_current_vmid_preserve_reg σ i :
   get_reg_gmap (update_current_vmid σ i) = get_reg_gmap σ.
 Proof. f_equal. Qed.
@@ -54,6 +58,8 @@ Proof. f_equal. Qed.
 Lemma update_current_vmid_preserve_retri σ i :
   get_retri_gmap (update_current_vmid σ i) = (get_retri_gmap σ).
 Proof. f_equal. Qed.
+
+End current_extra.
 
 Ltac rewrite_vmid_all :=
   match goal with

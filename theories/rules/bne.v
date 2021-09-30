@@ -5,8 +5,9 @@ From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section bne.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
-  
+
 Lemma bne {instr i w1 w2 w3 q pi sacc} ai ra :
   instr = Bne ra ->
   decode_instruction w1 = Some(instr) ->

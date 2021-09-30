@@ -6,6 +6,7 @@ Require Import stdpp.fin.
 
 Section poll.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma poll {w1 r0 q p s E rxp l j r1 r2} ai i :

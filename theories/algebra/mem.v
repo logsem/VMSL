@@ -2,7 +2,8 @@ From HypVeri.algebra Require Import base.
 From HypVeri Require Import lang_extra.
 
 Section mem_rules.
-  Context `{vmG : !gen_VMG Σ}.
+
+  Context `{vmG : gen_VMG Σ}.
 
   Implicit Types w: Word.
   Implicit Types a: Addr.

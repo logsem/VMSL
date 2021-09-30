@@ -4,42 +4,44 @@ From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable.
 From HypVeri.examples Require Import instr run_yield_1.
 
- Definition run_vms (ms: list exec_mode) (z i: VMID):=
+Section Adequacy.
+
+  Context `{hypparams:HypervisorParameters}.
+  Definition run_vms (ms: list exec_mode) (z i: VMID):=
     ms !! (fin_to_nat i) = Some ExecI ∧
     ms !! (fin_to_nat z) = Some ExecI ∧
     ∀ v , (v ≠ (fin_to_nat z) ∧ v ≠ (fin_to_nat i) -> ms !! v = Some HaltI).
 
- Definition mk_region (p:PID) (ws: list Word) : gmap Addr Word:=
-   (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
+  Definition mk_region (p:PID) (ws: list Word) : gmap Addr Word:=
+    (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
 
- Definition mem_layout (σ :state) (z i: VMID) (p1 p2: PID) :=
-   (∃ a, is_accessible a= true ∧ (get_vm_page_table σ z).2 !! p1 = Some a) ∧
-   (∃ a, is_accessible a= true ∧ (get_vm_page_table σ i).2 !! p2 = Some a) ∧
-   (mk_region p1 (program1 i)) ∪ (mk_region p2 program2) ⊆ (get_mem σ).
+  Definition mem_layout (σ :state) (z i: VMID) (p1 p2: PID) :=
+    (∃ a, is_accessible a= true ∧ (get_vm_page_table σ z).2 !! p1 = Some a) ∧
+    (∃ a, is_accessible a= true ∧ (get_vm_page_table σ i).2 !! p2 = Some a) ∧
+    (mk_region p1 (program1 i)) ∪ (mk_region p2 program2) ⊆ (get_mem σ).
 
- Definition reg (σ: state) (z i: VMID) (p1 p2: PID):=
-   (∃ r0 r1 ,{[PC := (of_pid p1); R0 := r0; R1 := r1]} ⊆ (get_reg_files σ)!!!z) ∧
-   ∃ r0 ,{[PC := (of_pid p2); R0 := r0]} ⊆ (get_reg_files σ) !!! i .
+  Definition reg (σ: state) (z i: VMID) (p1 p2: PID):=
+    (∃ r0 r1 ,{[PC := (of_pid p1); R0 := r0; R1 := r1]} ⊆ (get_reg_files σ)!!!z) ∧
+    ∃ r0 ,{[PC := (of_pid p2); R0 := r0]} ⊆ (get_reg_files σ) !!! i .
 
- Definition transactions (σ: state):=
-   (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
-   (get_transactions σ).2 ≠ ∅ ∧
-   (map_Forall (λ _ v , (length v.1.2 <? word_size)%Z = true) (get_transactions σ).1).
+  Definition transactions (σ: state):=
+    (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
+    (get_transactions σ).2 ≠ ∅ ∧
+    (map_Forall (λ _ v , (length v.1.2 <? word_size)%Z = true) (get_transactions σ).1).
 
 
 
- Definition is_initial_config (σ: state) (ms: list exec_mode) (φs : list (exec_mode -> Prop )):=
-   ∃ (z i:VMID), (fin_to_nat z) = 0 ∧ z ≠ i ∧
-                 (get_current_vm σ) = z ∧
-                 φs !! 0 = Some (λ m ,  m = HaltI ) ∧
-                 (∀ (v:nat) , v ≠ 0 -> φs !! v = Some (λ _, True)) ∧
-                 ∃ (p1 p2: PID), p1 ≠ p2 ∧
-                                 (run_vms ms z i) ∧
-                                 (mem_layout σ z i p1 p2) ∧
-                                 (reg σ z i p1 p2) ∧
-                                 transactions σ.
+  Definition is_initial_config (σ: state) (ms: list exec_mode) (φs : list (exec_mode -> Prop )):=
+    ∃ (z i:VMID), (fin_to_nat z) = 0 ∧ z ≠ i ∧
+                  (get_current_vm σ) = z ∧
+                  φs !! 0 = Some (λ m ,  m = HaltI ) ∧
+                  (∀ (v:nat) , v ≠ 0 -> φs !! v = Some (λ _, True)) ∧
+                  ∃ (p1 p2: PID), p1 ≠ p2 ∧
+                                  (run_vms ms z i) ∧
+                                  (mem_layout σ z i p1 p2) ∧
+                                  (reg σ z i p1 p2) ∧
+                                  transactions σ.
 
-Section Adequacy.
   Context {nainv_preG : na_invG gen_VMΣ}.
   Context {vm_preG: gen_VMPreG Addr VMID Word reg_name PID transaction_type gen_VMΣ}.
   Context {tokG: tokG gen_VMΣ}.
@@ -133,7 +135,7 @@ Section Adequacy.
     iDestruct ((gen_pagetable_SepM_split2 z i) with "[Haccess]") as "(Haccessz & Haccessi & _)";eauto.
     set (sacc1 := (get_pagetable_gset σ z (λ pt : page_table, pt.2) is_accessible)) in *.
     set (sacc2 := (get_pagetable_gset σ i (λ pt : page_table, pt.2) is_accessible)) in *.
-    pose proof (@run_yield_1_spec gen_VMΣ vmG tokG nroot z i 1 1 p1 p2 sacc1 sacc2 r0_ r1_ r0_' Heqz  Hneq Hpne)
+    pose proof (@run_yield_1_spec _ _ gen_VMΣ vmG tokG nroot z i 1 1 p1 p2 sacc1 sacc2 r0_ r1_ r0_' Heqz  Hneq Hpne)
       as HSpec.
 
     iDestruct (HSpec with "[Hmem Htok Hreg Haccessz Haccessi Hna]") as "HWPs";eauto.
@@ -268,15 +270,14 @@ Section Adequacy.
     cbn in Hi.
     apply IHms in Hi.
     destruct Hi.
-    destruct H.
+    destruct H0.
     exists (e::x), x0.
-    rewrite H.
+    rewrite H0.
     cbn;done.
-
-    destruct H.
-    destruct H.
-    rewrite H.
-    rewrite H in Hi.
+    destruct H0.
+    destruct H0.
+    rewrite H0.
+    rewrite H0 in Hi.
     (* rewrite !big_opL_app. *)
     (* cbn. *)
     (* cbn in Hi. *)

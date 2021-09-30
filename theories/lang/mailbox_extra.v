@@ -1,6 +1,11 @@
 From HypVeri Require Import machine.
 From HypVeri.algebra Require Import base.
 
+
+Section mailbox_extra.
+
+Context `{HyperConst : HypervisorConstants}.
+
 Lemma empty_rx_global_preserve_current_vm σ i :
   (get_current_vm (empty_rx_global σ i)) = (get_current_vm σ).
 Proof.
@@ -149,22 +154,6 @@ Proof.
   by rewrite (surjective_pairing (get_vm_mail_box σ i).2).
 Qed.
 
-Ltac rewrite_empty_rx_global :=
-  match goal with
-  | |- _ =>
-    try rewrite -> empty_rx_global_preserve_current_vm;
-    try rewrite -> empty_rx_global_preserve_regs;
-    try rewrite -> empty_rx_global_preserve_mem;
-    try rewrite -> empty_rx_global_preserve_tx;
-    try rewrite  -> empty_rx_global_preserve_rx1;
-    try rewrite -> empty_rx_global_preserve_owned;
-    try rewrite -> empty_rx_global_preserve_access;
-    try rewrite -> empty_rx_global_preserve_excl;
-    try rewrite -> empty_rx_global_preserve_trans;
-    try rewrite -> empty_rx_global_preserve_trans';
-    try rewrite -> empty_rx_global_preserve_hpool;
-    try rewrite -> empty_rx_global_preserve_retri
-  end.
 
 (* TODO simplify *)
 Lemma empty_rx_global_update_mailbox σ l :
@@ -316,3 +305,22 @@ Proof.
         split; auto using in_list_of_vmids.
         rewrite Heqn3 //=.
 Qed.
+
+End mailbox_extra.
+
+Ltac rewrite_empty_rx_global :=
+  match goal with
+  | |- _ =>
+    try rewrite -> empty_rx_global_preserve_current_vm;
+    try rewrite -> empty_rx_global_preserve_regs;
+    try rewrite -> empty_rx_global_preserve_mem;
+    try rewrite -> empty_rx_global_preserve_tx;
+    try rewrite  -> empty_rx_global_preserve_rx1;
+    try rewrite -> empty_rx_global_preserve_owned;
+    try rewrite -> empty_rx_global_preserve_access;
+    try rewrite -> empty_rx_global_preserve_excl;
+    try rewrite -> empty_rx_global_preserve_trans;
+    try rewrite -> empty_rx_global_preserve_trans';
+    try rewrite -> empty_rx_global_preserve_hpool;
+    try rewrite -> empty_rx_global_preserve_retri
+  end.

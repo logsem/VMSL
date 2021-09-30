@@ -1,7 +1,8 @@
 From HypVeri.algebra Require Import base.
 
 Section reg_rules.
-  Context `{vmG :!gen_VMG Σ}.
+
+  Context `{vmG :gen_VMG Σ}.
 
   Implicit Type σ : state.
   Implicit Type i : VMID.

@@ -1,7 +1,8 @@
 From HypVeri.algebra Require Import base.
 
 Section mailbox_rules.
-  Context `{vmG :!gen_VMG Σ}.
+
+  Context `{vmG :gen_VMG Σ}.
 
   (* rules for TX *)
   Lemma tx_dupl i p :

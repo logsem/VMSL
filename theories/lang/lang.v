@@ -7,6 +7,9 @@ Import Option.
 Import Sum.
 Open Scope monad_scope.
 
+Notation handle := Word.
+
+Section lang.
 Context `{HyperConst : !HypervisorConstants}.
 Context `{HyperParams : !HypervisorParameters}.
 
@@ -36,8 +39,6 @@ Definition transaction : Type :=
   * VMID (* receiver *)
   * list PID (* PIDs *)
   * transaction_type.
-
-Notation handle := Word.
 
 Definition hpool := gset handle.
 
@@ -954,3 +955,5 @@ Qed.
 
 Definition scheduler : state → nat → Prop :=
 λ σ i,  (fin_to_nat (get_current_vm σ)) = i.
+
+End lang.

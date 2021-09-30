@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra mem_extra.
 
 Section str.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma str {i w1 w2 w3 q prx} ai a ra rb s:
@@ -143,24 +144,18 @@ Proof.
     + iModIntro.
       iIntros (m2 σ2) "%HstepP".
       iModIntro.
-      inversion HstepP; subst.
-      * rewrite /is_valid_PC HPC in H.
-        simpl in H.
-        rewrite Hai in H.
-        done.
+      inversion HstepP as [? Hnvalid |Hnvalid ? ? ? ? Hvalid HPC' Ha0 Hdecode']; subst.
+      * rewrite /is_valid_PC HPC /= Hai // in Hnvalid.
       * simplify_eq.
-        rewrite /get_memory Hai /get_memory_unsafe in H1.
+        rewrite /get_memory Hai /get_memory_unsafe in Ha0.
         simplify_eq.
-        rewrite /exec /lang.str Hra.
-        simpl.
-        rewrite Hrb.
+        rewrite /exec /lang.str /= Hra /= Hrb.
         rewrite /get_vm_mail_box in Hs.
         destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t [r1 r2]].
         destruct (decide (to_pid_aligned a = r1)); try done.
         rewrite /update_memory.
         rewrite check_access_page_mem_eq in Ha.
-        rewrite /update_memory Ha.
-        simpl.
+        rewrite /update_memory Ha /=.
         iFrame "Hmem Hreg Htx Hrx2 Hown Haccess Hrest Htok Hrxown".
         iApply "Hϕ".
         by iFrame "Hrx Hpc Hapc Hrb Harb Hacc Hra".

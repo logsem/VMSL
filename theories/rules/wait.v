@@ -5,7 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra current_extra.
 Require Import stdpp.fin.
 
 Section wait.
-
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma wait_filled {w1 r0 q p s E rxp l j} ai i :
@@ -67,8 +67,8 @@ Proof.
     assert (Hpreserve : ∀ σ σ', get_current_vm σ' = get_current_vm σ ->
                                 update_current_vmid σ' (get_current_vm σ) = σ').
     {
-      intros σ σ' H.
-      by rewrite /update_current_vmid -H -!surjective_pairing.
+      intros σ σ' Hcureq'.
+      by rewrite /update_current_vmid -Hcureq' -!surjective_pairing.
     }
     rewrite Hpreserve in Heqc2.
     2 : {

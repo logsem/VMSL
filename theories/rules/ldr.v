@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra mem_extra.
 
 Section ldr.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma ldr {i w1 w2 w3 q p} ai a ra rb s:
@@ -138,20 +139,21 @@ Proof.
     + iModIntro.
       iIntros (m2 σ2) "%HstepP".
       iModIntro.
-      inversion HstepP; subst.
-      * rewrite /is_valid_PC HPC /= in H.
-        by rewrite Hai in H.
+      inversion HstepP as [? Hnvalid |Hnvalid ? ? ? ? Hvalid HPC' Ha0 Hdecode']; subst.
+      * rewrite /is_valid_PC HPC /= Hai // in Hnvalid.
       * simplify_eq.
-        iFrame.
-        rewrite /get_memory Hai /get_memory_unsafe in H1.
-        simplify_eq.
-        rewrite /exec /lang.ldr.
+        rewrite /get_memory Hai /get_memory_unsafe in Ha0.
+        rewrite Hpc in Ha0.
+        inversion Ha0;subst;clear Ha0.
+        rewrite Hdecode in Hdecode'.
+        inversion Hdecode';subst;clear Hdecode'.
+        rewrite /exec /lang.ldr /=.
         destruct ra; try done.
         destruct rb; try done.
         rewrite Hrb.
         rewrite /get_vm_mail_box in Hs.
         destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
-        simpl in *.
+        simpl in HstepP.
         rewrite check_access_page_mem_eq in Ha.
         destruct (decide (to_pid_aligned a = p));
           rewrite /get_memory;          
@@ -177,10 +179,10 @@ Proof.
     + iModIntro.
       iIntros (m2 σ2) "%HstepP".
       iModIntro.
-      inversion HstepP; subst.
-      * rewrite /is_valid_PC HPC /= Hai // in H.
+      inversion HstepP as [? Hnvalid |Hnvalid ? ? ? ? Hvalid HPC' Ha0 Hdecode']; subst.
+      * rewrite /is_valid_PC HPC /= Hai // in Hnvalid.
       * simplify_eq.
-        rewrite /get_memory Hai /get_memory_unsafe in H1.
+        rewrite /get_memory Hai /get_memory_unsafe in Ha0.
         simplify_eq.
         rewrite /exec /lang.ldr.
         destruct ra; try done.
@@ -188,7 +190,7 @@ Proof.
         rewrite Hrb.
         rewrite /get_vm_mail_box in Htx.
         destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
-        simpl in *.
+        simpl in HstepP.
         destruct (decide (to_pid_aligned a = p));
           rewrite /get_memory;          
           try (rewrite Ha);

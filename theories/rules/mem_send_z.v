@@ -6,6 +6,7 @@ From HypVeri.lang Require Import lang_extra reg_extra mem_extra pagetable_extra 
 
 Section mem_send_z.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
 Lemma mem_send_z_share_update{i ai wi sown sacc sexcl r0 r1 r2 ptx sh q h fhs j psd wss spsd } {l:Word}  σ1 tt:
@@ -84,10 +85,10 @@ Proof.
      { apply length_pages_of_W0_forall. }
      { rewrite length_pages_of_W0 //. }
      (* update page table *)
-     rewrite (@update_access_batch_update_excl_diff _ i sexcl SharedAccess spsd psd);eauto.
+     rewrite (@update_access_batch_update_excl_diff _ _ i sexcl SharedAccess spsd psd);eauto.
      rewrite zero_pages_preserve_current_vm alloc_transaction_preserve_current_vm.
      rewrite Hcur.
-     rewrite (@update_access_batch_update_pagetable_idempotent (zero_pages (alloc_transaction σ1 h (i, W1, false, j, psd, tt)) psd) i sacc SharedAccess spsd); eauto.
+     rewrite (@update_access_batch_update_pagetable_idempotent _ (zero_pages (alloc_transaction σ1 h (i, W1, false, j, psd, tt)) psd) i sacc SharedAccess spsd); eauto.
      rewrite zero_pages_preserve_access
              alloc_transaction_preserve_access.
      rewrite update_access_batch_preserve_ownerships
@@ -133,8 +134,8 @@ Proof.
      apply map_Forall_insert_2; auto.
      simpl.
      rewrite <-Hlenpsd.
-     destruct (finz_spec l) as [H _].
-     rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
+     destruct (finz_spec l) as [H0 _].
+     rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H0.
      assumption.
      iFrame.
      done.
@@ -215,7 +216,7 @@ Proof.
      { apply length_pages_of_W0_forall. }
      { rewrite length_pages_of_W0 //. }
      (* update page table *)
-     rewrite (@update_access_batch_update_access_diff _ i sacc spsd psd);eauto.
+     rewrite (@update_access_batch_update_access_diff _ _ i sacc spsd psd);eauto.
      rewrite zero_pages_preserve_current_vm alloc_transaction_preserve_current_vm.
      iDestruct ((gen_access_update_diff spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";eauto.
      rewrite Hcur.
@@ -224,7 +225,7 @@ Proof.
      rewrite update_access_batch_preserve_ownerships
              zero_pages_preserve_owned
              alloc_transaction_preserve_owned.
-     rewrite (@update_access_batch_update_excl_diff _ i sexcl _ spsd psd);eauto.
+     rewrite (@update_access_batch_update_excl_diff _ _ i sexcl _ spsd psd);eauto.
      rewrite zero_pages_preserve_current_vm alloc_transaction_preserve_current_vm.
      rewrite zero_pages_preserve_excl
              alloc_transaction_preserve_excl.
@@ -267,8 +268,8 @@ Proof.
      apply map_Forall_insert_2; auto.
      simpl.
      rewrite <-Hlenpsd.
-     destruct (finz_spec l) as [H _].
-     rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
+     destruct (finz_spec l) as [H0 _].
+     rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H0.
      assumption.
      iFrame.
      done.
@@ -371,7 +372,7 @@ Proof.
     }
     rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
-    rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W1 l psd σ1 des) /= in Heqc2;eauto.
+    rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid _ _ i j W1 l psd σ1 des) /= in Heqc2;eauto.
     assert (Hcheck : (i =? i)%nat = true).
     { by apply   <- Nat.eqb_eq. }
     rewrite Hcureq Hcheck /= in Heqc2;clear Hcheck.
@@ -385,14 +386,14 @@ Proof.
       exfalso.
       apply HCheck.
       apply forallb_forall.
-      intros.
+      intros ? HInx.
       unfold check_perm_page.
-      apply elem_of_list_In in H.
-      apply (elem_of_list_to_set (C:= gset PID)) in H.
-      rewrite <- Hspsd in H.
+      apply elem_of_list_In in HInx.
+      apply (elem_of_list_to_set (C:= gset PID)) in HInx.
+      rewrite <- Hspsd in HInx.
       assert (HxInown: x ∈ sown). { set_solver. }
       assert (HxInexcl: x ∈ sexcl). { set_solver. }
-      pose proof (Hown x HxInown) as Hxown .
+      pose proof (Hown x HxInown) as Hxown.
       simpl in Hxown.
       destruct Hxown as [perm [HSomeperm Hisowned]].
       rewrite /check_ownership_page  HSomeperm /=.
@@ -537,7 +538,7 @@ Proof.
     }
     rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
-    rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid i j W1 l psd σ1 des) /= in Heqc2;eauto.
+    rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid _ _ i j W1 l psd σ1 des) /= in Heqc2;eauto.
     assert (Hcheck : (i =? i)%nat = true).
     { by apply   <- Nat.eqb_eq. }
     rewrite Hcureq Hcheck /= in Heqc2;clear Hcheck.
@@ -551,14 +552,14 @@ Proof.
       exfalso.
       apply HCheck.
       apply forallb_forall.
-      intros.
+      intros ? HxIn.
       unfold check_perm_page.
-      apply elem_of_list_In in H.
-      apply (elem_of_list_to_set (C:= gset PID)) in H.
-      rewrite <- Hspsd in H.
+      apply elem_of_list_In in HxIn.
+      apply (elem_of_list_to_set (C:= gset PID)) in HxIn.
+      rewrite <- Hspsd in HxIn.
       assert (HxInown: x ∈ sown). { set_solver. }
       assert (HxInexcl: x ∈ sexcl). { set_solver. }
-      pose proof (Hown x HxInown) as Hxown .
+      pose proof (Hown x HxInown) as Hxown.
       simpl in Hxown.
       destruct Hxown as [perm [HSomeperm Hisowned]].
       rewrite /check_ownership_page  HSomeperm /=.

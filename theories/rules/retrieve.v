@@ -5,6 +5,7 @@ From HypVeri.lang Require Import lang_extra reg_extra mem_extra pagetable_extra 
 
 Section retrieve.
 
+Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
 Lemma hvc_retrieve_donate {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l sh} {spsd: gset PID}
@@ -121,11 +122,11 @@ Proof.
     }
     destruct (page_size <? r1)%Z eqn:Hr1ps; [lia|].
     rewrite /get_tx_pid_global Hcureq Htx in Heqc2.
-    rewrite (@transaction_retrieve_descriptor_valid j wh wf' σ1 destx ptx) /= in Heqc2; eauto.
+    rewrite (@transaction_retrieve_descriptor_valid _ _ j wh wf' σ1 destx ptx) /= in Heqc2; eauto.
     2: { rewrite Hcureq; auto. }
     rewrite Htrans /= in Heqc2.
     rewrite -Hlenl finz_of_z_to_z in Heqc2.
-    assert (finz.of_z (Z.of_nat (S (S (S (S (S (length (map of_pid psd)))))))) = Some (l ^+ 5%Z)%f).
+    assert (Htemp: finz.of_z (Z.of_nat (S (S (S (S (S (length (map of_pid psd)))))))) = Some (l ^+ 5%Z)%f).
     {  rewrite Hdesrx in Hseqrx. destruct Hseqrx as [_ [_ [HisSome Hltpagesize]]]. cbn in HisSome, Hltpagesize.
        assert (Heq: Z.of_nat(S (S (S (S (S (length (map of_pid psd)))))))
                     = ((Z.of_nat (length (map of_pid psd))) + 5%Z)%Z).
@@ -157,7 +158,7 @@ Proof.
        cbn.
        solve_finz.
     }
-    rewrite H in Heqc2. clear H.
+    rewrite Htemp in Heqc2. clear Htemp.
     rewrite /fill_rx in Heqc2.
     assert (Htemp : ∀ σ dst ws i, get_vm_mail_box (write_mem_segment_unsafe σ dst ws) i =
                                   get_vm_mail_box σ i).
@@ -226,14 +227,14 @@ Proof.
     iFrame "Hσreg".
     (* update page table *)
     rewrite update_offset_PC_preserve_owned update_access_batch_preserve_ownerships.
-    rewrite (@update_ownership_batch_update_pagetable_union _ i sown spsd psd Hpsd); f_equal;eauto.
+    rewrite (@update_ownership_batch_update_pagetable_union _ _ i sown spsd psd Hpsd); f_equal;eauto.
     iDestruct ((gen_own_update_union spsd) with "HO Hσowned") as ">[Hσowned HO]";f_equal.
     exact Hpsd.
     rewrite update_reg_global_preserve_owned remove_transaction_preserve_owned
             fill_rx_unsafe_preserve_owned write_mem_segment_unsafe_preserve_owned.
     iFrame "Hσowned".
     rewrite update_offset_PC_preserve_access.
-    rewrite (@update_access_batch_update_pagetable_union _ i sacc ExclusiveAccess spsd psd Hpsd); f_equal;eauto.
+    rewrite (@update_access_batch_update_pagetable_union _ _ i sacc ExclusiveAccess spsd psd Hpsd); f_equal;eauto.
     iDestruct ((gen_access_update_union spsd) with "HA Hσaccess") as ">[Hσaccess HA]";f_equal.
     {exact Hpsd. }
     rewrite update_ownership_batch_preserve_access update_reg_global_preserve_access remove_transaction_preserve_access
@@ -242,7 +243,7 @@ Proof.
                  fill_rx_unsafe_preserve_access write_mem_segment_unsafe_preserve_access. done. }
     iFrame "Hσaccess".
     rewrite update_offset_PC_preserve_excl.
-    rewrite (@update_exclusive_batch_update_pagetable_union _ i sexcl spsd psd Hpsd);f_equal; eauto.
+    rewrite (@update_exclusive_batch_update_pagetable_union _ _ i sexcl spsd psd Hpsd);f_equal; eauto.
     iDestruct ((gen_excl_update_union spsd) with "HE Hσexcl") as ">[Hσexcl HE]"; f_equal.
     { exact Hpsd. }
     rewrite update_ownership_batch_preserve_excl update_reg_global_preserve_excl remove_transaction_preserve_excl
@@ -441,7 +442,7 @@ Proof.
   (* update retri *)
   rewrite update_offset_PC_preserve_mem update_access_batch_preserve_mem
           update_reg_global_preserve_mem update_transaction_preserve_mem fill_rx_unsafe_preserve_mem.
-  iDestruct ((@gen_retri_update _ _ _ false true wh) with "Hretri Hσretri") as ">[Hσretri Hretri]".
+  iDestruct ((@gen_retri_update _ _ _ _ false true wh) with "Hretri Hσretri") as ">[Hσretri Hretri]".
   {
     eapply get_retri_gmap_lookup.
     exact Htrans.
@@ -490,14 +491,14 @@ Proof.
   rewrite update_offset_PC_preserve_access.
   destruct Htt as [(-> & ->& ->)|(-> & ->& ->)].
   {
-    rewrite (@update_access_batch_update_pagetable_union _ i sacc ExclusiveAccess spsd psd Hpsd); f_equal;eauto.
+    rewrite (@update_access_batch_update_pagetable_union _ _ i sacc ExclusiveAccess spsd psd Hpsd); f_equal;eauto.
     iDestruct ((gen_access_update_union spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";f_equal.
     {exact Hpsd. }
     rewrite update_reg_global_preserve_access update_transaction_preserve_access
     fill_rx_unsafe_preserve_access write_mem_segment_unsafe_preserve_access.
     iFrame "Hσaccess".
     rewrite update_offset_PC_preserve_excl.
-    rewrite (@update_exclusive_batch_update_pagetable_union _ i sexcl spsd psd Hpsd);f_equal; eauto.
+    rewrite (@update_exclusive_batch_update_pagetable_union _ _ i sexcl spsd psd Hpsd);f_equal; eauto.
     iDestruct ((gen_excl_update_union spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]"; f_equal.
     { exact Hpsd. }
     rewrite update_reg_global_preserve_excl update_transaction_preserve_excl
@@ -510,18 +511,18 @@ Proof.
     apply map_Forall_insert_2; auto.
     simpl.
     rewrite <-Hlenl.
-    destruct (finz_spec l) as [H _].
-    rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
+    destruct (finz_spec l) as [Hf _].
+    rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in Hf.
     assumption.
   }
   {
-    rewrite (@update_access_batch_update_pagetable_union _ i sacc SharedAccess spsd psd Hpsd); f_equal;eauto.
+    rewrite (@update_access_batch_update_pagetable_union _ _ i sacc SharedAccess spsd psd Hpsd); f_equal;eauto.
     iDestruct ((gen_access_update_union spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]";f_equal.
     {exact Hpsd. }
     rewrite update_reg_global_preserve_access update_transaction_preserve_access
     fill_rx_unsafe_preserve_access write_mem_segment_unsafe_preserve_access.
     iFrame "Hσaccess".
-    rewrite update_offset_PC_preserve_excl (@update_access_batch_preserve_excl spsd sexcl);auto.
+    rewrite update_offset_PC_preserve_excl (@update_access_batch_preserve_excl _ spsd sexcl);auto.
     2: { rewrite update_reg_global_preserve_excl update_transaction_preserve_excl
     fill_rx_unsafe_preserve_excl write_mem_segment_unsafe_preserve_excl.
      rewrite update_reg_global_preserve_current_vm update_transaction_preserve_current_vm
@@ -537,8 +538,8 @@ Proof.
     apply map_Forall_insert_2; auto.
     simpl.
     rewrite <-Hlenl.
-    destruct (finz_spec l) as [H _].
-    rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in H.
+    destruct (finz_spec l) as [Hf _].
+    rewrite ->(reflect_iff _ _ (Z.ltb_spec0 l word_size)) in Hf.
     assumption.
   }
 Qed.
@@ -658,11 +659,11 @@ Proof.
     }
     destruct (page_size <? r1)%Z eqn:Hr1ps; [lia|].
     rewrite /get_tx_pid_global Hcureq Htx in Heqc2.
-    rewrite (@transaction_retrieve_descriptor_valid j wh wf' σ1 destx ptx) /= in Heqc2; eauto.
+    rewrite (@transaction_retrieve_descriptor_valid _ _ j wh wf' σ1 destx ptx) /= in Heqc2; eauto.
     2: { rewrite Hcureq; auto. }
     rewrite Htrans /= in Heqc2.
     rewrite -Hlenl finz_of_z_to_z in Heqc2.
-    assert (finz.of_z (Z.of_nat (S (S (S (S (S (length (map of_pid psd)))))))) = Some (l ^+ 5%Z)%f).
+    assert (Htemp: finz.of_z (Z.of_nat (S (S (S (S (S (length (map of_pid psd)))))))) = Some (l ^+ 5%Z)%f).
     {  rewrite Hdesrx in Hseqrx. destruct Hseqrx as [_ [_ [HisSome Hltpagesize]]]. cbn in HisSome, Hltpagesize.
        assert (Heq: Z.of_nat(S (S (S (S (S (length (map of_pid psd)))))))
                     = ((Z.of_nat (length (map of_pid psd))) + 5%Z)%Z).
@@ -693,7 +694,7 @@ Proof.
        cbn.
        solve_finz.
     }
-    rewrite H in Heqc2. clear H.
+    rewrite Htemp in Heqc2. clear Htemp.
     rewrite /fill_rx in Heqc2.
     assert (Htemp : ∀ σ dst ws i, get_vm_mail_box (write_mem_segment_unsafe σ dst ws) i =
                                   get_vm_mail_box σ i).
@@ -783,12 +784,7 @@ Lemma hvc_retrieve_lend {wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} {s
 Proof.
   iIntros (???????????????).
   iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?)".
-  iApply hvc_retrieve_lend_share;auto.
-  exact H0.
-  exact H1.
-  exact H2.
-  exact H6.
-  exact H8.
+  iApply hvc_retrieve_lend_share;eauto.
   iFrame.
 Qed.
 
@@ -822,12 +818,7 @@ Lemma hvc_retrieve_share { wi sown sacc pi sexcl i j destx wf' desrx ptx prx l} 
 Proof.
   iIntros (???????????????).
   iIntros "(?&?&?&?&?&?&?&?&?&?&?&?&?)".
-  iApply hvc_retrieve_lend_share;auto.
-  exact H0.
-  exact H1.
-  exact H2.
-  exact H6.
-  exact H8.
+  iApply hvc_retrieve_lend_share;eauto.
   iFrame.
 Qed.
 

@@ -6,6 +6,7 @@ Require Import stdpp.fin.
 
 Section yield.
 
+Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
 Lemma yield {E z i w1 w2 a_ b_ q p s} ai :

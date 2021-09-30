@@ -5,22 +5,23 @@ From HypVeri Require Export solve_pure.
 (* Extend [iFrameAuto] by registering instances for the
    [FramableMachineResource] class. *)
 
-Class FramableRegisterPointsto (r: reg_name) (i: VMID) (w: Addr) := {}.
-#[export] Hint Mode FramableRegisterPointsto + + - : typeclass_instances.
+
+Class FramableRegisterPointsto `{HypervisorConstants} (r: reg_name) (i: VMID) (w: Addr) := {}.
+#[export] Hint Mode FramableRegisterPointsto + + + - : typeclass_instances.
 
 Class FramableMemoryPointsto (a: Addr) (w: Addr) := {}.
 #[export] Hint Mode FramableMemoryPointsto + - : typeclass_instances.
 
-Class FramableAccessPointsto (i: VMID) (s: gset PID) := {}.
-#[export] Hint Mode FramableAccessPointsto + - : typeclass_instances.
+Class FramableAccessPointsto `{HypervisorConstants} (i: VMID) (s: gset PID) := {}.
+#[export] Hint Mode FramableAccessPointsto + + - : typeclass_instances.
 
-Class FramableTXPointsto (i: VMID) (p: PID) := {}.
-#[export] Hint Mode FramableTXPointsto + - : typeclass_instances.
+Class FramableTXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
+#[export] Hint Mode FramableTXPointsto + + - : typeclass_instances.
 
-Class FramableRXPointsto (i: VMID) (p: PID) := {}.
-#[export] Hint Mode FramableRXPointsto + - : typeclass_instances.
+Class FramableRXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
+#[export] Hint Mode FramableRXPointsto + + - : typeclass_instances.
 
-Instance FramableRegisterPointsto_default r i w :
+Instance FramableRegisterPointsto_default `{HypervisorConstants} r i w :
   FramableRegisterPointsto r i w
 | 100. Qed.
 
@@ -28,15 +29,15 @@ Instance FramableMemoryPointsto_default a w :
   FramableMemoryPointsto a w
 | 100. Qed.
 
-Instance FramableAccessPointsto_default i s :
+Instance FramableAccessPointsto_default `{HypervisorConstants} i s :
   FramableAccessPointsto i s
 | 100. Qed.
 
-Instance FramableTXPointsto_default i p :
+Instance FramableTXPointsto_default `{HypervisorConstants} i p :
   FramableTXPointsto i p
 | 100. Qed.
 
-Instance FramableRXPointsto_default i p :
+Instance FramableRXPointsto_default `{HypervisorConstants} i p :
   FramableRXPointsto i p
 | 100. Qed.
 
