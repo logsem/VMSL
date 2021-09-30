@@ -73,27 +73,27 @@ Section mailbox_rules.
   Qed.
 
   (* rules for RX *)
-  Lemma rx_split_some i p n (v: VMID):
-   RX@ i :=( p ! n , v)  -∗ RX@ i :=( p ! n, v)  ∗ RX@ i := p.
-  Proof using.
-    iIntros "[HRa HRo]".
-    rewrite rx_agree_mapsto_eq rx_option_mapsto_eq.
-    iFrame "HRo".
-    iApply own_op.
-    rewrite -auth_frag_op.
-    rewrite singleton_op agree_idemp //.
-  Qed.
+  (* Lemma rx_split_some i p n (v: VMID): *)
+  (*  RX@ i :=( p ! n , v)  -∗ RX@ i :=( p ! n, v)  ∗ RX@ i := p. *)
+  (* Proof using. *)
+  (*   iIntros "[HRa HRo]". *)
+  (*   rewrite rx_agree_mapsto_eq rx_option_mapsto_eq. *)
+  (*   iFrame "HRo". *)
+  (*   iApply own_op. *)
+  (*   rewrite -auth_frag_op. *)
+  (*   rewrite singleton_op agree_idemp //. *)
+  (* Qed. *)
 
-  Lemma rx_split_none i p:
-   RX@ i :=(p !) -∗ RX@ i :=(p !) ∗ RX@ i := p.
-  Proof using.
-    iIntros "[HRa HRo]".
-    rewrite rx_agree_mapsto_eq rx_option_mapsto_eq.
-    iFrame "HRo".
-    iApply own_op.
-    rewrite -auth_frag_op.
-    rewrite singleton_op agree_idemp //.
-  Qed.
+  (* Lemma rx_split_none i p: *)
+  (*  RX@ i :=(p !) -∗ RX@ i :=(p !) ∗ RX@ i := p. *)
+  (* Proof using. *)
+  (*   iIntros "[HRa HRo]". *)
+  (*   rewrite rx_agree_mapsto_eq rx_option_mapsto_eq. *)
+  (*   iFrame "HRo". *)
+  (*   iApply own_op. *)
+  (*   rewrite -auth_frag_op. *)
+  (*   rewrite singleton_op agree_idemp //. *)
+  (* Qed. *)
 
   Lemma rx_dupl i p:
    RX@i:=p -∗ RX@i:=p ∗ RX@i:=p.
@@ -142,12 +142,12 @@ Section mailbox_rules.
       by apply gen_rx_agree_valid .
   Qed.
 
-  Lemma gen_rx_valid_none {σ} i p:
-   RX@ i :=( p !) -∗
+  Lemma gen_rx_valid_none {σ} i:
+   RX@ i :=() -∗
    ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ)-∗
    ⌜(get_vm_mail_box σ i).2.2 = None⌝.
   Proof.
-    iIntros "[_ Hrx] Hσ".
+    iIntros "Hrx Hσ".
     rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
     iDestruct (ghost_map_lookup with "Hσ Hrx") as "%Hnone".
     rewrite /get_rx_gmap in Hnone.
@@ -156,17 +156,17 @@ Section mailbox_rules.
     apply in_map_iff in Hnone.
     destruct Hnone as [x [Heqp _]].
     destruct ((get_vm_mail_box σ x).2.2) eqn:Heqn.
-    destruct p0;inversion Heqp.
+    destruct p;inversion Heqp.
     inversion Heqp;subst.
     rewrite -Heqn //.
   Qed.
 
-  Lemma gen_rx_valid_some {σ} i p l v:
-   RX@ i :=( p ! l , v) -∗
+  Lemma gen_rx_valid_some {σ} i l v:
+   RX@ i :=(l , v) -∗
    ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ)-∗
    ⌜(get_vm_mail_box σ  i).2.2 = Some(l,v)⌝.
   Proof.
-    iIntros "[_ Hrx] Hσ".
+    iIntros "Hrx Hσ".
     rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
     iDestruct (ghost_map_lookup with "Hσ Hrx") as "%Hlk".
     rewrite /get_rx_gmap in Hlk.
@@ -175,51 +175,48 @@ Section mailbox_rules.
     apply in_map_iff in Hlk.
     destruct Hlk as [x [Heqp _]].
     destruct ((get_vm_mail_box σ x).2.2) eqn:Heqn.
-    destruct p0;inversion Heqp.
+    destruct p;inversion Heqp.
     inversion Heqp;subst.
     iPureIntro.
     rewrite -Heqn //.
     inversion Heqp.
   Qed.
 
-  Lemma gen_rx_gmap_update_global_Some {_l _a σ} i l x rxp:
+  Lemma gen_rx_gmap_update_global_Some {_l _a σ} i l x:
      ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
-     RX@i:=(rxp!_l,_a) ==∗
+     RX@i:=(_l,_a) ==∗
      ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, x)]>(get_rx_gmap σ)) ∗
-     RX@i:=(rxp!l,x).
+     RX@i:=(l,x).
   Proof.
     iIntros "Hσ Hrx".
     rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
-    iDestruct "Hrx" as "(Hrx1 & Hrx2)".
-    iDestruct (ghost_map_update (Some (l, x)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+    iDestruct (ghost_map_update (Some (l, x)) with "Hσ Hrx") as ">[Hσ2 Hrx]".
     iFrame.
     done.
   Qed.
 
-  Lemma gen_rx_gmap_update_global_None {σ} i l x rxp:
+  Lemma gen_rx_gmap_update_global_None {σ} i l x:
      ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
-     RX@i:=(rxp!) ==∗
+     RX@i:=() ==∗
      ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=Some (l, x)]>(get_rx_gmap σ)) ∗
-     RX@i:=(rxp!l,x).
+     RX@i:=(l,x).
   Proof.
     iIntros "Hσ Hrx".
     rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
-    iDestruct "Hrx" as "(Hrx1 & Hrx2)".
-    iDestruct (ghost_map_update (Some (l, x)) with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+    iDestruct (ghost_map_update (Some (l, x)) with "Hσ Hrx") as ">[Hσ2 Hrx]".
     iFrame.
     done.
   Qed.
 
-  Lemma gen_rx_gmap_update_empty_global_Some {_l _a σ} i rxp:
+  Lemma gen_rx_gmap_update_empty_global_Some {_l _a σ} i:
      ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) -∗
-     RX@i:=(rxp!_l,_a) ==∗
+     RX@i:=(_l,_a) ==∗
      ghost_map_auth (gen_rx_option_name vmG) 1 (<[i:=None]>(get_rx_gmap σ)) ∗
-     RX@i:=(rxp!).
+     RX@i:=().
   Proof.
     iIntros "Hσ Hrx".
     rewrite rx_option_mapsto_eq /rx_option_mapsto_def.
-    iDestruct "Hrx" as "(Hrx1 & Hrx2)".
-    iDestruct (ghost_map_update None with "Hσ Hrx2") as ">[Hσ2 Hrx]".
+    iDestruct (ghost_map_update None with "Hσ Hrx") as ">[Hσ2 Hrx]".
     iFrame.
     done.
   Qed.
