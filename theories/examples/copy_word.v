@@ -10,7 +10,7 @@ Section copy_word.
     encode_instructions
     [
       Mov R2 (inr R5); (* move the # of iterations to R2 *)
-      Mov R3 (inl I0);
+      Mov R3 (inl I1);
       Sub R2 R3; (* R5 - 1 = R2 (offset) *)
       Mov R3 (inr R2); (* copy R2 to R3 *)
       Mov R0 (inl src);
