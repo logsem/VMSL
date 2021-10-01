@@ -61,10 +61,10 @@
 \newcommand*{\instr}[1]{\texttt{#1}}
 
 % expressions
-\newcommand*{\EI}[1]{\mathtt{ExecInstr} \; {#1}}
-\newcommand*{\RP}[1]{\mathtt{Repeat} \; {#1}}
-\newcommand*{\DN}[1]{\mathtt{Done} \; {#1}}
-\newcommand*{\NXT}[1]{\mathtt{Next} \; {#1}}
+\newcommand*{\EI}[1]{\mathtt{ExecInstr}}
+\newcommand*{\RP}[1]{{#1}}
+\newcommand*{\DN}[1]{{#1}}
+\newcommand*{\NXT}[1]{\mathtt{ExecInstr}}
 
 % functions
 \newcommand*{\decode}{\text{decode}}
@@ -91,13 +91,13 @@
 
 \begin{figure}[!htb]
   \begin{align*}
-    \Phi &\in \CONF &\defined &\text{States} \times \MEM \times \SSS \\
+    \phi &\in \CONF &\defined &\text{States}\times \VMID \times \MEM \times \SSS \\
     \delta s &\in \text{States} &\defined &\text{list(States)} \\
     \delta &\in \STATE &\defined &\PT \times \REGS \times \MB \\
-    pt & \in \PT & \defined & \PID \maps (\OS \times \AS) \\
+    pt & \in \PT & \defined & \PID \maps \OS \times \PID \maps \AS \\
     mb & \in \MB &\defined &\text{TXPage} \times  \text{RXPage}\\
     tx & \in \text{TXPage} &\defined &\PID\\
-    rx & \in \text{RXPage} &\defined &\PID \times \text{Bool} \times \WORD \times \VMID \\
+    rx & \in \text{RXPage} &\defined &\PID \times \text{option} ( \WORD \times \VMID ) \\
     pid & \in \PID &\defined  &[ 0, \PPIDMAX ] \\
     rs & \in \REGS &\defined  &\REGNAMES \maps \WORD \\
     rn & \in \REGNAMES &\defined &\text{SysRegs} \cup \text{GenRegs} \\
@@ -105,27 +105,25 @@
     a & \in \ADDR &\defined  &[ 0, \PAMAX ] \\
     w & \in \WORD &\defined  &[ 0, \PWMAX ] \\
     sss & \in \SSS &\defined  &\WORD \maps \text{ShareState} \\
-   % ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times ((\VMID \times \PID) + (\mathbb{N} \times [\VMID \times \PID])) \times \text{FunctionID}\\
-    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times [\VMID] \times (\VMID \maps [\PID]) \times \text{FunctionID}\\
+    ss & \in \text{ShareState} &\defined &\VMID \times \WORD \times \WORD \times \VMID \times \text{list}(\PID) \times \text{FunctionID}\\
     v,n & \in \VMID &\defined  &[ 0, \PVMMAX ] \\
       & \;\;\;\; \OS & \derived & O | !O \\
       & \;\;\;\; \AS & \derived & NA | EA | SA \\
-      & \;\;\;\; \text{SysRegs} &\derived & \mathtt{NV} | \mathtt{CNT\_VAL} | \mathtt{CNT\_CTL} | \dots \\
-         & \;\;\;\; \text{GenRegs} &\derived & \mathtt{pc} | \mathtt {R0} | \mathtt{R1} | \dots
+      & \;\;\;\; \text{SysRegs} &\derived & \mathtt{pc} | \mathtt{NV} \\
+         & \;\;\;\; \text{GenRegs} &\derived &  \mathtt {R0} | \mathtt{R1} | \dots
   \end{align*}
   \caption{Execution Configuration: VM States, Global Memory, and Share States.}
 \end{figure}
 
 \begin{figure}[!htb]
   \begin{align*}
-    \mu &\in \MODE &\derived & \mathtt{ExecInstr} \; v | \mathtt{Repeat} \; \mu | \mathtt{Done} \; \theta \\
-    \theta &\in \DONE &\derived & \NXT{v} | \mathtt{Halt} | \mathtt{Fail}\\
+    \mu &\in \MODE &\derived & \mathtt{ExecInstr} ~|~ \mathtt{Halt} ~|~ \mathtt{Fail}\\
     \\
     instr & \in  \INSTR &\derived & \instrm{br} \; r |\instrm{bne} \; r \; r |
                                     \instrm{mov} \; r \; w | \instrm{ldr} \; r\; r|
                                     \instrm{str} \; r \; r | \instrm{add} \; r \; r \; r |
                                     \instrm{sub} \; r \; r \; r | \instrm{cmp} \; r \; r \\
-        & & & | \instrm{fail} | \instrm{halt} | \instrm{hvc} |\instrm{mrs} \; r\;r | \instrm{msr} \; r \; r\\
+        & & & | \instrm{fail} | \instrm{halt} | \instrm{hvc}\\
     fid & \in \text{FunctionID} &\derived & \tt{RUN} ~|~\tt{YIELD} ~|~\tt{MSG\_WAIT} ~|~\tt{MSG\_SEND}
                                             ~|~\tt{MSG\_POLL}~|~\tt{MEM\_DONATE}\\
     &&&|~\tt{MEM\_RETRIEVE\_REQ} ~|~ \tt{SUCC} ~|~\tt{ERROR}~|~\tt{MEM\_RETRIEVE\_RESP}\\
@@ -138,13 +136,11 @@
 
 \begin{figure}[!htb]
   \begin{mathpar}
-    \inferrule[RepeatExec] {(\EI{v},\, \phi) \rightarrow (\DN{\theta} ,\,
-      \phi')} {(\RP{\EI{v}} ,\, \phi) \rightarrow (\RP{\DN{\theta}} ,\, \phi')}
-    \and \inferrule[RepeatHalt/Fail] {\theta = \mathtt{Halt} \lor \theta =
-      \mathtt{Fail}} {(\RP{\DN{\theta}} ,\, \phi) \rightarrow (\DN{\theta} ,\,
-      \phi)}
-    \and \inferrule[RepeatNext]{} {(\RP{\DN{\NXT{v}}} ,\, \phi)
-      \rightarrow (\RP{\EI{v}} ,\, \phi)}
+    \inferrule[PrimStep] {} {(\EI{},\, \phi) \rightarrow (\mu ,\, \phi')}
+    \and \inferrule[Step]{\phi.v=v\\(\mu_{v},\, \phi)
+      \rightarrow (\mu'_{v} ,\, \phi')}
+        {([\mu_0; ... ;\mu_{v}; ...;\mu_{max} ],\, \phi)
+      \rightarrow ([\mu_0; ... ;\mu_{v}'; ...;\mu_{max} ] ,\, \phi')}
   \end{mathpar}
   \caption{Reduction Steps.}
 \end{figure}
@@ -164,7 +160,7 @@
     \end{align*}
     \\
     \begin{align*}
-          \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+w_{2}\\
+          % \text{comb}(w_{1},w_{2})&=w_{1}<<(\PWBITS/2)+w_{2}\\
     \text{addr}(p,o)&=p<<(\PPBITS/2)+o \\
     \pid(a) &= a >> \PPBITS
       \end{align*}
