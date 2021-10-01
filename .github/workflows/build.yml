@@ -28,8 +28,6 @@ jobs:
       with:
           repository: logsem/machine_utils
           path: vendor/machine_utils
-          token: ${{ secrets.HYPVERI_ACCESS_TOKEN }}
-          persist-credentials: false
     - name: Change permissions
       run: chmod a+x disable-qed.sh
     - name: Build
