@@ -1,7 +1,8 @@
+From iris.bi Require Import derived_laws_later.
 From machine_program_logic.program_logic Require Import weakestpre.
 From iris.staging Require Import monotone.
 From HypVeri.algebra Require Import base mem.
-(* From HypVeri.rules Require Import rules_base. *)
+From HypVeri.rules Require Import rules_base.
 From HypVeri.examples Require Import instr.
 From HypVeri.lang Require Import lang_extra.
 From HypVeri Require Import proofmode.
@@ -198,16 +199,63 @@ Section proof.
      coPoset is the set of names of na invariants that can be open
      bool indicates if the value in lent page has been changed
    *)
+
+  Section sts.
+    Context {ι:namespace}.
+
+
   Definition inv_sts_state: Type := VMID * coPset * bool.
 
-  Inductive inv_sts_base: relation inv_sts_state :=
-  | inv_sts_base_0_closed_unchanged_open ι: inv_sts_base (V0, ⊤, false) (V0, ⊤ ∖↑ ι, false)
-  | inv_sts_base_0_unclosed_unchanged_switch ι: inv_sts_base (V0, ⊤ ∖↑ ι, false) (V1, ⊤, false)
-  | inv_sts_base_1_closed_unchanged_change ι: inv_sts_base (V1, ⊤, false) (V1, ⊤ ∖↑ ι, true)
-  | inv_sts_base_1_unclosed_changed_switch ι: inv_sts_base (V1, ⊤ ∖↑ ι, true) (V0, ⊤, true)
-  | inv_sts_base_0_closed_changed_open ι: inv_sts_base (V0, ⊤, true) (V0, ⊤ ∖↑ ι, true).
+  Inductive inv_sts_base : relation inv_sts_state :=
+  | inv_sts_base_0_closed_unchanged_open : inv_sts_base (V0, ⊤, false) (V0, ⊤ ∖↑ ι, false)
+  | inv_sts_base_0_unclosed_unchanged_switch : inv_sts_base (V0, ⊤ ∖↑ ι, false) (V1, ⊤, false)
+  | inv_sts_base_1_closed_unchanged_change : inv_sts_base (V1, ⊤, false) (V1, ⊤ ∖↑ ι, true)
+  | inv_sts_base_1_unclosed_changed_switch : inv_sts_base (V1, ⊤ ∖↑ ι, true) (V0, ⊤, true)
+  | inv_sts_base_0_closed_changed_open : inv_sts_base (V0, ⊤, true) (V0, ⊤ ∖↑ ι, true).
+
 
   Definition inv_sts_rel := rtc inv_sts_base.
+
+  Lemma inv_sts_0_closed_unchanged_open s : inv_sts_rel (V0, ⊤, false) s ->
+    (s.1.1= V0 ∨ s.1.1 = V1) ∧ (s.1.2 =⊤ ∨ s.1.2 = ⊤∖↑ ι) ∧ (s.2 =  false ∨ s.2 = true).
+  Proof.
+    intro.
+    pattern s.
+    eapply (rtc_ind_r _ (V0,⊤,false)).
+    - split;[|split];left;done.
+    - intros.
+      Unshelve.
+      2: { exact inv_sts_base. }
+      destruct H2.
+      destruct H2, H3;destruct y as [ []];simpl in *;inversion H1;subst;cbn;
+      split;eauto.
+    - done.
+  Qed.
+
+  Lemma inv_sts_0_unclosed_unchanged_switch  s :
+    inv_sts_rel (V0, ⊤∖↑ι, false) s ->
+    (s.2 = true -> (s.1.1= V0 ∨ s.1.1 = V1) ∧ (s.1.2 =⊤ ∨ s.1.2 = ⊤∖↑ ι)) ∧ (s.2 =false -> s.1.1= V0 ∧ s.1.2 = ⊤∖↑ ι ∨ s.1.1 = V1 ∧ s.1.2 =⊤).
+  Proof.
+    intro.
+    pattern s.
+    eapply (rtc_ind_r _ (V0,⊤∖↑ι,false)).
+    - split.
+      intro;done.
+      intro.
+      left; done.
+    - intros.
+      Unshelve.
+      2: { exact inv_sts_base. }
+      destruct H2.
+      destruct y as [ []];simpl in *;inversion H1;subst;cbn;
+      split;eauto.
+      intro;done.
+      intro;done.
+    - done.
+  Qed.
+
+End sts.
+
 
   (* the STS used in the non-atomic invariant
      bool indicates if the value in lent page has been changed
@@ -222,20 +270,46 @@ Section proof.
   | nainv_sts_base_relinquished_reclaim h: nainv_sts_base (true, Some h)
                                                           (true, None).
 
+
   Definition nainv_sts_rel := rtc nainv_sts_base.
 
+  Lemma nainv_sts_init_run s : nainv_sts_rel (false,None) s ->
+    (s.1= false ∨ s.1 = true) ∧(s.2 = None ∨ ∃h, s.2 = Some h).
+  Proof.
+    intro.
+    pattern s.
+    eapply (rtc_ind_r _ (false,None)).
+    - split;left; done.
+    - intros.
+      Unshelve.
+      2: { exact nainv_sts_base. }
+      destruct H2.
+      destruct H2, H3;destruct y as [ []];simpl in *;inversion H1;subst;cbn;
+      split;eauto.
+    - done.
+Qed.
+
+  (* invariants *)
+  Definition inv_name := nroot .@ "lending" .@ "inv".
+  Definition nainv_name := nroot .@ "lending" .@ "na".
+
+  Lemma namespace_disjoint: inv_name ## nainv_name.
+  Proof.
+    apply ndot_ne_disjoint.
+    done.
+  Qed.
   (* CMRAs *)
   (* regular exclusive tokens *)
   Class tokG Σ := tok_G :> inG Σ (exclR unitO).
   (* monotone RA for the STS of the invariant *)
-  Class invStsG Σ := invSts_G :> inG Σ (authUR (mraUR inv_sts_rel)).
+  Class invStsG Σ := invSts_G :> inG Σ (authUR (mraUR (@inv_sts_rel nainv_name) )).
   (* monotone RA for the STS of the non-atomic invariant *)
   Class nainvStsG Σ := nainvSts_G :> inG Σ (authUR (mraUR nainv_sts_rel)).
 
   Context `{!gen_VMG Σ, tokG Σ, invStsG Σ, nainvStsG Σ}.
 
   Definition inv_state_exact (γ: gname) (s: inv_sts_state):=
-    own γ (● principal inv_sts_rel s).
+    own γ (● principal (inv_sts_rel) s).
 
   Definition inv_state_atleast (γ: gname) (s: inv_sts_state):=
     own γ (◯ principal inv_sts_rel s).
@@ -250,7 +324,7 @@ Section proof.
   Proof. iApply own_alloc; apply auth_auth_valid; done. Qed.
 
   Lemma inv_state_exact_atleast γ s s':
-    inv_state_exact γ s -∗ inv_state_atleast γ s' -∗ ⌜inv_sts_rel s' s⌝.
+    inv_state_exact γ s -∗ inv_state_atleast γ s' -∗ ⌜@inv_sts_rel nainv_name s' s⌝.
   Proof.
     iIntros "H1 H2".
     iDestruct (own_valid_2 with "H1 H2") as %[Hincl ?]%auth_both_valid_discrete.
@@ -258,7 +332,7 @@ Section proof.
   Qed.
 
   Lemma inv_state_update γ s s' :
-    inv_sts_rel s s' → inv_state_exact γ s ==∗ inv_state_exact γ s'.
+    @inv_sts_rel nainv_name s s' → inv_state_exact γ s ==∗ inv_state_exact γ s'.
   Proof.
     intros Hss.
     iApply own_update.
@@ -304,6 +378,18 @@ Section proof.
     apply mra_local_update_get_frag; done.
   Qed.
 
+  Global Instance inv_state_atleast_timeless γ s : Timeless (inv_state_atleast γ s).
+  Proof. apply _. Qed.
+
+  Global Instance inv_state_exact_timeless γ s : Timeless (inv_state_exact γ s).
+  Proof. apply _. Qed.
+
+  Global Instance nainv_state_atleast_timeless γ s : Timeless (nainv_state_atleast γ s).
+  Proof. apply _. Qed.
+
+  Global Instance nainv_state_exact_timeless γ s : Timeless (nainv_state_exact γ s).
+  Proof. apply _. Qed.
+
   Definition token γ := own γ (Excl ()).
 
   Lemma token_alloc : ⊢|==> ∃ γ, token γ.
@@ -312,15 +398,9 @@ Section proof.
   Lemma token_excl γ : token γ -∗ token γ -∗ False.
   Proof. iIntros "H1 H2"; iDestruct (own_valid_2 with "H1 H2") as %?; done. Qed.
 
-  (* invariants *)
-  Definition inv_name := nroot .@ "lending" .@ "inv".
-  Definition nainv_name := nroot .@ "lending" .@ "na".
+  Global Instance token_timeless γ : Timeless (token γ).
+  Proof. apply _. Qed.
 
-  Lemma namespace_disjoint: inv_name ## nainv_name.
-  Proof.
-    apply ndot_ne_disjoint.
-    done.
-  Qed.
 
   (* gnames of exclusive tokens that we will use:
      - γ_closed: VM1 owns it at the beginning.
@@ -331,6 +411,15 @@ Section proof.
      - γ_done: VM1 owns it at the beginning and will lose it when it halts.
      - γ_access: VM0 will lose it when switching to VM1.
    *)
+
+
+
+  Global Instance if_timeless (b:bool) {PROP} `{!Timeless (PROP:=PROP) P1 }  `{!Timeless P2} : Timeless ((if b then P1 else P2)).
+  Proof.
+    destruct b.
+    apply _.
+    apply _.
+  Qed.
 
   Definition inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : iProp Σ:=
     ∃ (i : VMID) P b, <<i>>{ 1%Qp } ∗ nainv_closed P ∗ inv_state_exact γ_invm (i,P,b) ∗
@@ -346,6 +435,18 @@ Section proof.
     | (1, true) =>  (⌜P = ⊤ ∖ ↑ nainv_name⌝ → token γ_switched)
     | _ => True
     end).
+
+  Local Instance inv_def_timeless γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched:
+        Timeless (inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched ).
+  Proof.
+    unfold inv_def.
+    repeat (apply bi.exist_timeless;intro).
+    repeat apply bi.sep_timeless;try apply _.
+    destruct (fin_to_nat x).
+    apply _.
+    destruct n;
+    apply _.
+  Qed.
 
   Definition nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx1 (page: PID): iProp Σ:=
     ∃ r0 r0' r1 w des b o, nainv_state_exact γ_nainvm (b,o) ∗
@@ -368,7 +469,18 @@ Section proof.
                       token γ_done
     end).
 
-  Definition machine0_spec {sown qo sacc sexcl qe sh}
+  Global Instance nainv_closed_timeless E : Timeless (nainv_closed E).
+  Proof. apply _. Qed.
+
+  Local Instance nainv_def_timeless γ_nainvm γ_access γ_done γ_unchanged γ_switched prx1 page:
+        Timeless (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx1 page).
+  Proof.
+    unfold nainv_def.
+    repeat (apply bi.exist_timeless;intro).
+    repeat apply bi.sep_timeless;try apply _.
+  Qed.
+
+  Lemma machine0_proof {sown qo sacc sexcl sh}
              (ppage pprog ptx prx: PID)
              (* the page to lend *)
              (ippage : Imm)
@@ -384,18 +496,18 @@ Section proof.
              (* has access to all involved pages *)
              (Hacc : {[ppage; pprog; ptx]} ⊆ sacc)
              (* at least owns ppage *)
-             (Hown : ppage ∈ sacc)
+             (Hown : ppage ∈ sown)
              (* at least has exclusive access to ppage *)
-             (Hown : ppage ∈ sexcl)
+             (Hexcl : ppage ∈ sexcl)
              (* the handle pool is not empty *)
              (Hsh : sh ≠ ∅)
              (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
-    : iProp Σ :=
-    {{{ PC @@ V0 ->r pprog
+    :
+    PC @@ V0 ->r pprog
     ∗ hp{ 1 }[ sh ]
     ∗ O@V0 :={qo}[sown]
     ∗ A@V0 :={1}[sacc]
-    ∗ E@V0 :={qe}[sexcl]
+    ∗ E@V0 :={1}[sexcl]
     ∗ TX@V0 := ptx
     ∗ RX@V1 := prx
     ∗ mem_region des ptx
@@ -409,22 +521,58 @@ Section proof.
     ∗ token γ_done
     ∗ token γ_closed
     ∗ inv_state_atleast γ_invm (V0,⊤,false)
-    }}}
-    ExecI @ V0
-      {{{ RET HaltI ;
+    ⊢ WP ExecI @ V0
+      {{ (λ m, ⌜m = HaltI⌝ ∗
           PC @@ V0 ->r (pprog ^+ (length (code0 ippage ilen)))%f
           ∗ hp{ 1 }[ sh ]
           ∗ O@V0 :={qo}[sown]
           ∗ A@V0 :={1}[sacc]
-          ∗ E@V0 :={qe}[sexcl]
+          ∗ E@V0 :={1}[sexcl]
           ∗ TX@V0 := ptx
           (* ∗ ∃ h, ⌜des' = serialized_transaction_descriptor V0 V1 h I1 [ppage] W0⌝ *)
           ∗ (∃ des, mem_region des ptx)
           ∗ R2 @@ V0 ->r ilen
           ∗ R3 @@ V0 ->r (ptx ^+ 2)%f
-          ∗ program (code0 ippage ilen) pprog
-      }}}.
+          ∗ program (code0 ippage ilen) pprog)
+      }}.
+  Proof.
+    iIntros  "(PC & hp & Own & Acc & Excl & TX & RX & des & [% R2] & R3 & [% page] & prog & #Hinv & #Hnainv & Done & Closed & InvAtLeast)".
+    iDestruct "prog" as "[prog1 prog]".
+    iApply wp_sswp.
+    (* open the invriant *)
+    iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
+    iInv inv_name as ">Inv" "HIClose".
+    iDestruct "Inv" as (i P b) "(ScheToken & NaInvToken & InvExact & Hif & Hmatch)".
+    iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
+    apply inv_sts_0_closed_unchanged_open in Rel.
+    simpl in Rel.
+    destruct Rel as [[->| ->] [[-> | ->] [-> | ->]]];iSimpl in "Hmatch".
+    2: { admit. }
+    3: { admit. }
 
+    4: { iApply (eliminate_wrong_token with "ScheToken").
+         admit.
+
+         iModIntro.
+         iNext.
+         iIntros "[_ False]".
+         iExFalso.
+         done.
+}
+    5: { iApply (eliminate_wrong_token with "ScheToken").
+         admit.
+
+         iModIntro.
+         iNext.
+         iIntros "[_ False]".
+         iExFalso.
+         done.
+    }
+    4: { admit. }
+
+    3: { admit. }
+    2: { admit. }
+Admitted.
 
   Definition machine1_spec {sacc}
              (ppage pprog ptx prx : PID)
@@ -481,6 +629,8 @@ Section proof.
           (* ∗ (∃ r, R8 @@ V1 ->r r) *)
           (* ∗ program (code1 ilen ibase iprx iptx ippage) pprog *)
       }}}.
+
+Lemma machine0_proof : machine0_spec.
 
 
 End proof.
