@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base reg mem pagetable.
-From HypVeri Require Import lifting rules.rules_base.
+From HypVeri Require Import machine_extra lifting rules.rules_base.
 From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section mov.
@@ -8,11 +8,10 @@ Section mov.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma mov_word {E i w1 w3 q p s} a w2 ra :
+Lemma mov_word {E i w1 w3 q s} a w2 ra :
   decode_instruction w1 = Some (Mov ra (inl w2)) ->
-  addr_in_page a p ->
-  p ∈ s ->
-  {SS{{  ▷ (PC @@ i ->r a)
+  to_pid_aligned a ∈ s ->
+  {SS{{ ▷ (PC @@ i ->r a)
           ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q}[s])
           ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
@@ -21,7 +20,7 @@ Lemma mov_word {E i w1 w3 q p s} a w2 ra :
                    ∗ A@i:={q}[s]
                    ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hdecode Hin HpIn ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -35,7 +34,8 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set a p s with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct (gen_access_valid_addr_Set a (to_pid_aligned a) with "Haccess Hacc") as %Hacc;eauto.
+  { apply in_page_to_pid_aligned. }
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -67,10 +67,9 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-Lemma mov_reg {E i qi w1 w3 q p s} a w2 ra rb :
+Lemma mov_reg {E i qi w1 w3 q s} a w2 ra rb :
   decode_instruction w1 = Some (Mov ra (inr rb)) ->
-  addr_in_page a p ->
-  p ∈ s ->
+  to_pid_aligned a ∈ s ->
   {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r a)
           ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q}[s])
           ∗ ▷ (ra @@ i ->r w2)
@@ -82,7 +81,7 @@ Lemma mov_reg {E i qi w1 w3 q p s} a w2 ra rb :
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.
-  iIntros (Hdecode Hin HpIn ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
+  iIntros (Hdecode Hin ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -97,7 +96,8 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set a p s with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct (gen_access_valid_addr_Set a (to_pid_aligned a) s with "Haccess Hacc") as %Hacc;eauto.
+  { apply in_page_to_pid_aligned. }
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
