@@ -2,7 +2,7 @@ From iris.bi Require Import derived_laws_later.
 From machine_program_logic.program_logic Require Import weakestpre.
 From iris.staging Require Import monotone.
 From HypVeri.algebra Require Import base mem.
-From HypVeri.rules Require Import rules_base.
+From HypVeri.rules Require Import rules_base mov.
 From HypVeri.examples Require Import instr.
 From HypVeri.lang Require Import lang_extra.
 From HypVeri Require Import proofmode.
@@ -201,58 +201,88 @@ Section proof.
    *)
 
   Section sts.
-    Context {ι:namespace}.
 
 
-  Definition inv_sts_state: Type := VMID * coPset * bool.
+  Definition inv_sts_state: Type := VMID * bool * bool.
 
   Inductive inv_sts_base : relation inv_sts_state :=
-  | inv_sts_base_0_closed_unchanged_open : inv_sts_base (V0, ⊤, false) (V0, ⊤ ∖↑ ι, false)
-  | inv_sts_base_0_unclosed_unchanged_switch : inv_sts_base (V0, ⊤ ∖↑ ι, false) (V1, ⊤, false)
-  | inv_sts_base_1_closed_unchanged_change : inv_sts_base (V1, ⊤, false) (V1, ⊤ ∖↑ ι, true)
-  | inv_sts_base_1_unclosed_changed_switch : inv_sts_base (V1, ⊤ ∖↑ ι, true) (V0, ⊤, true)
-  | inv_sts_base_0_closed_changed_open : inv_sts_base (V0, ⊤, true) (V0, ⊤ ∖↑ ι, true).
+  | inv_sts_base_0_closed_unchanged_open : inv_sts_base (V0, false , false) (V0, true, false)
+  | inv_sts_base_0_unclosed_unchanged_switch : inv_sts_base (V0, true, false) (V1, false, false)
+  | inv_sts_base_1_closed_unchanged_change : inv_sts_base (V1, false, false) (V1, true, true)
+  | inv_sts_base_1_unclosed_changed_switch : inv_sts_base (V1, true, true) (V0, false, true)
+  | inv_sts_base_0_closed_changed_open : inv_sts_base (V0, false, true) (V0, true, true).
+
+
+  (* Context {ι: namespace}. *)
+
+  (* Definition inv_sts_state: Type := VMID * coPset * bool. *)
+
+  (* Inductive inv_sts_base : relation inv_sts_state := *)
+  (* | inv_sts_base_0_closed_unchanged_open : inv_sts_base (V0, ⊤, false) (V0, ⊤ ∖↑ ι, false) *)
+  (* | inv_sts_base_0_unclosed_unchanged_switch : inv_sts_base (V0, ⊤ ∖↑ ι, false) (V1, ⊤, false) *)
+  (* | inv_sts_base_1_closed_unchanged_change : inv_sts_base (V1, ⊤, false) (V1, ⊤ ∖↑ ι, true) *)
+  (* | inv_sts_base_1_unclosed_changed_switch : inv_sts_base (V1, ⊤ ∖↑ ι, true) (V0, ⊤, true) *)
+  (* | inv_sts_base_0_closed_changed_open : inv_sts_base (V0, ⊤, true) (V0, ⊤ ∖↑ ι, true). *)
 
 
   Definition inv_sts_rel := rtc inv_sts_base.
 
-  Lemma inv_sts_0_closed_unchanged_open s : inv_sts_rel (V0, ⊤, false) s ->
-    (s.1.1= V0 ∨ s.1.1 = V1) ∧ (s.1.2 =⊤ ∨ s.1.2 = ⊤∖↑ ι) ∧ (s.2 =  false ∨ s.2 = true).
+
+  Lemma inv_sts_0_closed_unchanged_open s : inv_sts_rel (V0, false, false) s ->
+    (s.1.1= V0 ) ∨
+    (s.1.1 = V1 ∧ ((s.1.2 = false ∧ s.2 = false) ∨ (s.1.2 = true ∧ s.2 = true))) .
   Proof.
     intro.
     pattern s.
-    eapply (rtc_ind_r _ (V0,⊤,false)).
-    - split;[|split];left;done.
+    eapply (rtc_ind_r _ (V0,false,false)).
+    - left;eauto.
     - intros.
       Unshelve.
       2: { exact inv_sts_base. }
       destruct H2.
-      destruct H2, H3;destruct y as [ []];simpl in *;inversion H1;subst;cbn;
-      split;eauto.
+      destruct y as [ []];simpl in *;inversion H1;subst;cbn;eauto.
+      destruct H2; destruct y as [ []];simpl in *;inversion H1;subst;cbn;eauto;left;eauto.
     - done.
   Qed.
 
-  Lemma inv_sts_0_unclosed_unchanged_switch  s :
-    inv_sts_rel (V0, ⊤∖↑ι, false) s ->
-    (s.2 = true -> (s.1.1= V0 ∨ s.1.1 = V1) ∧ (s.1.2 =⊤ ∨ s.1.2 = ⊤∖↑ ι)) ∧ (s.2 =false -> s.1.1= V0 ∧ s.1.2 = ⊤∖↑ ι ∨ s.1.1 = V1 ∧ s.1.2 =⊤).
-  Proof.
-    intro.
-    pattern s.
-    eapply (rtc_ind_r _ (V0,⊤∖↑ι,false)).
-    - split.
-      intro;done.
-      intro.
-      left; done.
-    - intros.
-      Unshelve.
-      2: { exact inv_sts_base. }
-      destruct H2.
-      destruct y as [ []];simpl in *;inversion H1;subst;cbn;
-      split;eauto.
-      intro;done.
-      intro;done.
-    - done.
-  Qed.
+  (* Lemma inv_sts_0_closed_unchanged_open s : inv_sts_rel (V0, ⊤, false) s -> *)
+  (*   (s.1.1= V0 ∧ (s.1.2 =⊤ ∨ s.1.2 = ⊤∖↑ ι) ∧ (s.2 =  false ∨ s.2 = true)) ∨ *)
+  (*   (s.1.1 = V1 ∧ ((s.1.2 = ⊤ ∧ s.2 = false) ∨ (s.1.2 = ⊤∖↑ ι ∧ s.2 = true))) . *)
+  (* Proof. *)
+  (*   intro. *)
+  (*   pattern s. *)
+  (*   eapply (rtc_ind_r _ (V0,⊤,false)). *)
+  (*   - left;split;[|split];eauto. *)
+  (*   - intros. *)
+  (*     Unshelve. *)
+  (*     2: { exact inv_sts_base. } *)
+  (*     destruct H2. *)
+  (*     destruct H2, H3;destruct y as [ []];simpl in *;inversion H1;subst;cbn;eauto. *)
+  (*     destruct H2; destruct y as [ []];simpl in *;inversion H1;subst;cbn;eauto;left;eauto. *)
+  (*   - done. *)
+  (* Qed. *)
+
+  (* Lemma inv_sts_0_unclosed_unchanged_switch  s : *)
+  (*   inv_sts_rel (V0, ⊤∖↑ι, false) s -> *)
+  (*   (s.2 = true -> (s.1.1= V0 ∨ s.1.1 = V1) ∧ (s.1.2 =⊤ ∨ s.1.2 = ⊤∖↑ ι)) ∧ (s.2 =false -> s.1.1= V0 ∧ s.1.2 = ⊤∖↑ ι ∨ s.1.1 = V1 ∧ s.1.2 =⊤). *)
+  (* Proof. *)
+  (*   intro. *)
+  (*   pattern s. *)
+  (*   eapply (rtc_ind_r _ (V0,⊤∖↑ι,false)). *)
+  (*   - split. *)
+  (*     intro;done. *)
+  (*     intro. *)
+  (*     left; done. *)
+  (*   - intros. *)
+  (*     Unshelve. *)
+  (*     2: { exact inv_sts_base. } *)
+  (*     destruct H2. *)
+  (*     destruct y as [ []];simpl in *;inversion H1;subst;cbn; *)
+  (*     split;eauto. *)
+  (*     intro;done. *)
+  (*     intro;done. *)
+  (*   - done. *)
+  (* Qed. *)
 
 End sts.
 
@@ -302,7 +332,7 @@ Qed.
   (* regular exclusive tokens *)
   Class tokG Σ := tok_G :> inG Σ (exclR unitO).
   (* monotone RA for the STS of the invariant *)
-  Class invStsG Σ := invSts_G :> inG Σ (authUR (mraUR (@inv_sts_rel nainv_name) )).
+  Class invStsG Σ := invSts_G :> inG Σ (authUR (mraUR inv_sts_rel)).
   (* monotone RA for the STS of the non-atomic invariant *)
   Class nainvStsG Σ := nainvSts_G :> inG Σ (authUR (mraUR nainv_sts_rel)).
 
@@ -324,7 +354,7 @@ Qed.
   Proof. iApply own_alloc; apply auth_auth_valid; done. Qed.
 
   Lemma inv_state_exact_atleast γ s s':
-    inv_state_exact γ s -∗ inv_state_atleast γ s' -∗ ⌜@inv_sts_rel nainv_name s' s⌝.
+    inv_state_exact γ s -∗ inv_state_atleast γ s' -∗ ⌜inv_sts_rel s' s⌝.
   Proof.
     iIntros "H1 H2".
     iDestruct (own_valid_2 with "H1 H2") as %[Hincl ?]%auth_both_valid_discrete.
@@ -332,7 +362,7 @@ Qed.
   Qed.
 
   Lemma inv_state_update γ s s' :
-    @inv_sts_rel nainv_name s s' → inv_state_exact γ s ==∗ inv_state_exact γ s'.
+    inv_sts_rel s s' → inv_state_exact γ s ==∗ inv_state_exact γ s'.
   Proof.
     intros Hss.
     iApply own_update.
@@ -421,20 +451,35 @@ Qed.
     apply _.
   Qed.
 
+  (* Definition inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : iProp Σ:= *)
+  (*   ∃ (i : VMID) P b, <<i>>{ 1%Qp } ∗ nainv_closed P ∗ inv_state_exact γ_invm (i,P,b) ∗ *)
+  (*   (if b then True else token γ_unchanged) ∗ *)
+  (*   (match (fin_to_nat i,b) with *)
+  (*   | (0, false) => (⌜P = ⊤⌝ → token γ_access ∗ nainv_state_atleast γ_nainvm (b, None)) ∗ *)
+  (*                   (⌜P = ⊤ ∖↑ nainv_name⌝ → token γ_closed) *)
+  (*   | (0, true) =>  (⌜P = ⊤⌝ → token γ_done ∗ *)
+  (*                   ∃ h, nainv_state_atleast γ_nainvm (b, Some h)) ∗ *)
+  (*                   (⌜P = ⊤ ∖↑ nainv_name⌝ → token γ_closed ∗ token γ_access) *)
+  (*   | (1, false) => (⌜P = ⊤⌝ → token γ_done ∗ *)
+  (*                   ∃ h, nainv_state_atleast γ_nainvm (b, Some h)) *)
+  (*   | (1, true) =>  (⌜P = ⊤ ∖ ↑ nainv_name⌝ → token γ_switched) *)
+  (*   | _ => True *)
+  (*   end). *)
+
+
   Definition inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : iProp Σ:=
-    ∃ (i : VMID) P b, <<i>>{ 1%Qp } ∗ nainv_closed P ∗ inv_state_exact γ_invm (i,P,b) ∗
-    (if b then True else token γ_unchanged) ∗
-    (match (fin_to_nat i,b) with
-    | (0, false) => (⌜P = ⊤⌝ → token γ_access ∗ nainv_state_atleast γ_nainvm (b, None)) ∗
-                    (⌜P = ⊤ ∖↑ nainv_name⌝ → token γ_closed)
-    | (0, true) =>  (⌜P = ⊤⌝ → token γ_done ∗
-                    ∃ h, nainv_state_atleast γ_nainvm (b, Some h)) ∗
-                    (⌜P = ⊤ ∖↑ nainv_name⌝ → token γ_closed ∗ token γ_access)
-    | (1, false) => (⌜P = ⊤⌝ → token γ_done ∗
-                    ∃ h, nainv_state_atleast γ_nainvm (b, Some h))
-    | (1, true) =>  (⌜P = ⊤ ∖ ↑ nainv_name⌝ → token γ_switched)
+    ∃ (i : VMID)  P ob cb, <<i>>{ 1%Qp } ∗ nainv_closed P ∗ inv_state_exact γ_invm (i,ob,cb) ∗
+    (if cb then True else token γ_unchanged) ∗
+    (match (fin_to_nat i,ob,cb) with
+    | (0, false, false) => (⌜P = ⊤⌝ ∗ token γ_access ∗ nainv_state_atleast γ_nainvm (cb, None))
+    | (0, true, false) => (⌜P = ⊤ ∖↑ nainv_name⌝ ∗ token γ_closed)
+    | (0, false, true) => (⌜P = ⊤⌝ ∗ token γ_done ∗ ∃ h, nainv_state_atleast γ_nainvm (cb, Some h))
+    | (0, true, true) => (⌜P = ⊤ ∖↑ nainv_name⌝ ∗ token γ_closed ∗ token γ_access)
+    | (1, false, false) => (⌜P = ⊤⌝ ∗ token γ_done ∗ ∃ h, nainv_state_atleast γ_nainvm (cb, Some h))
+    | (1, true, true) => (⌜P = ⊤ ∖ ↑ nainv_name⌝ ∗ token γ_switched)
     | _ => True
     end).
+
 
   Local Instance inv_def_timeless γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched:
         Timeless (inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched ).
@@ -513,14 +558,13 @@ Qed.
     ∗ mem_region des ptx
     ∗ (∃ r2, R2 @@ V0 ->r r2)
     ∗ R3 @@ V0 ->r (ptx ^+ 2)%f
-    ∗ (∃ w, ppage ->a w)
     ∗ program (code0 ippage ilen) pprog
     (*invariants and ghost variables *)
     ∗ inv inv_name (inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched)
     ∗ nainv nainv_name (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx ppage)
     ∗ token γ_done
     ∗ token γ_closed
-    ∗ inv_state_atleast γ_invm (V0,⊤,false)
+    ∗ inv_state_atleast γ_invm (V0,false,false)
     ⊢ WP ExecI @ V0
       {{ (λ m, ⌜m = HaltI⌝ ∗
           PC @@ V0 ->r (pprog ^+ (length (code0 ippage ilen)))%f
@@ -536,42 +580,57 @@ Qed.
           ∗ program (code0 ippage ilen) pprog)
       }}.
   Proof.
-    iIntros  "(PC & hp & Own & Acc & Excl & TX & RX & des & [% R2] & R3 & [% page] & prog & #Hinv & #Hnainv & Done & Closed & InvAtLeast)".
+    iIntros  "(PC & hp & Own & Acc & Excl & TX & RX & des & [% R2] & R3 & prog & #Hinv & #Hnainv & Done & Closed & InvAtLeast)".
     iDestruct "prog" as "[prog1 prog]".
+    pose proof (seq_in_page_forall2 _ _ _ Hseq) as HaddrIn.
+    pose
     iApply wp_sswp.
-    (* open the invriant *)
+    (* open the invariant *)
     iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
     iInv inv_name as ">Inv" "HIClose".
-    iDestruct "Inv" as (i P b) "(ScheToken & NaInvToken & InvExact & Hif & Hmatch)".
+    iDestruct "Inv" as (i P cb ob) "(ScheToken & NaInvToken & InvExact & Hif & Hmatch)".
     iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
+    iClear "InvAtLeast".
     apply inv_sts_0_closed_unchanged_open in Rel.
     simpl in Rel.
-    destruct Rel as [[->| ->] [[-> | ->] [-> | ->]]];iSimpl in "Hmatch".
-    2: { admit. }
-    3: { admit. }
-
-    4: { iApply (eliminate_wrong_token with "ScheToken").
-         admit.
-
+    (* assert( Htop: (⊤:coPset) = ⊤ ). reflexivity. *)
+    (* assert( Htopminus: (⊤:coPset) ∖ ↑nainv_name = ⊤ ∖ ↑ nainv_name ). reflexivity. *)
+    (* destruct Rel as [[-> [[->| ->] [->| ->]]]| [-> [[-> ->]|[-> ->]]]];iSimpl in "Hmatch". *)
+    destruct Rel as [->| [-> [[-> ->]|[-> ->]]]];iSimpl in "Hmatch".
+    destruct ob,cb.
+    { iDestruct "Hmatch" as "(_ & Closed' & _)".
+      iDestruct (token_excl with "Closed Closed'") as %[]. }
+    { iDestruct "Hmatch" as "(_ & Done' & _)".
+      iDestruct (token_excl with "Done Done'") as %[]. }
+    { iDestruct "Hmatch" as "(_ & Closed')".
+      iDestruct (token_excl with "Closed Closed'") as %[]. }
+    2: { iDestruct "Hmatch" as "(_ & Done' & _)".
+         iDestruct (token_excl with "Done Done'") as %[]. }
+    2: { iApply (eliminate_wrong_token with "ScheToken").
+         done.
          iModIntro.
          iNext.
          iIntros "[_ False]".
          iExFalso.
-         done.
-}
-    5: { iApply (eliminate_wrong_token with "ScheToken").
-         admit.
+         done. }
+    iDestruct "Hmatch" as "(-> & Access & NaInvAtLeast)".
+    (* open the na-invariant *)
+    iMod (na_inv_acc with "Hnainv NaInvToken") as "(>NaInv & NaInvToken & NaInvClose)";auto.
+    { pose proof namespace_disjoint. set_solver. }
+    iDestruct "NaInv" as "(% & % & % & % & % & % & % & NaInvExact & R0 & R0' & R1 & page & RxDes & Hif' & Htrans & Hmatch)".
+    iDestruct ((inv_state_update _ _ (V0, true, false)) with "InvExact") as ">InvExact".
+    { unfold inv_sts_rel. apply rtc_once. constructor. }
+    iDestruct (inv_state_observe with "InvExact") as ">[InvExact InvAtLeast]".
+    (*mov*)
+    iApply (mov_word with "[prog1 PC Acc R1]"); iFrameAutoSolve.
+    {  pose proof (HaddrIn pprog). apply H2. }
+    (* close the invariant *)
+    iDestruct ("HIClose" with "[ScheToken NaInvToken InvExact Hif Closed]") as "HIClose".
+    { iExists V0, (⊤∖↑ nainv_name), true, false. iNext. iFrame. done. }
 
-         iModIntro.
-         iNext.
-         iIntros "[_ False]".
-         iExFalso.
-         done.
-    }
-    4: { admit. }
 
-    3: { admit. }
-    2: { admit. }
+    iMod "HIClose" as %_.
+    iModIntro.
 Admitted.
 
   Lemma machine1_proof {sacc}

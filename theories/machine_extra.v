@@ -247,8 +247,7 @@ Proof.
   solve_finz.
 Qed.
 
-(*  relation between to_pid_aligned and addr_in_page,
- TODO: prove the opposite direction (not sure if is useful) *)
+(*  relation between to_pid_aligned and addr_in_page *)
 Lemma to_pid_aligned_in_page (a:Addr) (p:PID) :
   addr_in_page a p -> (to_pid_aligned a ) = p.
 Proof.
@@ -308,6 +307,70 @@ Proof.
   apply eq_proofs_unicity; decide equality; decide equality.
   rewrite Heqiv'' // .
 Qed.
+
+Lemma in_page_to_pid_aligned a: addr_in_page a (to_pid_aligned a).
+Proof.
+  unfold addr_in_page, to_pid_aligned.
+  split.
+  - simpl.
+    unfold finz.leb.
+    simpl.
+    unfold Is_true.
+    case_match;[done|].
+    apply Z.leb_nle in Heqb.
+    apply Heqb.
+    apply Z.mul_div_le.
+    lia.
+  - unfold finz.leb.
+    simpl.
+    pose proof (last_addr_in_bound (to_pid_aligned a)) as Hplus.
+    destruct Hplus as [? Hplus].
+    unfold finz.incr_default.
+    unfold to_pid_aligned in Hplus.
+    rewrite Hplus.
+    simpl in Hplus.
+    destruct x.
+    simpl.
+    assert (1000 * a `div` 1000 + (1000 - 1) = z)%Z as <-.
+    { solve_finz. }
+    pose proof (Z.div_mod a 1000).
+    rewrite ->H at 1.
+    2: {lia. }
+    unfold Is_true.
+    case_match;[done|].
+    apply Z.leb_nle in Heqb.
+    apply Heqb.
+    apply Zplus_le_compat_l.
+    rewrite -Z.rem_mod_nonneg;[lia|lia|].
+    assert (a `rem` 1000 < 1000)%Z.
+    {
+      pose proof (Z.rem_bound_pos_pos a 1000).
+      apply H0;lia.
+    }
+    lia.
+Qed.
+
+Lemma to_pid_aligned_eq (p:PID) : to_pid_aligned p = p.
+Proof.
+  unfold to_pid_aligned.
+  destruct p.
+  destruct z.
+  assert (Heq : z = (page_size * (z / page_size))%Z).
+  {
+    simplify_eq /=.
+    unfold finz.leb in finz_lt.
+    unfold finz.ltb in finz_nonneg.
+    apply Z.ltb_lt in finz_lt.
+    apply Z.leb_le in finz_nonneg.
+    apply Z.eqb_eq in align.
+    apply Z.rem_divide in align;[|lia].
+    destruct align.
+    subst z.
+    rewrite Z_div_mult;[lia|].
+    apply (fast_Zmult_comm page_size x).
+    lia.
+  }
+Admitted.
 
 Lemma finz_plus_assoc {fb} (a : finz fb) (n m : Z):
   (0 <= n)%Z ->
@@ -444,6 +507,14 @@ Proof.
   cbn.
   repeat f_equal.
   lia.
+Qed.
+
+Definition seq_in_page_forall2 (b: Addr) (l:nat) (p:PID) :
+  seq_in_page b l p -> (∀ a, a ∈ (finz.seq b l) -> to_pid_aligned a = p).
+Proof.
+  intros.
+  apply to_pid_aligned_in_page.
+  by apply (seq_in_page_forall1 b l p H a).
 Qed.
 
 
