@@ -574,7 +574,7 @@ Qed.
     2: { admit. }
 Admitted.
 
-  Definition machine1_spec {sacc}
+  Lemma machine1_proof {sacc}
              (ppage pprog ptx prx : PID)
              (ippage iptx iprx : Imm)
              (* ibase is the base addr of the loop body *)
@@ -593,9 +593,7 @@ Admitted.
              (Hileneq : Z.to_nat (finz.to_z ilen) = nlen)
              (* the whole program is in page pprog *)
              (Hseq : seq_in_page pprog (length (code1 ilen ibase iprx iptx ippage)) pprog)
-             (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
-    : iProp Σ :=
-    {{{
+             (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname) :
     PC @@ V1 ->r pprog
     ∗ A@V1 :={1}[sacc]
     ∗ TX@ V1 := ptx
@@ -613,9 +611,8 @@ Admitted.
     ∗ nainv nainv_name (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx ppage)
     ∗ token γ_switched
     ∗ inv_state_atleast γ_invm (V0,⊤,false)
-    }}}
-      ExecI @ V1
-    {{{ RET ExecI ;
+    ⊢ WP ExecI @ V1
+    {{ λ m, ⌜m = ExecI⌝ ∗
         True
           (* PC @@ V1 ->r (pprog ^+ (length (code1 ilen ibase iprx iptx ippage)))%f *)
           (* ∗ A@V1 :={1}[sacc] *)
@@ -628,9 +625,48 @@ Admitted.
           (* ∗ (∃ r, R7 @@ V1 ->r r) *)
           (* ∗ (∃ r, R8 @@ V1 ->r r) *)
           (* ∗ program (code1 ilen ibase iprx iptx ippage) pprog *)
-      }}}.
-
-Lemma machine0_proof : machine0_spec.
+    }}.
+  Proof.
+    iIntros "(PC & Acc & TX & RX & [% [mrdes %mrdesEq]] & R1 & R2 & R5 & R6 & R7 & R8 & program & #Hinv & #Hainv & HSwitched & InvAtLeast)".
+    iDestruct "program" as "[prog1 program]".
+    iApply wp_sswp.
+    (* open the invriant *)
+    iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
+    iInv inv_name as ">Inv" "HIClose".
+    iDestruct "Inv" as (i P b) "(ScheToken & NaInvToken & InvExact & Hif & Hmatch)".
+    iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
+    apply inv_sts_0_closed_unchanged_open in Rel.
+    simpl in Rel.
+    destruct Rel as [[->| ->] [[-> | ->] [-> | ->]]];iSimpl in "Hmatch".
+    2: { iApply (eliminate_wrong_token with "ScheToken").
+         done.
+         iModIntro.
+         iNext.
+         iIntros "[_ False]".
+         iExFalso.
+         done.
+    }
+    3: { iApply (eliminate_wrong_token with "ScheToken").
+         done.
+         iModIntro.
+         iNext.
+         iIntros "[_ False]".
+         iExFalso.
+         done.
+    }
+    4: { admit. }
+    5: { iExFalso.
+         iApply (token_excl with "[HSwitched]").
+         iExact "HSwitched".
+         iApply "Hmatch".
+         done.
+    }
+    4: { 
+      admit.
+    }
+    3: { admit. }
+    2: { admit. }
+  Admitted
 
 
 End proof.
