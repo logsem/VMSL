@@ -34,8 +34,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set a (to_pid_aligned a) with "Haccess Hacc") as %Hacc;eauto.
-  { apply in_page_to_pid_aligned. }
+  iDestruct (gen_access_valid_addr_Set a with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -96,8 +95,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set a (to_pid_aligned a) s with "Haccess Hacc") as %Hacc;eauto.
-  { apply in_page_to_pid_aligned. }
+  iDestruct (gen_access_valid_addr_Set a s with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
