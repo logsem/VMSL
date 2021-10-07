@@ -22,6 +22,9 @@ Solve Obligations with try lia; solve_finz.
 Program Definition I2 : Imm := (I (finz.FinZ 2 _ _) _).
 Solve Obligations with try lia; solve_finz.
 
+Program Definition I6 : Imm := (I (finz.FinZ 6 _ _) _).
+Solve Obligations with try lia; solve_finz.
+
 Program Definition R0 :reg_name := (R 0 _).
 Solve Obligations with lia.
 
@@ -260,7 +263,6 @@ Proof.
   rewrite (incr_default_incr (of_pid p) x (page_size -1)%Z) in H0;eauto.
   destruct p.
   destruct z.
-  f_equal /=.
   assert (Heq : z = (page_size * (a / page_size))%Z).
   {
     destruct a.
@@ -354,23 +356,23 @@ Lemma to_pid_aligned_eq (p:PID) : to_pid_aligned p = p.
 Proof.
   unfold to_pid_aligned.
   destruct p.
+  apply of_pid_eq.
+  simpl.
   destruct z.
-  assert (Heq : z = (page_size * (z / page_size))%Z).
-  {
-    simplify_eq /=.
-    unfold finz.leb in finz_lt.
-    unfold finz.ltb in finz_nonneg.
-    apply Z.ltb_lt in finz_lt.
-    apply Z.leb_le in finz_nonneg.
-    apply Z.eqb_eq in align.
-    apply Z.rem_divide in align;[|lia].
-    destruct align.
-    subst z.
-    rewrite Z_div_mult;[lia|].
-    apply (fast_Zmult_comm page_size x).
-    lia.
-  }
-Admitted.
+  apply finz_to_z_eq.
+  simplify_eq /=.
+  unfold finz.leb in finz_lt.
+  unfold finz.ltb in finz_nonneg.
+  apply Z.ltb_lt in finz_lt.
+  apply Z.leb_le in finz_nonneg.
+  apply Z.eqb_eq in align.
+  apply Z.rem_divide in align;[|lia].
+  destruct align.
+  subst z.
+  rewrite Z_div_mult;[lia|].
+  apply (fast_Zmult_comm page_size x).
+  lia.
+Qed.
 
 Lemma finz_plus_assoc {fb} (a : finz fb) (n m : Z):
   (0 <= n)%Z ->

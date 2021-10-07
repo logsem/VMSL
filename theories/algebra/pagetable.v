@@ -257,20 +257,19 @@ Section pagetable_rules.
     rewrite HIn //=.
   Qed.
 
-  Lemma gen_access_valid_addr_Set {σ i q} a p s:
-   addr_in_page a p ->
-   p ∈ s ->
+  Lemma gen_access_valid_addr_Set {σ i q} a s:
+   (to_pid_aligned a) ∈ s ->
    ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ) -∗
    (A@ i :={q}[s] ) -∗
    ⌜(check_access_addr σ i a)= true⌝.
   Proof.
-    iIntros (HaIn HpIn) "Haccess Hacc".
+    iIntros (HaIn) "Haccess Hacc".
     iDestruct (gen_access_valid_SepS_pure with "Haccess Hacc") as %Hacc.
     iPureIntro.
     unfold check_access_addr.
-    apply to_pid_aligned_in_page in HaIn.
-    rewrite HaIn /check_access_page'.
-    pose proof (Hacc p HpIn) as [? [-> Hisa]].
+    (* apply to_pid_aligned_in_page in HaIn. *)
+    rewrite /check_access_page'.
+    pose proof (Hacc (to_pid_aligned a) HaIn) as [? [-> Hisa]].
     done.
   Qed.
 

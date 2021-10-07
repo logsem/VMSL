@@ -8,24 +8,30 @@ Section bne.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma bne {instr i w1 w2 w3 q pi sacc} ai ra :
-  instr = Bne ra ->
-  decode_instruction w1 = Some(instr) ->
-  addr_in_page ai pi ->
-  pi ∈ sacc ->
-  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q}[sacc]) ∗ ▷ (NZ @@ i ->r w3)}}} ExecI @ i
-                                  {{{ RET ExecI; PC @@ i ->r (if (w3 =? W1)%f then  (ai ^+ 1)%f else w2 ) ∗ ai ->a w1 ∗ ra @@ i ->r w2
-                       ∗ A@i:={q}[sacc] ∗ NZ @@ i ->r w3 }}}.
+Lemma bne {i w1 w2 w3 q sacc} ai ra :
+  decode_instruction w1 = Some(Bne ra) ->
+  to_pid_aligned ai ∈ sacc ->
+  {SS{{ ▷ (PC @@ i ->r ai) ∗
+        ▷ (ai ->a w1) ∗
+        ▷ (ra @@ i ->r w2) ∗
+        ▷ (A@i:={q}[sacc]) ∗
+        ▷ (NZ @@ i ->r w3)
+  }}} ExecI @ i
+  {{{ RET ExecI; PC @@ i ->r (if (w3 =? W1)%f then  (ai ^+ 1)%f else w2 ) ∗
+                 ai ->a w1 ∗
+                 ra @@ i ->r w2 ∗
+                 A@i:={q}[sacc] ∗
+                 NZ @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hdecode HIn Hsin ϕ) "(>Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
+  iIntros (Hdecode HIn ϕ) "(>Hpc & >Hapc & >Hra & >Hacc & >Hnz ) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hrest)".
+  set (instr:= Bne ra).
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
-  rewrite Hinstr in Hvalidinstr.
   inversion Hvalidinstr as [ | | | | | | | | | src Hvalidra|] .
   subst src .
   inversion Hvalidra as [ HneqPCa HneqNZa ].
@@ -44,7 +50,7 @@ Proof.
     iIntros (m2 σ2) "%HstepP".
     apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
     remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (bne_ExecI σ1 w3 ra w2 HneqPCa HneqNZa) /update_incr_PC /update_reg in Heqc2;eauto.
+    rewrite /exec /instr (bne_ExecI σ1 w3 ra w2 HneqPCa HneqNZa) /update_incr_PC /update_reg in Heqc2;eauto.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* branch here*)

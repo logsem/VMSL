@@ -266,15 +266,11 @@ Inductive not_share_view_spec : transaction_type -> Type :=
 Lemma not_share_viewP z : not_share_view_spec z.
 Proof. destruct z; [ constructor | constructor 2 | constructor ]; auto. Qed.
 
-Lemma hvc_mem_send_not_share_nz tt instr i wi r2 pi ptx sown q sacc sexcl des sh hvcf  (l :Word) (spsd: gset PID)
+Lemma hvc_mem_send_not_share_nz tt i wi r2 ptx sown q sacc sexcl des sh hvcf  (l :Word) (spsd: gset PID)
       ai r0 r1 j (psd: list PID) :
   tt ≠ Sharing ->
-  (* the current instruction is hvc *)
-  instr = Hvc ->
   (* the decoding of wi is correct *)
-  decode_instruction wi = Some(instr) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
+  decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is a FFA mem send *)
   decode_hvc_func r0 = Some(hvcf) ->
   hvcf_to_tt hvcf = Some tt ->
@@ -291,7 +287,7 @@ Lemma hvc_mem_send_not_share_nz tt instr i wi r2 pi ptx sown q sacc sexcl des sh
   (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   (* pi and pages in spsd are accessible for VM i *)
-  {[pi]} ∪ spsd ⊆ sacc ->
+  {[to_pid_aligned ai]} ∪ spsd ⊆ sacc ->
   (* VM i owns pages in spsd *)
   spsd ⊆ sown ->
   (* pages in spsed are exclusive to VM i *)
@@ -310,8 +306,7 @@ Lemma hvc_mem_send_not_share_nz tt instr i wi r2 pi ptx sown q sacc sexcl des sh
   ∗ wh ->re false  ∗ hp{1}[ (sh∖{[wh]})] )
   ∗ mem_region des ptx}}}.
 Proof.
-  iIntros (Hnshar Hinstr Hdecodei Hini Hdecodef Hismemsend Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl).
-  iIntros (Hshne).
+  iIntros (Hnshar Hdecodei Hdecodef Hismemsend Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne).
   iIntros (Φ) "(>PC & >Hai & >Hown & >Hacc & >Hexcl & >R0 & >R1 & >R2 & >TX & >Hadesc & >Hhp ) HΦ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -323,7 +318,7 @@ Proof.
   iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 r1 Hcureq) with "Hσreg PC R0 R1") as "(%HPC & %HR0 & %HR1)";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess Hacc") as %Haccai;eauto.
-  { rewrite (to_pid_aligned_in_page _ pi);eauto. set_solver. }
+  { set_solver. }
   iDestruct ((gen_own_valid_SepS_pure sown) with "Hσowned Hown") as %Hown;eauto.
   iDestruct ((gen_excl_valid_SepS_pure sexcl) with "Hσexcl Hexcl") as %Hexcl;eauto.
   (* valid mem *)
@@ -338,12 +333,12 @@ Proof.
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr ai wi);eauto.
+    apply (reducible_normal i Hvc ai wi);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr ai wi) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
     assert (Hlendesclt :((Z.of_nat (length des) -1) <= (page_size-1))%Z).
     {  destruct Hindesc as [? [? [HisSome Hltpagesize]]].
        apply (finz_plus_Z_le (of_pid ptx));eauto.
@@ -353,7 +348,7 @@ Proof.
        apply Z.leb_le in Heqb.
        done.
     }
-    rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
+    rewrite /exec /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
     rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid _ _ i j W0 l psd σ1 des) /= in Heqc2;eauto.
     assert (Hcheck : (i =? i)%nat = true).
@@ -397,49 +392,43 @@ Proof.
     destruct (not_share_viewP tt) as [? o | ? o]; [| done].
     destruct hvcf; try inversion Hismemsend; subst t;
       destruct HstepP;subst m2 σ2; subst c2; simpl; try done; destruct o; try done.
-    +
-      { iDestruct (mem_send_nz_not_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hhp
+    { iDestruct (mem_send_nz_not_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hhp
         [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hrcv]")
           as ">[Hσ' (? &?&?&?&?&?&?&?&?&?&?&?)]";eauto.
-        rewrite Hfhs //.
-        rewrite /gen_vm_interp.
-        iFrame.
-        done.
-        iModIntro.
-        iSplitL "Hσ'".
-        iExact "Hσ'".
-        iApply "HΦ".
-        iFrame.
-        iExists h.
-        iFrame.
-      }
-    + 
-      { iDestruct (mem_send_nz_not_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hhp
+      rewrite Hfhs //.
+      rewrite /gen_vm_interp.
+      iFrame.
+      done.
+      iModIntro.
+      iSplitL "Hσ'".
+      iExact "Hσ'".
+      iApply "HΦ".
+      iFrame.
+      iExists h.
+      iFrame.
+    }
+    { iDestruct (mem_send_nz_not_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hhp
         [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hrcv]")
           as ">[Hσ' (? &?&?&?&?&?&?&?&?&?&?&?)]";eauto.
-        rewrite Hfhs //.
-        rewrite /gen_vm_interp.
-        iFrame.
-        done.
-        iModIntro.
-        iSplitL "Hσ'".
-        iExact "Hσ'".
-        iApply "HΦ".
-        iFrame.
-        iExists h.
-        iFrame.
-      }
+      rewrite Hfhs //.
+      rewrite /gen_vm_interp.
+      iFrame.
+      done.
+      iModIntro.
+      iSplitL "Hσ'".
+      iExact "Hσ'".
+      iApply "HΦ".
+      iFrame.
+      iExists h.
+      iFrame.
+    }
 Qed.
 
-Lemma hvc_mem_send_share_nz tt instr i wi r2 pi ptx sown q sacc sexcl des sh hvcf  (l :Word) (spsd: gset PID)
+Lemma hvc_mem_send_share_nz tt i wi r2 ptx sown q sacc sexcl des sh hvcf  (l :Word) (spsd: gset PID)
       ai r0 r1 j (psd: list PID) :
   tt = Sharing ->
-  (* the current instruction is hvc *)
-  instr = Hvc ->
   (* the decoding of wi is correct *)
-  decode_instruction wi = Some(instr) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
+  decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is a FFA mem send *)
   decode_hvc_func r0 = Some(hvcf) ->
   hvcf_to_tt hvcf = Some tt ->
@@ -456,7 +445,7 @@ Lemma hvc_mem_send_share_nz tt instr i wi r2 pi ptx sown q sacc sexcl des sh hvc
   (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   (* pi and pages in spsd are accessible for VM i *)
-  {[pi]} ∪ spsd ⊆ sacc ->
+  {[to_pid_aligned ai]} ∪ spsd ⊆ sacc ->
   (* VM i owns pages in spsd *)
   spsd ⊆ sown ->
   (* pages in spsed are exclusive to VM i *)
@@ -475,8 +464,7 @@ Lemma hvc_mem_send_share_nz tt instr i wi r2 pi ptx sown q sacc sexcl des sh hvc
   ∗ wh ->re false  ∗ hp{1}[ (sh∖{[wh]})] )
   ∗ mem_region des ptx}}}.
 Proof.
-  iIntros (Hnshar Hinstr Hdecodei Hini Hdecodef Hismemsend Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl).
-  iIntros (Hshne).
+  iIntros (Hnshar Hdecodei Hdecodef Hismemsend Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne).
   iIntros (Φ) "(>PC & >Hai & >Hown & >Hacc & >Hexcl & >R0 & >R1 & >R2 & >TX & >Hadesc & >Hhp ) HΦ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -488,7 +476,7 @@ Proof.
   iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 r1 Hcureq) with "Hσreg PC R0 R1") as "(%HPC & %HR0 & %HR1)";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess Hacc") as %Haccai;eauto.
-  { rewrite (to_pid_aligned_in_page _ pi);eauto. set_solver. }
+  { set_solver. }
   iDestruct ((gen_own_valid_SepS_pure sown) with "Hσowned Hown") as %Hown;eauto.
   iDestruct ((gen_excl_valid_SepS_pure sexcl) with "Hσexcl Hexcl") as %Hexcl;eauto.
   (* valid mem *)
@@ -503,12 +491,12 @@ Proof.
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr ai wi);eauto.
+    apply (reducible_normal i Hvc ai wi);eauto.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr ai wi) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
     assert (Hlendesclt :((Z.of_nat (length des) -1) <= (page_size-1))%Z).
     {  destruct Hindesc as [? [? [HisSome Hltpagesize]]].
        apply (finz_plus_Z_le (of_pid ptx));eauto.
@@ -518,14 +506,14 @@ Proof.
        apply Z.leb_le in Heqb.
        done.
     }
-    rewrite /exec Hinstr /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
+    rewrite /exec /hvc HR0 Hdecodef /mem_send //= HR1 /= in Heqc2.
     destruct (page_size <? r1)%Z eqn:Heqn;[lia|clear Heqn].
     rewrite Hcureq /get_tx_pid_global Htx (@transaction_descriptor_valid _ _ i j W0 l psd σ1 des) /= in Heqc2;eauto.
     assert (Hcheck : (i =? i)%nat = true).
     { by apply   <- Nat.eqb_eq. }
     rewrite Hcureq Hcheck /= in Heqc2;clear Hcheck.
     assert (Hcheck:  negb (i =? j)%nat = true).
-       {apply negb_true_iff. apply  <- Nat.eqb_neq. intro. apply Hneq. by apply fin_to_nat_inj.  }
+    { apply negb_true_iff. apply  <- Nat.eqb_neq. intro. apply Hneq. by apply fin_to_nat_inj. }
     rewrite Hcheck /= in Heqc2;clear Hcheck.
     destruct (forallb (λ v' : PID, check_perm_page σ1 i v' (Owned, ExclusiveAccess)) psd) eqn:HCheck.
     2: {
@@ -556,39 +544,33 @@ Proof.
     rewrite /new_transaction /fresh_handle in Heqc2.
     destruct (elements sh) as [| h fhs] eqn:Hfhs .
     { exfalso. rewrite -elements_empty in Hfhs.  apply Hshne. apply set_eq.
-     intro. rewrite -elem_of_elements Hfhs elem_of_elements.   split;intro;set_solver. }
+    intro. rewrite -elem_of_elements Hfhs elem_of_elements.   split;intro;set_solver. }
     rewrite -Hhp //=  in Heqc2.
     destruct (not_share_viewP tt) as [? o | ? o]; [destruct o; simplify_eq; discriminate|].
     destruct hvcf; try inversion Hismemsend; subst t;
       destruct HstepP;subst m2 σ2; subst c2; simpl; try done; destruct o; try done.
-    +
-      { iDestruct (mem_send_nz_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hhp
+    iDestruct (mem_send_nz_share_update with "PC Hai Hown Hacc Hexcl R0 R1 R2 Hhp
         [Hcur Hσmem Hσreg Hσtx Hσrx1 Hσrx2 Hσowned Hσaccess Hσexcl Htrans Hσhp Hrcv]")
           as ">[Hσ' (? &?&?&?&?&?&?&?&?&?&?&?)]";eauto.
-        rewrite Hfhs //.
-        rewrite ->union_subseteq in Hsacc; destruct Hsacc; auto.
-        rewrite /gen_vm_interp.
-        iFrame.
-        done.
-        iModIntro.
-        iSplitL "Hσ'".
-        iExact "Hσ'".
-        iApply "HΦ".
-        iFrame.
-        iExists h.
-        iFrame.
-      }
+    rewrite Hfhs //.
+    rewrite ->union_subseteq in Hsacc; destruct Hsacc; auto.
+    rewrite /gen_vm_interp.
+    iFrame.
+    done.
+    iModIntro.
+    iSplitL "Hσ'".
+    iExact "Hσ'".
+    iApply "HΦ".
+    iFrame.
+    iExists h.
+    iFrame.
 Qed.
 
 
-Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
-      ai r0 r1 j (psd: list PID) :
-  (* the current instruction is hvc *)
-  instr = Hvc ->
+Lemma hvc_donate_nz {i ai wi r2 ptx sown q sacc sexcl des sh}
+      {r0 r1} j (l :Word) (psd: list PID) (spsd: gset PID):
   (* the decoding of wi is correct *)
-  decode_instruction wi = Some(instr) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
+  decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is FFA_DONATE *)
   decode_hvc_func r0 = Some(Donate) ->
   (* caller is not the receiver *)
@@ -604,7 +586,7 @@ Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {s
   (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   (* pi and pages in spsd are accessible for VM i *)
-  {[pi]} ∪ spsd ⊆ sacc ->
+  {[to_pid_aligned ai]} ∪ spsd ⊆ sacc ->
   (* VM i owns pages in spsd *)
   spsd ⊆ sown ->
   (* pages in spsed are exclusive to VM i *)
@@ -623,18 +605,14 @@ Lemma hvc_donate_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {s
   ∗ wh ->re false  ∗ hp{1}[ (sh∖{[wh]})] )
   ∗ mem_region des ptx}}}.
 Proof.
-  iIntros (Hinstr Hdecodei Hini Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ).
-  iApply ((hvc_mem_send_not_share_nz Donation instr i wi r2 pi ptx sown q sacc sexcl des sh Donate l spsd ai r0 r1 j psd));auto.
+  iIntros (Hdecodei Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ).
+  iApply ((hvc_mem_send_not_share_nz Donation i wi r2 ptx sown q sacc sexcl des sh Donate l spsd ai r0 r1 j psd));auto.
 Qed.
 
-Lemma hvc_share_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
-      ai r0 r1 j (psd: list PID) :
-  (* the current instruction is hvc *)
-  instr = Hvc ->
+Lemma hvc_share_nz {i ai wi r2 ptx sown q sacc sexcl des sh}
+      {r0 r1} j (l :Word) (psd: list PID) (spsd: gset PID):
   (* the decoding of wi is correct *)
-  decode_instruction wi = Some(instr) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
+  decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is FFA_SHARE *)
   decode_hvc_func r0 = Some(Share) ->
   (* caller is not the receiver *)
@@ -650,7 +628,7 @@ Lemma hvc_share_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {sp
   (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   (* pi and pages in spsd are accessible for VM i *)
-  {[pi]} ∪ spsd ⊆ sacc ->
+  {[to_pid_aligned ai]} ∪ spsd ⊆ sacc ->
   (* VM i owns pages in spsd *)
   spsd ⊆ sown ->
   (* pages in spsed are exclusive to VM i *)
@@ -669,18 +647,14 @@ Lemma hvc_share_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {sp
   ∗ wh ->re false  ∗ hp{1}[ (sh∖{[wh]})] )
   ∗ mem_region des ptx}}}.
 Proof.
-  iIntros (Hinstr Hdecodei Hini Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
-  iApply ((hvc_mem_send_share_nz Sharing instr i wi r2 pi ptx sown q sacc sexcl des sh Share l spsd ai r0 r1 j psd));auto.
+  iIntros (Hdecodei Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
+  iApply ((hvc_mem_send_share_nz Sharing i wi r2 ptx sown q sacc sexcl des sh Share l spsd ai r0 r1 j psd));auto.
 Qed.
 
-Lemma hvc_lend_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
-      ai r0 r1 j (psd: list PID) :
-  (* the current instruction is hvc *)
-  instr = Hvc ->
+Lemma hvc_lend_nz {i ai wi r2 ptx sown q sacc sexcl des sh}
+      {r0 r1} j (l :Word) (psd: list PID) (spsd: gset PID):
   (* the decoding of wi is correct *)
-  decode_instruction wi = Some(instr) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
+  decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is FFA_LEND *)
   decode_hvc_func r0 = Some(Lend) ->
   (* caller is not the receiver *)
@@ -696,7 +670,7 @@ Lemma hvc_lend_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {sps
   (* spsd is the gset of all to-be-donated pages *)
   spsd = (list_to_set psd) ->
   (* pi and pages in spsd are accessible for VM i *)
-  {[pi]} ∪ spsd ⊆ sacc ->
+  {[to_pid_aligned ai]} ∪ spsd ⊆ sacc ->
   (* VM i owns pages in spsd *)
   spsd ⊆ sown ->
   (* pages in spsed are exclusive to VM i *)
@@ -715,8 +689,8 @@ Lemma hvc_lend_nz {instr i wi r2 pi ptx sown q sacc sexcl des sh} {l :Word} {sps
   ∗ wh ->re false  ∗ hp{1}[ (sh∖{[wh]})] )
   ∗ mem_region des ptx}}}.
 Proof.
-  iIntros (Hinstr Hdecodei Hini Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
-  iApply ((hvc_mem_send_not_share_nz Lending instr i wi r2 pi ptx sown q sacc sexcl des sh Lend l spsd ai r0 r1 j psd));auto.
+  iIntros (Hdecodei Hdecodef Hneq Hlenpsd Hdesc Hindesc Hlenr1 Hspsd Hsacc Hsown Hsexcl Hshne Φ ).
+  iApply ((hvc_mem_send_not_share_nz Lending i wi r2 ptx sown q sacc sexcl des sh Lend l spsd ai r0 r1 j psd));auto.
 Qed.
 
 
