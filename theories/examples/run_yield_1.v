@@ -2,6 +2,7 @@ From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base.
 From HypVeri.rules Require Import rules_base mov halt run yield.
 From HypVeri.examples Require Import instr.
+From HypVeri Require Import proofmode.
 
 Section RunYield1.
 
@@ -64,9 +65,8 @@ Section RunYield1.
             ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f)}}%I).
   Proof.
     iIntros (Hdisj zP neH HIn HaccIn) "(H△ & (p_1 & p_2 & p_3 & p_4 & _) & #Hinv & #Hnainv & Hacc & PCz )".
-    pose proof (seq_in_page_forall1 _ _ _ HIn) as Hforall.
+    pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     clear HIn; rename Hforall into HIn.
-    apply Forall_forall in HIn.
     rewrite wp_sswp.
     iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑ι) ⊤).
     iInv ι as ">Inv" "HIClose".
@@ -93,12 +93,8 @@ Section RunYield1.
       iExFalso.
       iApply (tokI_excl with "H□ H□'").
     }
-    iDestruct
-      ((mov_word (of_pid prog1page) run_I R0) with "[p_1 PCz Hacc R0z]") as "J";eauto.
-    3:{iFrame. }
-    by rewrite decode_encode_instruction.
-    by inversion HIn.
-    iApply "J".
+    iApply ((mov_word (of_pid prog1page) run_I R0) with "[p_1 PCz Hacc R0z]");iFrameAutoSolve.
+    { rewrite HIn. set_solver + HaccIn. set_solver +. }
     iModIntro.
     iNext.
     iIntros "( PCz & p_1 & Hacc & R0z)".
@@ -108,13 +104,9 @@ Section RunYield1.
     iModIntro.
     (* mov_word_I R1 (encode_vmid i) *)
     rewrite wp_sswp.
-    iDestruct
-      ((mov_word ((of_pid prog1page) ^+ 1)%f  (encode_vmid i) R1)
-         with "[p_2 PCz Hacc R1z]") as "J"; eauto.
-    3:{iFrame. }
-    by rewrite decode_encode_instruction.
-    by inversion HIn;inversion H4.
-    iApply "J".
+    iApply ((mov_word ((of_pid prog1page) ^+ 1)%f  (encode_vmid i) R1)
+         with "[p_2 PCz Hacc R1z]");iFrameAutoSolve.
+    { rewrite HIn. set_solver + HaccIn. set_solver +. }
     iNext.
     iIntros "(PCz & p_2 & Hacc & R1z)".
     (* hvc_I *)
@@ -135,15 +127,11 @@ Section RunYield1.
       iIntros "(_ & HFALSE)".
       iDestruct "HFALSE" as %[].
     }
-    iDestruct
-      ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f i)
-         with "[Htokz PCz p_3 Hacc R0z R1z]") as "J"; eauto.
-    5: { iFrame. }
-    by rewrite decode_encode_instruction.
-    by inversion HIn;inversion H4; inversion H8.
-    by rewrite decode_encode_hvc_func.
-    by rewrite decode_encode_vmid.
-    iApply "J".
+    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f i) with "[Htokz PCz p_3 Hacc R0z R1z]");iFrameAutoSolve.
+    { rewrite HIn. set_solver + HaccIn. set_solver +. }
+    { apply decode_encode_hvc_func. }
+    { apply decode_encode_vmid. }
+    { iFrame. }
     iModIntro.
     iNext.
     iIntros "(Htoki & PCz & p_3 & Hacc & R0z & R1z)".
@@ -159,13 +147,8 @@ Section RunYield1.
     iModIntro.
     (* halt_I *)
     rewrite wp_sswp.
-    iDestruct
-      ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f)
-         with "[PCz p_4 Hacc]") as "J"; eauto.
-    3: { iFrame. }
-    by rewrite decode_encode_instruction.
-    by inversion HIn;inversion H4; inversion H8; inversion H12.
-    iApply "J".
+    iApply ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f) with "[PCz p_4 Hacc]");iFrameAutoSolve.
+    { rewrite HIn. set_solver + HaccIn. set_solver +. }
     iNext.
     iIntros "( PCz & p_4 & Hacc )".
     iApply wp_terminated';eauto.
@@ -201,17 +184,12 @@ Section RunYield1.
             ∗ R0 @@ i ->r yield_I)}}%I).
   Proof.
     iIntros (Hdisj zP neH HIn HpIn) "((p_1 & p_2 & _) & #Hinv & #Hnainv & Hacc & PCi & R0i)".
-    pose proof (seq_in_page_forall1 _ _ _ HIn) as Hforall.
+    pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     clear HIn; rename Hforall into HIn.
-    apply Forall_forall in HIn.
     (* mov_word_I R0 yield_I *)
     rewrite wp_sswp.
-    iDestruct
-      ((mov.mov_word (of_pid prog2page) yield_I R0) with "[p_1 PCi Hacc R0i]") as "J";eauto.
-    3:{iFrame. }
-    by rewrite decode_encode_instruction.
-    by inversion HIn.
-    iApply "J".
+    iApply ((mov.mov_word (of_pid prog2page) yield_I R0) with "[p_1 PCi Hacc R0i]");iFrameAutoSolve.
+    { rewrite HIn. set_solver + HpIn. set_solver +. }
     iModIntro.
     iIntros "(PCi & p_1 & Hacc & R0i)".
     (* hvc_I *)
@@ -238,20 +216,19 @@ Section RunYield1.
       iDestruct "HFALSE" as %[].
     }
     iMod (na_inv_acc with "Hnainv Hown") as "(>[ HInv | (H□ & R0z & R1z)] & Hown & HClose)";auto.
-     set_solver.
-     1: {
-     iDestruct "HInv" as (w0 w1) "(H♢' & R0z & R1z )".
-     iExFalso.
+    set_solver.
+    1: {
+      iDestruct "HInv" as (w0 w1) "(H♢' & R0z & R1z )".
+      iExFalso.
       iApply (tokI_excl with "H♢ H♢'").
-      }
-    iDestruct
-      ((yield ((of_pid prog2page) ^+ 1) %f)
-         with "[Htoki PCi p_2 Hacc R0i R0z R1z]") as "J"; eauto.
-    4: { iFrame. }
-    by rewrite decode_encode_instruction.
-    by inversion HIn;inversion H4.
-    by rewrite decode_encode_hvc_func.
-    iApply "J".
+    }
+    iApply ((yield ((of_pid prog2page) ^+ 1) %f)
+         with "[Htoki PCi p_2 Hacc R0i R0z R1z]");iFrameAutoSolve.
+    { rewrite HIn. set_solver + HpIn. set_solver +. }
+    { done. }
+    { done. }
+    { apply decode_encode_hvc_func. }
+    { iFrame. }
     iModIntro.
     iNext.
     iIntros "(Htokz & PCi & p_2 & Hacc & R0i & R0z & R1z)".

@@ -9,10 +9,9 @@ Section yield.
 Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma yield {E z i w1 w2 a_ b_ q p s} ai :
+Lemma yield {E z i w1 w2 a_ b_ q s} ai :
   decode_instruction w1 = Some Hvc ->
-  addr_in_page ai p ->
-  p ∈ s ->
+  to_pid_aligned ai ∈ s ->
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
@@ -32,7 +31,7 @@ Lemma yield {E z i w1 w2 a_ b_ q p s} ai :
                      ∗ R0 @@ z ->r (encode_hvc_func Yield)
                      ∗ R1 @@ z ->r (encode_vmid i) }}}.
 Proof.
-  iIntros (Hinstr Hin HpIn Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
+  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -45,7 +44,7 @@ Proof.
   iDestruct (gen_reg_valid_global1 R0 z a_ with "Hregown Hr1'") as "%Hr1'".
   iDestruct (gen_reg_valid_global1 R1 z b_ with "Hregown Hr2'") as "%Hr2'".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set ai p s with "Haccessown Hacc") as %Hacc;eauto.
+  iDestruct (gen_access_valid_addr_Set ai s with "Haccessown Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.
@@ -102,7 +101,7 @@ Proof.
            iModIntro.
            iDestruct "Htok'" as "[Htok1 Htok2]".
            iFrame.
-        iSplitL "Hreg".
+           iSplitL "Hreg".
            2 : {
              iApply "Hϕ".
              iFrame.
@@ -134,5 +133,5 @@ Proof.
            rewrite 2!update_reg_global_preserve_current_vm; auto.
         -- apply lookup_insert_None; split; eauto; intros P; by inversion P.
         -- apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
-Qed.
+           Qed.
 End yield.

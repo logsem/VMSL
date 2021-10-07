@@ -9,10 +9,9 @@ Section run.
 Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma run {z w1 w2 w3 q p s E} ai i :
+Lemma run {z w1 w2 w3 q s E} ai i :
   decode_instruction w1 = Some Hvc ->
-  addr_in_page ai p ->
-  p ∈ s ->
+  to_pid_aligned ai ∈ s ->
   fin_to_nat z = 0 -> 
   decode_hvc_func w2 = Some Run ->
   decode_vmid w3 = Some i ->
@@ -30,7 +29,7 @@ Lemma run {z w1 w2 w3 q p s E} ai i :
                      ∗ R0 @@ z ->r w2
                      ∗ R1 @@ z ->r w3 }}}.
 Proof.
-  iIntros (Hinstr Hin HpIn Hz Hhvc Hvmid ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1) Hϕ".
+  iIntros (Hdecode Hin Hz Hhvc Hvmid ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1) Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -42,7 +41,7 @@ Proof.
   iDestruct (gen_reg_valid1 R0 z w2 Hcur with "Hregown Hr0") as "%Hr0".
   iDestruct (gen_reg_valid1 R1 z w3 Hcur with "Hregown Hr1") as "%Hr1".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set ai p s with "Haccessown Hacc") as %Hacc;eauto.
+  iDestruct (gen_access_valid_addr_Set ai s with "Haccessown Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.
