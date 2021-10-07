@@ -22,6 +22,9 @@ Solve Obligations with try lia; solve_finz.
 Program Definition I2 : Imm := (I (finz.FinZ 2 _ _) _).
 Solve Obligations with try lia; solve_finz.
 
+Program Definition I6 : Imm := (I (finz.FinZ 6 _ _) _).
+Solve Obligations with try lia; solve_finz.
+
 Program Definition R0 :reg_name := (R 0 _).
 Solve Obligations with lia.
 

@@ -60,6 +60,7 @@ Section proof.
     (* R1 -> p *)
     (* R0 -> Lend  *)
     (* p -> 0 *)
+    Mov R1 (inl I6); (* populate the length of the descriptor to R1 *)
     Hvc;
     (* R3 is populated with address of handle in the memory descriptor *)
     (* Lend returns a new handle in R2 *)
@@ -71,7 +72,7 @@ Section proof.
     (* p -> 0 *)
     (* R2 -> h *)
     (* h ->  transaction entry *)
-    Str R3 R2;
+    Str R2 R3;
     (* send tx to VM1 *)
     (* tx -> memory descriptor *des* with h *)
     (* R3 -> address of a handle in *des* *)
@@ -532,6 +533,7 @@ Qed.
              (Hppageeq : of_pid ppage = ippage)
              (Hnotrx0: ppage ≠ prx0)
              (Hnotrx1: ppage ≠ prx1)
+             (Hnotrx0': prx0 ≠ ptx)
              (* the des in TX *)
              (des : list Word)
              (Hdeseq : des = serialized_transaction_descriptor V0 V1 W0 I1 [ppage] W0)
@@ -586,8 +588,12 @@ Qed.
     iIntros  "(PC & hp & Own & Acc & Excl & TX & RX0 & RX1 & des & [% R2] & R3 & prog & #Hinv & #Hnainv & Done & Closed & InvAtLeast)".
     iDestruct "prog" as "[prog1 prog]".
     pose proof (seq_in_page_forall2 _ _ _ Hseq) as HaddrIn.
-    (* pose proof (to_pid_aligned_eq pprog) as HtoPid. *)
-    (* pose proof (HaddrIn pprog). *)
+    assert (HseqTX: seq_in_page ptx (length (serialized_transaction_descriptor V0 V1 W0 W1 [ppage] W0)) ptx).
+    { simpl. unfold seq_in_page. split. solve_finz. split. unfold Is_true. case_match;[done|solve_finz].
+      split.
+      pose proof (last_addr_in_bound ptx).
+      solve_finz.
+      unfold Is_true. case_match;[done|solve_finz]. }
     iApply wp_sswp.
     (* open the invariant *)
     iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
@@ -644,11 +650,17 @@ Qed.
     2:{ iDestruct "Hmatch" as "(_ & _ & _ & _ & Access')".
       iDestruct (token_excl with "Access Access'") as %[]. }
     iClear "Htrans".
+    iAssert (⌜ppage ≠ pprog⌝)%I as %Hppagenot.
+    {iDestruct (mem_neq with "prog1 page") as %Hppagenot.
+     iPureIntro.
+     intro.
+     apply Hppagenot.
+     rewrite H2 //. }
     (* mov *)
     iApply wp_sswp.
     iDestruct "prog" as "[prog2 prog]".
     iApply (mov_word with "[prog2 PC Acc R0]");iFrameAutoSolve.
-    { set_solver. }
+    { rewrite HaddrIn. set_solver + Hacc. set_solver +. }
     iNext.
     iIntros "( PC & prog2 & Acc & R0)".
     (* str *)
@@ -657,26 +669,62 @@ Qed.
     rewrite -Hppageeq.
     iApply ((str _ ppage) with "[PC prog3 R0 page R1 Acc RX0]");iFrameAutoSolve.
     { rewrite to_pid_aligned_eq //. }
-    { rewrite to_pid_aligned_eq. rewrite HaddrIn. set_solver. set_solver. }
+    { rewrite to_pid_aligned_eq. rewrite HaddrIn. set_solver + Hacc. set_solver +. }
     iNext.
     iIntros "( PC & prog3 & R1 & page & R0 & Acc & RX0)".
     (* mov *)
     iApply wp_sswp.
     iDestruct "prog" as "[prog4 prog]".
     iApply (mov_word with "[prog4 PC Acc R0]");iFrameAutoSolve.
-    { set_solver. }
+    { rewrite HaddrIn. set_solver + Hacc. set_solver +.  }
     iNext.
     iIntros "( PC & prog4 & Acc & R0)".
-    (* lend *)
+    (* mov *)
     iApply wp_sswp.
     iDestruct "prog" as "[prog5 prog]".
-    iApply ((hvc_lend_nz _ _ V1 [ppage]) with "[PC prog5 Own Acc Excl R0 R1 R2 TX RxDes hp]");iFrameAutoSolve.
-    11: { iFrame. }
-    { set_solver. }
+    iApply (mov_word with "[prog5 PC Acc R1]");iFrameAutoSolve.
+    { rewrite HaddrIn. set_solver + Hacc. set_solver +. }
     iNext.
-    iIntros "( PC & prog4 & Acc & R0)".
-
-
+    iIntros "( PC & prog5 & Acc & R1)".
+    (* lend *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog6 prog]".
+    iApply ((hvc_lend_nz V1 W1 [ppage] {[ppage]}) with "[PC prog6 Own Acc Excl R0 R1 R2 TX des hp]");
+    iFrameAutoSolve.
+    { apply decode_encode_hvc_func. }
+    { simpl. lia. }
+    { done. }
+    { done. }
+    { done. }
+    { set_solver +. }
+    { rewrite HaddrIn. set_solver + Hacc. set_solver +. }
+    { set_solver + Hown. }
+    { set_solver + Hexcl. }
+    { done. }
+    { rewrite Hdeseq. assert (of_imm I1 = W1)%f as ->. simpl;solve_finz. iFrame. }
+    iNext.
+    iIntros "( PC & prog6 & Own & Acc & Excl & R0 & R1 & TX & (% & (%HinHp & R2 & Tran & Retri & Hp) & Des))".
+    (* str *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog7 prog]".
+    iDestruct "Des" as "(Des0 & Des1 & Des2 & DesRest)".
+    iAssert (⌜ppage ≠ ptx⌝)%I as %Hppagenot'.
+    {iDestruct (mem_neq with "Des0 page") as %Hppagenot''.
+     iPureIntro.
+     intro Heq.
+     apply Hppagenot''.
+     rewrite Heq //. }
+    assert(ptx^+ 2 = ptx ^+ 1 ^+ 1)%f as ->. solve_finz.
+    iApply ((str _ (ptx ^+ 1 ^+ 1)%f)with "[PC prog7 R2 Des2 R3 Acc RX0]");iFrameAutoSolve.
+    { rewrite (seq_in_page_forall2 _ _ _ HseqTX). done.
+      simpl. set_solver +. }
+    { rewrite HaddrIn. rewrite (seq_in_page_forall2 _ _ _ HseqTX).
+      set_solver + Hacc Hppagenot Hppagenot'.
+      simpl. set_solver +.
+      simpl. set_solver + Hacc.
+    }
+    iNext.
+    iIntros "( PC & prog7 & R3 & Des2 & R2 & Acc & RX0)".
 Admitted.
 
   Definition machine1_spec {sacc}

@@ -567,8 +567,8 @@ Proof.
 Qed.
 
 
-Lemma hvc_donate_nz {i ai wi r2 ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
-      r0 r1 j (psd: list PID) :
+Lemma hvc_donate_nz {i ai wi r2 ptx sown q sacc sexcl des sh}
+      {r0 r1} j (l :Word) (psd: list PID) (spsd: gset PID):
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is FFA_DONATE *)
@@ -609,8 +609,8 @@ Proof.
   iApply ((hvc_mem_send_not_share_nz Donation i wi r2 ptx sown q sacc sexcl des sh Donate l spsd ai r0 r1 j psd));auto.
 Qed.
 
-Lemma hvc_share_nz {i ai wi r2 ptx sown q sacc sexcl des sh} {l :Word} {spsd: gset PID}
-      r0 r1 j (psd: list PID) :
+Lemma hvc_share_nz {i ai wi r2 ptx sown q sacc sexcl des sh}
+      {r0 r1} j (l :Word) (psd: list PID) (spsd: gset PID):
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is FFA_SHARE *)
@@ -651,8 +651,8 @@ Proof.
   iApply ((hvc_mem_send_share_nz Sharing i wi r2 ptx sown q sacc sexcl des sh Share l spsd ai r0 r1 j psd));auto.
 Qed.
 
-Lemma hvc_lend_nz {i ai wi r2 ptx sown q sacc sexcl des sh} {l :Word}
-      {r0 r1} j (psd: list PID) (spsd: gset PID):
+Lemma hvc_lend_nz {i ai wi r2 ptx sown q sacc sexcl des sh}
+      {r0 r1} j (l :Word) (psd: list PID) (spsd: gset PID):
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
   (* the decoding of R0 is FFA_LEND *)
