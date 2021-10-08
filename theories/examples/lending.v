@@ -6,7 +6,7 @@ From HypVeri.rules Require Import rules_base mov str mem_send_nz send run yield 
 From HypVeri.examples Require Import instr.
 From HypVeri.lang Require Import lang_extra.
 From HypVeri Require Import proofmode.
-
+From HypVeri.examples Require Import instr.
 
 Section proof.
 
@@ -286,7 +286,25 @@ End sts.
       destruct H2, H3;destruct y as [ []];simpl in *;inversion H1;subst;cbn;
       split;eauto.
     - done.
-Qed.
+  Qed.
+
+  Lemma nainv_sts_init_yield s h : nainv_sts_rel (false, Some h) s ->
+       (s.1= false ∨ s.1 = true) ∧(s.2 = None ∨ ∃h, s.2 = Some h).
+  Proof.
+    intro.
+    pattern s.
+    eapply (rtc_ind_r _ (false, Some h)).
+    - split. left. reflexivity.
+      right.
+      eauto.
+    - intros.
+      Unshelve.
+      2: { exact nainv_sts_base. }
+      destruct H2.
+      destruct H2, H3;destruct y as [ []];simpl in *;inversion H1;subst;cbn;
+        split;eauto.
+    - done.
+  Qed.
 
   (* invariants *)
   Definition inv_name := nroot .@ "lending" .@ "inv".
@@ -806,7 +824,98 @@ Qed.
     iModIntro.
   Admitted.
 
-  Definition machine1_spec {sacc}
+  Definition l_pre step base :=
+    [
+    Mov R5 (inl step); (* remaining runs *)
+    Mov R6 (inl I0);    (* counter *)
+    Mov R7 (inl base)    (* program base address *)
+    ].
+
+  Definition l_post :=
+    [
+    (* incr counter *)
+    Mov R8 (inl I1);
+    Sub R5 R8;
+    (* conditional jump *)
+    (* might be a good idea to have a separate rule for branches *)
+    Cmp R6 (inr R5);
+    Bne R7
+    ].
+
+  Definition cycle prog := prog ++ encode_instructions (l_post).
+  Definition loop prog step base := encode_instructions (l_pre step base) ++ cycle prog.
+
+  Definition loopP des prx ptx sacc := fun (w : Word) => ((mem_region (take (Z.to_nat (finz.to_z w)) des) ptx) ∗ (∃ r, R0 @@ V1 ->r r) ∗ A@V1:={1}[sacc] ∗ RX@V1 := prx ∗ mem_region des prx)%I.
+
+  Definition loopprog iptx iprx := (encode_instructions [Mov R0 (inl I1);
+                                              Mov R1 (inl iprx);
+                                              Add R1 R5;
+                                              Sub R1 R0;
+                                              Ldr R2 R1;
+                                              Mov R1 (inl iptx);
+                                              Add R1 R5;
+                                              Sub R1 R5;
+                                              Str R1 R2]).
+
+  Lemma loop_body {sacc} (des : list Word)
+             (ppage pprog ptx prx : PID)
+             (ippage iptx iprx : Imm)
+             (* ibase is the base addr of the loop body *)
+             (ibase : Imm)
+             (Hibaseeq : of_imm ibase = (pprog ^+ 3)%f)
+             (Hptxeq : of_imm iptx = ptx)
+             (Hprxeq : of_imm iprx = prx)
+             (Hppageeq : of_imm ippage = ppage)
+             (* has access to RX, TX, and pprog *)
+             (Hacc : {[ptx;prx;pprog]} ⊆ sacc)
+             (* cannot have access to ppage *)
+             (HaccnIn: ppage ∉ sacc)
+             (* ilen is the length of msg *)
+             (nlen :nat)
+             (ilen : Imm)
+             (Hileneq : Z.to_nat (finz.to_z ilen) = nlen)
+             (* the whole program is in page pprog *)
+             (Hseq : seq_in_page pprog (length (code1 ilen ibase iprx iptx ippage)) pprog) :
+    length des = 6 ->    
+    (∀ v (v' : Word) progaddr,
+     ⌜v = Z.to_nat (finz.to_z v')⌝ -∗
+     ⌜v <= S 5⌝-∗
+     ⌜seq_in_page progaddr (length (loopprog iptx iprx)) pprog⌝ -∗
+     {PAR{{ (loopP des prx ptx sacc (v' ^+ 1)%f) ∗ PC @@ V1 ->r progaddr
+            ∗ R6 @@ V1 ->r I0
+            ∗ R5 @@ V1 ->r (v' ^+ 1)%f
+            ∗ R7 @@ V1 ->r progaddr
+            ∗ (∃ r, R8 @@ V1 ->r r)
+            ∗ (∃ nz, NZ @@ V1 ->r nz)
+            ∗ A@V1 :={1}[sacc]
+            ∗ (program (loopprog iptx iprx) progaddr)
+     }}} ExecI @ V1
+     {{{ RET ExecI; (loopP des prx ptx sacc v') ∗ PC @@ V1 ->r (progaddr ^+ (length (loopprog iptx iprx)))%f
+         ∗ R6 @@ V1 ->r I0
+         ∗ R5 @@ V1 ->r (v' ^+ 1)%f
+         ∗ R7 @@ V1 ->r progaddr
+         ∗ (∃ r, R8 @@ V1 ->r r)
+         ∗ (∃ nz, NZ @@ V1 ->r nz)
+         ∗ A@V1 :={1}[sacc]
+         ∗ (program (loopprog iptx iprx) progaddr)
+     }}}%I).
+  Proof.
+    intros Hdesl.
+    iIntros (v v' progaddr Hveq Hvleq Hseq').
+    iIntros (Ψ).
+    iModIntro.
+    iIntros "(HProp' & HPC' & HR6' & HR5' & HR7' & HR8' & HNZ' & HACC' & Prog') HΨ".
+    rewrite /loopprog.
+    iDestruct "Prog'" as "(Hinstr1 & Hinstr2 & Hinstr3 & Hinstr4 & Hinstr5 & Hinstr6 & Hinstr7 & Hinstr8 & Hinstr9)".
+    iSimpl in "Hinstr9".
+    iDestruct "Hinstr9" as "(Hinstr9 & _)".
+    iSimpl.
+    iDestruct "HProp'" as "(memr & [% R0] & HACC & HRX' & HDES')".
+    iApply parwp_sswp.
+    (*iApply ((mov_word progaddr I1 R0) with "[HPC' HACC R0 Hinstr1]"); iFrameAutoSolve.*)
+    Admitted.
+  
+  Lemma machine1_proof {sacc}
              (ppage pprog ptx prx : PID)
              (ippage iptx iprx : Imm)
              (* ibase is the base addr of the loop body *)
@@ -825,14 +934,13 @@ Qed.
              (Hileneq : Z.to_nat (finz.to_z ilen) = nlen)
              (* the whole program is in page pprog *)
              (Hseq : seq_in_page pprog (length (code1 ilen ibase iprx iptx ippage)) pprog)
-             (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
-    : iProp Σ :=
-    {{{
+             (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname) :
     PC @@ V1 ->r pprog
     ∗ A@V1 :={1}[sacc]
     ∗ TX@ V1 := ptx
     ∗ RX@V1 := prx
     ∗ (∃ des', mem_region des' ptx ∗ ⌜length des'= nlen⌝)
+    ∗ (∃ r, R0 @@ V1 ->r r)             
     ∗ (∃ r, R1 @@ V1 ->r r)
     ∗ (∃ r, R2 @@ V1 ->r r)
     ∗ (∃ r, R5 @@ V1 ->r r)
@@ -844,10 +952,9 @@ Qed.
     ∗ inv inv_name (inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched)
     ∗ nainv nainv_name (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx ppage)
     ∗ token γ_switched
-    ∗ inv_state_atleast γ_invm (V0,⊤,false)
-    }}}
-      ExecI @ V1
-    {{{ RET ExecI ;
+    ∗ inv_state_atleast γ_invm (V0,false,false)
+    ⊢ WP ExecI @ V1
+    {{ λ m, ⌜m = ExecI⌝ ∗
         True
           (* PC @@ V1 ->r (pprog ^+ (length (code1 ilen ibase iprx iptx ippage)))%f *)
           (* ∗ A@V1 :={1}[sacc] *)
@@ -860,9 +967,93 @@ Qed.
           (* ∗ (∃ r, R7 @@ V1 ->r r) *)
           (* ∗ (∃ r, R8 @@ V1 ->r r) *)
           (* ∗ program (code1 ilen ibase iprx iptx ippage) pprog *)
-      }}}.
-
-Lemma machine0_proof : machine0_spec.
+    }}.
+  Proof.
+    iIntros "(PC & Acc & TX & RX & [% [mrdes %mrdesEq]] & R0 & R1 & R2 & R5 & R6 & R7 & R8 & program & #Hinv & #Hainv & HSwitched & InvAtLeast)".
+    iDestruct "program" as "(prog1 & prog2 & prog3 & prog4 & prog5 & prog6 & prog7 & prog8
+                           & prog9 & prog10 & prog11 & prog12 & prog13 & prog14 & prog15 & prog16 &
+                             program)".
+    iCombine "prog1 prog2 prog3 prog4 prog5 prog6 prog7 prog8 prog9 prog10 prog11 prog12 prog13 prog14 prog15 prog16" as "loop".
+    iAssert (program (loop (loopprog iptx iprx)
+                           ilen ibase) pprog)%I with "[loop]" as "loopP".
+    rewrite /program.
+    rewrite /loop.
+    rewrite /l_pre.
+    rewrite /cycle /l_post.
+    iSimpl.
+    iDestruct "loop" as "(prog1 & prog2 & prog3 & prog4 & prog5 & prog6 & prog7 & prog8
+                                & prog9 & prog10 & prog11 & prog12 
+                                & prog13 & prog14 & prog15 & prog16)".
+    iFrame.
+    iApply wp_sswp.
+    (* open the invriant *)
+    iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
+    iInv inv_name as ">Inv" "HIClose".
+    iDestruct "Inv" as (i P cb ob) "(ScheToken & NaInvToken & InvExact & Hif & Hmatch)".
+    iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
+    iClear "InvAtLeast".
+    apply inv_sts_0_closed_unchanged_open in Rel.
+    simpl in Rel.
+    destruct Rel as [->| [-> [[-> ->]|[-> ->]]]];iSimpl in "Hmatch".
+    destruct ob,cb.
+    { iApply (eliminate_wrong_token with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done.
+    }
+    { iApply (@eliminate_wrong_token _ _ _ _ V1 with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done.
+    }
+    { iApply (@eliminate_wrong_token _ _ _ _ V1 with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done.
+    }
+    { iApply (@eliminate_wrong_token _ _ _ _ V1 with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done.
+    }
+    2: { iDestruct "Hmatch" as "(_ & Switched)".
+         iDestruct (token_excl with "HSwitched Switched") as %[].
+    }
+    iDestruct "Hmatch" as "(-> & Access & [%h NaInvAtLeast])".
+    (* open the na-invariant *)
+    iMod (na_inv_acc with "Hainv NaInvToken") as "(>NaInv & NaInvToken & NaInvClose)";auto.
+    { pose proof namespace_disjoint. set_solver. }
+    iDestruct "NaInv" as "(% & % & % & % & % & % & % & NaInvExact & HR0 & R0' & HR1 & page & RxDes & Hif' & Htrans & Hmatch)".
+    iDestruct ((nainv_state_exact_atleast _ (b, o) (false, Some h)) with "NaInvExact NaInvAtLeast" ) as "%NaInvExact".
+    destruct b.
+    { iDestruct "Hif'" as "(_ & Unchanged & _)".
+      iDestruct (token_excl with "Hif Unchanged") as %[].
+    }
+    destruct o as [| h'].
+    iDestruct ("HIClose" with "[ScheToken NaInvToken InvExact Hif Access NaInvAtLeast NaInvClose]") as "HIClose".
+    { iExists V1, ⊤, false, false. iSimpl.
+      iNext.
+      iFrame.
+      unfold nainv_closed. iSplitR "NaInvAtLeast".
+      2: { iSplit; first done. by iExists h. }
+    admit. }
+    iMod "HIClose" as %_.
+    iApply fupd_mask_intro.
+    set_solver.
+    iIntros "Mask".
+  Admitted
 
 
 End proof.
