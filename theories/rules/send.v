@@ -8,12 +8,11 @@ Section send.
   Context `{hypparams: HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_send_primary {wi r0 w sacc pi i j des ptx rxp l ai} :
+Lemma hvc_send_primary {wi r0 w sacc i j des ptx rxp l ai} :
   decode_instruction wi = Some(Hvc) ->
-  addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Send) ->
   decode_vmid w = Some j ->
-  pi ∈ sacc ->
+  to_pid_aligned ai ∈ sacc ->
   (finz.to_z l) = (Z.of_nat (length des)) ->
   ((length des) < page_size)%Z ->
   fin_to_nat i = 0 -> 
@@ -27,7 +26,7 @@ Lemma hvc_send_primary {wi r0 w sacc pi i j des ptx rxp l ai} :
   ∗ TX@ i := ptx ∗ RX@ j := rxp ∗ RX@ j :=(l, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
-  iIntros (Hdecodei Hinpi Hdecodef Hdecvmid Hpiacc Hlenl Hsize Hz Φ).
+  iIntros (Hdecodei Hdecodef Hdecvmid Hinacc Hlenl Hsize Hz Φ).
   iIntros "(>PC & >Hai & >HA & >Hr0 & >Hr1 & >Hr2 & >HTX & >Hmemr & >HRX1 & >HRX2 & >Hmemr') HΦ".
   iDestruct "Hmemr'" as "[%l' [Hmemr' %Hlen']]".
   iApply (sswp_lift_atomic_step ExecI); [done|].
@@ -39,7 +38,6 @@ Proof.
   iDestruct ((gen_reg_valid4 i PC ai R0 r0 R1 w R2 l Hcureq) with "Hσreg PC Hr0 Hr1 Hr2")
     as "[%HPC [%HR0 [%HR1 %HR2]]]"; eauto.
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess HA") as %Haccai; eauto.
-  { rewrite (to_pid_aligned_in_page _ pi); eauto. }
   iDestruct ((gen_access_valid_pure sacc) with "Hσaccess HA") as %Hacc; eauto.
   iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hmemr") as %Hadesc.
@@ -197,12 +195,11 @@ Proof.
     by iFrame.
 Qed.
 
-Lemma hvc_send_secondary {wi r0 w sacc pi i j des ptx rxp l ai z a b c} :
+Lemma hvc_send_secondary {wi r0 w sacc i j des ptx rxp l ai z a b c} :
   decode_instruction wi = Some(Hvc) ->
-  addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Send) ->
   decode_vmid w = Some j ->
-  pi ∈ sacc ->
+  to_pid_aligned ai ∈ sacc ->
   (finz.to_z l) = (Z.of_nat (length des)) ->
   ((length des) < page_size)%Z ->
   fin_to_nat z = 0 ->
@@ -219,7 +216,7 @@ Lemma hvc_send_secondary {wi r0 w sacc pi i j des ptx rxp l ai z a b c} :
   ∗ TX@ i := ptx ∗ RX@ j := rxp ∗ RX@j :=(l, i)
   ∗ mem_region des ptx ∗ mem_region des rxp }}}.
 Proof.
-  iIntros (Hdecodei Hinpi Hdecodef Hdecvmid Hpiacc Hlenl Hsize Hz Hzine Φ).
+  iIntros (Hdecodei Hdecodef Hdecvmid Hinacc Hlenl Hsize Hz Hzine Φ).
   iIntros "(>PC & >Hai & >HA & >Htoki & >Hr0 & >Hr1 & >Hr2 & >Hr0' & >Hr1' & >Hr2' & >HTX & >Hmemr & >HRX1 & >HRX2 & >Hmemr') HΦ".
   iDestruct "Hmemr'" as "[%l' [Hmemr' %Hlen']]".
   iApply (sswp_lift_atomic_step ExecI); [done|].
@@ -234,7 +231,6 @@ Proof.
   iDestruct ((gen_reg_valid_global1 R1 z b) with "Hσreg Hr1'") as %HR1'.
   iDestruct ((gen_reg_valid_global1 R2 z c) with "Hσreg Hr2'") as %HR2'.
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess HA") as %Haccai; eauto.
-  { rewrite (to_pid_aligned_in_page _ pi); eauto. }
   iDestruct ((gen_access_valid_pure sacc) with "Hσaccess HA") as %Hacc; eauto.
   iDestruct (gen_mem_valid ai wi with "Hσmem Hai") as %Hai.
   iDestruct (gen_mem_valid_SepL_pure _ des with "Hσmem Hmemr") as %Hadesc.

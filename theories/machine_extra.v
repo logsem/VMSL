@@ -13,16 +13,19 @@ Solve Obligations with lia.
 Program Definition W2 : Word := (finz.FinZ 2 _ _).
 Solve Obligations with lia.
 
-Program Definition I0 : Imm := (I (finz.FinZ 0 _ _) _).
+Program Definition W6 : Word := (finz.FinZ 6 _ _).
+Solve Obligations with lia.
+
+Program Definition I0 : Imm := (I W0 _).
 Solve Obligations with try lia;solve_finz.
 
-Program Definition I1 : Imm := (I (finz.FinZ 1 _ _) _).
+Program Definition I1 : Imm := (I W1 _).
 Solve Obligations with try lia; solve_finz.
 
-Program Definition I2 : Imm := (I (finz.FinZ 2 _ _) _).
+Program Definition I2 : Imm := (I W2 _).
 Solve Obligations with try lia; solve_finz.
 
-Program Definition I6 : Imm := (I (finz.FinZ 6 _ _) _).
+Program Definition I6 : Imm := (I W6 _).
 Solve Obligations with try lia; solve_finz.
 
 Program Definition R0 :reg_name := (R 0 _).
