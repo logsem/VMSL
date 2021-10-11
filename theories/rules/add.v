@@ -36,7 +36,8 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid3 i PC ai ra w1 rb w2 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr_Set ai pi) with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct ((gen_access_valid_addr_Set ai sacc) with "Haccess Hacc") as %Hacc;eauto.
+  rewrite (to_pid_aligned_in_page _ pi); auto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai wi with "Hmem Hai") as %Hmem.
   iSplit.

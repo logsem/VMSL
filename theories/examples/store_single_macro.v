@@ -41,23 +41,26 @@ Section StoreSingle.
             ∗ RX@ v := prx) }}%I).
   Proof.
     iIntros (HIn HppgIn Htop Hneprx HpIn) "((p_1 & p_2 & _) & Hacc & PC & R0 & R1 & Hmem & Hrx )".
-    pose proof (seq_in_page_forall1 _ _ _ HIn) as Hforall.
+    pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     clear HIn; rename Hforall into HIn.
-    apply Forall_forall in HIn.
     rewrite -parwp_sswp.
     iDestruct "R0" as (?) "R0".
     iApply (mov_word with "[p_1 PC Hacc R0]"); iFrameAutoSolve.
-    by inversion HIn.
+    rewrite HIn.
     auto.
+    rewrite /store_single.
+    simpl.
+    set_solver.
     iNext.
     iIntros "(PC & p_1 & Hacc & R0)".
     iDestruct "Hmem" as (?) "Hmem".
     assert (to_pid_aligned (proga ^+ 1)%f = ppg ) as Htop2.
     {
-        inversion HIn.
-        inversion H3.
-        apply to_pid_aligned_in_page.
-        auto.
+      rewrite HIn.
+      reflexivity.
+      rewrite /store_single.
+      simpl.
+      set_solver.
     }
     rewrite -parwp_sswp.
     iApply (str with "[p_2 PC Hacc R0 R1 Hmem Hrx]"); iFrameAutoSolve.
