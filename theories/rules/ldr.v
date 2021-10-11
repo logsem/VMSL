@@ -8,7 +8,7 @@ Section ldr.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma ldr {i w1 w2 w3 q p} ai a ra rb s:
+Lemma ldr {E i w1 w2 w3 q p} ai a ra rb s:
   decode_instruction w1 = Some (Ldr ra rb) ->
   (to_pid_aligned a) ≠ p ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
@@ -19,7 +19,7 @@ Lemma ldr {i w1 w2 w3 q p} ai a ra rb s:
         ▷ (ra @@ i ->r w3) ∗
         ▷ (A@i:={q}[s]) ∗
         ▷ (TX@ i := p)}}}
-    ExecI @ i
+    ExecI @ i; E
     {{{ RET ExecI;
         PC @@ i ->r (ai ^+ 1)%f ∗
         ai ->a w1 ∗

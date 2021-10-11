@@ -8,20 +8,18 @@ Section reclaim.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_reclaim wi sown sacc pi sexcl i j sh tt sacc' (spsd: gset PID)
+Lemma hvc_reclaim wi sown qo sacc sexcl i j sh tt sacc' (spsd: gset PID)
       ai r0 wh wf (psd: list PID) :
   (* current instruction is hvc *)
   decode_instruction wi = Some(Hvc) ->
-  (* the location of instruction is in page pi *)
-  addr_in_page ai pi ->
   (* the hvc call to invoke is relinquish *)
   decode_hvc_func r0 = Some(Reclaim) ->
   (* has access to the page which the instruction is in *)
-  pi ∈ sacc ->
+  to_pid_aligned ai ∈ sacc ->
   (* the set of pids that are involved in this transaction *)
   spsd = (list_to_set psd) ->
   (* these pages are not owned *)
-  spsd ## sown ->
+  spsd ⊆ sown ->
   (* these pages are not exclusively accessible *)
   spsd ## sexcl ->
   (* for lending, the sender get back access *)
@@ -33,7 +31,7 @@ Lemma hvc_reclaim wi sown sacc pi sexcl i j sh tt sacc' (spsd: gset PID)
        (* the handle of transaction is stored in R1 *)
        ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r wh) ∗
        (* the pagetable *)
-       ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] ∗
+       ▷ O@i:={qo}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] ∗
        (* the transaction has not been retrieved/has been relinquished *)
        ▷ wh ->re false ∗ ▷ wh ->t{1}(i, wf, j, psd, tt) ∗
        (* handle pool *)
@@ -45,11 +43,11 @@ Lemma hvc_reclaim wi sown sacc pi sexcl i j sh tt sacc' (spsd: gset PID)
       (* return Succ to R0, XXX: update R1 to 0? *)
       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ (R1 @@ i ->r wh) ∗
       (* gain access/ownership of those pages *)
-      O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc')] ∗
+      O@i:={qo}[sown] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[sacc'] ∗
       (* the transaction is deallocated, release the handle to the handle pool *)
       hp{ 1 }[ (sh ∪ {[wh]})] }}}.
 Proof.
-  iIntros (Hdecodei Hinpage Hdecodef Hinsacc Heqpsd Hdisjown HHdisjexcl Htt Φ)
+  iIntros (Hdecodei Hdecodef Hinsacc Heqpsd Hinown HHdisjexcl Htt Φ)
           "(>PC & >Hai & >R0 & >R1 & >Hown & >Hexcl & >Hacc & >Hretri & >Htrans & >Hhp) HΦ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
@@ -63,7 +61,6 @@ Proof.
     as "(%HPC & %HR0 & %HR1)";eauto.
   (* valid pt *)
   iDestruct ((gen_access_valid_addr_elem ai sacc) with "Hσaccess Hacc") as %Haccai;eauto.
-  { rewrite (to_pid_aligned_in_page _ pi);eauto. }
   iDestruct ((gen_access_valid_pure sacc) with "Hσaccess Hacc") as %Hacc;eauto.
   iDestruct ((gen_own_valid_pure sown) with "Hσowned Hown") as %Hown;eauto.
   iDestruct ((gen_excl_valid_pure sexcl) with "Hσexcl Hexcl") as %Hexcl;eauto.
@@ -102,19 +99,16 @@ Proof.
     (* update regs *)
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
     rewrite update_reg_global_update_reg update_access_batch_preserve_regs
-             update_ownership_batch_preserve_regs
              remove_transaction_preserve_regs;try solve_reg_lookup.
     2 : {
      rewrite update_reg_global_update_reg.
      rewrite update_access_batch_preserve_regs
-             update_ownership_batch_preserve_regs
              remove_transaction_preserve_regs;try solve_reg_lookup.
      rewrite lookup_insert_ne.
      solve_reg_lookup.
      done.
      exists r0.
      rewrite update_access_batch_preserve_regs
-             update_ownership_batch_preserve_regs
              remove_transaction_preserve_regs;try solve_reg_lookup.
     }
     rewrite Hcureq.
@@ -123,14 +117,10 @@ Proof.
     iFrame "Hσreg".
     (* update pt *)
     rewrite update_access_batch_preserve_ownerships.
-    rewrite (@update_ownership_batch_update_pagetable_union _ _ i sown spsd psd Heqpsd); f_equal;eauto.
     rewrite remove_transaction_preserve_owned.
-    iDestruct ((gen_own_update_union spsd) with "Hown Hσowned") as ">[Hσowned Hown]"; f_equal.
-    { exact Heqpsd. }
     iFrame "Hσowned".
     rewrite (@update_exclusive_batch_update_pagetable_union _ _ i sexcl spsd psd Heqpsd); f_equal;eauto.
-    2: { rewrite update_ownership_batch_preserve_excl remove_transaction_preserve_excl. exact Hexcl. }
-    rewrite update_ownership_batch_preserve_excl remove_transaction_preserve_excl.
+    rewrite remove_transaction_preserve_excl.
     iDestruct ((gen_excl_update_union spsd) with "Hexcl Hσexcl") as ">[Hσexcl Hexcl]"; f_equal.
     { exact Heqpsd. }
     iFrame "Hσexcl".
@@ -153,8 +143,7 @@ Proof.
     destruct Htt as [(-> & Hsacc & ->)|(-> & Hsacc & ->)].
     {
     rewrite (@update_access_batch_update_pagetable_union _ _ i sacc ExclusiveAccess spsd psd Heqpsd); f_equal;eauto.
-    2: { rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access. exact Hacc.  }
-    rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access.
+    rewrite remove_transaction_preserve_access.
     iDestruct ((gen_access_update_union spsd) with "Hacc Hσaccess") as ">[Hσaccess Hacc]"; f_equal.
     { exact Heqpsd. }
     iFrame "Hσaccess".
@@ -174,8 +163,7 @@ Proof.
     }
     {
      rewrite (@update_access_batch_update_pagetable_idempotent _ _ i sacc ExclusiveAccess spsd psd);auto.
-     2: { rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access. exact Hacc.  }
-     rewrite update_ownership_batch_preserve_access remove_transaction_preserve_access.
+     rewrite remove_transaction_preserve_access.
      iFrame "Hσaccess".
      (* pure *)
      iModIntro.
@@ -194,54 +182,52 @@ Proof.
 Qed.
 
 
-Lemma hvc_reclaim_lend {wi sown sacc pi sexcl i j sh} {spsd: gset PID}
-      ai r0 wh wf (psd: list PID) :
+Lemma hvc_reclaim_lend {wi sown qo sexcl i j sh ai r0}
+        sacc  wh wf (psd: list PID) (spsd: gset PID):
   decode_instruction wi = Some(Hvc) ->
-  addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Reclaim) ->
-  pi ∈ sacc ->
+  to_pid_aligned ai ∈ sacc ->
   spsd = (list_to_set psd) ->
-  spsd ## sown ->
+  spsd ⊆ sown ->
   spsd ## sacc ->
   spsd ## sexcl ->
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r wh)
   ∗ ▷ ai ->a wi ∗ ▷ hp{ 1 }[ sh ] 
   ∗ ▷ wh ->re false ∗ ▷ wh ->t{1}(i, wf, j, psd, Lending)
-  ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] }}}
+  ∗ ▷ O@i:={qo}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] }}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
    ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@i ->r wh
-  ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
+  ∗ O@i:={qo}[sown] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[(sacc ∪ spsd)]
  ∗ hp{ 1 }[ (sh ∪ {[wh]})] }}}.
 Proof.
-  iIntros (Hdecodei Hinpage Hdecodef Hinsacc Heqpsd Hdisjown Hdisjacc HHdisjexcl Φ)
+  iIntros (Hdecodei Hdecodef Hinsacc Heqpsd Hdisjown Hdisjacc HHdisjexcl Φ)
           "(>PC & >R0 & >R1 & >Hai & >Hhp & >Hretri & >Htrans & >Hown & >Hexcl & >Hacc)".
-  iApply (hvc_reclaim wi sown sacc pi sexcl i j sh Lending (sacc ∪ spsd) spsd ai r0 wh wf psd);auto.
+  iApply (hvc_reclaim wi sown qo sacc sexcl i j sh Lending (sacc ∪ spsd) spsd ai r0 wh wf psd);auto.
   iFrame.
 Qed.
 
 
-Lemma hvc_reclaim_share {wi sown sacc pi sexcl i j sh} {spsd: gset PID}
-      ai r0 wh wf (psd: list PID) :
+Lemma hvc_reclaim_share {wi sown qo sexcl i j sh ai r0}
+        sacc  wh wf (psd: list PID) (spsd: gset PID) :
   decode_instruction wi = Some(Hvc) ->
-  addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Reclaim) ->
-  pi ∈ sacc ->
+  to_pid_aligned ai ∈ sacc ->
   spsd = (list_to_set psd) ->
-  spsd ## sown ->
+  spsd ⊆ sown ->
   spsd ⊆ sacc ->
   spsd ## sexcl ->
   {SS{{ ▷(PC @@ i ->r ai) ∗ ▷ (R0 @@ i ->r r0) ∗ ▷ (R1 @@ i ->r wh)
   ∗ ▷ ai ->a wi ∗ ▷ hp{ 1 }[ sh ]
   ∗ ▷ wh ->re false ∗ ▷ wh ->t{1}(i, wf, j, psd, Sharing)
-  ∗ ▷ O@i:={1}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] }}}
+  ∗ ▷ O@i:={qo}[sown] ∗ ▷ E@i:={1}[sexcl] ∗ ▷ A@i:={1}[sacc] }}}
    ExecI @ i {{{ RET ExecI ; PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
   ∗ R0 @@ i ->r (encode_hvc_ret_code Succ) ∗ R1 @@i ->r wh
-  ∗ O@i:={1}[(sown ∪ spsd)] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[sacc]
+  ∗ O@i:={qo}[sown] ∗ E@i:={1}[(sexcl ∪ spsd)] ∗ A@i:={1}[sacc]
   ∗ hp{ 1 }[ (sh ∪ {[wh]})] }}}.
 Proof.
-  iIntros (Hdecodei Hinpage Hdecodef Hinsacc Heqpsd Hdisjown Hdisjacc HHdisjexcl Φ)
+  iIntros (Hdecodei Hdecodef Hinsacc Heqpsd Hdisjown Hdisjacc HHdisjexcl Φ)
           "(>PC & >R0 & >R1 & >Hai & >Hhp & >Hretri & >Htrans & >Hown & >Hexcl & >Hacc)".
-  iApply (hvc_reclaim wi sown sacc pi sexcl i j sh Sharing sacc spsd ai r0 wh wf psd);auto.
+  iApply (hvc_reclaim wi sown qo sacc sexcl i j sh Sharing sacc spsd ai r0 wh wf psd);auto.
   iFrame.
 Qed.
 

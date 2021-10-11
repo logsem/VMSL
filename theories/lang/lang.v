@@ -807,8 +807,7 @@ Definition reclaim (s : state) : exec_mode * state :=
       if no_borrowers s handle (get_current_vm s)
       then
         unit (update_reg  (update_access_batch
-                             (update_ownership_batch
-                                (remove_transaction s handle) l Owned) l ExclusiveAccess) R0 (encode_hvc_ret_code Succ))
+                             (remove_transaction s handle) l ExclusiveAccess) R0 (encode_hvc_ret_code Succ))
       else throw Denied
   in
   unpack_hvc_result_normal s comp.

@@ -2,7 +2,7 @@ From iris.bi Require Import derived_laws_later.
 From machine_program_logic.program_logic Require Import weakestpre.
 From iris.staging Require Import monotone.
 From HypVeri.algebra Require Import base mem.
-From HypVeri.rules Require Import rules_base mov str mem_send_nz send run yield halt.
+From HypVeri.rules Require Import rules_base mov str mem_send_nz send run yield ldr reclaim halt.
 From HypVeri.examples Require Import instr.
 From HypVeri.lang Require Import lang_extra.
 From HypVeri Require Import proofmode.
@@ -73,6 +73,7 @@ Section proof.
     (* R2 -> h *)
     (* h ->  transaction entry *)
     Str R2 R3;
+    Mov R3 (inr R2);
     (* send tx to VM1 *)
     (* tx -> memory descriptor *des* with h *)
     (* R3 -> address of a handle in *des* *)
@@ -103,7 +104,7 @@ Section proof.
     (* p -> 1 *)
     (* R2 -> l *)
     (* h -> transaction entry *)
-    Ldr R1 R3;
+    Mov R1 (inr R3);
     (* reclaim *)
     Mov R0 (inl (encode_hvc_func Reclaim));
     Hvc;
@@ -253,6 +254,32 @@ Section proof.
     - done.
   Qed.
 
+  Lemma inv_sts_0_closed_uchanged_yield h s:
+    inv_sts_rel (V1, false , false, Some h) s ->
+    (s.1.1.1 = V0 ∧ s.1.2 = true ∧ ((s.1.1.2 = false ∧ s.2 = Some h) ∨ (s.1.1.2 = true ∧ s.2 = None)))
+    ∨ (s.1.1.1 = V1 ∧ s.2 = Some h ∧ ((s.1.1.2 = false ∧ s.1.2 = false) ∨ (s.1.1.2 = true ∧ s.1.2 = true))).
+  Proof.
+    intro.
+    pattern s.
+    eapply (rtc_ind_r _ (V1,false,false,Some h)).
+    - right.
+      eauto.
+    - intros.
+      Unshelve.
+      2: { exact inv_sts_base. }
+      destruct H2;
+      destruct y as [ [ []]];simpl in *.
+      destruct H2 as [-> [-> [[-> ->]|[-> ->]]]];
+      inversion H1;
+      cbn;left;eauto.
+      destruct H2 as [-> [-> [[-> ->]|[-> ->]]]];
+      inversion H1.
+      cbn;right;eauto.
+      cbn;left;eauto.
+    - done.
+  Qed.
+
+
 End sts.
 
 
@@ -289,20 +316,37 @@ End sts.
   Qed.
 
   Lemma nainv_sts_init_yield s h : nainv_sts_rel (false, Some h) s ->
-       (s.1= false ∨ s.1 = true) ∧(s.2 = None ∨ ∃h, s.2 = Some h).
+       (s.1= false  ∧ s.2 = Some h) ∨ (s.1 = true ∧ (s.2 = None ∨  s.2 = Some h)).
   Proof.
     intro.
     pattern s.
     eapply (rtc_ind_r _ (false, Some h)).
-    - split. left. reflexivity.
-      right.
-      eauto.
+    - left.
+      done.
     - intros.
       Unshelve.
       2: { exact nainv_sts_base. }
-      destruct H2.
-      destruct H2, H3;destruct y as [ []];simpl in *;inversion H1;subst;cbn;
-        split;eauto.
+      destruct y as [ ];simpl in *.
+      destruct H2 as [[? ?] | [? [? | ?]]];subst;
+      inversion H1; subst;cbn;
+      eauto.
+    - done.
+  Qed.
+
+  Lemma nainv_sts_changed_yield h s : nainv_sts_rel (true, Some h) s ->
+      (s.1 = true ∧ (s.2 = None ∨  s.2 = Some h)).
+  Proof.
+    intro.
+    pattern s.
+    eapply (rtc_ind_r _ (true, Some h)).
+    - eauto.
+    - intros.
+      Unshelve.
+      2: { exact nainv_sts_base. }
+      destruct y as [ ];simpl in *.
+      destruct H2 as [? [? | ?]];subst;
+      inversion H1; subst;cbn;
+      eauto.
     - done.
   Qed.
 
@@ -672,7 +716,6 @@ End sts.
     { set_solver + Hown. }
     { set_solver + Hexcl. }
     { done. }
-    { iFrame. }
     iNext.
     iIntros "( PC & prog6 & Own & Acc & Excl & R0 & R1 & TX & (% & (%HinHp & R2 & Tran & Retri & Hp) & Des))".
     (* str *)
@@ -699,28 +742,35 @@ End sts.
     (* mov *)
     iApply wp_sswp.
     iDestruct "prog" as "[prog8 prog]".
-    iApply (mov_word with "[prog8 PC Acc R0]");iFrameAutoSolve.
+    iApply (mov_reg with "[prog8 PC Acc R2 R3]");iFrameAutoSolve.
     { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
     iNext.
-    iIntros "( PC & prog8 & Acc & R0)".
+    iIntros "( PC & prog8 & Acc & R3 & R2)".
     (* mov *)
     iApply wp_sswp.
     iDestruct "prog" as "[prog9 prog]".
-    iApply (mov_word with "[prog9 PC Acc R1]");iFrameAutoSolve.
+    iApply (mov_word with "[prog9 PC Acc R0]");iFrameAutoSolve.
     { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
     iNext.
-    iIntros "( PC & prog9 & Acc & R1)".
+    iIntros "( PC & prog9 & Acc & R0)".
     (* mov *)
     iApply wp_sswp.
     iDestruct "prog" as "[prog10 prog]".
-    iApply (mov_word with "[prog10 PC Acc R2]");iFrameAutoSolve.
+    iApply (mov_word with "[prog10 PC Acc R1]");iFrameAutoSolve.
     { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
     iNext.
-    iIntros "( PC & prog10 & Acc & R2)".
-    (* send *)
+    iIntros "( PC & prog10 & Acc & R1)".
+    (* mov *)
     iApply wp_sswp.
     iDestruct "prog" as "[prog11 prog]".
-    iApply (hvc_send_primary with "[prog11 PC Acc R0 R1 R2 TX Des0 Des1 Des2 DesRest RX1 Hmatch RxDes]");iFrameAutoSolve.
+    iApply (mov_word with "[prog11 PC Acc R2]");iFrameAutoSolve.
+    { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
+    iNext.
+    iIntros "( PC & prog11 & Acc & R2)".
+    (* send *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog12 prog]".
+    iApply (hvc_send_primary with "[prog12 PC Acc R0 R1 R2 TX Des0 Des1 Des2 DesRest RX1 Hmatch RxDes]");iFrameAutoSolve.
     { apply decode_encode_hvc_func. }
     { apply decode_encode_vmid. }
     { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
@@ -746,14 +796,14 @@ End sts.
       done. }
     iClear "Hif'".
     iNext.
-    iIntros "(PC & prog11 & Acc & R0 & R1 & R2 & TX & RX1 & RX1s & TxDes & RxDes)".
+    iIntros "(PC & prog12 & Acc & R0 & R1 & R2 & TX & RX1 & RX1s & TxDes & RxDes)".
     (* mov *)
     iApply wp_sswp.
-    iDestruct "prog" as "[prog12 prog]".
-    iApply (mov_word with "[prog12 PC Acc R0]");iFrameAutoSolve.
+    iDestruct "prog" as "[prog13 prog]".
+    iApply (mov_word with "[prog13 PC Acc R0]");iFrameAutoSolve.
     { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
     iNext.
-    iIntros "( PC & prog12 & Acc & R0)".
+    iIntros "( PC & prog13 & Acc & R0)".
     (* run *)
     iDestruct ((nainv_state_update _ _ (false,Some wh)) with "NaInvExact") as ">NaInvExact".
     { unfold inv_sts_rel. apply rtc_once. constructor. }
@@ -787,9 +837,9 @@ End sts.
          iIntros "[_ False]".
          iExFalso.
          done.  }
-    iDestruct "Hmatch" as "[-> Close]".
-    iDestruct "prog" as "[prog13 prog]".
-    iApply (run with "[ScheToken PC prog13 Acc R0 R1]");iFrameAutoSolve.
+    iDestruct "Hmatch" as "[-> Closed]".
+    iDestruct "prog" as "[prog14 prog]".
+    iApply (run with "[ScheToken PC prog14 Acc R0 R1]");iFrameAutoSolve.
     { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
     { done. }
     { apply decode_encode_hvc_func. }
@@ -797,7 +847,7 @@ End sts.
     { iFrame. }
     iModIntro.
     iNext.
-    iIntros "(ScheToken & PC & prog13 & Acc & R0 & R1)".
+    iIntros "(ScheToken & PC & prog14 & Acc & R0 & R1)".
     iDestruct ("NaInvClose" with "[NaInvToken NaInvExact R0 R0' R1 page RxDes Tran Retri Access RX1s]") as "NaInvToken".
     { iSplitR "NaInvToken".
       iNext.
@@ -822,6 +872,106 @@ End sts.
     { iExists V1, ⊤, false , false, (Some wh). iNext. iFrame. done. }
     iMod "HIClose" as %_.
     iModIntro.
+    (* open the invariant *)
+    iApply wp_sswp.
+    iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
+    iInv inv_name as ">Inv" "HIClose".
+    iDestruct "Inv" as (i P cb ob oh) "(ScheToken & NaInvToken & InvExact & Hif & Hmatch)".
+    iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
+    iClear "InvAtLeast".
+    apply inv_sts_0_closed_uchanged_yield in Rel.
+    simpl in Rel.
+    destruct Rel as [[-> [-> [[-> ->] | [-> ->]]]] | [-> [-> [[-> ->] | [-> ->]]]]];iSimpl in "Hmatch";
+    try destruct cb.
+    2: { iDestruct "Hmatch" as "(_ & Closed' & _)".
+      iDestruct (token_excl with "Closed Closed'") as %[]. }
+    2: { iApply (eliminate_wrong_token with "ScheToken").
+         done.
+         iModIntro.
+         iNext.
+         iIntros "[_ False]".
+         iExFalso.
+         done. }
+    2: { iApply (eliminate_wrong_token with "ScheToken").
+         done.
+         iModIntro.
+         iNext.
+         iIntros "[_ False]".
+         iExFalso.
+         done. }
+    iDestruct "Hmatch" as "(-> & Done & NaInvAtLeast)".
+    (* open the na-invariant *)
+    iMod (na_inv_acc with "Hnainv NaInvToken") as "(>NaInv & NaInvToken & NaInvClose)";auto.
+    { pose proof namespace_disjoint. set_solver. }
+    iDestruct "NaInv" as "(% & % & % & % & % & % & % & NaInvExact & R0 & R0' & R1 & page & RxDes & Hif' & Htrans & Hmatch)".
+    iDestruct ((inv_state_update _ _ (V0, true, true, None)) with "InvExact") as ">InvExact".
+    { unfold inv_sts_rel. apply rtc_once. constructor. }
+    iDestruct (inv_state_observe with "InvExact") as ">[InvExact InvAtLeast]".
+    iDestruct (nainv_state_exact_atleast with "NaInvExact NaInvAtLeast") as "%Rel".
+    iClear "NaInvAtLeast".
+    apply nainv_sts_changed_yield in Rel.
+    simpl in Rel.
+    destruct Rel as [-> [-> | ->]];iSimpl in "Hmatch".
+    { iDestruct "Hmatch" as "(_ & _ & _ & Done')".
+      iDestruct (token_excl with "Done Done'") as %[]. }
+    iClear "Hif".
+    iDestruct "Hif'" as "(-> & Unchanged & RX' )".
+    iDestruct "Hmatch" as "(->& ->& ->& Switched & Access)".
+    (* mov *)
+    iDestruct "prog" as "[prog15 prog]".
+    (* iDestruct "TxDes" as "(TxDes0 & TxDes1 & TxDes2 & TxDesRest)". *)
+    iApply (mov_reg with "[prog15 PC Acc R1 R3]"); iFrameAutoSolve.
+    { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
+    iModIntro. iNext.
+    iIntros "( PC & prog15 & Acc & R1 & R3)".
+    (* close the invariant *)
+    iDestruct ("HIClose" with "[ScheToken NaInvToken InvExact Closed Access]") as "HIClose".
+    { iExists V0, (⊤∖↑ nainv_name), true, true, None. iNext. iFrame. done. }
+    iMod "HIClose" as %_.
+    iModIntro.
+    (* mov *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog16 prog]".
+    iApply (mov_word with "[prog16 PC Acc R0]"); iFrameAutoSolve.
+    { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
+    iNext.
+    iIntros "( PC & prog16 & Acc & R0)".
+    (* reclaim *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog17 prog]".
+    iDestruct "Htrans" as "[Retri Trans]".
+    iApply ((hvc_reclaim_lend _ _ _ [ppage] {[ppage]}) with "[prog17 PC Acc R0 R1 Own Excl Retri Trans Hp]"); iFrameAutoSolve.
+    { apply decode_encode_hvc_func. }
+    { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
+    { set_solver + . }
+    { set_solver + Hown. }
+    { set_solver +.  }
+    { set_solver +. }
+    iNext.
+    iIntros "( PC & prog17 & R0 & R1 & Own & Excl & Acc & Hp)".
+    (* mov *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog18 prog]".
+    iApply (mov_word with "[prog18 PC Acc R1]"); iFrameAutoSolve.
+    { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
+    iNext.
+    iIntros "( PC & prog18 & Acc & R1)".
+    (* ldr *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog19 prog]".
+    iApply (ldr with "[prog19 PC Acc page R0 R1 TX]"); iFrameAutoSolve.
+    { intro. apply Hppagenot'. rewrite -Hppageeq in H2.  rewrite <-(to_pid_aligned_eq ppage).  done. }
+    { rewrite HaddrIn.  rewrite -Hppageeq. rewrite to_pid_aligned_eq. set_solver + Hacc Hppagenot. set_solver +. }
+    { rewrite -Hppageeq. iFrame. }
+    iNext.
+    iIntros "( PC & prog19 & R1 & page & R0 & Acc & TX)".
+    (* halt *) (* TODO: close nainv? yes *)
+    iApply wp_sswp.
+    iDestruct "prog" as "[prog20 _]".
+    iApply (halt with "[prog20 PC Acc]"); iFrameAutoSolve.
+    { rewrite HaddrIn.  set_solver + Hacc Hppagenot. set_solver +. }
+    iNext.
+    iIntros "( PC & prog20 & Acc )".
   Admitted.
 
   Definition l_pre step base :=
