@@ -202,7 +202,7 @@ Proof.
     }
     assert ((I0 ^+ 1 ^- I1 <? I0)%f = false) as ->.
     {
-      rewrite /I0 /I1.
+      rewrite /I0 /I1 /W0 /W1.
       simpl.
       solve_finz.
     }
@@ -224,7 +224,7 @@ Proof.
     iApply "HΦ".
     iFrame.
     assert ((I0 ^+ 1)%f = step) as ->.
-    rewrite /I0.
+    rewrite /I0 /W0.
     simpl.
     solve_finz.
     iFrame.
@@ -359,7 +359,7 @@ Proof.
     iIntros "(Hpc & Hinstr6 & Hr6 & Hr5 & Hacc & Hnz)".
     assert ((I0 <? im ^+ 1 ^- I1)%f = true) as ->.
     {
-      rewrite /I0 /I1 -Himeq /= .
+      rewrite /I0 /I1 /W0 -Himeq /= .
       solve_finz.
     }
     iApply parwp_sswp.
