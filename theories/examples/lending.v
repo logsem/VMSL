@@ -638,10 +638,12 @@ End sts.
           ∗ A@V0 :={1}[sacc]
           ∗ E@V0 :={1}[sexcl]
           ∗ TX@V0 := ptx
-          (* ∗ ∃ h, ⌜des' = serialized_transaction_descriptor V0 V1 h I1 [ppage] W0⌝ *)
+          ∗ RX@V0:=prx0
+          ∗ RX@V1:=prx1
           ∗ (∃ des, mem_region des ptx)
           ∗ R2 @@ V0 ->r ilen
-          ∗ R3 @@ V0 ->r (ptx ^+ 2)%f
+          ∗ (∃ r3, R3 @@ V0 ->r r3)
+          ∗ token γ_closed
           ∗ program (code0 ippage ilen) pprog)
       }}.
   Proof.
@@ -1020,39 +1022,68 @@ End sts.
     iIntros "( PC & prog19 & R1 & page & R0 & Acc & TX)".
     (* halt *) 
     iApply wp_sswp.
+    (* open invariant *)
     iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
-    iInv inv_name as ">Inv" "HIClose".
+    iInv inv_name as ">Inv" "InvClose".
     iDestruct "Inv" as (i P cb ob oh) "(ScheToken & NaInvToken & InvExact & Hmatch)".
     iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
     iClear "InvAtLeast".
     apply inv_sts_0_unclosed_changed_finish in Rel.
     simpl in Rel.
     destruct Rel as [-> [-> [-> [-> | ->]]]];iSimpl in "Hmatch".
+    { iDestruct "Hmatch" as "(_ & _ & Switched' & _)".
+      iDestruct (token_excl with "Switched Switched'") as %[]. }
+    iDestruct "Hmatch" as "(-> & Closed & Access)".
     iDestruct "prog" as "[prog20 _]".
     iApply (halt with "[prog20 PC Acc]"); iFrameAutoSolve.
     { rewrite HaddrIn.  set_solver + Hacc Hppagenot. set_solver +. }
     iModIntro.
     iNext.
     iIntros "( PC & prog20 & Acc )".
-    (* TODO: update NaInvExact, Empty RX  *)
-    iDestruct ("NaInvClose" with "[NaInvToken NaInvExact R0 R0' R1 page RxDes Done Unchanged]") as "NaInvToken".
+    iDestruct ((nainv_state_update _ _ (true,None)) with "NaInvExact") as ">NaInvExact".
+    { unfold inv_sts_rel. apply rtc_once. constructor. }
+    iDestruct (nainv_state_observe with "NaInvExact") as ">[NaInvExact NaInvAtLeast]".
+    iDestruct ("NaInvClose" with "[NaInvToken NaInvExact R0 R0' R1 page RxDes RX' Done Unchanged]") as "NaInvToken".
     { iSplitR "NaInvToken".
       iNext.
       rewrite /nainv_def.
       iExists W1, yield_I, ippage, W1, des1, true , None.
+      rewrite Hppageeq.
       iFrame.
-      admit.
-    (*   iSplitR;[done|]. *)
-    (*   iSplitR;[done|]. *)
-    (*   iExists ilen. *)
-    (*   iFrame. *)
-    (*   iSplitR;[done|]. *)
-    (*   iSplitR;[|]. *)
-    (*   rewrite Hileq //=. *)
-    (*   done. *)
-    (*   iFrame. } *)
-    (* iMod "NaInvToken". *)
-
+      iSplitR;[done|].
+      iSplitR;[done|done].
+      unfold nainv_closed.
+      iFrame.
+    }
+    iMod "NaInvToken".
+    iDestruct ((inv_state_update _ _ (V0, false , true, None)) with "InvExact") as ">InvExact".
+    { unfold inv_sts_rel. apply rtc_once. constructor. }
+    iDestruct ("InvClose" with "[ScheToken NaInvToken InvExact NaInvAtLeast Access Switched]") as "InvClose".
+    { iExists V0, ⊤, false, true , None. iNext. iFrame. done. }
+    iMod "InvClose" as %_.
+    iModIntro.
+    iApply wp_terminated'.
+    { done. }
+    iSplitR;[done|].
+    iFrame "Own TX R2 Closed RX0 RX1".
+    iSplitL "PC".
+    { simpl. admit. }
+    assert (Hunion_diff: forall (X Y : gset handle),  Y ⊆ X -> X ∖ Y ∪ Y = X).
+    { intros. rewrite (difference_union_L X Y). rewrite union_comm_L.
+      assert (Y ∪ X = X) as ->. set_solver + H2. done. }
+    (* TODO: merge them *)
+    assert (Hunion_diff': forall (X Y : gset PID),  Y ⊆ X -> X ∖ Y ∪ Y = X).
+    { intros. rewrite (difference_union_L X Y). rewrite union_comm_L.
+      assert (Y ∪ X = X) as ->. set_solver + H2. done. }
+    rewrite Hunion_diff;[|set_solver + HinHp].
+    rewrite !Hunion_diff';[|set_solver + Hacc|set_solver + Hexcl].
+    iFrame "Hp Acc Excl".
+    iSplitL "TxDes".
+    iExists (serialized_transaction_descriptor V0 V1 wh I1 [ppage] W0).
+    iFrame.
+    iSplitL "R3".
+    iExists wh.
+    iFrame.
   Admitted.
 
   Definition l_pre step base :=
