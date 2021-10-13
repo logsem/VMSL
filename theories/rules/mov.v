@@ -66,10 +66,10 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
     Qed.
 
-Lemma mov_reg {E i qi w1 w3 q s} a w2 ra rb :
+Lemma mov_reg {E i w1 w3 q s} a w2 ra rb :
   decode_instruction w1 = Some (Mov ra (inr rb)) ->
   to_pid_aligned a ∈ s ->
-  {SS{{ ▷ (<<i>>{ qi }) ∗ ▷ (PC @@ i ->r a)
+  {SS{{  ▷ (PC @@ i ->r a)
           ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q}[s])
           ∗ ▷ (ra @@ i ->r w2)
           ∗ ▷ (rb @@ i ->r w3) }}}
@@ -80,7 +80,7 @@ Lemma mov_reg {E i qi w1 w3 q s} a w2 ra rb :
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "(? & >Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
+  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.

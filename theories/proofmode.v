@@ -24,6 +24,12 @@ Class FramableRXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
 Class FramableHandlePool (s: gset handle) := {}.
 #[export] Hint Mode FramableHandlePool - : typeclass_instances.
 
+Class FramableTransaction `{HypervisorConstants} (wh : Word) (v r: VMID) (wf: Word) (pgs : (list PID)) (fid : transaction_type)  := {}.
+#[export] Hint Mode FramableTransaction + + - - - - - : typeclass_instances.
+
+Class FramableRetrieve  (wh : Word) (b : bool)  := {}.
+#[export] Hint Mode FramableRetrieve + - : typeclass_instances.
+
 Instance FramableRegisterPointsto_default `{HypervisorConstants} r i w :
   FramableRegisterPointsto r i w
 | 100. Qed.
@@ -42,6 +48,18 @@ Instance FramableTXPointsto_default `{HypervisorConstants} i p :
 
 Instance FramableRXPointsto_default `{HypervisorConstants} i p :
   FramableRXPointsto i p
+| 100. Qed.
+
+Instance FramableHandlePool_default `{HypervisorConstants} s :
+  FramableHandlePool s
+| 100. Qed.
+
+Instance FramableTransaction_default `{HypervisorConstants} wh v r wf pgs fid :
+  FramableTransaction wh v r wf pgs fid
+| 100. Qed.
+
+Instance FramableRetrieve_default wh b:
+  FramableRetrieve wh b
 | 100. Qed.
 
 Instance FramableMachineResource_reg `{gen_VMG Σ} r i w :
@@ -82,4 +100,14 @@ Qed.
 Instance FramableMachineResource_hp`{gen_VMG Σ} q s :
   FramableHandlePool s →
   FramableMachineResource (hp{q}[s]).
+Qed.
+
+Instance FramableMachineResource_trans`{gen_VMG Σ} q wh v r wf pgs fid :
+  FramableTransaction wh v r wf pgs fid →
+  FramableMachineResource (wh->t{q}(v,wf,r,pgs,fid) ).
+Qed.
+
+Instance FramableMachineResource_retri `{gen_VMG Σ} wh b:
+  FramableRetrieve wh b →
+  FramableMachineResource (wh->re b ).
 Qed.

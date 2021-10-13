@@ -8,7 +8,7 @@ Section str.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma str {i w1 w2 w3 q prx} ai a ra rb s:
+Lemma str {E i w1 w2 w3 q prx} ai a ra rb s:
   decode_instruction w1 = Some (Str ra rb) ->
   prx ≠ (to_pid_aligned a) ->
   {[(to_pid_aligned ai);(to_pid_aligned a)]} ⊆ s ->
@@ -19,7 +19,7 @@ Lemma str {i w1 w2 w3 q prx} ai a ra rb s:
         ▷ (ra @@ i ->r w2) ∗
         ▷ (A@i:={q}[s]) ∗
         ▷ (RX@ i := prx)}}}
-    ExecI @ i
+    ExecI @ i; E
     {{{ RET ExecI;
         PC @@ i ->r (ai ^+ 1)%f ∗
         ai ->a w1 ∗
