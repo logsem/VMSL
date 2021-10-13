@@ -259,6 +259,12 @@ Section proof.
                 ** discriminate.
                 ** destruct H10 as [x [H11 H12]].
                    inversion H11; auto.
+                   simplify_eq.
+                   apply rtc_inv in H12.
+                   destruct H12 as [|H12].
+                   --- discriminate.
+                   --- destruct H12 as [x [H13 H14]].
+                       inversion H13; auto.
   Qed.
   
   Lemma inv_sts_0_closed_unchanged_open s : inv_sts_rel (V0, false, false, None) s ->
