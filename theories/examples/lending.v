@@ -1268,37 +1268,7 @@ End sts.
     2: {
       by apply nainv_sts_elim_false in NaInvExact.
     }
-    (*
-    iAssert ( |={⊤ ∖ ↑inv_name,⊤}=> WP k @ V1 {{ m, ⌜m = ExecI⌝ ∗ True }} ⊣⊢ WP k @ V1 ; {⊤ ∖ ↑inv_name, ⊤} {{ m, ⌜m = ExecI⌝ ∗ True }} )%I as "H".
-    rewrite -wp_sswp.
-    iApply wp_parwp.
-    iApply parwp_sswp.
-    iApply loop_spec.
-     *)
-    (*
-    iDestruct ("HIClose" with "[ScheToken NaInvToken InvExact Hif Access NaInvAtLeast NaInvClose]") as "HIClose".
-    { iExists V1, ⊤, false, false.
-      iSimpl.
-      iFrame.
-      iAssert (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx ppage)%I as "H".
-      {
-        unfold nainv_def.
-        iExists r0, r0', r1, w, des, false, (Some h).
-        iSimpl.
-        b o.
-      }
-      unfold nainv_closed.
-      iSplitR "NaInvAtLeast".
-      
-      iApply "NaInvClose".
-      2: { iSplit; first done. by iExists h. }
-      
-    admit. }
-    iMod "HIClose" as %_.
-    iApply fupd_mask_intro.
-    set_solver.
-    iIntros "Mask".
-     *)
+    
   Admitted.
 
 
