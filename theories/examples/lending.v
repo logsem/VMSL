@@ -566,7 +566,7 @@ End sts.
                          token γ_unchanged∗
                          (* token γ_access ∗ *)
                          ∃ wl, RX@V1 :=(wl, V0) ∗
-                         ⌜des = serialized_transaction_descriptor V0 V1 h I1 [page] W0⌝ ∗
+                         ⌜des = serialized_transaction_descriptor V0 V1 W0 I1 [page] h⌝ ∗
                          ⌜finz.to_z wl =Z.of_nat (length des)⌝ ∗ ⌜w = W0⌝
     | (true, Some h) => ⌜r0 = of_imm run_I⌝ ∗ ⌜r0' = of_imm yield_I⌝ ∗ ⌜r1 = encode_vmid V1⌝ ∗
                         token γ_switched (* ∗ token γ_access *)
@@ -827,17 +827,15 @@ End sts.
     { apply decode_encode_hvc_func. }
     { apply decode_encode_vmid. }
     { rewrite HaddrIn. set_solver + Hacc Hppagenot. set_solver +. }
-    { assert (finz.to_z (ilen) = Z.of_nat (length (serialized_transaction_descriptor V0 V1 wh I1 [ppage] W0)))%Z.
+    { assert (finz.to_z (ilen) = Z.of_nat (length (serialized_transaction_descriptor V0 V1 W0 I1 [ppage] wh)))%Z.
       rewrite Hileq.
       simpl.
       done.
       apply H2. }
     { simpl. lia. }
     { done. }
-    { iCombine "Des0 Des1 Des2 DesRest" as "TxDes".
-      iSplitL "TxDes".
+    { iSplitL "Des0 Des1 Des2 DesRest".
       iFrame.
-      admit. (* TODO: how to combine point-tos together *)
       iSplitL "RX1".
       iFrame.
       iDestruct "Hmatch" as "[RX %Hldes0]".
@@ -907,7 +905,7 @@ End sts.
     { iSplitR "NaInvToken".
       iNext.
       rewrite /nainv_def.
-      iExists run_I, r0', (encode_vmid V1), I0, (serialized_transaction_descriptor V0 V1 wh W1 [ppage] W0), false, (Some wh).
+      iExists run_I, r0', (encode_vmid V1), I0, (serialized_transaction_descriptor V0 V1 W0 I1 [ppage] wh), false, (Some wh).
       iFrame.
       iSplitR;[done|].
       iSplitR;[done|].
@@ -1067,7 +1065,12 @@ End sts.
     iSplitR;[done|].
     iFrame "Own TX R2 Closed RX0 RX1".
     iSplitL "PC".
-    { simpl. admit. }
+    { simpl.
+      assert (forall (f:Word) (n:Z), (n>0)%Z ->  (((f ^+ n) ^+ 1))%f = (f ^+ (n+1)%Z)%f ) as Hplus.
+      solve_finz.
+      repeat (rewrite (Hplus pprog);[|lia]).
+      iFrame.
+    }
     assert (Hunion_diff: forall (X Y : gset handle),  Y ⊆ X -> X ∖ Y ∪ Y = X).
     { intros. rewrite (difference_union_L X Y). rewrite union_comm_L.
       assert (Y ∪ X = X) as ->. set_solver + H2. done. }
@@ -1079,12 +1082,15 @@ End sts.
     rewrite !Hunion_diff';[|set_solver + Hacc|set_solver + Hexcl].
     iFrame "Hp Acc Excl".
     iSplitL "TxDes".
-    iExists (serialized_transaction_descriptor V0 V1 wh I1 [ppage] W0).
+    iExists (serialized_transaction_descriptor V0 V1 W0 I1 [ppage] wh).
     iFrame.
     iSplitL "R3".
     iExists wh.
     iFrame.
-  Admitted.
+    unfold program.
+    iApply big_sepL2_cons;iFrame.
+    done.
+Qed.
 
   Definition l_pre step base :=
     [
