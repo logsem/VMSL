@@ -1164,14 +1164,16 @@ Qed.
   Definition loop prog step base := encode_instructions (l_pre step base) ++ cycle prog.
 
   Definition unknown_mem_region (b : handle) (n : nat) := ([∗ list] a ∈ finz.seq b n, ∃ w, a ->a w)%I.
+
+  Definition mem_region' (b : handle) (n : nat) (instr : list handle) := ([∗ list] a;w ∈ finz.seq b n;instr, a ->a w)%I.
   
-  Definition loopP des prx ptx := fun (w : Word) => ((mem_region (drop (Z.to_nat (finz.to_z w) - 1) des) ((of_pid ptx ^+ (Z.to_nat (finz.to_z w)))%f)) 
-                                                    ∗ (unknown_mem_region (of_pid ptx) (Z.to_nat (finz.to_z w) - 1))
+  Definition loopP des prx ptx := fun (w : Word) => ((unknown_mem_region (of_pid ptx) (Z.to_nat (finz.to_z w) - 1))
                                                     ∗ (∃ m, (of_pid ptx ^+ ((Z.to_nat (finz.to_z w)) - 1))%f ->a m)
+                                                    ∗ (mem_region (drop (Z.to_nat (finz.to_z w)) des) ((of_pid ptx ^+ (Z.to_nat (finz.to_z w)))%f))
                                                     ∗ (∃ r, R0 @@ V1 ->r r) ∗ (∃ r, R1 @@ V1 ->r r) ∗ (∃ r, R2 @@ V1 ->r r)
                                                     ∗ RX@V1 := prx ∗ TX@V1 := ptx
                                                     ∗ (mem_region (take (Z.to_nat (finz.to_z w) - 1) des) (of_pid prx))
-                                                    ∗ (∃ m, (of_pid prx ^+ (Z.to_nat (finz.to_z w) - 1))%f ->a m ∗ ⌜(des !! (Z.to_nat (finz.to_z w) - 1)) = Some m⌝) 
+                                                    ∗ (∃ m, (of_pid prx ^+ (Z.to_nat (finz.to_z w) - 1))%f ->a m ∗ ⌜Some m = des !! (Z.to_nat (finz.to_z w) - 1)⌝)
                                                     ∗ (mem_region (drop (Z.to_nat (finz.to_z w)) des) ((of_pid prx) ^+ (Z.to_nat (finz.to_z w)))%f))%I.
 
   Definition loopprog iptx iprx := (encode_instructions [Mov R0 (inl I1);
@@ -1218,6 +1220,7 @@ Qed.
     (∀ v (v' : Word) progaddr,
      ⌜v = Z.to_nat (finz.to_z v')⌝ -∗
      ⌜v <= S 5⌝-∗
+     ⌜v ≠ 0⌝-∗                     
      ⌜seq_in_page progaddr (length (loopprog iptx iprx)) pprog⌝ -∗
      {PAR{{ (loopP des prx ptx (v' ^+ 1)%f) ∗ PC @@ V1 ->r progaddr
             ∗ R6 @@ V1 ->r I0
@@ -1239,7 +1242,7 @@ Qed.
      }}}%I).
   Proof.
     intros Hdesl.
-    iIntros (v v' progaddr Hveq Hvleq Hseq').
+    iIntros (v v' progaddr Hveq Hvleq Hvneq Hseq').
     iIntros (Ψ).
     iModIntro.
     iIntros "(HProp' & HPC' & HR6' & HR5' & HR7' & HR8' & HNZ' & HACC & Prog') HΨ".
@@ -1248,8 +1251,39 @@ Qed.
     iSimpl in "Hinstr9".
     iDestruct "Hinstr9" as "(Hinstr9 & _)".
     iSimpl.
-    iDestruct "HProp'" as "(memr & rmemr & mmemr & [% R0] & [% R1] & [% R2] & HRX' & HTX' & HDES')".
+    iDestruct "HProp'" as "(memr & mmemr & rmemr & [% R0] & [% R1] & [% R2] & HRX' & HTX' & HDES')".
     iDestruct "HDES'" as "(PreTX & CurTX & PostTX)".
+    assert (Hplusminusone : ∀ p : PID, ((p ^+ (v' ^+ 1) ^- I1)%f = (p ^+ v')%f)).
+    assert (v' <= 6)%Z.
+    lia.
+    assert (v' > 0)%Z.
+    lia.
+    intros p.
+    destruct p as [z].
+    destruct z as [t].
+    simpl in *.
+    assert (t <=? 1999000)%Z.
+    assert (∃ k, (t = 1000 * k)%Z).
+    assert ((t `rem` 1000)%Z = 0%Z).
+    lia.
+    admit.
+    destruct H4.
+    subst t.
+    assert (x <? 2000)%Z.
+    admit.
+    assert (x <=? 1999)%Z.
+    admit.
+    assert (1999000 = 1000 * 1999)%Z as ->.
+    lia.
+    assert ((1000 * x <= 1000 * 1999)%Z).
+    admit.
+    apply Zle_imp_le_bool in H6.
+    rewrite H6.
+    auto.
+    admit.
+    assert (Hvoffset : forall p : PID, addr_in_page (p ^+ v')%f p).
+    intros p.
+    admit.
     iApply parwp_sswp.
     iApply ((@mov_word _ _ _ _ ⊤ V1 _ _ 1 sacc progaddr I1 R0) with "[HPC' HACC R0 Hinstr1]"); iFrameAutoSolve.
     rewrite (to_pid_aligned_in_page _ pprog).
@@ -1289,22 +1323,30 @@ Qed.
     iNext.
     iIntros "(HPC' & Hinstr4 & R1 & R0 & HACC)".
     iApply parwp_sswp.
-    assert ((iprx ^+ (v' ^+ 1) ^- I1)%f = (iprx ^+ v')%f) as ->.
-    admit.
+    rewrite Hprxeq Hplusminusone.
     assert (Z.to_nat (v' ^+ 1)%f = v + 1) as ->.
     solve_finz.
     iDestruct "CurTX" as "[%m [CurTX %Meq]]".
-    iApply ((@ldr _ _ _ _ V1 (encode_instruction (Ldr R2 R1)) m _ _ _ ((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (iprx ^+ v')%f R2 R1 sacc) with "[HPC' Hinstr5 R2 R1 HACC HTX' CurTX]"); auto; iFrameAutoSolve.
-    admit.
+    iApply ((@ldr _ _ _ _ _ V1 (encode_instruction (Ldr R2 R1)) m _ _ _ ((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (iprx ^+ v')%f R2 R1 sacc) with "[HPC' Hinstr5 R2 R1 HACC HTX' CurTX]"); auto; iFrameAutoSolve.
+    {
+      intros C.
+      rewrite (to_pid_aligned_in_page _ prx) in C.
+      symmetry in C.
+      contradiction.
+      by rewrite Hprxeq.
+    }
     assert (to_pid_aligned ((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = pprog) as ->.
     apply to_pid_aligned_in_page.
     apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
     rewrite /loopprog /=.
     set_solver.
-    admit.
+    rewrite (to_pid_aligned_in_page _ prx).
+    set_solver.
+    by rewrite Hprxeq.
     assert ((prx ^+ ((v + 1)%nat - 1))%f = (iprx ^+ v')%f) as ->.
     rewrite Hveq.
     solve_finz.
+    rewrite Hprxeq.
     iFrame.
     iNext.
     iIntros "(HPC' & Hinstr5 & R1 & CurTX & R2 & HACC & HTX')".
@@ -1338,26 +1380,46 @@ Qed.
     iIntros "(HPC' & Hinstr8 & R1 & R0 & HACC)".
     iApply parwp_sswp.
     iDestruct "mmemr" as "[%m' mmemr]".
-    assert ((iptx ^+ (v' ^+ 1) ^- I1)%f = (iptx ^+ v')%f) as ->.
-    admit.
-    iApply (@str _ _ _ _ V1 (encode_instruction (Str R2 R1)) _ m' _ _ ((((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (ptx ^+ v)%f R2 R1 sacc with "[HPC' Hinstr9 mmemr R1 R2 HACC HRX']"); auto; iFrameAutoSolve.
-    admit.
-    admit.
+    iApply (@str _ _ _ _ _ V1 (encode_instruction (Str R2 R1)) _ m' _ _ ((((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (ptx ^+ v')%f R2 R1 sacc with "[HPC' Hinstr9 mmemr R1 R2 HACC HRX']"); auto; iFrameAutoSolve.
+    {
+      intros C.
+      rewrite (to_pid_aligned_in_page _ ptx) in C.
+      symmetry in C.
+      contradiction.
+      apply Hvoffset.
+    }
+    {
+      assert (to_pid_aligned ((((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = pprog) as ->.
+      apply to_pid_aligned_in_page.
+      apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
+      rewrite /loopprog /=.
+      set_solver.
+      rewrite (to_pid_aligned_in_page _ ptx).
+      set_solver.
+      done.
+    }
     rewrite Hptxeq.
     assert ((ptx ^+ ((v + 1)%nat - 1))%f = (ptx ^+ v)%f) as ->.
     solve_finz.
-    assert ((ptx ^+ v')%f = (ptx ^+ v)%f) as ->.
+    rewrite Hplusminusone.
+    assert ((ptx ^+ v)%f = (ptx ^+ v')%f) as ->.
     solve_finz.
     iFrame.
     iNext.
     iIntros "(HPC' & Hinstr9 & R1 & mmemr & R2 & HACC & HRX')".
     iApply parwp_finish.
-    iApply ("HΨ" with "*").
+    iApply "HΨ".
     iFrame.
     simpl.
-    assert ((((((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = (progaddr ^+ 9%nat)%f) as ->.
-    admit.
-    iFrame "HPC'".
+    iSplitR "HPC'".
+    2 : {
+      simpl.
+      assert (forall (f : Word) (n : Z), (n > 0)%Z ->  (((f ^+ n) ^+ 1))%f = (f ^+ (n+1)%Z)%f ) as Hplus.
+      solve_finz.
+      iSplit; last done.
+      repeat (rewrite (Hplus progaddr); [|lia]).
+      iFrame.
+    }
     iAssert (∃ r : handle, R0 @@ V1 ->r r)%I with "[R0]" as "R0'".
     {
       by iExists W1.     
@@ -1365,7 +1427,7 @@ Qed.
     iFrame "R0'".
     iAssert (∃ r : handle, R1 @@ V1 ->r r)%I with "[R1]" as "R1'".
     {
-      by iExists (ptx ^+ v)%f.     
+      by iExists (ptx ^+ v')%f.     
     }
     iFrame "R1'".
     iAssert (∃ r : handle, R2 @@ V1 ->r r)%I with "[R2]" as "R2'".
@@ -1382,27 +1444,34 @@ Qed.
     simpl.
     rewrite -Hveq.
     rewrite PeanoNat.Nat.add_sub.
-    rewrite PeanoNat.Nat.add_sub in Meq.
-    iAssert (mem_region (drop (v - 1) [x1; x2; x3; x4; x5; x6]) (ptx ^+ v)%f)%I with "[memr mmemr]" as "M".
-    {
-      admit.
-    }
-    iFrame "M".
-    iAssert (unknown_mem_region ptx (v - 1) ∗ (∃ m0 : handle, (ptx ^+ (v - 1))%f ->a m0))%I with "[rmemr]" as "[M1 M2]".
-    {
-      admit.
-    }
-    iFrame "M1 M2".
-    iAssert (mem_region (take (v - 1) [x1; x2; x3; x4; x5; x6]) prx ∗ (∃ m0 : handle, (prx ^+ (v - 1))%f ->a m0 ∗ ⌜[x1; x2; x3; x4; x5; x6] !! (v - 1) = Some m0⌝))%I with "[PreTX]" as "[M1 M2]".
-    {
-      admit.
-    }
-    iFrame "M1 M2".
-    iAssert (mem_region (drop v [x1; x2; x3; x4; x5; x6]) (prx ^+ v)%f)%I with "[PostTX CurTX]" as "M".
-    {
-      admit.
-    }
-    iFrame "M".
+    assert ((ptx ^+ v')%f = (ptx ^+ v)%f) as ->.
+    solve_finz.
+    rewrite Hprxeq.
+    assert ((prx ^+ v')%f = (prx ^+ v)%f) as ->.
+    solve_finz.
+    assert (forall (f : Word) (n : Z), (n > 0)%Z ->  (((f ^+ n) ^+ 1))%f = (f ^+ (n+1)%Z)%f ) as Hplus.
+    solve_finz.
+    assert (∀ (n : nat) (m : Z) (L : (m >= 0)%Z), (n%nat + m)%Z = (n + Z.to_nat m)%nat) as Hplus'.
+    lia.
+    assert (∀ (n : nat) (m : Z) (L : (n >= m)%Z) (L' : (m >= 0)%Z), (n%nat - m)%Z = (n - Z.to_nat m)%nat) as Hplus''.
+    lia.
+    assert (v = 5) as ->.
+    admit.
+    rewrite /unknown_mem_region /mem_region.
+    simpl.
+    inversion Meq as [Heq].
+    rewrite -Heq.
+    repeat (rewrite -assoc).
+    repeat (iDestruct "memr" as "(? & memr)").
+    repeat (iDestruct "rmemr" as "(? & rmemr)").
+    repeat (iDestruct "PreTX" as "(? & PreTX)").
+    repeat (iDestruct "PostTX" as "(? & PostTX)").
+    iFrame.
+    repeat (rewrite Hplus; last lia).
+    repeat (rewrite Hplus'; last lia).
+    simpl.
+    iFrame.
+    rewrite Hplus''; [|lia|lia].    
   Admitted.
 
   Lemma machine1_proof {sacc progaddr h}
