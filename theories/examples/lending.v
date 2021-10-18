@@ -209,7 +209,8 @@ Section proof.
   Inductive inv_sts_base : relation inv_sts_state :=
   | inv_sts_base_0_closed_unchanged_open : inv_sts_base (V0, false ,false, None) (V0, true, false, None)
   | inv_sts_base_0_unclosed_unchanged_switch h: inv_sts_base (V0, true, false, None) (V1, false, false, Some h)
-  | inv_sts_base_1_closed_unchanged_change h: inv_sts_base (V1, false, false, Some h) (V1, true, true, Some h)
+  | inv_sts_base_1_closed_unchanged_open h: inv_sts_base (V1, false, false, Some h) (V1, true, false, Some h)
+  | inv_sts_base_1_unclosed_unchanged_modify h: inv_sts_base (V1, true, false, Some h) (V1, true, true, Some h)
   | inv_sts_base_1_unclosed_changed_switch h: inv_sts_base (V1, true, true, Some h) (V0, false, true, Some h)
   | inv_sts_base_0_closed_changed_open h: inv_sts_base (V0, false, true, Some h) (V0, true, true, None)
   | inv_sts_base_0_uclosed_changed_close : inv_sts_base (V0, true, true, None) (V0, false, true, None).
@@ -250,7 +251,8 @@ Section proof.
              simplify_eq.
              apply rtc_inv in H8.
              destruct H8 as [|H8].
-             ++ discriminate.
+             ++ simplify_eq.
+                eauto.
              ++ destruct H8 as [x [H9 H10]].
                 inversion H9; auto.
                 simplify_eq.
@@ -265,11 +267,17 @@ Section proof.
                    --- discriminate.
                    --- destruct H12 as [x [H13 H14]].
                        inversion H13; auto.
+                       simplify_eq.
+                       apply rtc_inv in H14.
+                       destruct H14 as [|H14].
+                       +++ discriminate.
+                       +++ destruct H14 as [x [H15 H16]].
+                           inversion H15; auto.
   Qed.
   
   Lemma inv_sts_0_closed_unchanged_open s : inv_sts_rel (V0, false, false, None) s ->
     (s.1.1.1= V0 ∧ ((s.1.2 = false ∧ s.2 = None) ∨ (s.1.2 = true))) ∨
-    (s.1.1.1 = V1 ∧ ((s.1.1.2 = false ∧ s.1.2 = false) ∨ (s.1.1.2 = true ∧ s.1.2 = true))) .
+    (s.1.1.1 = V1 ∧ ((s.1.1.2 = false ∧ s.1.2 = false) ∨ (s.1.1.2 = true ∧ s.1.2 = true) ∨ (s.1.1.2 = true ∧ s.1.2 = false))) .
   Proof.
     intro.
     pattern s.
@@ -280,35 +288,100 @@ Section proof.
       2: { exact inv_sts_base. }
       destruct H2.
       destruct y as [ []];simpl in *;inversion H1;subst;cbn;eauto.
-      destruct H2; destruct y as [ []];simpl in *;inversion H1;subst;cbn;eauto;left;eauto.
+      destruct H2.
+      simpl in H2.
+      discriminate.
+      destruct H2 as [H2 H3].
+      destruct H3;
+        destruct y as [ []];simpl in *; inversion H1; subst;cbn; eauto.
+      + right.
+        eauto.
+      + right.
+        eauto.
+      + right.
+        eauto.
+      + right.
+        eauto. 
     - done.
   Qed.
 
   Lemma inv_sts_0_unclosed_unchanged_switch s:
     inv_sts_rel (V0, true , false, None) s ->
-    (s.1.2 = true ∧ (s.1.1.1= V0 ∨ s.1.1.1 = V1))
-    ∨ (s.1.2=false ∧ (s.1.1.1=V0 ∧ s.1.1.2 = true ∧ s.2 =None ∨ s.1.1.1 = V1 ∧ s.1.1.2 =false)).
+    (s.1.1.1= V0 ∧ ((s.1.1.2 = true ∧ s.1.2 = false ∧ s.2 = None) ∨ (s.1.1.2 = false ∧ s.1.2 = true) ∨ (s.1.1.2 = true ∧ s.1.2 = true ∧ s.2 = None) ∨ (s.1.1.2 = false ∧ s.1.2 = true ∧ s.2 = None))) ∨
+    (s.1.1.1 = V1 ∧ ((s.1.1.2 = false ∧ s.1.2 = false) ∨ (s.1.1.2 = true ∧ s.1.2 = true) ∨ (s.1.1.2 = true ∧ s.1.2 = false))).
   Proof.
     intro.
     pattern s.
     eapply (rtc_ind_r _ (V0,true,false,None )).
-    - right. split.
+    - left. split.
       done.
       left; done.
     - intros.
       Unshelve.
       2: { exact inv_sts_base. }
+      destruct y as [[[]] []];
+        simpl in *.
       destruct H2.
-      destruct y as [ []];simpl in *;inversion H1;subst;cbn; eauto.
-      destruct y as [ []];simpl in *;inversion H1;subst;cbn; eauto.
-      right;eauto.
+      destruct H2 as [-> H2].
+      + destruct H2.
+        destruct H2 as [-> [-> ?]]; discriminate.
+        destruct H2.
+        * destruct H2 as [-> ->].
+          inversion H1; subst; cbn; eauto.
+          left.
+          split; auto.
+          right.
+          right.
+          left.
+          auto.
+        * destruct H2.
+          -- destruct H2 as [-> [-> ?]]; discriminate.
+          -- destruct H2 as [-> [-> ?]]; discriminate.
+      + destruct H2 as [-> [|]].
+        * destruct H2 as [-> ->].
+          inversion H1; subst; cbn; eauto.
+          right.
+          split; auto.
+        * destruct H2.
+          -- destruct H2 as [-> ->].
+             inversion H1; subst; cbn; eauto.
+             left.
+             split; auto.
+          -- destruct H2 as [-> ->].
+             inversion H1; subst; cbn; eauto.
+             right.
+             split; auto.
+      + destruct H2.
+        * destruct H2 as [-> ?].
+          destruct H2.
+          -- destruct H2 as [-> [-> _]].
+             inversion H1; subst; cbn; eauto.
+          -- destruct H2.
+             destruct H2 as [-> ->].
+             ++ inversion H1; subst; cbn; eauto.
+             ++ destruct H2.
+                ** destruct H2 as [-> [-> _]].
+                   inversion H1; subst; cbn; eauto.
+                   left.
+                   split; auto.
+                ** destruct H2 as [-> [-> _]].
+                   inversion H1; subst; cbn; eauto.
+        * destruct H2 as [-> H2].
+          destruct H2.
+          -- destruct H2 as [-> ->].
+             inversion H1; subst; cbn; eauto.
+          -- destruct H2.
+             ++ destruct H2 as [-> ->].
+                inversion H1; subst; cbn; eauto.
+             ++ destruct H2 as [-> ->].
+                inversion H1; subst; cbn; eauto.
     - done.
   Qed.
 
   Lemma inv_sts_0_closed_changed_yield h s:
     inv_sts_rel (V1, false , false, Some h) s ->
     (s.1.1.1 = V0 ∧ s.1.2 = true ∧ ((s.1.1.2 = false ∧ s.2 = Some h) ∨ ( s.2 = None)))
-    ∨ (s.1.1.1 = V1 ∧ s.2 = Some h ∧ ((s.1.1.2 = false ∧ s.1.2 = false) ∨ (s.1.1.2 = true ∧ s.1.2 = true))).
+    ∨ (s.1.1.1 = V1 ∧ s.2 = Some h).
   Proof.
     intro.
     pattern s.
@@ -318,15 +391,18 @@ Section proof.
     - intros.
       Unshelve.
       2: { exact inv_sts_base. }
-      destruct H2;
-      destruct y as [ [ []]];simpl in *.
-      destruct H2 as [-> [-> [[-> ->]| ->]]];
-      inversion H1;
-      cbn;left;eauto.
-      destruct H2 as [-> [-> [[-> ->]|[-> ->]]]];
-      inversion H1.
-      cbn;right;eauto.
-      cbn;left;eauto.
+      destruct H2.
+      + destruct y as [ [ []]]; simpl in *.
+        destruct H2 as [-> [-> H2]].
+        destruct H2.
+        * destruct H2 as [-> ->].
+          inversion H1; subst; cbn; eauto.
+        * inversion H1; subst; cbn; eauto.
+      + destruct y as [ [ []]]; simpl in *.
+        destruct H2 as [-> ->].
+        inversion H1; subst; cbn; eauto.
+        left.
+        split; auto.
     - done.
   Qed.
 
@@ -586,6 +662,7 @@ End sts.
     | (0, false, true, None) => (⌜P = ⊤⌝ ∗ token γ_access ∗ token γ_switched ∗ nainv_state_atleast γ_nainvm (cb, oh))
     | (0, true, true, _) => (⌜P = ⊤ ∖↑ nainv_name⌝ ∗ token γ_closed ∗ token γ_access)
     | (1, false, false, _) => (⌜P = ⊤⌝ ∗ token γ_done ∗ nainv_state_atleast γ_nainvm (cb, oh))
+    | (1, true, false, _) => (⌜P = ⊤ ∖↑ nainv_name⌝ ∗ token γ_switched ∗ nainv_state_atleast γ_nainvm (cb, oh))
     | (1, true, true, _) => (⌜P = ⊤ ∖ ↑ nainv_name⌝ ∗ token γ_switched)
     | _ => True
     end).
@@ -718,8 +795,8 @@ End sts.
     iClear "InvAtLeast".
     apply inv_sts_0_closed_unchanged_open in Rel.
     simpl in Rel.
-    destruct Rel as [[-> [[-> ->] | ->]]| [-> [[-> ->]|[-> ->]]]];iSimpl in "Hmatch";
-    try destruct cb.
+    destruct Rel as [[-> [[-> ->] | ->]] | [-> [[-> ->] | [[-> ->] | [-> ->]]]]]; iSimpl in "Hmatch";
+      try destruct cb.
     { iDestruct "Hmatch" as "(_ & Closed')".
       iDestruct (token_excl with "Closed Closed'") as %[]. }
     2: { iDestruct "Hmatch" as "(_ & Closed' & _)".
@@ -738,6 +815,13 @@ End sts.
          iIntros "[_ False]".
          iExFalso.
          done. }
+    2 : { iApply (eliminate_wrong_token with "ScheToken").
+          done.
+          iModIntro.
+          iNext.
+          iIntros "[_ False]".
+          iExFalso.
+          done. }
     iDestruct "Hmatch" as "(-> & NaInvAtLeast)".
     (* open the na-invariant *)
     iMod (na_inv_acc with "Hnainv NaInvToken") as "(>NaInv & NaInvToken & NaInvClose)";auto.
@@ -917,29 +1001,72 @@ End sts.
     iClear "InvAtLeast".
     apply inv_sts_0_unclosed_unchanged_switch in Rel.
     simpl in Rel.
-    destruct Rel as [[-> [-> | ->]]| [-> [[-> [-> ->]]|[-> ->]]]];iSimpl in "Hmatch".
-    destruct cb.
-    { iDestruct "Hmatch" as "(_ & _ & Access')".
-      iDestruct (token_excl with "Access Access'") as %[]. }
-    { destruct oh.
+    destruct Rel as [[-> [[-> [-> ->]] | [[-> ->] | [[-> [-> ->]] | [-> [-> ->]]]]]] | [-> [[-> ->] | [[-> ->] | [-> ->]]]]]; iSimpl in "Hmatch";
+      try destruct oh.
+    2 : {
       iDestruct "Hmatch" as "(_ & Done' & _)".
       iDestruct (token_excl with "Done Done'") as %[].
+    }
+    2 : {
       iDestruct "Hmatch" as "(_ & Access' & _)".
-      iDestruct (token_excl with "Access Access'") as %[]. }
-    { iApply (eliminate_wrong_token with "ScheToken").
+      iDestruct (token_excl with "Access Access'") as %[].
+    }
+    2 : {
+      iDestruct "Hmatch" as "(_ &  _ & Access')".
+      iDestruct (token_excl with "Access Access'") as %[].
+    }
+    2 : {
+      iDestruct "Hmatch" as "(_ & Access' & _)".
+      iDestruct (token_excl with "Access Access'") as %[].
+    }
+    2 : {
+      iApply (eliminate_wrong_token with "ScheToken").
       done.
       iModIntro.
       iNext.
       iIntros "[_ False]".
       iExFalso.
       done. }
-    2: { iApply (eliminate_wrong_token with "ScheToken").
-         done.
-         iModIntro.
-         iNext.
-         iIntros "[_ False]".
-         iExFalso.
-         done.  }
+    2 : {
+      iApply (eliminate_wrong_token with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done. }
+    2 : {
+      iApply (eliminate_wrong_token with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done. }
+    2 : {
+      iApply (eliminate_wrong_token with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done. }
+    2 : {
+      iApply (eliminate_wrong_token with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done. }
+    2 : {
+      iApply (eliminate_wrong_token with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done. }
     iDestruct "Hmatch" as "[-> Closed]".
     iDestruct "prog" as "[prog14 prog]".
     iApply (run with "[ScheToken PC prog14 Acc R0 R1]");iFrameAutoSolve.
@@ -984,7 +1111,7 @@ End sts.
     iClear "InvAtLeast".
     apply inv_sts_0_closed_changed_yield in Rel.
     simpl in Rel.
-    destruct Rel as [[-> [-> [[-> ->] | ->]]] | [-> [-> [[-> ->] | [-> ->]]]]];iSimpl in "Hmatch";
+    destruct Rel as [[-> [-> [[-> ->] | ->]]] | [-> ->]]; iSimpl in "Hmatch";
     try destruct cb.
     2: { iDestruct "Hmatch" as "(_ & Closed' & _)".
          iDestruct (token_excl with "Closed Closed'") as %[]. }
@@ -1194,7 +1321,7 @@ Qed.
     - exists a, l.
       split; auto.
   Qed.
-  
+  (*
   Lemma loop_body {sacc} (des : list Word)
              (ppage pprog ptx prx : PID)
              (ippage iptx iprx : Imm)
@@ -1473,7 +1600,7 @@ Qed.
     iFrame.
     rewrite Hplus''; [|lia|lia].    
   Admitted.
-
+*)
   Lemma machine1_proof {sacc progaddr h}
              (ppage pprog ptx prx : PID)
              (ippage iptx iprx : Imm)
@@ -1530,6 +1657,8 @@ Qed.
     }}.
   Proof.
     iIntros "(PC & Acc & TX & RX & [% [mrdes %mrdesEq]] & R0 & R1 & R2 & R5 & R6 & R7 & R8 & program & #Hinv & #Hainv & HSwitched & InvAtLeast)".
+    pose proof (seq_in_page_forall2 _ _ _ Hseq) as HaddrIn.
+    (*
     iDestruct "program" as "(prog1 & prog2 & prog3 & prog4 & prog5 & prog6 & prog7 & prog8
                            & prog9 & prog10 & prog11 & prog12 & prog13 & prog14 & prog15 & prog16 &
                              program)".
@@ -1544,12 +1673,13 @@ Qed.
     iDestruct "loop" as "(prog1 & prog2 & prog3 & prog4 & prog5 & prog6 & prog7 & prog8
                                 & prog9 & prog10 & prog11 & prog12 
                                 & prog13 & prog14 & prog15 & prog16)".
+*)
     iFrame.
     iApply wp_sswp.
     (* open the invriant *)
     iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
     iInv inv_name as ">Inv" "HIClose".
-    iDestruct "Inv" as (i P cb ob oh) "(ScheToken & NaInvToken & InvExact & Hif & Hmatch)".
+    iDestruct "Inv" as (i P cb ob oh) "(ScheToken & NaInvToken & InvExact & Hmatch)".
     iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
     iClear "InvAtLeast".
     destruct (decide (i = V1)).
@@ -1570,24 +1700,43 @@ Qed.
     apply inv_sts_0_closed_unchanged_open in Rel.
     simpl in Rel.
     destruct Rel as [[? ?]|[_ Rel]]; first discriminate.
-    destruct Rel as [[-> ->] | [-> ->]];iSimpl in "Hmatch".
+    destruct Rel as [[-> ->] | [[-> ->] | [-> ->]]]; iSimpl in "Hmatch".
     2: {
       iDestruct "Hmatch" as "[_ SW]".
+      iDestruct (token_excl with "HSwitched SW") as %[].
+    }
+    2 : {
+      iDestruct "Hmatch" as "[_ [SW _]]".
       iDestruct (token_excl with "HSwitched SW") as %[].
     }
     iDestruct "Hmatch" as "(-> & Done & NaInvAtLeast)".
     iMod (na_inv_acc with "Hainv NaInvToken") as "(>NaInv & NaInvToken & NaInvClose)";auto.
     { pose proof namespace_disjoint. set_solver. }
-    iDestruct "NaInv" as "(% & % & % & % & % & % & % & NaInvExact & HR0 & R0' & HR1 & page & RxDes & Hif' & Htrans & Hmatch)".
+    iDestruct "NaInv" as "(% & % & % & % & % & % & % & NaInvExact & HR0 & R0' & HR1 & page & RxDes & Htrans & Hmatch)".
     iDestruct ((nainv_state_exact_atleast _ (b, o) (false, Some h')) with "NaInvExact NaInvAtLeast" ) as "%NaInvExact".
-    destruct b.
-    { iDestruct "Hif'" as "(_ & Unchanged & _)".
-      iDestruct (token_excl with "Hif Unchanged") as %[].
+    apply nainv_sts_init_yield in NaInvExact.
+    simpl in NaInvExact.
+    destruct NaInvExact as [[-> ->] | [-> NaInvExact]].
+    2 : {
+      destruct NaInvExact as [-> | ->].
+      iDestruct "Hmatch" as "(_ & _ & _ & DONE)".
+      iDestruct (token_excl with "Done DONE") as %[].
+      iDestruct "Hmatch" as "(_ & _ & _ & _ & SW)".
+      iDestruct (token_excl with "HSwitched SW") as %[].
     }
-    destruct o as [| h''].
-    2: {
-      by apply nainv_sts_elim_false in NaInvExact.
-    }
+    iDestruct ((inv_state_update _ _ (V1, true, false, Some h')) with "InvExact") as ">InvExact".
+    { unfold inv_sts_rel. apply rtc_once. constructor. }
+    iDestruct (inv_state_observe with "InvExact") as ">[InvExact InvAtLeast]".
+    iDestruct "program" as "[prog1 program]".
+    iDestruct "R5" as "[% R5]".
+    iApply (mov_word with "[prog1 PC Acc R5]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro. iNext.
+    iIntros "( PC & prog1 & Acc & R5)".
+    iDestruct ("HIClose" with "[ScheToken NaInvToken InvExact HSwitched NaInvAtLeast]") as "HIClose".
+    { iExists V1, (⊤ ∖ ↑nainv_name), true, false, (Some h'). iNext. iFrame. done. }
+    iMod "HIClose" as %_.
+    iModIntro.
     
   Admitted.
 
