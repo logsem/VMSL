@@ -254,6 +254,7 @@ Qed.
 (* Halt and Fail are introduced to model termination and exception *)
 (* Hvc is for invoking FFA calls *)
 Inductive instruction : Type :=
+| Nop
 | Mov (dst : reg_name) (src : Imm + reg_name)
 | Ldr (dst : reg_name) (src : reg_name)
 | Str (src : reg_name) (dst : reg_name)
@@ -305,7 +306,8 @@ Inductive valid_instruction : instruction -> Prop :=
 | valid_bne r : reg_valid_cond r ->
                 valid_instruction (Bne r)
 | valid_br r : reg_valid_cond r ->
-                valid_instruction (Br r).
+                valid_instruction (Br r)
+| valid_nop : valid_instruction Nop.
 
 (* the decoding instruction is always valid,
 so that we can avoid considering the invalid instruction exceptions  *)

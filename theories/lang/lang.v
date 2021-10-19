@@ -219,6 +219,10 @@ Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mod
   | Some s => (ExecI, s)
   end.
 
+Definition nop (s : state) : exec_mode * state :=
+  let s' := update_incr_PC s in
+  (ExecI, s').
+
 Definition mov_word (s : state) (dst : reg_name) (src : Word) : exec_mode * state :=
   let comp :=
       match dst with
@@ -908,6 +912,7 @@ Definition hvc (s : state) : exec_mode * state :=
 
 Definition exec (i : instruction) (s : state) : exec_mode * state :=
   match i with
+  | Nop => nop s
   | Mov dst (inl srcWord) => mov_word s dst srcWord
   | Mov dst (inr srcReg) => mov_reg s dst srcReg
   | Ldr dst src => ldr s dst src
