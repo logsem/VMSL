@@ -47,7 +47,7 @@ Proof.
     apply (step_ExecI_normal i (Sub ra rb) ai wi ) in HstepP;eauto.
     remember (exec (Sub ra rb) σ1) as c2 eqn:Heqc2.
     pose proof (decode_instruction_valid wi _ Hdecode) as Hvalidinstr.
-    inversion Hvalidinstr as [ | | | | | | | ra' rb' Hvalidrb Hvalidra | | |] .
+    inversion Hvalidinstr as [| | | | | | | ra' rb' Hvalidrb Hvalidra | | | |] .
     subst ra' rb'.
     inversion Hvalidra as [ HneqPCa HneqNZa ].
     inversion Hvalidrb as [ HneqPCb HneqNZb ].

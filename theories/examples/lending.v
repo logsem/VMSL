@@ -2,7 +2,7 @@ From iris.bi Require Import derived_laws_later.
 From machine_program_logic.program_logic Require Import weakestpre.
 From iris.staging Require Import monotone.
 From HypVeri.algebra Require Import base mem.
-From HypVeri.rules Require Import rules_base mov str mem_send_nz send run yield ldr reclaim halt add sub.
+From HypVeri.rules Require Import rules_base mov str mem_send_nz send run yield ldr reclaim halt add sub nop cmp bne.
 From HypVeri.examples Require Import instr.
 From HypVeri.lang Require Import lang_extra.
 From HypVeri Require Import proofmode.
@@ -136,6 +136,7 @@ Section proof.
   Definition code1 (l : Imm) (ibase : Imm) (iprx iptx : Imm) (ipage: Imm) : list Word :=
     encode_instructions
     [
+    Nop;    
     (* loop init *)
     Mov R5 (inl l);
     Mov R6 (inl I0);
@@ -1600,7 +1601,9 @@ Qed.
     iFrame.
     rewrite Hplus''; [|lia|lia].    
   Admitted.
-*)
+   *)
+  Require Import Setoid.
+      
   Lemma machine1_proof {sacc progaddr h}
              (ppage pprog ptx prx : PID)
              (ippage iptx iprx : Imm)
@@ -1609,6 +1612,7 @@ Qed.
              (Hibaseeq : of_imm ibase = (pprog ^+ 3)%f)
              (Hptxeq : of_imm iptx = ptx)
              (Hprxeq : of_imm iprx = prx)
+             (Hnottxrx: prx ≠ ptx)
              (Hppageeq : of_imm ippage = ppage)
              (Hpprogprogaddreq : of_pid pprog = progaddr)
              (* has access to RX, TX, and pprog *)
@@ -1616,9 +1620,8 @@ Qed.
              (* cannot have access to ppage *)
              (HaccnIn: ppage ∉ sacc)
              (* ilen is the length of msg *)
-             (nlen :nat)
              (ilen : Imm)
-             (Hileneq : Z.to_nat (finz.to_z ilen) = nlen)
+             (Hileneq : Z.to_nat (finz.to_z ilen) = 6)
              (* the whole program is in page pprog *)
              (Hseq : seq_in_page pprog (length (code1 ilen ibase iprx iptx ippage)) pprog)
              (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname) :
@@ -1626,7 +1629,8 @@ Qed.
     ∗ A@V1 :={1}[sacc]
     ∗ TX@ V1 := ptx
     ∗ RX@V1 := prx
-    ∗ (∃ des', mem_region des' ptx ∗ ⌜length des'= nlen⌝)
+    ∗ (∃ des', mem_region des' ptx ∗ ⌜length des'= 6⌝)
+    ∗ (∃ r, NZ @@ V1 ->r r)             
     ∗ (∃ r, R0 @@ V1 ->r r)             
     ∗ (∃ r, R1 @@ V1 ->r r)
     ∗ (∃ r, R2 @@ V1 ->r r)
@@ -1642,7 +1646,7 @@ Qed.
     ∗ inv_state_atleast γ_invm (V0,false,false, h)
     ⊢ WP ExecI @ V1
     {{ λ m, ⌜m = ExecI⌝ ∗
-        True
+        False%I
           (* PC @@ V1 ->r (pprog ^+ (length (code1 ilen ibase iprx iptx ippage)))%f *)
           (* ∗ A@V1 :={1}[sacc] *)
           (* ∗ TX@ V1 := ptx *)
@@ -1656,7 +1660,7 @@ Qed.
           (* ∗ program (code1 ilen ibase iprx iptx ippage) pprog *)
     }}.
   Proof.
-    iIntros "(PC & Acc & TX & RX & [% [mrdes %mrdesEq]] & R0 & R1 & R2 & R5 & R6 & R7 & R8 & program & #Hinv & #Hainv & HSwitched & InvAtLeast)".
+    iIntros "(PC & Acc & TX & RX & [% [mrdes %mrdesEq]] & NZ & R0 & R1 & R2 & R5 & R6 & R7 & R8 & program & #Hinv & #Hainv & HSwitched & InvAtLeast)".
     pose proof (seq_in_page_forall2 _ _ _ Hseq) as HaddrIn.
     (*
     iDestruct "program" as "(prog1 & prog2 & prog3 & prog4 & prog5 & prog6 & prog7 & prog8
@@ -1727,16 +1731,319 @@ Qed.
     iDestruct ((inv_state_update _ _ (V1, true, false, Some h')) with "InvExact") as ">InvExact".
     { unfold inv_sts_rel. apply rtc_once. constructor. }
     iDestruct (inv_state_observe with "InvExact") as ">[InvExact InvAtLeast]".
+    iDestruct "Hmatch" as "((Hretri & Htrans') & -> & (-> & HUnchanged & [%wl (RX' & -> & %wleq & ->)]))".
+    rewrite /serialized_transaction_descriptor /serialized_memory_descirptor.
+    iSimpl in "RxDes".
+    iDestruct "RxDes" as "(RxDes1 & RxDes2 & RxDes3 & RxDes4 & RxDes5 & RxDes6 & _)".
+    assert (Hseqrx : seq_in_page prx 6 prx).
+    {
+      simpl. unfold seq_in_page. split. solve_finz. split. unfold Is_true. case_match; [done|solve_finz].
+      split.
+      pose proof (last_addr_in_bound prx).
+      solve_finz.
+      unfold Is_true. case_match; [done|solve_finz].
+    }
+    assert (Hseqtx : seq_in_page ptx 6 ptx).
+    {
+      simpl. unfold seq_in_page. split. solve_finz. split. unfold Is_true. case_match; [done|solve_finz].
+      split.
+      pose proof (last_addr_in_bound ptx).
+      solve_finz.
+      unfold Is_true. case_match; [done|solve_finz].
+    }
+    assert (exists x1 x2 x3 x4 x5 x6, des' = [x1; x2; x3; x4; x5; x6]) as (x1 & x2 & x3 & x4 & x5 & x6 & ->).
+    {
+      do 6 (destruct(list_exist_cons _ des' mrdesEq) as [? [xs [-> mrdesEq']]]; clear mrdesEq; rename mrdesEq' into mrdesEq; rename xs into des').
+      apply nil_length_inv in mrdesEq as ->.
+      eauto 7.
+    }
+    iDestruct "mrdes" as "(TxDes1 & TxDes2 & TxDes3 & TxDes4 & TxDes5 & TxDes6 & _)".
+    iAssert (⌜ppage ≠ prx⌝)%I as %Hppagenot'.
+    { iDestruct (mem_neq with "RxDes1 page") as %Hppagenot''.
+      iPureIntro.
+      intro Heq.
+      apply Hppagenot''.
+      rewrite Heq //.
+    }
+    iAssert (⌜ppage ≠ ptx⌝)%I as %Hppagenot''.
+    { iDestruct (mem_neq with "TxDes1 page") as %Hppagenot'''.
+      iPureIntro.
+      intro Heq.
+      apply Hppagenot'''.
+      rewrite Heq //.
+    }
     iDestruct "program" as "[prog1 program]".
-    iDestruct "R5" as "[% R5]".
-    iApply (mov_word with "[prog1 PC Acc R5]"); iFrameAutoSolve.
+    iApply (nop with "[prog1 PC Acc]"); iFrameAutoSolve.
     { set_solver. }
     iModIntro. iNext.
-    iIntros "( PC & prog1 & Acc & R5)".
+    iIntros "( PC & prog1 & Acc )".
     iDestruct ("HIClose" with "[ScheToken NaInvToken InvExact HSwitched NaInvAtLeast]") as "HIClose".
     { iExists V1, (⊤ ∖ ↑nainv_name), true, false, (Some h'). iNext. iFrame. done. }
     iMod "HIClose" as %_.
     iModIntro.
+    iDestruct "program" as "[prog2 program]".
+    iDestruct "R5" as "[% R5]".
+    rewrite wp_sswp.
+    iApply (mov_word _ ilen R5 with "[prog2 R5 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog2 & Acc & R5)".
+    iDestruct "program" as "[prog3 program]".
+    iDestruct "R6" as "[% R6]".
+    rewrite wp_sswp.
+    iApply (mov_word _ I0 R6 with "[prog3 R6 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog3 & Acc & R6)".
+    iDestruct "program" as "[prog4 program]".
+    iDestruct "R7" as "[% R7]".
+    rewrite wp_sswp.
+    iApply (mov_word _ ibase R7 with "[prog4 R7 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog4 & Acc & R7)".
+    iDestruct "program" as "[prog5 program]".
+    iDestruct "R0" as "[% R0]".
+    rewrite wp_sswp.
+    iApply (mov_word _ I1 R0 with "[prog5 R0 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog5 & Acc & R0)".
+    iDestruct "program" as "[prog6 program]".
+    iDestruct "R1" as "[% R1]".
+    rewrite wp_sswp.
+    iApply (mov_word _ iprx R1 with "[prog6 R1 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog6 & Acc & R1)".
+    iDestruct "program" as "[prog7 program]".
+    rewrite wp_sswp.
+    iApply (@add _ _ _ _ _ _ _ _ _ _ pprog _ R1 R5 sacc with "[prog7 R1 R5 Acc PC]"); iFrameAutoSolve; auto.
+    { rewrite <- (HaddrIn ((((((pprog ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) at 2.
+      apply in_page_to_pid_aligned.
+      set_solver.
+    }
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog7 & R1 & R5 & Acc)".
+    iDestruct "program" as "[prog8 program]".
+    rewrite wp_sswp.
+    iApply (sub _ R1 R0 sacc with "[prog8 R1 R0 Acc PC]"); iFrameAutoSolve; auto.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog8 & R1 & R0 & Acc)".
+    iDestruct "program" as "[prog9 program]".
+    iDestruct "R2" as "[% R2]".
+    rewrite wp_sswp.
+    assert ((iprx ^+ ilen ^- I1)%f = (((((prx ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) as ->.
+    {
+      rewrite Hprxeq /I1 /W1 //=.
+      admit.
+    }
+    iApply (ldr with "[prog9 PC Acc page R2 R1 TX RxDes6]"); iFrameAutoSolve.
+    { intro C. rewrite (to_pid_aligned_in_page _ prx) in C. done.
+      apply (seq_in_page_forall1 prx 6 prx Hseqrx).
+      set_solver.
+    }
+    { rewrite HaddrIn; last set_solver.
+      rewrite (to_pid_aligned_in_page _ prx); first set_solver.
+      apply (seq_in_page_forall1 prx 6 prx Hseqrx).
+      set_solver.
+    }
+    iModIntro.
+    iIntros "(PC & prog9 & R1 & RxDes6 & R2 & Acc & TX)".
+    iDestruct "program" as "[prog10 program]".
+    rewrite wp_sswp.
+    iApply (mov_word _ iptx R1 with "[prog10 R1 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog10 & Acc & R1)".
+    iDestruct "program" as "[prog11 program]".
+    rewrite wp_sswp.
+    iApply (@add _ _ _ _ _ _ _ _ _ _ pprog _ R1 R5 sacc with "[prog11 R1 R5 Acc PC]"); iFrameAutoSolve; auto.
+    { rewrite <- (HaddrIn ((((((((((pprog ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) at 2.
+      apply in_page_to_pid_aligned.
+      set_solver.
+    }
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog11 & R1 & R5 & Acc)".
+    iDestruct "program" as "[prog12 program]".
+    rewrite wp_sswp.
+    iApply (sub _ R1 R0 sacc with "[prog12 R1 R0 Acc PC]"); iFrameAutoSolve; auto.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog12 & R1 & R0 & Acc)".
+    iDestruct "program" as "[prog13 program]".
+    rewrite wp_sswp.
+    assert ((iptx ^+ ilen ^- I1)%f = (((((ptx ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) as ->.
+    {
+      rewrite Hptxeq /I1 /W1 //=.
+      admit.
+    }
+    iApply ((str _ (((((ptx ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) with "[PC prog13 R2 TxDes6 R1 Acc RX]");iFrameAutoSolve.
+    { intro C. rewrite (to_pid_aligned_in_page _ ptx) in C. done.
+      apply (seq_in_page_forall1 ptx 6 ptx Hseqtx).
+      set_solver.
+    }
+    { rewrite HaddrIn; last set_solver.
+      rewrite (to_pid_aligned_in_page _ ptx); first set_solver.
+      apply (seq_in_page_forall1 ptx 6 ptx Hseqtx).
+      set_solver.
+    }
+    iModIntro.
+    iIntros "(PC & prog13 & R1 & TxDes6 & R2 & Acc & RX)".
+    iDestruct "program" as "[prog14 program]".
+    iDestruct "R8" as "[% R8]".
+    rewrite wp_sswp.    
+    iApply (mov_word _ I1 R8 with "[prog14 R8 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog14 & Acc & R8)".
+    iDestruct "program" as "[prog15 program]".
+    rewrite wp_sswp.
+    iApply (sub _ R5 R8 sacc with "[prog15 R5 R8 Acc PC]"); iFrameAutoSolve; auto.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog15 & R5 & R8 & Acc)".
+    iDestruct "program" as "[prog16 program]".
+    iDestruct "NZ" as "[% NZ]".
+    rewrite wp_sswp.
+    iApply (cmp_reg _ R6 R5 with "[PC NZ prog16 R6 R5 Acc]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog16 & R6 & R5 & Acc & NZ)".
+    assert ((I0 <? ilen ^- I1)%f = true) as ->.
+    {
+      admit.
+    }
+    iDestruct "program" as "[prog17 program]".
+    rewrite wp_sswp.
+    iApply (bne _ R7 with "[PC prog17 R7 Acc NZ]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog17 & R7 & Acc & NZ)".
+    assert ((W2 =? W1)%f = false) as ->.
+    { rewrite /W2 /W1 //=. }
+    iEval (rewrite Hibaseeq) in "PC".
+    assert ((pprog ^+ 3)%f = (((pprog ^+ 1) ^+ 1) ^+ 1)%f) as ->.
+    solve_finz.
+
+    rewrite wp_sswp.
+    iApply (mov_word _ ibase R7 with "[prog4 R7 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog4 & Acc & R7)".
+    rewrite wp_sswp.
+    iApply (mov_word _ I1 R0 with "[prog5 R0 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog5 & Acc & R0)".
+    rewrite wp_sswp.
+    iApply (mov_word _ iprx R1 with "[prog6 R1 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog6 & Acc & R1)".
+    rewrite wp_sswp.
+    iApply (@add _ _ _ _ _ _ _ _ _ _ pprog _ R1 R5 sacc with "[prog7 R1 R5 Acc PC]"); iFrameAutoSolve; auto.
+    { rewrite <- (HaddrIn ((((((pprog ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) at 2.
+      apply in_page_to_pid_aligned.
+      set_solver.
+    }
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog7 & R1 & R5 & Acc)".
+    rewrite wp_sswp.
+    iApply (sub _ R1 R0 sacc with "[prog8 R1 R0 Acc PC]"); iFrameAutoSolve; auto.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog8 & R1 & R0 & Acc)".
+    rewrite wp_sswp.
+    assert ((iprx ^+ (ilen ^- I1) ^- I1)%f = ((((prx ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) as ->.
+    {
+      rewrite Hprxeq /I1 /W1 //=.
+      admit.
+    }
+    (* TODO: remove page from prev ldr *)
+    iApply (ldr with "[prog9 PC Acc R2 R1 TX RxDes5]"); iFrameAutoSolve.
+    { intro C. rewrite (to_pid_aligned_in_page _ prx) in C. done.
+      apply (seq_in_page_forall1 prx 6 prx Hseqrx).
+      set_solver.
+    }
+    { rewrite HaddrIn; last set_solver.
+      rewrite (to_pid_aligned_in_page _ prx); first set_solver.
+      apply (seq_in_page_forall1 prx 6 prx Hseqrx).
+      set_solver.
+    }
+    iModIntro.
+    iIntros "(PC & prog9 & R1 & RxDes5 & R2 & Acc & TX)".
+    rewrite wp_sswp.
+    iApply (mov_word _ iptx R1 with "[prog10 R1 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog10 & Acc & R1)".
+    rewrite wp_sswp.
+    iApply (@add _ _ _ _ _ _ _ _ _ _ pprog _ R1 R5 sacc with "[prog11 R1 R5 Acc PC]"); iFrameAutoSolve; auto.
+    { rewrite <- (HaddrIn ((((((((((pprog ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) at 2.
+      apply in_page_to_pid_aligned.
+      set_solver.
+    }
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog11 & R1 & R5 & Acc)".
+    rewrite wp_sswp.
+    iApply (sub _ R1 R0 sacc with "[prog12 R1 R0 Acc PC]"); iFrameAutoSolve; auto.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog12 & R1 & R0 & Acc)".
+    rewrite wp_sswp.
+    assert ((iptx ^+ (ilen ^- I1) ^- I1)%f = ((((ptx ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) as ->.
+    {
+      rewrite Hptxeq /I1 /W1 //=.
+      admit.
+    }
+    iApply ((str _ _) with "[PC prog13 R2 TxDes5 R1 Acc RX]");iFrameAutoSolve.
+    { intro C. rewrite (to_pid_aligned_in_page _ ptx) in C. done.
+      apply (seq_in_page_forall1 ptx 6 ptx Hseqtx).
+      set_solver.
+    }
+    { rewrite HaddrIn; last set_solver.
+      rewrite (to_pid_aligned_in_page _ ptx); first set_solver.
+      apply (seq_in_page_forall1 ptx 6 ptx Hseqtx).
+      set_solver.
+    }
+    iModIntro.
+    iIntros "(PC & prog13 & R1 & TxDes5 & R2 & Acc & RX)".
+    rewrite wp_sswp.    
+    iApply (mov_word _ I1 R8 with "[prog14 R8 Acc PC]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog14 & Acc & R8)".
+    rewrite wp_sswp.
+    iApply (sub _ R5 R8 sacc with "[prog15 R5 R8 Acc PC]"); iFrameAutoSolve; auto.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog15 & R5 & R8 & Acc)".
+    rewrite wp_sswp.
+    iApply (cmp_reg _ R6 R5 with "[PC NZ prog16 R6 R5 Acc]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog16 & R6 & R5 & Acc & NZ)".
+    assert ((I0 <? (ilen ^- I1) ^- I1)%f = true) as ->.
+    {
+      admit.
+    }
+    rewrite wp_sswp.
+    iApply (bne _ R7 with "[PC prog17 R7 Acc NZ]"); iFrameAutoSolve.
+    { set_solver. }
+    iModIntro.
+    iIntros "(PC & prog17 & R7 & Acc & NZ)".
+    assert ((W2 =? W1)%f = false) as ->.
+    { rewrite /W2 /W1 //=. }
+    iEval (rewrite Hibaseeq) in "PC".
+    assert ((pprog ^+ 3)%f = (((pprog ^+ 1) ^+ 1) ^+ 1)%f) as ->.
+    solve_finz.
+
     
   Admitted.
 
