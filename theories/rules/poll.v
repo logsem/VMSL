@@ -43,7 +43,8 @@ Proof.
   iDestruct (gen_reg_valid1 R1 i r1 Hcur with "Hregown HR1") as "%HR1".
   iDestruct (gen_reg_valid1 R2 i r2 Hcur with "Hregown HR2") as "%HR2".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set ai p s with "Haccessown Hacc") as %Hacc; eauto.
+  iDestruct ((gen_access_valid_addr_Set ai s) with "Haccessown Hacc") as %Hacc;eauto.
+  rewrite (to_pid_aligned_in_page _ p); auto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hai") as "%Hmem".
   (* valid rx *)
