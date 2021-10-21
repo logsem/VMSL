@@ -1623,6 +1623,7 @@ Qed.
     (* h -> not taken *)
     Mov R0 (inl (encode_hvc_func Retrieve));
     Mov R1 (inl l);
+    Mov R2 (inl I1);
     Add R1 R2;
     Hvc;
     (* tx -> descriptor *)
@@ -2808,7 +2809,7 @@ Qed.
     
     (* retrieve and change *)
 
-    iDestruct "program" as "(p1 & p2 & p3 & p4 & p5 & p6 & p7 & p8 & p9 & p10 & p11 & p12 & p13 & p14 & p15 & p16 & p17 & p18 & _)".
+    iDestruct "program" as "(p1 & p2 & p3 & p4 & p5 & p6 & p7 & p8 & p9 & p10 & p11 & p12 & p13 & p14 & p15 & p16 & p17 & p18 & p19 & _)".
 
     rewrite wp_sswp.
     iApply (mov_word _ (encode_hvc_func Poll) R0 with "[p1 R0 Acc PC]"); iFrameAutoSolve.
@@ -2857,7 +2858,7 @@ Qed.
     iModIntro.
     iIntros "(PC & p3 & Acc & R0)".
     rewrite wp_sswp.
-    iApply (mov_word _ I4 R1 with "[p4 R1 Acc PC]"); iFrameAutoSolve.
+    iApply (mov_word _ I3 R1 with "[p4 R1 Acc PC]"); iFrameAutoSolve.
     {
       rewrite HaddrIn.
       rewrite ->elem_of_subseteq in Hacc;
@@ -2870,6 +2871,40 @@ Qed.
     iModIntro.
     iIntros "(PC & p4 & Acc & R1)".
     rewrite wp_sswp.
+    iApply (mov_word _ I1 R2 with "[p5 R2 Acc PC]"); iFrameAutoSolve.
+    {
+      rewrite HaddrIn.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p5 & Acc & R2)".
+    rewrite wp_sswp.
+    iApply (@add _ _ _ _ _ _ _ _ _ _ pprog _ R1 R2 sacc with "[p6 R1 R2 Acc PC]"); iFrameAutoSolve; auto.
+    {
+      rewrite <- (HaddrIn (incrN pprog 31)%f) at 2.
+      rewrite /incrN.
+      apply in_page_to_pid_aligned.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    {
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+    }
+    iModIntro.
+    iIntros "(PC & p6 & R1 & R2 & Acc)".
+    assert ((I3 ^+ I1)%f = I4) as ->.
+    {
+      rewrite /I3 /W3 /I4 /W4 /I1 /W1 //=.
+      solve_finz.
+    }
     iAssert (mem_region [of_imm (encode_vmid V0); W0; h'; of_imm (encode_vmid V1)] ptx)%I with "[TxDes1 TxDes2 TxDes3 TxDes4]" as "memdes".
     {
       rewrite /mem_region.
@@ -2884,11 +2919,11 @@ Qed.
       iFrame.
       done.
     }
-    iApply (hvc_retrieve_lend (wf' := W0) (destx := [of_imm (encode_vmid V0); W0; h'; of_imm (encode_vmid V1)]) (pi := pprog) (spsd := list_to_set [ppage]) (l := I1) _ _ _ h' W0 [ppage] with "[R0 PC Acc p5 Hretri R1 Htrans' Own Excl TX memdes memdes' RX RX']"); iFrameAutoSolve; auto.
-    (* TODO *)
-    (*
+    rewrite wp_sswp.
+    iApply (hvc_retrieve_lend (wf' := W0) (destx := [of_imm (encode_vmid V0); W0; h'; of_imm (encode_vmid V1)]) (pi := pprog) (spsd := list_to_set [ppage]) (l := I1) _ _ _ h' W0 [ppage] with "[R0 PC Acc p7 Hretri R1 Htrans' Own Excl TX memdes memdes' RX RX']"); iFrameAutoSolve; auto.
     {
-      rewrite <- (HaddrIn (((((((((((((((((((((pprog ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) at 2.
+      rewrite <- (HaddrIn (incrN pprog 32)%f) at 2.
+      rewrite /incrN.
       apply in_page_to_pid_aligned.
       repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
     }
@@ -2902,8 +2937,32 @@ Qed.
         apply elem_of_singleton_2;
         reflexivity.
     }
-     *)
-    (* TODO: rest *)
+    {
+      rewrite list_to_set_singleton.
+      rewrite disjoint_singleton_l.
+      assumption.
+    }
+    {
+      rewrite list_to_set_singleton.
+      rewrite disjoint_singleton_l.
+      assumption.
+    }
+    {
+      rewrite list_to_set_singleton.
+      rewrite disjoint_singleton_l.
+      assumption.
+    }
+    {
+      simpl.
+      apply (seq_in_page_append1 ptx 4 6 ptx); [lia|lia|assumption].
+    }
+    {
+      iFrame.
+    }
+    iModIntro.
+    iIntros "(PC & p7 & R0 & R1 & Own & Excl & Acc & TX & memdes & RX & RX' & memdes' & Htrans' & Hretri)".
+    Fail (apply wp_sswp).
+    
     Admitted.
   
 
