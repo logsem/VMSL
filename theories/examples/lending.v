@@ -1632,7 +1632,7 @@ Qed.
     (* store a new value *)
     Mov R1 (inl ipage);
     Mov R0 (inl I1);
-    Str R1 R0;
+    Str R0 R1;
     (* tx -> descriptor *)
     (* h -> transaction entry *)
     (* h -> taken *)
@@ -1640,11 +1640,11 @@ Qed.
     (* prepare a new retrieve descriptor [h, 0] *)
     (* copy h from rx + 1 to tx + 0 *)
     Mov R1 (inl iprx);
-    Mov R0 (inl I1);
+    Mov R0 (inl I2);
     Add R1 R0;
     Ldr R0 R1;
     Mov R1 (inl iptx);
-    Str R1 R0;
+    Str R0 R1;
     (* relinquish *)
     Mov R0 (inl (encode_hvc_func Relinquish));
     Hvc;
@@ -2809,7 +2809,7 @@ Qed.
     
     (* retrieve and change *)
 
-    iDestruct "program" as "(p1 & p2 & p3 & p4 & p5 & p6 & p7 & p8 & p9 & p10 & p11 & p12 & p13 & p14 & p15 & p16 & p17 & p18 & p19 & _)".
+    iDestruct "program" as "(p1 & p2 & p3 & p4 & p5 & p6 & p7 & p8 & p9 & p10 & p11 & p12 & p13 & p14 & p15 & p16 & p17 & p18 & p19 & p20 & _)".
 
     rewrite wp_sswp.
     iApply (mov_word _ (encode_hvc_func Poll) R0 with "[p1 R0 Acc PC]"); iFrameAutoSolve.
@@ -2961,8 +2961,353 @@ Qed.
     }
     iModIntro.
     iIntros "(PC & p7 & R0 & R1 & Own & Excl & Acc & TX & memdes & RX & RX' & memdes' & Htrans' & Hretri)".
-    Fail (apply wp_sswp).
+    rewrite wp_sswp.
+    iApply (mov_word _ ippage R1 with "[p8 R1 Acc PC]"); iFrameAutoSolve.
+    {
+      rewrite HaddrIn.
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p8 & Acc & R1)".
+    rewrite wp_sswp.
+    iApply (mov_word _ I1 R0 with "[p9 R0 Acc PC]"); iFrameAutoSolve.
+    {
+      rewrite HaddrIn.
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p9 & Acc & R0)".
+    rewrite wp_sswp.
+    rewrite Hppageeq.
+    iApply ((str _ ppage) with "[PC p10 R1 page R0 Acc RX]"); iFrameAutoSolve.
+    {
+      intro C.
+      apply Hppagenot'.
+      symmetry.
+      rewrite to_pid_aligned_eq in C.
+      assumption.
+    }
+    {
+      rewrite HaddrIn.
+      apply union_mono.
+      apply singleton_subseteq_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      rewrite to_pid_aligned_eq.
+      rewrite list_to_set_singleton.
+      apply singleton_subseteq_l.
+      apply elem_of_singleton_2.
+      reflexivity.
+      simpl.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p10 & R1 & page & R0 & Acc & RX)".
+    rewrite wp_sswp.
+    iApply (mov_word _ iprx R1 with "[p11 R1 Acc PC]"); iFrameAutoSolve.
+    {
+      rewrite HaddrIn.
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p11 & Acc & R1)".
+    rewrite Hprxeq.
+    rewrite wp_sswp.
+    iApply (mov_word _ I2 R0 with "[p12 R0 Acc PC]"); iFrameAutoSolve.
+    {
+      rewrite HaddrIn.
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p12 & Acc & R0)".
+    rewrite wp_sswp.
+    iApply (@add _ _ _ _ _ _ _ _ _ _ pprog _ R1 R0 (sacc ∪ list_to_set [ppage]) with "[p13 R1 R0 Acc PC]"); iFrameAutoSolve; auto.
+    {
+      rewrite <- (HaddrIn (incrN pprog 38)%f) at 2.
+      rewrite /incrN.
+      apply in_page_to_pid_aligned.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    {
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+    }
+    iModIntro.
+    iIntros "(PC & p13 & R1 & R0 & Acc)".
+    iEval (simpl) in "memdes'".
+    iDestruct "memdes'" as "(rx1 & rx2 & rx3 & memdes')".
+    assert ((prx ^+ I2)%f = ((prx ^+ 1) ^+ 1)%f) as ->.
+    {
+      rewrite /I2 /W2 //=.
+      solve_finz.
+    }
+    rewrite wp_sswp.
+    iApply (ldr with "[p14 PC Acc R0 R1 TX rx3]"); iFrameAutoSolve.
+    {
+      intro C. rewrite (to_pid_aligned_in_page _ prx) in C. done.
+      apply (seq_in_page_forall1 prx 6 prx Hseqrx).
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    {
+      rewrite HaddrIn.
+      rewrite (to_pid_aligned_in_page _ prx).
+      apply union_subseteq_l'.
+      apply union_least; rewrite singleton_subseteq_l;
+        rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc.
+      apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      apply elem_of_union_l;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      apply (seq_in_page_forall1 prx 6 prx Hseqrx).
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p14 & R1 & rx3 & R0 & Acc & TX)".
+    rewrite wp_sswp.
+    iApply (mov_word _ iptx R1 with "[p15 R1 Acc PC]"); iFrameAutoSolve.
+    {
+      rewrite HaddrIn.
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p15 & Acc & R1)".
+    rewrite wp_sswp.
+    iDestruct "memdes" as "(tx1 & memdes)".
+    rewrite Hptxeq.
+    iApply ((str _ ptx) with "[PC p16 R1 tx1 R0 Acc RX]"); iFrameAutoSolve.
+    {
+      intro C.
+      apply Hppagenot'.
+      symmetry.
+      rewrite to_pid_aligned_eq in C.
+      contradiction.
+    }
+    {
+      rewrite HaddrIn.
+      apply union_subseteq_l'.
+      rewrite to_pid_aligned_eq.
+      apply union_least; rewrite singleton_subseteq_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_l;
+        apply elem_of_union_l;
+        apply elem_of_singleton_2;
+        reflexivity.
+      simpl.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p16 & R1 & tx1 & R0 & Acc & RX)".
+    rewrite wp_sswp.
+    iApply (mov_word _ (encode_hvc_func Relinquish) R0 with "[p17 R0 Acc PC]"); iFrameAutoSolve.
+    {
+      rewrite HaddrIn.
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p17 & Acc & R0)".
+    rewrite wp_sswp.
+    iDestruct "memdes" as "(tx2 & memdes)".
+    iAssert (mem_region [h'; W0] ptx) with "[tx1 tx2]" as "memdes''".
+    {
+      iFrame.
+      done.
+    }
+    iApply (hvc_relinquish_nz _ _ h' W0 [ppage] (des := [h'; W0]) (pi := pprog) (spsd := list_to_set [ppage]) (tt := Lending) (j := V0) with "[PC p18 R0 Acc Excl TX memdes'' Htrans' Hretri]"); iFrameAutoSolve.
+    {
+      rewrite <- (HaddrIn (incrN pprog 43)%f) at 2.
+      rewrite /incrN.
+      apply in_page_to_pid_aligned.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    {
+      apply decode_encode_hvc_func.
+    }
+    {
+      apply elem_of_union_l.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+    }
+    {
+      reflexivity.
+    }
+    {
+      simpl.
+      apply (seq_in_page_append1 ptx 2 6 ptx); [lia|lia|assumption].
+    }
+    {
+      reflexivity.
+    }
+    {
+      rewrite list_to_set_singleton.
+      apply singleton_subseteq_l.
+      apply elem_of_union_r.
+      apply elem_of_singleton_2.
+      reflexivity.
+    }
+    {
+      left.
+      split; auto.
+      rewrite list_to_set_singleton.
+      apply singleton_subseteq_l.
+      apply elem_of_union_r.
+      apply elem_of_singleton_2.
+      reflexivity.
+    }
+    {
+      iFrame.
+    }
+    iModIntro.
+    iIntros "(PC & p18 & Excl & Acc & R0 & Htrans' & Hretri & TX & memdes'')".
+    rewrite wp_sswp.
+    iApply (mov_word _ (encode_hvc_func Yield) R0 with "[p19 R0 Acc PC]"); iFrameAutoSolve.
+    {
+      simpl.
+      assert ((sacc ∪ ({[ppage]} ∪ ∅)) ∖ ({[ppage]} ∪ ∅) = sacc) as ->.
+      set_solver.
+      rewrite HaddrIn.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p19 & Acc & R0)".
+    rewrite wp_sswp.
+
+    iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
+    iInv inv_name as ">Inv" "HIClose".
+    iDestruct "Inv" as (i P cb ob oh) "(ScheToken & NaInvToken & InvExact & Hmatch)".
+    iDestruct (inv_state_exact_atleast with "InvExact InvAtLeast") as "%Rel".
+    iClear "InvAtLeast".
+    destruct (decide (i = V1)).
+    2 : {
+      iApply (eliminate_wrong_token with "ScheToken").
+      done.
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done.
+    }
+    simplify_eq.
+    iEval (simpl) in "Hmatch".
+    pose proof Rel as Rel'.
+    Set Nested Proofs Allowed.
+    Lemma inv_sts_0_unclosed_changed_yield cb ob oh h :
+      inv_sts_rel (V1, true, false, Some h) (V1, cb, ob, oh) ->
+      (cb = true ∧ ob = false ∧ oh = Some h) ∨ (cb = true ∧ ob = true ∧ oh = Some h).
+    Proof.
+      intros G.
+      rewrite /inv_sts_rel in G.
+      apply rtc_inv in G.
+      destruct G as [G|G].
+      - inversion G.
+        auto.
+      - destruct G as [x [G1 G2]].
+        inversion G1; auto.
+        simplify_eq.
+        apply rtc_inv in G2.
+        destruct G2 as [G2'|G2].
+        + inversion G2'.
+          auto.
+        + destruct G2 as [x [G2 G3]].
+          inversion G2; auto.
+          simplify_eq.
+          apply rtc_inv in G3.
+          destruct G3 as [G3'|G3].
+          * inversion G3'.
+          * destruct G3 as [x [G3 G4]].
+            inversion G3; auto.
+            simplify_eq.
+            apply rtc_inv in G4.
+            destruct G4 as [G4'|G4].
+            -- discriminate.
+            -- destruct G4 as [x [G4 G5]].
+               inversion G4; auto.
+               simplify_eq.
+               apply rtc_inv in G5.
+               destruct G5 as [G5'|G5].
+               ++ discriminate.
+               ++ destruct G5 as [x [G5 G6]].
+                  inversion G5; auto.
+    Qed.
     
+    apply inv_sts_0_unclosed_changed_yield in Rel'.
+    destruct Rel' as [[-> [-> ->]] | [-> [-> ->]]].
+    {
+      iDestruct "Hmatch" as "(-> & Switched & NaInvAtLeast)".
+      admit.
+    }
+    
+    (*
+    iApply (yield _ with "[PC ]"); iFrameAutoSolve.
+    iApply (eliminate_wrong_token with "ScheToken").
+      done.                       
+      iModIntro.
+      iNext.
+      iIntros "[_ False]".
+      iExFalso.
+      done.
+     *)
     Admitted.
   
 
