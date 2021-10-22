@@ -339,6 +339,37 @@ Section proof.
     - done.
   Qed.
 
+  Lemma inv_sts_1_unclosed_changed_yield cb ob oh h :
+      inv_sts_rel (V1, true, false, Some h) (V1, cb, ob, oh) ->
+      (cb = true ∧ ob = false ∧ oh = Some h).
+    Proof.
+      intros G.
+      rewrite /inv_sts_rel in G.
+      apply rtc_inv in G.
+      destruct G as [G|G].
+      - inversion G.
+        auto.
+      - destruct G as [x [G1 G2]].
+        inversion G1; auto.
+        simplify_eq.
+        apply rtc_inv in G2.
+        destruct G2 as [G2'|G2].
+        + inversion G2'.
+        + destruct G2 as [x [G2 G3]].
+          inversion G2; auto.
+          simplify_eq.
+          apply rtc_inv in G3.
+          destruct G3 as [G3'|G3].
+          * inversion G3'.
+          * destruct G3 as [x [G3 G4]].
+            inversion G3; auto.
+            simplify_eq.
+            apply rtc_inv in G4.
+            destruct G4 as [G4'|G4].
+            -- discriminate.
+            -- destruct G4 as [x [G4 G5]].
+               inversion G4; auto.              
+    Qed.
 
 End sts.
 
@@ -609,7 +640,7 @@ End sts.
                          ∃ wl, RX@V1 :=(wl, V0) ∗
                          ⌜des = serialized_transaction_descriptor V0 V1 W0 I1 [page] h⌝ ∗
                          ⌜finz.to_z wl =Z.of_nat (length des)⌝ ∗ ⌜w = W0⌝
-    | (true, Some h) => ⌜r0 = of_imm run_I⌝ ∗ ⌜r0' = of_imm yield_I⌝ ∗ ⌜r1 = encode_vmid V1⌝ ∗
+    | (true, Some h) => ⌜r0 = of_imm yield_I⌝ ∗ ⌜r0' = of_imm yield_I⌝ ∗ ⌜r1 = encode_vmid V1⌝ ∗
                         token γ_switched (* ∗ token γ_access *)
     | (true, None) => ⌜r0 = W1⌝ ∗ ⌜r0' = of_imm yield_I⌝ ∗ token γ_done
     end).
@@ -1631,6 +1662,8 @@ Qed.
     Str R0 R1;
     (* relinquish *)
     Mov R0 (inl (encode_hvc_func Relinquish));
+    Hvc;
+    Mov R0 (inl (encode_hvc_func Poll));
     Hvc;
     (* yield *)
     Mov R0 (inl yield_I);
@@ -2793,7 +2826,7 @@ Qed.
     
     (* retrieve and change *)
 
-    iDestruct "program" as "(p1 & p2 & p3 & p4 & p5 & p6 & p7 & p8 & p9 & p10 & p11 & p12 & p13 & p14 & p15 & p16 & p17 & p18 & p19 & p20 & _)".
+    iDestruct "program" as "(p1 & p2 & p3 & p4 & p5 & p6 & p7 & p8 & p9 & p10 & p11 & p12 & p13 & p14 & p15 & p16 & p17 & p18 & p19 & p20 & p21 & p22 & _)".
 
     rewrite wp_sswp.
     iApply (mov_word _ (encode_hvc_func Poll) R0 with "[p1 R0 Acc PC]"); iFrameAutoSolve.
@@ -3200,7 +3233,7 @@ Qed.
     iModIntro.
     iIntros "(PC & p18 & Excl & Acc & R0 & Htrans' & Hretri & TX & memdes'')".
     rewrite wp_sswp.
-    iApply (mov_word _ (encode_hvc_func Yield) R0 with "[p19 R0 Acc PC]"); iFrameAutoSolve.
+    iApply (mov_word _ (encode_hvc_func Poll) R0 with "[p19 R0 Acc PC]"); iFrameAutoSolve.
     {
       simpl.
       assert ((sacc ∪ ({[ppage]} ∪ ∅)) ∖ ({[ppage]} ∪ ∅) = sacc) as ->.
@@ -3216,7 +3249,45 @@ Qed.
     iModIntro.
     iIntros "(PC & p19 & Acc & R0)".
     rewrite wp_sswp.
-
+    iApply (poll _ V1 (p := pprog) with "[PC R0 R1 R2 p20 Acc RX']"); iFrameAutoSolve; auto.
+    {
+      apply decode_encode_hvc_func.
+    }
+    {
+      rewrite <- (HaddrIn (incrN pprog 45)%f) at 2.
+      rewrite /incrN.
+      apply in_page_to_pid_aligned.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    {
+      simpl.
+      assert ((sacc ∪ ({[ppage]} ∪ ∅)) ∖ ({[ppage]} ∪ ∅) = sacc) as ->.
+      set_solver.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+    }
+    iModIntro.
+    iIntros "(PC & R0 & R1 & R2 & p20 & Acc & RX')".    
+    rewrite wp_sswp.
+    iApply (mov_word _ (encode_hvc_func Yield) R0 with "[p21 R0 Acc PC]"); iFrameAutoSolve.
+    {
+      simpl.
+      assert ((sacc ∪ ({[ppage]} ∪ ∅)) ∖ ({[ppage]} ∪ ∅) = sacc) as ->.
+      set_solver.
+      rewrite HaddrIn.
+      rewrite ->elem_of_subseteq in Hacc;
+        apply Hacc;
+        apply elem_of_union_r;
+        apply elem_of_singleton_2;
+        reflexivity.
+      repeat (first [apply elem_of_list_here | apply elem_of_list_further]).
+    }
+    iModIntro.
+    iIntros "(PC & p21 & Acc & R0)".
+    rewrite wp_sswp.
     iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑ inv_name) ⊤).
     iInv inv_name as ">Inv" "HIClose".
     iDestruct "Inv" as (i P cb ob oh) "(ScheToken & NaInvToken & InvExact & Hmatch)".
@@ -3234,47 +3305,14 @@ Qed.
     }
     simplify_eq.
     iEval (simpl) in "Hmatch".
-    pose proof Rel as Rel'.
-    Set Nested Proofs Allowed.
-    Lemma inv_sts_0_unclosed_changed_yield cb ob oh h :
-      inv_sts_rel (V1, true, false, Some h) (V1, cb, ob, oh) ->
-      (cb = true ∧ ob = false ∧ oh = Some h).
-    Proof.
-      intros G.
-      rewrite /inv_sts_rel in G.
-      apply rtc_inv in G.
-      destruct G as [G|G].
-      - inversion G.
-        auto.
-      - destruct G as [x [G1 G2]].
-        inversion G1; auto.
-        simplify_eq.
-        apply rtc_inv in G2.
-        destruct G2 as [G2'|G2].
-        + inversion G2'.
-        + destruct G2 as [x [G2 G3]].
-          inversion G2; auto.
-          simplify_eq.
-          apply rtc_inv in G3.
-          destruct G3 as [G3'|G3].
-          * inversion G3'.
-          * destruct G3 as [x [G3 G4]].
-            inversion G3; auto.
-            simplify_eq.
-            apply rtc_inv in G4.
-            destruct G4 as [G4'|G4].
-            -- discriminate.
-            -- destruct G4 as [x [G4 G5]].
-               inversion G4; auto.              
-    Qed.
-    
-    apply inv_sts_0_unclosed_changed_yield in Rel'.
+    pose proof Rel as Rel'.    
+    apply inv_sts_1_unclosed_changed_yield in Rel'.
     destruct Rel' as [-> [-> ->]].
     iDestruct "Hmatch" as "(-> & Switched & NaInvAtLeast)".
     iDestruct ((nainv_state_update _ _ (true, Some h')) with "NaInvExact") as ">NaInvExact".
     { unfold inv_sts_rel. apply rtc_once. constructor. }
     iDestruct (nainv_state_observe with "NaInvExact") as ">[NaInvExact NaInvAtLeast']".
-    iApply (yield (z := V0) with "[PC p20 ScheToken Acc R0 HR0 HR1]"); iFrameAutoSolve.
+    iApply (yield (z := V0) with "[PC p22 ScheToken Acc R0 HR0 HR1]"); iFrameAutoSolve.
     {
       simpl.
       assert ((sacc ∪ ({[ppage]} ∪ ∅)) ∖ ({[ppage]} ∪ ∅) = sacc) as ->.
@@ -3298,7 +3336,7 @@ Qed.
     }
     iModIntro.
     iModIntro.
-    iIntros "(ScheToken & PC & p20 & Acc & R0 & HR0 & HR1)".
+    iIntros "(ScheToken & PC & p22 & Acc & R0 & HR0 & HR1)".
     (* TODO: mask eliminate wrong token *)
     (*
     iApply (eliminate_wrong_token with "ScheToken").
@@ -3315,27 +3353,22 @@ Qed.
       rewrite /nainv_def.
       iExists yield_I, yield_I, (encode_vmid V1), W1, [], true, (Some h').
       iFrame.
-      (* TODO: poll before *)
-      iAssert (RX@V1:=())%I with "[RX']" as "RX'". admit.
       iFrame.
       iSplitL "".
       rewrite /mem_region.
       simpl.
       done.
-      (* TODO: adjust invariant *)
-      admit.
+      done.
       unfold nainv_closed.
       iFrame.
     }
-    iMod "NaInvToken".
-    
+    iMod "NaInvToken".    
     iDestruct ((inv_state_update _ _ (V0, false, true, Some h')) with "InvExact") as ">InvExact".
     { unfold inv_sts_rel. apply rtc_once. constructor. }
     iDestruct ("HIClose" with "[ScheToken NaInvToken InvExact NaInvAtLeast' Done]") as "InvClose".
     { iExists V0, ⊤, false, true , (Some h'). iNext. iFrame. done. }
     iMod "InvClose" as %_.
     iModIntro.
-    
     Admitted.
   
 
