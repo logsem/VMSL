@@ -3356,18 +3356,18 @@ Qed.
              (* has access to all involved pages *)
              (Hacc0 : {[ppage; pprog0; ptx1]} ⊆ sacc0)
              (* at least owns ppage *)
-             (Hown0 : ppage0 ∈ sown0)
+             (Hown0 : ppage ∈ sown0)
              (* at least has exclusive access to ppage *)
-             (Hexcl0 : ppage0 ∈ sexcl0)
+             (Hexcl0 : ppage ∈ sexcl0)
              (* the handle pool is not empty *)
              (Hsh : sh ≠ ∅)
              (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
              (* cannot have access to ppage *)
              (* has access to RX, TX, and pprog *)
              (Hacc1 : {[ptx1;prx1;pprog1]} ⊆ sacc1)
-             (HaccNotIn: ppage ∉ sacc)
-             (HownNotIn: ppage ∉ sown)
-             (HexclNotIn: ppage ∉ sexcl)
+             (HaccNotIn: ppage ∉ sacc1)
+             (HownNotIn: ppage ∉ sown1)
+             (HexclNotIn: ppage ∉ sexcl1)
              (* the whole program is in page pprog *)
              (Hseq1 : seq_in_page pprog1 (length (code1 I3 ibase iprx1 iptx1 ippage)) pprog1) :
     PC @@ V0 ->r pprog0
@@ -3405,24 +3405,24 @@ Qed.
     ∗ (∃ r, R8 @@ V1 ->r r)
     ∗ O@V1:={qo1}[sown1]
     ∗ E@V1:={1}[sexcl1]
-    ∗ program (code1 I3 ibase iprx iptx ippage) pprog1
+    ∗ program (code1 I3 ibase iprx1 iptx1 ippage) pprog1
     (*invariants and ghost variables *)
     ∗ token γ_switched
     ⊢ WP ExecI @ V0
       {{ (λ m, ⌜m = HaltI⌝ ∗
-          PC @@ V0 ->r (pprog ^+ (length (code0 ippage ilen)))%f
+          PC @@ V0 ->r (pprog0 ^+ (length (code0 ippage ilen)))%f
           ∗ hp{ 1 }[ sh ]
-          ∗ O@V0 :={qo}[sown]
-          ∗ A@V0 :={1}[sacc]
-          ∗ E@V0 :={1}[sexcl]
-          ∗ TX@V0 := ptx
+          ∗ O@V0 :={qo0}[sown0]
+          ∗ A@V0 :={1}[sacc0]
+          ∗ E@V0 :={1}[sexcl0]
+          ∗ TX@V0:=ptx0
           ∗ RX@V0:=prx0
           ∗ RX@V1:=prx1
-          ∗ (∃ des, mem_region des ptx)
+          ∗ (∃ des, mem_region des ptx0)
           ∗ R2 @@ V0 ->r ilen
           ∗ (∃ r3, R3 @@ V0 ->r r3)
           ∗ token γ_closed
-          ∗ program (code0 ippage ilen) pprog)
+          ∗ program (code0 ippage ilen) pprog0)
       }}∗ 
       WP ExecI @ V1
       {{ λ m, ⌜m = ExecI⌝ ∗ False%I }}.
