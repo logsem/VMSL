@@ -8,11 +8,10 @@ Section mult.
 Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma mult_word {E instr i w1 w3 q p s} a w2 ra :
+Lemma mult_word {E instr i w1 w3 q s} a w2 ra :
   instr = Mult ra w2 ->
   decode_instruction w1 = Some(instr) ->
-  addr_in_page a p ->
-  p ∈ s ->
+  to_pid_aligned a ∈ s ->
   {SS{{  ▷ (PC @@ i ->r a)
           ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q}[s])
           ∗ ▷ (ra @@ i ->r w3)}}}
@@ -22,7 +21,7 @@ Lemma mult_word {E instr i w1 w3 q p s} a w2 ra :
                    ∗ A@i:={q}[s]
                    ∗ ra @@ i ->r (w3 ^* w2)%f }}}.
 Proof.
-  iIntros (Hinstr Hdecode Hin HpIn ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hinstr Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (σ1) "%Hsche Hσ".
   inversion Hsche as [ Hcur ]; clear Hsche.
@@ -37,8 +36,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr_Set a s) with "Haccess Hacc") as %Hacc;eauto.
-  rewrite (to_pid_aligned_in_page _ p); auto.
+  iDestruct (gen_access_valid_addr_Set a s with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.

@@ -3334,4 +3334,99 @@ Qed.
           rename Rel2 into Rel').
   Qed.  
 
+  Lemma lending_proof {sown0 qo0 sacc0 sexcl0 sh qo1 sacc1 sown1 sexcl1}
+             (ppage pprog0 pprog1 ptx0 ptx1 prx0 prx1: PID)
+             (* ppage is the page to lend *)
+             (ippage iptx1 iprx1 ibase : Imm)
+             (* ibase is the base addr of the loop body *)
+             (Hppageeq : of_pid ppage = ippage)
+             (* (Hibaseeq : of_imm ibase = (pprog1 ^+ 3)%f) *)
+             (Hnotrx0: ppage ≠ prx0)
+             (Hnotrx1: ppage ≠ prx1)
+             (Hnotrx0': prx0 ≠ ptx0)
+             (Hnottxrx: prx1 ≠ ptx1)
+             (* the des in TX *)
+             (des : list Word)
+             (Hdeseq : des = serialized_transaction_descriptor V0 V1 W0 W1 [ppage] W0)
+             (* ilen is the length of msg *)
+             (ilen : Imm)
+             (Hileq : (finz.to_z ilen) = Z.of_nat (length des))
+             (* the whole program is in page pprog *)
+             (Hseq0 : seq_in_page pprog0 (length (code0 ippage ilen)) pprog0)
+             (* has access to all involved pages *)
+             (Hacc0 : {[ppage; pprog0; ptx1]} ⊆ sacc0)
+             (* at least owns ppage *)
+             (Hown0 : ppage0 ∈ sown0)
+             (* at least has exclusive access to ppage *)
+             (Hexcl0 : ppage0 ∈ sexcl0)
+             (* the handle pool is not empty *)
+             (Hsh : sh ≠ ∅)
+             (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
+             (* cannot have access to ppage *)
+             (* has access to RX, TX, and pprog *)
+             (Hacc1 : {[ptx1;prx1;pprog1]} ⊆ sacc1)
+             (HaccNotIn: ppage ∉ sacc)
+             (HownNotIn: ppage ∉ sown)
+             (HexclNotIn: ppage ∉ sexcl)
+             (* the whole program is in page pprog *)
+             (Hseq1 : seq_in_page pprog1 (length (code1 I3 ibase iprx1 iptx1 ippage)) pprog1) :
+    PC @@ V0 ->r pprog0
+    ∗ hp{ 1 }[ sh ]
+    ∗ O@V0 :={qo0}[sown0]
+    ∗ A@V0 :={1}[sacc0]
+    ∗ E@V0 :={1}[sexcl0]
+    ∗ TX@V0 := ptx0
+    ∗ RX@V0 := prx0
+    ∗ RX@V1 := prx1
+    ∗ mem_region des ptx0
+    ∗ (∃ r2, R2 @@ V0 ->r r2)
+    ∗ R3 @@ V0 ->r (ptx0 ^+ 2)%f
+    ∗ program (code0 ippage ilen) pprog0
+    (*invariants and ghost variables *)
+    ∗ inv inv_name (inv_def γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched)
+    ∗ nainv nainv_name (nainv_def γ_nainvm γ_access γ_done γ_unchanged γ_switched prx1 ppage)
+    ∗ token γ_done
+    ∗ token γ_closed
+    ∗ token γ_access
+    ∗ token γ_unchanged
+    ∗ inv_state_atleast γ_invm (V0,false,false, None)
+    ∗ PC @@ V1 ->r pprog1
+    ∗ A@V1 :={1}[sacc1]
+    ∗ TX@V1 := ptx1
+    ∗ RX@V1 := prx1
+    ∗ (∃ des', mem_region des' ptx1 ∗ ⌜length des'= 6⌝)
+    ∗ (∃ r, NZ @@ V1 ->r r)             
+    ∗ (∃ r, R1 @@ V1 ->r r)
+    ∗ (∃ r, R2 @@ V1 ->r r)
+    ∗ (∃ r, R3 @@ V1 ->r r)
+    ∗ (∃ r, R5 @@ V1 ->r r)
+    ∗ (∃ r, R6 @@ V1 ->r r)
+    ∗ (∃ r, R7 @@ V1 ->r r)
+    ∗ (∃ r, R8 @@ V1 ->r r)
+    ∗ O@V1:={qo1}[sown1]
+    ∗ E@V1:={1}[sexcl1]
+    ∗ program (code1 I3 ibase iprx iptx ippage) pprog1
+    (*invariants and ghost variables *)
+    ∗ token γ_switched
+    ⊢ WP ExecI @ V0
+      {{ (λ m, ⌜m = HaltI⌝ ∗
+          PC @@ V0 ->r (pprog ^+ (length (code0 ippage ilen)))%f
+          ∗ hp{ 1 }[ sh ]
+          ∗ O@V0 :={qo}[sown]
+          ∗ A@V0 :={1}[sacc]
+          ∗ E@V0 :={1}[sexcl]
+          ∗ TX@V0 := ptx
+          ∗ RX@V0:=prx0
+          ∗ RX@V1:=prx1
+          ∗ (∃ des, mem_region des ptx)
+          ∗ R2 @@ V0 ->r ilen
+          ∗ (∃ r3, R3 @@ V0 ->r r3)
+          ∗ token γ_closed
+          ∗ program (code0 ippage ilen) pprog)
+      }}∗ 
+      WP ExecI @ V1
+      {{ λ m, ⌜m = ExecI⌝ ∗ False%I }}.
+Proof.
+Admitted.
+
 End proof.
