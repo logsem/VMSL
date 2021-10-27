@@ -25,13 +25,14 @@ Proof.
   iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hres)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [ | | | | | | | | | |src Hvalidra] .
+  inversion Hvalidinstr as [ | | | | | | | | | |src Hvalidra |] .
   subst src .
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
   iDestruct ((gen_reg_valid2 i PC ai ra w2 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr ai) with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct ((gen_access_valid_addr_Set ai {[to_pid_aligned ai]}) with "Haccess Hacc") as %Hacc;eauto.
+  by apply elem_of_singleton_2.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.

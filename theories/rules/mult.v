@@ -31,13 +31,14 @@ Proof.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [| | | | | | | |imm dst Hvalidra  | | ].
+  inversion Hvalidinstr as [| | | | | | | |imm dst Hvalidra  | | |].
   subst imm dst.
   inversion Hvalidra as [HneqPC HneqNZ].
   (* valid regs *)
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set a p s with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct ((gen_access_valid_addr_Set a s) with "Haccess Hacc") as %Hacc;eauto.
+  rewrite (to_pid_aligned_in_page _ p); auto.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
