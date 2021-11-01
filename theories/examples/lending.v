@@ -3354,20 +3354,20 @@ Qed.
              (* the whole program is in page pprog *)
              (Hseq0 : seq_in_page pprog0 (length (code0 ippage ilen)) pprog0)
              (* has access to all involved pages *)
-             (Hacc0 : {[ppage; pprog0; ptx1]} ⊆ sacc0)
+             (Hacc0 : {[ppage; pprog0; ptx0]} ⊆ sacc0)
              (* at least owns ppage *)
-             (Hown0 : ppage0 ∈ sown0)
+             (Hown0 : ppage ∈ sown0)
              (* at least has exclusive access to ppage *)
-             (Hexcl0 : ppage0 ∈ sexcl0)
+             (Hexcl0 : ppage ∈ sexcl0)
              (* the handle pool is not empty *)
              (Hsh : sh ≠ ∅)
              (γ_invm γ_nainvm γ_closed γ_access γ_done γ_unchanged γ_switched : gname)
              (* cannot have access to ppage *)
              (* has access to RX, TX, and pprog *)
              (Hacc1 : {[ptx1;prx1;pprog1]} ⊆ sacc1)
-             (HaccNotIn: ppage ∉ sacc)
-             (HownNotIn: ppage ∉ sown)
-             (HexclNotIn: ppage ∉ sexcl)
+             (HaccNotIn: ppage ∉ sacc1)
+             (HownNotIn: ppage ∉ sown1)
+             (HexclNotIn: ppage ∉ sexcl1)
              (* the whole program is in page pprog *)
              (Hseq1 : seq_in_page pprog1 (length (code1 I3 ibase iprx1 iptx1 ippage)) pprog1) :
     PC @@ V0 ->r pprog0
@@ -3412,9 +3412,9 @@ Qed.
       {{ (λ m, ⌜m = HaltI⌝ ∗
           PC @@ V0 ->r (pprog ^+ (length (code0 ippage ilen)))%f
           ∗ hp{ 1 }[ sh ]
-          ∗ O@V0 :={qo}[sown]
-          ∗ A@V0 :={1}[sacc]
-          ∗ E@V0 :={1}[sexcl]
+          ∗ O@V0 :={qo}[sown0]
+          ∗ A@V0 :={1}[sacc0]
+          ∗ E@V0 :={1}[sexcl0]
           ∗ TX@V0 := ptx
           ∗ RX@V0:=prx0
           ∗ RX@V1:=prx1
