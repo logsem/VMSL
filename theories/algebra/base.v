@@ -1,4 +1,4 @@
-From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_map.
+From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_map saved_prop.
 From iris.algebra Require Export auth agree dfrac excl gmap gset frac_agree frac_auth.
 From iris.proofmode Require Export tactics.
 From HypVeri Require Import monad machine.
@@ -6,7 +6,7 @@ From HypVeri Require Export machine_extra lang.
 
 Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
-  gen_token_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO V)));
+  (* gen_token_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO V))); *)
   gen_mem_preG_inG :> gen_heapGpreS A W Σ;
   gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
   gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
@@ -28,7 +28,11 @@ Class gen_VMG Σ := GenVMG{
                        gen_invG :> invGS Σ;
                        gen_na_invG :> na_invG Σ;
                        gen_nainv_name : na_inv_pool_name;
-                       gen_token_name : gname;
+                       gen_saved_propG :> savedPropG Σ;
+                       gen_prop_nameG :> inG Σ (authUR (optionUR (exclR gnameO)));
+                       gen_name_mapG :> inG Σ (authUR (gmapUR nat (agreeR gnameO)));                       
+                       gen_name_map_name: gname;
+                       (* gen_token_name : gname; *)
                        gen_mem_name : gname;
                        gen_reg_name : gname;
                        gen_tx_name : gname;
@@ -43,7 +47,7 @@ Class gen_VMG Σ := GenVMG{
                      }.
 
 Global Arguments gen_nainv_name {Σ} _.
-Global Arguments gen_token_name {Σ} _.
+(* Global Arguments gen_token_name {Σ} _. *)
 Global Arguments gen_mem_name {Σ} _.
 Global Arguments gen_reg_name {Σ} _.
 Global Arguments gen_rx_agree_name {Σ} _.
@@ -55,6 +59,7 @@ Global Arguments gen_excl_name {Σ} _.
 Global Arguments gen_trans_name {Σ} _.
 Global Arguments gen_hpool_name {Σ} _.
 Global Arguments gen_retri_name {Σ} _.
+Global Arguments gen_name_map_name {Σ} {_}.
 
 Definition ra_rx_tx_agree := (authR (gmapUR VMID (agreeR (leibnizO PID)))).
 
@@ -66,7 +71,7 @@ Definition gen_VMΣ : gFunctors :=
   #[
     invΣ;
     na_invΣ;
-    GFunctor (frac_authR (agreeR (leibnizO VMID)));
+    (* GFunctor (frac_authR (agreeR (leibnizO VMID))); *)
     gen_heapΣ Addr Word;
     gen_heapΣ (reg_name * VMID) Word;
     GFunctor ra_rx_tx_agree;
@@ -95,8 +100,8 @@ Section definitions.
 
   Implicit Type σ: state.
 
-  Definition get_token  (v:VMID) :=
-     (frac_auth_auth (to_agree (v: leibnizO VMID))).
+  (* Definition get_token  (v:VMID) :=
+     (frac_auth_auth (to_agree (v: leibnizO VMID))). *)
 
   Definition get_reg_gmap σ: gmap (reg_name * VMID) Word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
@@ -145,8 +150,9 @@ Section definitions.
 
   Definition get_retri_gmap σ := get_transactions_gmap σ (λ tran, tran.1.1.1.2).
 
-  Definition gen_vm_interp σ: iProp Σ :=
-      own (gen_token_name vmG) (get_token (get_current_vm σ)) ∗
+  Definition gen_vm_interp n σ: iProp Σ :=
+      ⌜n = vm_count ⌝ ∗
+      (* own (gen_token_name vmG) (get_token (get_current_vm σ)) ∗ *)
       ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) ∗
       ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
       own (gen_tx_name vmG) (● (get_tx_agree σ)) ∗
@@ -160,12 +166,12 @@ Section definitions.
       ⌜ (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ⌝ ∗
       ⌜ map_Forall (λ _ v, (Z.of_nat (length v.1.2) <? word_size)%Z = true) (get_transactions σ).1 ⌝ ∗
       ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ).
-
+(* 
   Definition token_agree_def (v:VMID) (q:frac) : iProp Σ :=
     own (gen_token_name vmG) (frac_auth_frag q (to_agree (v: leibnizO VMID))) .
   Definition token_agree_aux : seal (@token_agree_def). Proof. by eexists. Qed.
   Definition token_agree:= token_agree_aux.(unseal).
-  Definition token_agree_eq : @token_agree = @token_agree_def := token_agree_aux.(seal_eq).
+  Definition token_agree_eq : @token_agree = @token_agree_def := token_agree_aux.(seal_eq). *)
 
 
   Definition mem_mapsto_def (a:Addr) (dq : dfrac) (w:Word) : iProp Σ :=
@@ -244,8 +250,8 @@ End definitions.
 
 (* predicate for current vm (token) *)
 
-Notation "<< n >>{ q }" := (token_agree n q)
-                        (at level 50, format "<< n >>{ q  }"): bi_scope.
+(* Notation "<< n >>{ q }" := (token_agree n q)
+                        (at level 50, format "<< n >>{ q  }"): bi_scope. *)
 
 (* point-to predicates for registers and memory *)
 Notation "r @@ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
@@ -298,7 +304,7 @@ Section alloc_rules.
   Context `{HyperConst : !HypervisorConstants}.
   Context `{HyperParams : !HypervisorParameters}.
   Context `{!gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ}.
-  Lemma gen_token_alloc i :
+  (* Lemma gen_token_alloc i :
    ⊢ |==> ∃ γ, own γ (get_token i) ∗ own γ (frac_auth_frag 1%Qp (to_agree (i: leibnizO VMID))).
   Proof.
     iIntros.
@@ -309,7 +315,7 @@ Section alloc_rules.
     iDestruct "Halloc" as (γ) "Halloc".
     iExists γ.
     rewrite own_op //.
-  Qed.
+  Qed. *)
 
   Lemma gen_reg_alloc (regs: gmap (reg_name * VMID) Word) :
    ⊢ |==> ∃ γ, ghost_map_auth γ 1%Qp regs ∗
@@ -394,8 +400,8 @@ Section other_rules.
 
   (* all resources are timeless(▷ P -> P),
     which means we can easily get rid of the later modalities of resources when opening invariants. *)
-  Global Instance token_timeless i q : Timeless (<<i>>{ q }).
-  Proof. rewrite token_agree_eq /token_agree_def. apply _. Qed.
+  (* Global Instance token_timeless i q : Timeless (<<i>>{ q }).
+  Proof. rewrite token_agree_eq /token_agree_def. apply _. Qed. *)
 
   Global Instance mem_mapsto_timeless a q w : Timeless ((a ->a{q} w)).
   Proof. rewrite mem_mapsto_eq /mem_mapsto_def. apply _. Qed.

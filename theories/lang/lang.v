@@ -957,7 +957,7 @@ Proof.
   intros st; destruct st; reflexivity.
 Qed.
 
-Definition scheduler : state → nat → Prop :=
-λ σ i,  (fin_to_nat (get_current_vm σ)) = i.
+Definition scheduler : state → nat → bool:=
+λ σ i,  bool_decide ((fin_to_nat (get_current_vm σ)) = i).
 
 End lang.
