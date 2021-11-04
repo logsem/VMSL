@@ -15,15 +15,19 @@ Lemma mov_word {E i w1 w3 q s} a w2 ra :
           ∗ ▷ (a ->a w1) ∗ ▷ (A@i:={q}[s])
           ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
-  {{{ RET ExecI;  PC @@ i ->r (a ^+ 1)%f
+  {{{ RET (false, ExecI);  PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
                    ∗ A@i:={q}[s]
                    ∗ ra @@ i ->r w2 }}}.
 Proof.
   iIntros (Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
-  iIntros (σ1) "%Hsche Hσ".
-  inversion Hsche as [ Hcur ]; clear Hsche.
+  iIntros (n σ1) "%Hsche Hσ".
+  rewrite /scheduled in Hsche.
+  simpl in Hsche.
+  rewrite /scheduler in Hsche.
+  apply bool_decide_unpack in Hsche as Hcur.
+  clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
@@ -43,7 +47,22 @@ Proof.
     eapply (reducible_normal i _ a w1);eauto.
   - (* step *)
     iModIntro.
-    iIntros (m2 σ2) "%HstepP".
+    iIntros (m2 σ2) "[%P PAuth] %HstepP".
+    (* iDestruct "PAuth" as (γvmn1 γ1) "(HvmnP & HγP & #HP)". *)
+    (* auth_update_alloc: ∀ (A : ucmra) (a a' b' : A), (a, ε) ~l~> (a', b') → ● a ~~> ● a' ⋅ ◯ b' *)
+    rewrite /saved_prop_own /saved_anything_own.
+    (*
+    iAssert (own γvmn1 (◯ Excl' γ1))%I with "[HγP]" as "HγP'".
+    {
+      iDestruct (own_update γ1 (● Excl' γ1) (◯ Excl' γ1) with "[HγP]") as "Htemp".
+      {
+        admit.
+      }
+      (* eapply auth_update_alloc. *)
+      admit.
+      admit.
+    }
+     *)
     eapply (step_ExecI_normal i _ a w1) in HstepP;eauto.
     remember (exec _ σ1) as c2 eqn:Heqc2.
     rewrite /exec (mov_word_ExecI σ1 ra _ HneqPC HneqNZ) /update_incr_PC /update_reg  in Heqc2.
@@ -59,13 +78,37 @@ Proof.
       iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
       iModIntro.
       iFrame "Hσ".
+      iSplitL "PAuth".
+      by iExists P.
+      iSplitL "".
+      (* λ (M : machine) (σ1 σ2 : machine.state M) (id : vmid),
+         base.negb (scheduled σ1 id) && scheduled σ2 id  
+         : ∀ M : machine, machine.state M → machine.state M → vmid → bool 
+       *)
+      (* 
+         just_scheduled_vms = 
+         λ (M : machine) (n : nat) (σ1 σ2 : machine.state M),
+         filter (λ id : vmid, just_scheduled σ1 σ2 id = true) (seq 0 n)
+         : ∀ M : machine, nat → machine.state M → machine.state M → list vmid
+       *)
+      rewrite /just_scheduled_vms /just_scheduled.
+      assert (filter
+                (λ id : vmid,
+                        base.negb (scheduled σ1 id) &&
+                        scheduled (update_offset_PC (update_reg_global σ1 i ra w2) 1) id = true)
+                (seq 0 n) = []) as ->.
+      admit.
+      by iSimpl.
+      assert ((scheduled (update_offset_PC (update_reg_global σ1 i ra w2) 1) i) = true) as ->.
+      admit.
+      simpl.
       iApply "Hϕ".
       iFrame "Hapc Hacc Hreg".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
-      intros P; symmetry in P;inversion P; contradiction.
-    Qed.
-
+      intros Q; symmetry in Q; inversion Q; contradiction.
+    Admitted.
+(*
 Lemma mov_reg {E i w1 w3 q s} a w2 ra rb :
   decode_instruction w1 = Some (Mov ra (inr rb)) ->
   to_pid_aligned a ∈ s ->
@@ -126,4 +169,5 @@ Proof.
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
+*)
 End mov.

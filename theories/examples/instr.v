@@ -1,12 +1,11 @@
 From HypVeri.algebra Require Import base.
-From HypVeri.rules Require Import rules_base mov str.
+From HypVeri.rules Require Import rules_base mov.
 
 Section instr.
   (* shorthands for writing programs *)
 
   Context `{hypparams: HypervisorParameters}.
 
-  Definition str_I r a := encode_instruction (Str r a).
   Definition mov_word_I ra w := encode_instruction (Mov ra (inl w)).
   Definition halt_I := encode_instruction Halt.
 

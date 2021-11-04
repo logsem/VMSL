@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Import lifting rules.rules_base.
-From HypVeri Require Import base reg mem pagetable token.
+From HypVeri Require Import base reg mem pagetable.
 From HypVeri.lang Require Import lang_extra reg_extra current_extra.
 Require Import stdpp.fin.
 
@@ -15,29 +15,32 @@ Lemma yield {E z i w1 w2 a_ b_ q s} ai :
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  {SS{{ ▷ (<<i>>{ 1%Qp })
-          ∗ ▷ (PC @@ i ->r ai)
+  {SS{{ ▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
           ∗ ▷ (A@i :={q}[s])
           ∗ ▷ (R0 @@ i ->r w2)
           ∗ ▷ (R0 @@ z ->r a_)
-          ∗ ▷ (R1 @@ z ->r b_)}}}
+          ∗ ▷ (R1 @@ z ->r b_)
+          ∗ ▷ (VMProp_holds z)}}}
     ExecI @ i;E
-    {{{ RET ExecI; <<z>>{ 1%Qp }
-                     ∗ PC @@ i ->r (ai ^+ 1)%f
+    {{{ RET (true, ExecI); PC @@ i ->r (ai ^+ 1)%f
                      ∗ ai ->a w1
                      ∗ A@i :={q}[s]
                      ∗ R0 @@ i ->r w2
                      ∗ R0 @@ z ->r (encode_hvc_func Yield)
                      ∗ R1 @@ z ->r (encode_vmid i) }}}.
 Proof.
-  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "(>Htok & >Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') Hϕ".
+  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2' & HProp) Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
-  iIntros (σ1) "%Hsche Hσ".
-  inversion Hsche as [ Hcur ]; clear Hsche.
+  iIntros (n σ1) "%Hsche Hσ".
+  rewrite /scheduled in Hsche.
+  simpl in Hsche.
+  rewrite /scheduler in Hsche.
+  apply bool_decide_unpack in Hsche as Hcur.
+  clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Htokown & Hmemown & Hregown & Htx & Hrx1 & Hrx2 & Hown & Haccessown & Hrest)".
+  iDestruct "Hσ" as "(%Hneq & Hmemown & Hregown & Htx & Hrx1 & Hrx2 & Hown & Haccessown & Hrest)".
   (* valid regs *)
   iDestruct (gen_reg_valid1 PC i ai Hcur with "Hregown Hpc") as "%Hpc".
   iDestruct (gen_reg_valid1 R0 i w2 Hcur with "Hregown Hr0") as "%Hr0".
@@ -52,8 +55,8 @@ Proof.
     iPureIntro.
     apply (reducible_normal i Hvc ai w1);eauto.
   - iModIntro.
-    iIntros (m2 σ2 Hstep).
-    apply (step_ExecI_normal i Hvc ai w1) in Hstep; eauto.
+    iIntros (m2 σ2) "[%P PAuth] %HstepP".
+    apply (step_ExecI_normal i Hvc ai w1) in HstepP; eauto.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc in Heqc2; eauto.
     rewrite  Hr0 Hhvc /yield in Heqc2.
@@ -65,7 +68,7 @@ Proof.
       apply fin_to_nat_inj.
       rewrite Hz Hi0.
       reflexivity.
-    + destruct Hstep as [Hstep1 Hstep2].
+    + destruct HstepP as [Hstep1 Hstep2].
       simplify_eq.
       assert (Hzeq : z = nat_to_fin vm_count_pos).
       {
@@ -91,21 +94,53 @@ Proof.
         apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto.
         iDestruct "Hr12pc" as "(? & ? & ? & _)".
-        iDestruct (token_update (get_current_vm σ1) (get_current_vm σ1) z with "Htok") as "HtokUpd".
-        rewrite token_agree_eq /token_agree_def.
-        iDestruct ("HtokUpd" with "Htokown") as "Htok'". 
         rewrite /get_current_vm /update_current_vmid /update_incr_PC.
         simpl.
         rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
-        -- iMod "Htok'".
-           iModIntro.
-           iDestruct "Htok'" as "[Htok1 Htok2]".
+        -- iModIntro.
+           iFrame.
+           iSplitL "PAuth".
+           iExists P.
            iFrame.
            iSplitL "Hreg".
            2 : {
+             rewrite /scheduled.
+             iSimpl.
+             rewrite /scheduler.
+             rewrite /get_current_vm.
+             iSimpl.
+             rewrite /bool_decide.
+             rewrite /decide_rel.
+             rewrite /nat_eq_dec.
+             assert (z ≠ σ1.1.1.2) as p.
+             solve_finz.
+             assert ((if PeanoNat.Nat.eq_dec z σ1.1.1.2 then true else false) = false) as ->.
+             case_match.
+             exfalso.
+             apply p.
+             admit.
+             reflexivity.
+             iSimpl.
+             rewrite /just_scheduled_vms.
+             rewrite /just_scheduled.
+             rewrite /scheduled.
+             iSimpl.
+             rewrite /scheduler.
+             iSimpl.
+             rewrite /vmid.
+             rewrite /get_current_vm.
+             iSimpl.
+             assert (filter
+                     (λ id : nat,
+                        base.negb (bool_decide (fin_to_nat σ1.1.1.2 = id)) && bool_decide (fin_to_nat z = id) = true)
+                     (seq 0 vm_count) = [fin_to_nat z]) as ->.
+             admit.
+             iSimpl.
+             iFrame "HProp".
              iApply "Hϕ".
              iFrame.
            }
+           iSplit; first done.
            rewrite 2!update_reg_global_update_reg.
            rewrite !insert_union_singleton_l.
            rewrite (map_union_comm {[(R1, z) := of_imm (encode_vmid σ1.1.1.2)]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
@@ -133,5 +168,5 @@ Proof.
            rewrite 2!update_reg_global_preserve_current_vm; auto.
         -- apply lookup_insert_None; split; eauto; intros P; by inversion P.
         -- apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
-           Qed.
+           Admitted.
 End yield.
