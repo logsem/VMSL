@@ -125,6 +125,87 @@ Section proof.
     Halt
     ].
 
+    (* program of VM1
+    l is the length of the message
+   ibase is the base address of the loop body
+   iprx and iptx are the PIDs of RX and TX pages of VM1
+   ipage is the PID of the page to lend *)
+  (* TODO: VM1 knows l via msg_wait/poll *)
+  Definition code1 (l : Imm) (ibase : Imm) (iprx iptx : Imm) (ipage: Imm) : list Word :=
+    encode_instructions
+    [
+    Nop;    
+    (* loop init *)
+    Mov R5 (inl l);
+    Mov R6 (inl I0);
+    Mov R7 (inl ibase);
+
+    (* copy word from rx + l to tx + l *)
+    Mov R0 (inl I1);
+    Mov R1 (inl iprx);
+    Add R1 R5;
+    Sub R1 R0;
+    Ldr R2 R1;
+    Mov R1 (inl iptx);
+    Add R1 R5;
+    Sub R1 R0;
+    Str R2 R1;
+
+    (* loop end *)
+    Mov R8 (inl I1);
+    Sub R5 R8;
+    Cmp R6 (inr R5);
+    Bne R7;
+
+    Mov R0 (inl l);
+    Mov R1 (inl iprx);
+    Mov R2 (inl I1);
+    Add R1 R0;
+    Add R1 R2;
+    Ldr R3 R1;
+    Mov R1 (inl iptx);
+    Add R1 R0;
+    Str R3 R1;
+    
+    Mov R0 (inl (encode_hvc_func Poll));
+    Hvc;
+    (* tx -> descriptor *)
+    (* h -> transaction entry *)
+    (* h -> not taken *)
+    Mov R0 (inl (encode_hvc_func Retrieve));
+    Mov R1 (inl l);
+    Mov R2 (inl I1);
+    Add R1 R2;
+    Hvc;
+    (* tx -> descriptor *)
+    (* h -> transaction entry *)
+    (* h -> taken *)
+    (* store a new value *)
+    Mov R1 (inl ipage);
+    Mov R0 (inl I1);
+    Str R0 R1;
+    (* tx -> descriptor *)
+    (* h -> transaction entry *)
+    (* h -> taken *)
+    (* p -> 1 *)
+    (* prepare a new retrieve descriptor [h, 0] *)
+    (* copy h from rx + 1 to tx + 0 *)
+    Mov R1 (inl iprx);
+    Mov R0 (inl I2);
+    Add R1 R0;
+    Ldr R0 R1;
+    Mov R1 (inl iptx);
+    Str R0 R1;
+    (* relinquish *)
+    Mov R0 (inl (encode_hvc_func Relinquish));
+    Hvc;
+    Mov R0 (inl (encode_hvc_func Poll));
+    Hvc;
+    (* yield *)
+    Mov R0 (inl yield_I);
+    Hvc
+    ].
+
   (** STSs **)
   (* the STS used in the invariant
      VMID is the VMID of the currently running VM
@@ -643,6 +724,27 @@ End sts.
     repeat (apply bi.exist_timeless;intro).
     repeat apply bi.sep_timeless;try apply _.
   Qed.
+
+    Fixpoint incrN (p : handle) (n : nat) : handle :=
+    match n with
+    | 0 => p
+    | S n => ((incrN p n) ^+ I1)%f
+    end.
+  
+  Fixpoint decrN (p : handle) (n : nat) : handle :=
+    match n with
+    | 0 => p
+    | S n => ((decrN p n) ^- I1)%f
+    end.
+
+  Program Definition W3 : Word := (finz.FinZ 3 _ _).
+  Program Definition I3 : Imm := (I W3 _).
+  
+  Program Definition W4 : Word := (finz.FinZ 4 _ _).
+  Program Definition I4 : Imm := (I W4 _).
+  
+  Program Definition W5 : Word := (finz.FinZ 5 _ _).
+  Program Definition I5 : Imm := (I W5 _).
 
   Lemma machine0_proof {sown qo sacc sexcl sh}
              (ppage pprog ptx prx0 prx1: PID)
@@ -1197,32 +1299,10 @@ Qed.
     Bne R7
     ].
 
-  Definition cycle prog := prog ++ encode_instructions (l_post).
-  Definition loop prog step base := encode_instructions (l_pre step base) ++ cycle prog.
-
   Definition unknown_mem_region (b : handle) (n : nat) := ([∗ list] a ∈ finz.seq b n, ∃ w, a ->a w)%I.
 
   Definition mem_region' (b : handle) (n : nat) (instr : list handle) := ([∗ list] a;w ∈ finz.seq b n;instr, a ->a w)%I.
   
-  Definition loopP des prx ptx := fun (w : Word) => ((unknown_mem_region (of_pid ptx) (Z.to_nat (finz.to_z w) - 1))
-                                                    ∗ (∃ m, (of_pid ptx ^+ ((Z.to_nat (finz.to_z w)) - 1))%f ->a m)
-                                                    ∗ (mem_region (drop (Z.to_nat (finz.to_z w)) des) ((of_pid ptx ^+ (Z.to_nat (finz.to_z w)))%f))
-                                                    ∗ (∃ r, R0 @@ V1 ->r r) ∗ (∃ r, R1 @@ V1 ->r r) ∗ (∃ r, R2 @@ V1 ->r r)
-                                                    ∗ RX@V1 := prx ∗ TX@V1 := ptx
-                                                    ∗ (mem_region (take (Z.to_nat (finz.to_z w) - 1) des) (of_pid prx))
-                                                    ∗ (∃ m, (of_pid prx ^+ (Z.to_nat (finz.to_z w) - 1))%f ->a m ∗ ⌜Some m = des !! (Z.to_nat (finz.to_z w) - 1)⌝)
-                                                    ∗ (mem_region (drop (Z.to_nat (finz.to_z w)) des) ((of_pid prx) ^+ (Z.to_nat (finz.to_z w)))%f))%I.
-
-  Definition loopprog iptx iprx := (encode_instructions [Mov R0 (inl I1);
-                                              Mov R1 (inl iprx);
-                                              Add R1 R5;
-                                              Sub R1 R0;
-                                              Ldr R2 R1;
-                                              Mov R1 (inl iptx);
-                                              Add R1 R5;
-                                              Sub R1 R0;
-                                              Str R2 R1]).
-
   Lemma list_exist_cons {A : Type} (n : nat) (l : list A) : length l = S n -> ∃ x xs, l = x :: xs /\ length xs = n.
   Proof.
     intros P.
@@ -1231,307 +1311,6 @@ Qed.
     - exists a, l.
       split; auto.
   Qed.
-  (*
-  Lemma loop_body {sacc} (des : list Word)
-             (ppage pprog ptx prx : PID)
-             (ippage iptx iprx : Imm)
-             (* ibase is the base addr of the loop body *)
-             (ibase : Imm)
-             (Hibaseeq : of_imm ibase = (pprog ^+ 3)%f)
-             (Htxrxne : ptx ≠ prx)
-             (Hptxeq : of_imm iptx = ptx)
-             (Hprxeq : of_imm iprx = prx)
-             (Hppageeq : of_imm ippage = ppage)
-             (* has access to RX, TX, and pprog *)
-             (Hacc : {[ptx;prx;pprog]} ⊆ sacc)
-             (* cannot have access to ppage *)
-             (HaccnIn: ppage ∉ sacc)
-             (* ilen is the length of msg *)
-             (nlen :nat)
-             (ilen : Imm)
-             (Hileneq : Z.to_nat (finz.to_z ilen) = nlen)
-             (* (Hpprogprogaddreq : of_pid pprog = progaddr) *)
-             (* the whole program is in page pprog *)
-             (Hseq : seq_in_page pprog (length (code1 ilen ibase iprx iptx ippage)) pprog) :
-    length des = 6 ->    
-    (∀ v (v' : Word) progaddr,
-     ⌜v = Z.to_nat (finz.to_z v')⌝ -∗
-     ⌜v <= S 5⌝-∗
-     ⌜v ≠ 0⌝-∗                     
-     ⌜seq_in_page progaddr (length (loopprog iptx iprx)) pprog⌝ -∗
-     {PAR{{ (loopP des prx ptx (v' ^+ 1)%f) ∗ PC @@ V1 ->r progaddr
-            ∗ R6 @@ V1 ->r I0
-            ∗ R5 @@ V1 ->r (v' ^+ 1)%f
-            ∗ R7 @@ V1 ->r progaddr
-            ∗ (∃ r, R8 @@ V1 ->r r)
-            ∗ (∃ nz, NZ @@ V1 ->r nz)
-            ∗ A@V1 :={1}[sacc]
-            ∗ (program (loopprog iptx iprx) progaddr)
-     }}} ExecI @ V1
-     {{{ RET ExecI; (loopP des prx ptx v') ∗ PC @@ V1 ->r (progaddr ^+ (length (loopprog iptx iprx)))%f
-         ∗ R6 @@ V1 ->r I0
-         ∗ R5 @@ V1 ->r (v' ^+ 1)%f
-         ∗ R7 @@ V1 ->r progaddr
-         ∗ (∃ r, R8 @@ V1 ->r r)
-         ∗ (∃ nz, NZ @@ V1 ->r nz)
-         ∗ A@V1 :={1}[sacc]
-         ∗ (program (loopprog iptx iprx) progaddr)
-     }}}%I).
-  Proof.
-    intros Hdesl.
-    iIntros (v v' progaddr Hveq Hvleq Hvneq Hseq').
-    iIntros (Ψ).
-    iModIntro.
-    iIntros "(HProp' & HPC' & HR6' & HR5' & HR7' & HR8' & HNZ' & HACC & Prog') HΨ".
-    rewrite /loopprog.
-    iDestruct "Prog'" as "(Hinstr1 & Hinstr2 & Hinstr3 & Hinstr4 & Hinstr5 & Hinstr6 & Hinstr7 & Hinstr8 & Hinstr9)".
-    iSimpl in "Hinstr9".
-    iDestruct "Hinstr9" as "(Hinstr9 & _)".
-    iSimpl.
-    iDestruct "HProp'" as "(memr & mmemr & rmemr & [% R0] & [% R1] & [% R2] & HRX' & HTX' & HDES')".
-    iDestruct "HDES'" as "(PreTX & CurTX & PostTX)".
-    assert (Hplusminusone : ∀ p : PID, ((p ^+ (v' ^+ 1) ^- I1)%f = (p ^+ v')%f)).
-    assert (v' <= 6)%Z.
-    lia.
-    assert (v' > 0)%Z.
-    lia.
-    intros p.
-    destruct p as [z].
-    destruct z as [t].
-    simpl in *.
-    assert (t <=? 1999000)%Z.
-    assert (∃ k, (t = 1000 * k)%Z).
-    assert ((t `rem` 1000)%Z = 0%Z).
-    lia.
-    admit.
-    destruct H4.
-    subst t.
-    assert (x <? 2000)%Z.
-    admit.
-    assert (x <=? 1999)%Z.
-    admit.
-    assert (1999000 = 1000 * 1999)%Z as ->.
-    lia.
-    assert ((1000 * x <= 1000 * 1999)%Z).
-    admit.
-    apply Zle_imp_le_bool in H6.
-    rewrite H6.
-    auto.
-    admit.
-    assert (Hvoffset : forall p : PID, addr_in_page (p ^+ v')%f p).
-    intros p.
-    admit.
-    iApply parwp_sswp.
-    iApply ((@mov_word _ _ _ _ ⊤ V1 _ _ 1 sacc progaddr I1 R0) with "[HPC' HACC R0 Hinstr1]"); iFrameAutoSolve.
-    rewrite (to_pid_aligned_in_page _ pprog).
-    set_solver.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx)) pprog Hseq' progaddr).
-    rewrite /loopprog.
-    simpl.
-    set_solver.
-    iNext.
-    iIntros "(HPC' & Hinstr1 & HACC & R0)".
-    iApply parwp_sswp.
-    iApply ((@mov_word _ _ _ _ ⊤ V1 _ _ 1 sacc (progaddr ^+ 1)%f iprx R1) with "[HPC' HACC R1 Hinstr2]"); iFrameAutoSolve.
-    rewrite (to_pid_aligned_in_page _ pprog).
-    set_solver.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx)) pprog Hseq' (progaddr ^+ 1)%f).
-    rewrite /loopprog.
-    simpl.
-    set_solver.
-    iNext.
-    iIntros "(HPC' & Hinstr2 & HACC & R1)".
-    iApply parwp_sswp.
-    iApply ((@add _ _ _ _ (Add R1 R5) V1 (encode_instruction (Add R1 R5)) _ _ _ pprog ((progaddr ^+ 1) ^+ 1)%f R1 R5 sacc) with "[HPC' Hinstr3 R1 HR5' HACC]"); auto; iFrameAutoSolve.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
-    rewrite /loopprog /=.
-    set_solver.
-    set_solver.
-    iNext.
-    iIntros "(HPC' & Hinstr3 & R1 & R5 & HACC)".
-    iApply parwp_sswp.
-    iApply ((@sub _ _ _ _ V1 (encode_instruction (Sub R1 R0)) _ _ _ (((progaddr ^+ 1) ^+ 1) ^+ 1)%f R1 R0 sacc) with "[HPC' Hinstr4 R1 R0 HACC]"); auto; iFrameAutoSolve.
-    assert (to_pid_aligned (((progaddr ^+ 1) ^+ 1) ^+ 1)%f = pprog) as ->.
-    apply to_pid_aligned_in_page.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
-    rewrite /loopprog /=.
-    set_solver.
-    set_solver.
-    iNext.
-    iIntros "(HPC' & Hinstr4 & R1 & R0 & HACC)".
-    iApply parwp_sswp.
-    rewrite Hprxeq Hplusminusone.
-    assert (Z.to_nat (v' ^+ 1)%f = v + 1) as ->.
-    solve_finz.
-    iDestruct "CurTX" as "[%m [CurTX %Meq]]".
-    iApply ((@ldr _ _ _ _ _ V1 (encode_instruction (Ldr R2 R1)) m _ _ _ ((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (iprx ^+ v')%f R2 R1 sacc) with "[HPC' Hinstr5 R2 R1 HACC HTX' CurTX]"); auto; iFrameAutoSolve.
-    {
-      intros C.
-      rewrite (to_pid_aligned_in_page _ prx) in C.
-      symmetry in C.
-      contradiction.
-      by rewrite Hprxeq.
-    }
-    assert (to_pid_aligned ((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = pprog) as ->.
-    apply to_pid_aligned_in_page.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
-    rewrite /loopprog /=.
-    set_solver.
-    rewrite (to_pid_aligned_in_page _ prx).
-    set_solver.
-    by rewrite Hprxeq.
-    assert ((prx ^+ ((v + 1)%nat - 1))%f = (iprx ^+ v')%f) as ->.
-    rewrite Hveq.
-    solve_finz.
-    rewrite Hprxeq.
-    iFrame.
-    iNext.
-    iIntros "(HPC' & Hinstr5 & R1 & CurTX & R2 & HACC & HTX')".
-    iApply parwp_sswp.
-    iApply ((@mov_word _ _ _ _ ⊤ V1 _ _ 1 sacc (((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f iptx R1) with "[HPC' HACC R1 Hinstr6]"); iFrameAutoSolve.
-    rewrite (to_pid_aligned_in_page _ pprog).
-    set_solver.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx)) pprog Hseq' (((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f).
-    rewrite /loopprog.
-    simpl.
-    set_solver.
-    iNext.
-    iIntros "(HPC' & Hinstr6 & HACC & R1)".
-    iApply parwp_sswp.
-    iApply ((@add _ _ _ _ (Add R1 R5) V1 (encode_instruction (Add R1 R5)) _ _ _ pprog ((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f R1 R5 sacc) with "[HPC' Hinstr7 R1 R5 HACC]"); auto; iFrameAutoSolve.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
-    rewrite /loopprog /=.
-    set_solver.
-    set_solver.
-    iNext.
-    iIntros "(HPC' & Hinstr7 & R1 & R5 & HACC)".
-    iApply parwp_sswp.
-    iApply ((@sub _ _ _ _ V1 (encode_instruction (Sub R1 R0)) _ _ _ (((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f R1 R0 sacc) with "[HPC' Hinstr8 R1 R0 HACC]"); auto; iFrameAutoSolve.
-    assert (to_pid_aligned (((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = pprog) as ->.
-    apply to_pid_aligned_in_page.
-    apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
-    rewrite /loopprog /=.
-    set_solver.
-    set_solver.
-    iNext.
-    iIntros "(HPC' & Hinstr8 & R1 & R0 & HACC)".
-    iApply parwp_sswp.
-    iDestruct "mmemr" as "[%m' mmemr]".
-    iApply (@str _ _ _ _ _ V1 (encode_instruction (Str R2 R1)) _ m' _ _ ((((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (ptx ^+ v')%f R2 R1 sacc with "[HPC' Hinstr9 mmemr R1 R2 HACC HRX']"); auto; iFrameAutoSolve.
-    {
-      intros C.
-      rewrite (to_pid_aligned_in_page _ ptx) in C.
-      symmetry in C.
-      contradiction.
-      apply Hvoffset.
-    }
-    {
-      assert (to_pid_aligned ((((((((progaddr ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = pprog) as ->.
-      apply to_pid_aligned_in_page.
-      apply (seq_in_page_forall1 progaddr (length (loopprog iptx iprx))); auto.
-      rewrite /loopprog /=.
-      set_solver.
-      rewrite (to_pid_aligned_in_page _ ptx).
-      set_solver.
-      done.
-    }
-    rewrite Hptxeq.
-    assert ((ptx ^+ ((v + 1)%nat - 1))%f = (ptx ^+ v)%f) as ->.
-    solve_finz.
-    rewrite Hplusminusone.
-    assert ((ptx ^+ v)%f = (ptx ^+ v')%f) as ->.
-    solve_finz.
-    iFrame.
-    iNext.
-    iIntros "(HPC' & Hinstr9 & R1 & mmemr & R2 & HACC & HRX')".
-    iApply parwp_finish.
-    iApply "HΨ".
-    iFrame.
-    simpl.
-    iSplitR "HPC'".
-    2 : {
-      simpl.
-      assert (forall (f : Word) (n : Z), (n > 0)%Z ->  (((f ^+ n) ^+ 1))%f = (f ^+ (n+1)%Z)%f ) as Hplus.
-      solve_finz.
-      iSplit; last done.
-      repeat (rewrite (Hplus progaddr); [|lia]).
-      iFrame.
-    }
-    iAssert (∃ r : handle, R0 @@ V1 ->r r)%I with "[R0]" as "R0'".
-    {
-      by iExists W1.     
-    }
-    iFrame "R0'".
-    iAssert (∃ r : handle, R1 @@ V1 ->r r)%I with "[R1]" as "R1'".
-    {
-      by iExists (ptx ^+ v')%f.     
-    }
-    iFrame "R1'".
-    iAssert (∃ r : handle, R2 @@ V1 ->r r)%I with "[R2]" as "R2'".
-    {
-      by iExists m.     
-    }
-    iFrame "R2'".
-    assert (exists x1 x2 x3 x4 x5 x6, des = [x1; x2; x3; x4; x5; x6]) as (x1 & x2 & x3 & x4 & x5 & x6 & ->).
-    {
-      do 6 (destruct(list_exist_cons _ des Hdesl) as [? [xs [-> Hdesl']]]; clear Hdesl; rename Hdesl' into Hdesl; rename xs into des).
-      apply nil_length_inv in Hdesl as ->.
-      eauto 7.
-    }
-    simpl.
-    rewrite -Hveq.
-    rewrite PeanoNat.Nat.add_sub.
-    assert ((ptx ^+ v')%f = (ptx ^+ v)%f) as ->.
-    solve_finz.
-    rewrite Hprxeq.
-    assert ((prx ^+ v')%f = (prx ^+ v)%f) as ->.
-    solve_finz.
-    assert (forall (f : Word) (n : Z), (n > 0)%Z ->  (((f ^+ n) ^+ 1))%f = (f ^+ (n+1)%Z)%f ) as Hplus.
-    solve_finz.
-    assert (∀ (n : nat) (m : Z) (L : (m >= 0)%Z), (n%nat + m)%Z = (n + Z.to_nat m)%nat) as Hplus'.
-    lia.
-    assert (∀ (n : nat) (m : Z) (L : (n >= m)%Z) (L' : (m >= 0)%Z), (n%nat - m)%Z = (n - Z.to_nat m)%nat) as Hplus''.
-    lia.
-    assert (v = 5) as ->.
-    admit.
-    rewrite /unknown_mem_region /mem_region.
-    simpl.
-    inversion Meq as [Heq].
-    rewrite -Heq.
-    repeat (rewrite -assoc).
-    repeat (iDestruct "memr" as "(? & memr)").
-    repeat (iDestruct "rmemr" as "(? & rmemr)").
-    repeat (iDestruct "PreTX" as "(? & PreTX)").
-    repeat (iDestruct "PostTX" as "(? & PostTX)").
-    iFrame.
-    repeat (rewrite Hplus; last lia).
-    repeat (rewrite Hplus'; last lia).
-    simpl.
-    iFrame.
-    rewrite Hplus''; [|lia|lia].    
-  Admitted.
-   *)
-
-  Fixpoint incrN (p : handle) (n : nat) : handle :=
-    match n with
-    | 0 => p
-    | S n => ((incrN p n) ^+ I1)%f
-    end.
-  
-  Fixpoint decrN (p : handle) (n : nat) : handle :=
-    match n with
-    | 0 => p
-    | S n => ((decrN p n) ^- I1)%f
-    end.
-
-  Program Definition W3 : Word := (finz.FinZ 3 _ _).
-  Program Definition I3 : Imm := (I W3 _).
-  
-  Program Definition W4 : Word := (finz.FinZ 4 _ _).
-  Program Definition I4 : Imm := (I W4 _).
-  
-  Program Definition W5 : Word := (finz.FinZ 5 _ _).
-  Program Definition I5 : Imm := (I W5 _).
   
   Lemma page_spec0 (p : PID) : ((of_pid p) <= word_size - 1000)%Z.
   Proof.
@@ -1553,87 +1332,6 @@ Qed.
     lia.
     apply Z.mul_le_mono_nonneg_r; lia.
   Qed.
-
-  (* program of VM1
-    l is the length of the message
-   ibase is the base address of the loop body
-   iprx and iptx are the PIDs of RX and TX pages of VM1
-   ipage is the PID of the page to lend *)
-  (* TODO: VM1 knows l via msg_wait/poll *)
-  Definition code1 (l : Imm) (ibase : Imm) (iprx iptx : Imm) (ipage: Imm) : list Word :=
-    encode_instructions
-    [
-    Nop;    
-    (* loop init *)
-    Mov R5 (inl l);
-    Mov R6 (inl I0);
-    Mov R7 (inl ibase);
-
-    (* copy word from rx + l to tx + l *)
-    Mov R0 (inl I1);
-    Mov R1 (inl iprx);
-    Add R1 R5;
-    Sub R1 R0;
-    Ldr R2 R1;
-    Mov R1 (inl iptx);
-    Add R1 R5;
-    Sub R1 R0;
-    Str R2 R1;
-
-    (* loop end *)
-    Mov R8 (inl I1);
-    Sub R5 R8;
-    Cmp R6 (inr R5);
-    Bne R7;
-
-    Mov R0 (inl l);
-    Mov R1 (inl iprx);
-    Mov R2 (inl I1);
-    Add R1 R0;
-    Add R1 R2;
-    Ldr R3 R1;
-    Mov R1 (inl iptx);
-    Add R1 R0;
-    Str R3 R1;
-    
-    Mov R0 (inl (encode_hvc_func Poll));
-    Hvc;
-    (* tx -> descriptor *)
-    (* h -> transaction entry *)
-    (* h -> not taken *)
-    Mov R0 (inl (encode_hvc_func Retrieve));
-    Mov R1 (inl l);
-    Mov R2 (inl I1);
-    Add R1 R2;
-    Hvc;
-    (* tx -> descriptor *)
-    (* h -> transaction entry *)
-    (* h -> taken *)
-    (* store a new value *)
-    Mov R1 (inl ipage);
-    Mov R0 (inl I1);
-    Str R0 R1;
-    (* tx -> descriptor *)
-    (* h -> transaction entry *)
-    (* h -> taken *)
-    (* p -> 1 *)
-    (* prepare a new retrieve descriptor [h, 0] *)
-    (* copy h from rx + 1 to tx + 0 *)
-    Mov R1 (inl iprx);
-    Mov R0 (inl I2);
-    Add R1 R0;
-    Ldr R0 R1;
-    Mov R1 (inl iptx);
-    Str R0 R1;
-    (* relinquish *)
-    Mov R0 (inl (encode_hvc_func Relinquish));
-    Hvc;
-    Mov R0 (inl (encode_hvc_func Poll));
-    Hvc;
-    (* yield *)
-    Mov R0 (inl yield_I);
-    Hvc
-    ].
     
   Lemma machine1_proof {sacc sown sexcl progaddr h}
              (ppage pprog ptx prx : PID)
@@ -3334,12 +3032,14 @@ Qed.
           rename Rel2 into Rel').
   Qed.  
 
-  Lemma lending_proof {sown0 qo0 sacc0 sexcl0 sh qo1 sacc1 sown1 sexcl1}
+    Lemma lending_proof {sown0 qo0 sacc0 sexcl0 sh qo1 sacc1 sown1 sexcl1}
              (ppage pprog0 pprog1 ptx0 ptx1 prx0 prx1: PID)
              (* ppage is the page to lend *)
              (ippage iptx1 iprx1 ibase : Imm)
              (* ibase is the base addr of the loop body *)
              (Hppageeq : of_pid ppage = ippage)
+             (Hptxeq : of_imm iptx1 = ptx1)
+             (Hprxeq : of_imm iprx1 = prx1)
              (* (Hibaseeq : of_imm ibase = (pprog1 ^+ 3)%f) *)
              (Hnotrx0: ppage ≠ prx0)
              (Hnotrx1: ppage ≠ prx1)
@@ -3405,24 +3105,24 @@ Qed.
     ∗ (∃ r, R8 @@ V1 ->r r)
     ∗ O@V1:={qo1}[sown1]
     ∗ E@V1:={1}[sexcl1]
-    ∗ program (code1 I3 ibase iprx iptx ippage) pprog1
+    ∗ program (code1 I3 ibase iprx1 iptx1 ippage) pprog1
     (*invariants and ghost variables *)
     ∗ token γ_switched
     ⊢ WP ExecI @ V0
       {{ (λ m, ⌜m = HaltI⌝ ∗
-          PC @@ V0 ->r (pprog ^+ (length (code0 ippage ilen)))%f
+          PC @@ V0 ->r (pprog0 ^+ (length (code0 ippage ilen)))%f
           ∗ hp{ 1 }[ sh ]
-          ∗ O@V0 :={qo}[sown0]
+          ∗ O@V0 :={qo0}[sown0]
           ∗ A@V0 :={1}[sacc0]
           ∗ E@V0 :={1}[sexcl0]
-          ∗ TX@V0 := ptx
+          ∗ TX@V0 := ptx0
           ∗ RX@V0:=prx0
           ∗ RX@V1:=prx1
-          ∗ (∃ des, mem_region des ptx)
+          ∗ (∃ des, mem_region des ptx0)
           ∗ R2 @@ V0 ->r ilen
           ∗ (∃ r3, R3 @@ V0 ->r r3)
           ∗ token γ_closed
-          ∗ program (code0 ippage ilen) pprog)
+          ∗ program (code0 ippage ilen) pprog0)
       }}∗ 
       WP ExecI @ V1
       {{ λ m, ⌜m = ExecI⌝ ∗ False%I }}.
