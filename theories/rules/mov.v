@@ -48,21 +48,6 @@ Proof.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "[%P PAuth] %HstepP".
-    (* iDestruct "PAuth" as (γvmn1 γ1) "(HvmnP & HγP & #HP)". *)
-    (* auth_update_alloc: ∀ (A : ucmra) (a a' b' : A), (a, ε) ~l~> (a', b') → ● a ~~> ● a' ⋅ ◯ b' *)
-    rewrite /saved_prop_own /saved_anything_own.
-    (*
-    iAssert (own γvmn1 (◯ Excl' γ1))%I with "[HγP]" as "HγP'".
-    {
-      iDestruct (own_update γ1 (● Excl' γ1) (◯ Excl' γ1) with "[HγP]") as "Htemp".
-      {
-        admit.
-      }
-      (* eapply auth_update_alloc. *)
-      admit.
-      admit.
-    }
-     *)
     eapply (step_ExecI_normal i _ a w1) in HstepP;eauto.
     remember (exec _ σ1) as c2 eqn:Heqc2.
     rewrite /exec (mov_word_ExecI σ1 ra _ HneqPC HneqNZ) /update_incr_PC /update_reg  in Heqc2.
@@ -81,16 +66,6 @@ Proof.
       iSplitL "PAuth".
       by iExists P.
       iSplitL "".
-      (* λ (M : machine) (σ1 σ2 : machine.state M) (id : vmid),
-         base.negb (scheduled σ1 id) && scheduled σ2 id  
-         : ∀ M : machine, machine.state M → machine.state M → vmid → bool 
-       *)
-      (* 
-         just_scheduled_vms = 
-         λ (M : machine) (n : nat) (σ1 σ2 : machine.state M),
-         filter (λ id : vmid, just_scheduled σ1 σ2 id = true) (seq 0 n)
-         : ∀ M : machine, nat → machine.state M → machine.state M → list vmid
-       *)
       rewrite /just_scheduled_vms /just_scheduled.
       assert (filter
                 (λ id : vmid,

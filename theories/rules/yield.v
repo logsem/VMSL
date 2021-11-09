@@ -8,29 +8,34 @@ Section yield.
 
 Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
-  
-Lemma yield {E z i w1 w2 a_ b_ q s} ai :
+
+Lemma yield {E z i w1 w2 a_ b_ q s R U} ai :
+  let T := (▷ (PC @@ i ->r ai)
+              ∗ ▷ (ai ->a w1)
+              ∗ ▷ (A@i :={q}[s])
+              ∗ ▷ (R0 @@ i ->r w2)
+              ∗ ▷ (R0 @@ z ->r a_)
+              ∗ ▷ (R1 @@ z ->r b_))%I
+  in
+  let T' := ((PC @@ i ->r (ai ^+ 1)%f)
+               ∗ (ai ->a w1)
+               ∗ (A@i :={q}[s])
+               ∗ (R0 @@ i ->r w2)
+               ∗ (R0 @@ z ->r (encode_hvc_func Yield))
+               ∗ (R1 @@ z ->r (encode_vmid i)))%I
+  in
   decode_instruction w1 = Some Hvc ->
   to_pid_aligned ai ∈ s ->
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  {SS{{ ▷ (PC @@ i ->r ai)
-          ∗ ▷ (ai ->a w1)
-          ∗ ▷ (A@i :={q}[s])
-          ∗ ▷ (R0 @@ i ->r w2)
-          ∗ ▷ (R0 @@ z ->r a_)
-          ∗ ▷ (R1 @@ z ->r b_)
-          ∗ ▷ (VMProp_holds z)}}}
+  {SS{{ T ∗ ▷ (VMProp 0 U (1/2)%Qp)
+          ∗ ▷ (T' -∗ (R ∗ ▷ U)) }}}
     ExecI @ i;E
-    {{{ RET (true, ExecI); PC @@ i ->r (ai ^+ 1)%f
-                     ∗ ai ->a w1
-                     ∗ A@i :={q}[s]
-                     ∗ R0 @@ i ->r w2
-                     ∗ R0 @@ z ->r (encode_hvc_func Yield)
-                     ∗ R1 @@ z ->r (encode_vmid i) }}}.
+    {{{ RET (true, ExecI); R }}}.
 Proof.
-  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2' & HProp) Hϕ".
+  simpl.
+  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') [HProp Himpl]] Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -93,11 +98,11 @@ Proof.
         apply lookup_insert_None; split; eauto; intros P; by inversion P.
         apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto.
-        iDestruct "Hr12pc" as "(? & ? & ? & _)".
+        iDestruct "Hr12pc" as "(Hr0' & Hr1' & Hpc' & _)".
         rewrite /get_current_vm /update_current_vmid /update_incr_PC.
         simpl.
         rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
-        -- iModIntro.
+        -- iModIntro.           
            iFrame.
            iSplitL "PAuth".
            iExists P.
@@ -136,9 +141,14 @@ Proof.
                      (seq 0 vm_count) = [fin_to_nat z]) as ->.
              admit.
              iSimpl.
-             iFrame "HProp".
-             iApply "Hϕ".
+             iDestruct ("Himpl" with "[Hpc' Hr0 Hapc Hacc Hr0' Hr1']") as "[R U]".
              iFrame.
+             iSplitL "HProp U".
+             iSplit; last done.
+             iExists U.
+             rewrite Hz.
+             iFrame.             
+             iApply ("Hϕ" with "R").
            }
            iSplit; first done.
            rewrite 2!update_reg_global_update_reg.

@@ -58,7 +58,7 @@ Proof.
     iModIntro.
     iFrame "Hreg".
     iSplitL "PAuth".
-    iExists P.
+    by iExists P.
     iFrame.
     iSplit; first done.
     rewrite /just_scheduled_vms.
@@ -79,8 +79,8 @@ Proof.
     rewrite bool_decide_eq_true.
     reflexivity.
     simpl.
-    iApply "Hϕ".
-    by iFrame "Hpc Hapc Hacc".
+    iApply ("Hϕ" with "[Hpc Hapc Hacc]").
+    iFrame.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Admitted.
 End halt.

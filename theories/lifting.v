@@ -24,7 +24,7 @@ Lemma sswp_lift_step_fupd {i E Φ} m1 :
     ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗
     ⌜step m1 σ1 m2 σ2⌝ ={∅}=∗ ▷ |={∅,E}=>
     (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
-    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid) ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
     Φ (negb (scheduled σ2 i) && negb (terminated m2), m2))
   ⊢ SSWP m1 @ i; E {{ Φ }}.
 Proof.
@@ -37,7 +37,7 @@ Lemma sswp_lift_step {i E Φ} m1 :
     ⌜reducible m1 σ1⌝ ∗
     ▷ ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗ ⌜step m1 σ1 m2 σ2 ⌝ ={∅,E}=∗
       (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
-    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid) ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
     Φ (negb (scheduled σ2 i) && negb (terminated m2), m2)) 
   ⊢ SSWP m1 @ i; E {{ Φ }}.
 Proof.
@@ -55,7 +55,7 @@ Lemma sswp_lift_atomic_step_fupd {i E1 E2 Φ} m1 :
     ⌜reducible m1 σ1⌝ ∗
     ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗ ⌜step m1 σ1 m2 σ2 ⌝ ={E1} [E2]▷=∗
       (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
-    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid) ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
     Φ (negb (scheduled σ2 i) && negb (terminated m2), m2)) 
   ⊢ SSWP m1 @ i; E1 {{ Φ }}.
 Proof.
@@ -81,7 +81,7 @@ Lemma sswp_lift_atomic_step {i E Φ} m1 :
     ⌜reducible m1 σ1⌝ ∗
     ▷ ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗ ⌜step m1 σ1 m2 σ2 ⌝ ={E}=∗
       (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
-    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid) ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
     Φ (negb (scheduled σ2 i) && negb (terminated m2), m2))
   ⊢ SSWP m1 @ i; E {{ Φ }}.
 Proof.

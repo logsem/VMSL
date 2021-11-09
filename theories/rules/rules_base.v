@@ -4,7 +4,7 @@ From HypVeri Require Import lifting.
 From HypVeri.lang Require Import lang_extra.
 Require Import stdpp.fin.
 
-
+Locate gen_prop_nameG.
 Global Instance hyp_irisG `{HypervisorParameters} `{!gen_VMG Σ} :
   irisG hyp_machine Σ:=
   {

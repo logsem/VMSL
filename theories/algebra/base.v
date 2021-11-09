@@ -29,7 +29,7 @@ Class gen_VMG Σ := GenVMG{
                        gen_na_invG :> na_invG Σ;
                        gen_nainv_name : na_inv_pool_name;
                        gen_saved_propG :> savedPropG Σ;
-                       gen_prop_nameG :> inG Σ (authUR (optionUR (exclR gnameO)));
+                       gen_prop_nameG :> inG Σ (authUR (optionUR (frac_agreeR gnameO)));
                        gen_name_mapG :> inG Σ (authUR (gmapUR nat (agreeR gnameO)));                       
                        gen_name_map_name: gname;
                        (* gen_token_name : gname; *)

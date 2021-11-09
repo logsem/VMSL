@@ -3,15 +3,24 @@ From HypVeri.algebra Require Import base.
 From HypVeri.rules Require Import rules_base mov halt run yield.
 From HypVeri.examples Require Import instr.
 From HypVeri Require Import proofmode.
+Require Import Setoid.
 
 Section RunYield1.
 
-  Context `{hypparams:HypervisorParameters}.
+  Local Program Instance vmconfig : HypervisorConstants :=
+    {vm_count := 2;
+     vm_count_pos:= _}.
 
-  Definition program1 (i : VMID) : list Word :=
+  Program Definition V0 : VMID := (@nat_to_fin 0 _ _).
+
+  Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
+
+  Context `{hypparams: !HypervisorParameters}.
+
+  Definition program1 : list Word :=
     [
     mov_word_I R0 run_I;
-    mov_word_I R1 (encode_vmid i);
+    mov_word_I R1 (encode_vmid V1);
     hvc_I;
     halt_I
     ].
@@ -22,135 +31,85 @@ Section RunYield1.
     hvc_I
     ].
 
-  Class tokG Σ := tok_G :> inG Σ (exclR unitO).
+  Context `{!gen_VMG Σ}.
 
-  Context `{!gen_VMG Σ, tokG Σ} (N : namespace).
-
-  Definition tokI γ := own γ (Excl ()).
-
-  Lemma tokI_excl γ : tokI γ -∗ tokI γ -∗ False.
-  Proof.
-    iIntros "H1 H2".
-    unfold tokI.
-    iDestruct (own_valid_2 with "H1 H2") as "%HF".
-    iPureIntro.
-    inversion HF.
-    Qed.
-
-  (* TODO *)
-  
-  Definition na_inv  (z i:VMID) :=
-    (∃ w0 w1,  R0 @@ z ->r w0 ∗ R1 @@ z ->r w1)%I.
-
-  Definition inv' γ1 γ2 ι1 :=
-    ( ( nainv_closed (⊤ ∖ ↑ι1) ∗ tokI γ1)
-      ∨ nainv_closed ⊤ ∗ tokI γ2)%I.
-  
-  Lemma machine_z_spec {ι ι1 γ1 γ2 z i q1 sacc prog1page} :
-    fin_to_nat z = 0 ->
-    ι ## ι1 ->
-      z ≠ i ->
-      seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
+  Lemma machine_z_spec {q1 sacc prog1page} :
+      seq_in_page (of_pid prog1page) (length program1) prog1page ->
       prog1page ∈ sacc ->
-      program (program1 i) (of_pid prog1page) ∗
-      inv ι (inv' γ1 γ2 ι1) ∗
-      nainv ι1 (na_inv z i) ∗
-      tokI γ1 ∗
-      A@z :={q1}[sacc]
-      ∗ PC @@ z ->r (of_pid prog1page)
-      ⊢ (WP ExecI @ z
+      (program (program1) (of_pid prog1page)) ∗
+      (VMProp V0 True%I 1) ∗
+      (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 (R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) (1/2)%Qp)%I (1/2)%Qp) ∗                                        
+      (A@V0 :={q1}[sacc]) ∗
+      (PC @@ V0 ->r (of_pid prog1page)) ∗
+      (∃ r0, R0 @@ V0 ->r r0) ∗
+      (∃ r1, R1 @@ V0 ->r r1)
+      ⊢ (WP ExecI @ V0
             {{ (λ m, ⌜m = HaltI⌝
-            ∗ program (program1 i) (of_pid prog1page)
-            ∗ A@z :={q1}[sacc]
-            ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f)}}%I).
+            ∗ program program1 (of_pid prog1page)
+            ∗ A@V0 :={q1}[sacc]
+            ∗ PC @@ V0 ->r ((of_pid prog1page) ^+ (length program1))%f)}}%I).
   Proof.
-    iIntros (zP Hdisj neH HIn HaccIn) "((p_1 & p_2 & p_3 & p_4 & _) & #Hinv & #Hnainv & Htok & Hacc & PCz )".
+    iIntros (HIn HaccIn) "((p_1 & p_2 & p_3 & p_4 & _) & Hprop0 & Hprop1 & Hacc & PCz & R0z & R1z)".
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
+    assert (0 = V0) as HV0.
+    by simpl.
     clear HIn; rename Hforall into HIn.
-    rewrite wp_sswp.
-    iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑ι) ⊤).
-    iInv ι as ">Inv" "HIClose".
-    iDestruct "Inv" as "[Inv | Inv]".
-    1: {
-      iExFalso.
-      iDestruct "Inv" as "(_ & Hδ)".
-      iDestruct (tokI_excl with "Hδ Htok") as %[].
-    }
-    iDestruct "Inv" as "(Hown & Hδ)".
-    iMod (na_inv_acc with "Hnainv Hown") as "(>Htemp & Hown & HClose)"; auto.
-    set_solver.
-    iDestruct "Htemp" as (w0 w1) "(R0z & R1z)".
+    iDestruct "R0z" as "(%r0 & R0z)".
+    iDestruct "R1z" as "(%r1 & R1z)".
     (* mov_word_I R0 run_I *)
-    iApply ((mov_word (of_pid prog1page) run_I R0) with "[p_1 PCz Hacc R0z]");iFrameAutoSolve.
+    rewrite wp_sswp.
+    iApply ((mov_word (of_pid prog1page) run_I R0) with "[p_1 PCz Hacc R0z]"); iFrameAutoSolve.
     { rewrite HIn. set_solver + HaccIn. set_solver +. }
     iModIntro.
-    iNext.
-    iIntros "( PCz & p_1 & Hacc & R0z)".
-    iDestruct ("HIClose" with "[Htok Hown]") as "HIClose".
-    iNext; iLeft; iFrame.
-    iMod "HIClose" as %_.
-    iModIntro.
+    iIntros "(PCz & p_1 & Hacc & R0z)".
     iSimpl.
     iIntros "_".
     (* mov_word_I R1 (encode_vmid i) *)
     rewrite wp_sswp.
-    iApply ((mov_word ((of_pid prog1page) ^+ 1)%f  (encode_vmid i) R1)
-         with "[p_2 PCz Hacc R1z]");iFrameAutoSolve.
+    rewrite HV0.
+    iApply ((mov_word ((of_pid prog1page) ^+ 1)%f (encode_vmid V1) R1) with "[p_2 PCz Hacc R1z]"); iFrameAutoSolve.
     { rewrite HIn. set_solver + HaccIn. set_solver +. }
-    iNext.
+    iModIntro.
     iIntros "(PCz & p_2 & Hacc & R1z)".
-    (* hvc_I *)
-    rewrite wp_sswp.
     iSimpl.
     iIntros "_".
-    iApply (sswp_fupd_around z ⊤ (⊤ ∖ ↑ι) _).
-    iInv ι as ">Inv" "HIClose".
-    iDestruct "Inv" as "[Inv | Inv]".
-    2: { iExFalso.
-         iDestruct "Inv" as "(_ & Hβ)".
-         iApply (tokI_excl with "Hδ Hβ").
-    }
-    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f i) with "[PCz p_3 Hacc R0z R1z]"); iFrameAutoSolve.
+    (* hvc_I *)
+    rewrite wp_sswp.
+    rewrite HV0.
+    set (T := (PC @@ V0 ->r (((prog1page ^+ 1) ^+ 1) ^+ 1)%f ∗ ((prog1page ^+ 1) ^+ 1)%f ->a hvc_I ∗ A@V0:={q1}[sacc])%I).
+    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True%I) (R' := T)) with "[PCz p_3 Hacc R0z R1z Hprop0 Hprop1]"); iFrameAutoSolve.
     { rewrite HIn. set_solver + HaccIn. set_solver +. }
     { apply decode_encode_hvc_func. }
     { apply decode_encode_vmid. }
-    { iNext.
-      rewrite /VMProp_holds.
-      iExists True%I.
-      iSplit.
-      done.
-      rewrite /VMProp.
-      admit.
+    {
+      iSplitR "Hprop0".
+      - iModIntro.
+        iFrame "Hprop1".
+      - iSplitL "Hprop0".
+        iFrame "Hprop0".
+        iSplitR "".
+        + iNext.
+          iIntros "[(PCz & p_4 & Hacc & R0z & R1z) R]".
+          iFrame.
+        + by iNext. 
     }
     iModIntro.
-    iNext.
-    iIntros "(PCz & p_3 & Hacc & R0z & R1z)".
-    iDestruct "Inv" as "(Hown & Htok)".
-    iDestruct ("HClose" with "[R0z R1z Hown]") as "Hown'".
-    iFrame.
-    iNext.
-    rewrite /na_inv.
-    iExists run_I, (encode_vmid i).
-    iFrame.
-    iMod "Hown'".
-    iDestruct ("HIClose" with "[Hδ Hown']") as "HIClose".
-    iNext; iRight; iFrame.
-    iMod "HIClose" as %_.
-    iModIntro.
     iSimpl.
-    iIntros "HProp".
+    subst T.
+    iIntros "[(HPC & p_3 & HAcc) Hprop0] [%P' [P' HProp']]".
     (* halt_I *)
     rewrite wp_sswp.
-    iApply ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f) with "[PCz p_4 Hacc]");iFrameAutoSolve.
+    rewrite HV0.
+    iApply ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f) with "[HPC p_4 HAcc P' HProp' Hprop0]");iFrameAutoSolve.
     { rewrite HIn. set_solver + HaccIn. set_solver +. }
     iNext.
     iIntros "( PCz & p_4 & Hacc )".
     iSimpl.
     iIntros "_".
     iApply wp_terminated'; eauto.
-    assert (Hlen: (((((of_pid prog1page) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = ((of_pid prog1page) ^+ length (program1 i))%f).
+    assert (Hlen: (((((of_pid prog1page) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = ((of_pid prog1page) ^+ length program1)%f).
     {
-    assert (Hlen4 : (Z.of_nat (length (program1 i))) = 4%Z). by compute.
+    assert (Hlen4 : (Z.of_nat (length program1)) = 4%Z). by compute.
     rewrite Hlen4;clear Hlen4.
     solve_finz.
     }
@@ -159,7 +118,7 @@ Section RunYield1.
     iSplitL; first done.
     iSimpl.
     done.
-  Admitted.
+  Qed.
 
   Lemma machine_i_spec {γ1 γ2 z i q1 prog2page sacc r0_ ι ι1} :
       ι ## ι1 ->

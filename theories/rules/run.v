@@ -7,28 +7,36 @@ Require Import stdpp.fin.
 Section run.
 
 Context `{hypparams:HypervisorParameters}.
+  
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma run {z w1 w2 w3 q s E} ai i :
+Lemma run {z w1 w2 w3 q s E R R' Q P P'} ai i :
+  let T := (▷ (PC @@ z ->r ai)
+            ∗ ▷ (ai ->a w1)
+            ∗ ▷ (A@z :={q}[s] )
+            ∗ ▷ (R0 @@ z ->r w2)
+            ∗ ▷ (R1 @@ z ->r w3))%I
+  in
+  let T' := ((PC @@ z ->r (ai ^+ 1)%f)
+               ∗ (ai ->a w1)
+               ∗ (A@z :={q}[s])
+               ∗ (R0 @@ z ->r w2)
+               ∗ (R1 @@ z ->r w3))%I
+  in
   decode_instruction w1 = Some Hvc ->
   to_pid_aligned ai ∈ s ->
   fin_to_nat z = 0 -> 
   decode_hvc_func w2 = Some Run ->
   decode_vmid w3 = Some i ->
-  {SS{{ ▷ (PC @@ z ->r ai)
-          ∗ ▷ (ai ->a w1)
-          ∗ ▷ (A@z :={q}[s] )
-          ∗ ▷ (R0 @@ z ->r w2)
-          ∗ ▷ (R1 @@ z ->r w3)
-          ∗ ▷ (VMProp_holds i)}}}
+  {SS{{ T ∗ ▷ (VMProp i (Q ∗ VMProp z P' (1/2)%Qp) (1/2)%Qp)
+          ∗ ▷ (VMProp z P 1%Qp)
+          ∗ ▷ (T' ∗ R -∗ (Q ∗ R')) 
+          ∗ ▷ R }}}
     ExecI @ z ;E
-    {{{ RET (true, ExecI); PC @@ z ->r (ai ^+ 1)%f
-                     ∗ ai ->a w1
-                     ∗ A@z :={q}[s]
-                     ∗ R0 @@ z ->r w2
-                     ∗ R1 @@ z ->r w3 }}}.
+    {{{ RET (true, ExecI); R' ∗ VMProp z P' (1/2)%Qp}}}.
 Proof.
-  iIntros (Hdecode Hin Hz Hhvc Hvmid ϕ) "(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr1 & HProp) Hϕ".
+  simpl.
+  iIntros (Hdecode Hin Hz Hhvc Hvmid ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr1) (HPropi & HPropz & Himpl & HR)] Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -52,7 +60,7 @@ Proof.
     iPureIntro.
     apply (reducible_normal z Hvc ai w1);eauto.
   - iModIntro.
-    iIntros (m2 σ2) "[%P PAuth] %HstepP".
+    iIntros (m2 σ2) "[%U PAuth] %HstepP".
     apply (step_ExecI_normal z Hvc ai w1) in HstepP; eauto.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc in Heqc2; eauto.
@@ -71,15 +79,17 @@ Proof.
     iFrame "Hrest Htx Hrx1 Hrx2 Hmemown Haccessown Hown".
     iDestruct ((gen_reg_update1_global PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
     rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
-    + iMod "HpcUpd".
+    + rewrite Hz.
+      iDestruct (VMProp_update 0 U P P' with "PAuth HPropz") as "HTemp".
+      iMod "HpcUpd".
+      iMod "HTemp".
+      iDestruct "HTemp" as "[PAuth HPropz]".
       iModIntro.
-      iDestruct "HpcUpd" as "[? ?]".
-      iFrame.
+      iDestruct "HpcUpd" as "[? Hpc]".
+      iFrame.      
       iSplitL "PAuth".
-      iExists P.
-      iFrame.
+      by iExists P'.
       iSplit; first done.
-      iSplitL "HProp".
       rewrite /just_scheduled_vms /just_scheduled.
       assert (filter
                 (λ id : vmid,
@@ -88,12 +98,19 @@ Proof.
                 (seq 0 vm_count) = [fin_to_nat i]) as ->.
       admit.
       iSimpl.
-      iSplit; last done.
-      iFrame.
-      assert ((negb (scheduled (update_current_vmid (update_offset_PC σ1 1) i) (get_current_vm σ1)) && true = true)) as ->.
+      assert ((negb (scheduled (update_current_vmid (update_offset_PC σ1 1) i) 0) && true = true)) as ->.
       admit.
-      iApply "Hϕ".
-      by iFrame.
+      iDestruct (VMProp_split with "HPropz") as "[HPropz1 HPropz2]".
+      iDestruct ("Himpl" with "[Hpc Hapc Hacc Hr0 Hr1 HR]") as "[Q R']".
+      iFrame.
+      iSplitR "Hϕ R' HPropz1".
+      iSplit; last done.
+      iExists (Q ∗ VMProp 0 P' (1 / 2))%I.      
+      iFrame "HPropi".
+      iNext.
+      iFrame "HPropz2 Q".
+      iApply ("Hϕ" with "[R' HPropz1]").
+      iFrame.
     + apply get_reg_gmap_get_reg_Some; auto.
 Admitted.
 End run.
