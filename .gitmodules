@@ -1,7 +1,7 @@
 [submodule "vendor/machine_program_logic"]
 	path = vendor/machine_program_logic
 	url = git@github.com:logsem/machine_program_logic.git
-	branch = schedule_cond
+	branch = schedule_cond_frac_agree
 [submodule "vendor/machine_utils"]
 	path = vendor/machine_utils
 	url = git@github.com:logsem/machine_utils.git
