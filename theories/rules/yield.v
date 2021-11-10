@@ -9,7 +9,7 @@ Section yield.
 Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma yield {E z i w1 w2 a_ b_ q s R U} ai :
+Lemma yield {E z i w1 w2 a_ b_ q s R R' Q P P'} ai :
   let T := (▷ (PC @@ i ->r ai)
               ∗ ▷ (ai ->a w1)
               ∗ ▷ (A@i :={q}[s])
@@ -29,13 +29,15 @@ Lemma yield {E z i w1 w2 a_ b_ q s R U} ai :
   fin_to_nat z = 0 -> 
   z ≠ i ->
   decode_hvc_func w2 = Some Yield ->
-  {SS{{ T ∗ ▷ (VMProp 0 U (1/2)%Qp)
-          ∗ ▷ (T' -∗ (R ∗ ▷ U)) }}}
+  {SS{{ T ∗ ▷ (VMProp z (Q ∗ VMProp i P' (1/2)%Qp) (1/2)%Qp)
+          ∗ ▷ (VMProp i P 1%Qp)
+          ∗ ▷ (T' ∗ R -∗ (Q ∗ R'))
+          ∗ ▷ R }}}
     ExecI @ i;E
-    {{{ RET (true, ExecI); R }}}.
+    {{{ RET (true, ExecI); R' ∗ VMProp i P' (1/2)%Qp }}}.
 Proof.
   simpl.
-  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr1' & >Hr2') [HProp Himpl]] Hϕ".
+  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr0' & >Hr1) (HPropz & HPropi & Himpl & HR)] Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -49,8 +51,8 @@ Proof.
   (* valid regs *)
   iDestruct (gen_reg_valid1 PC i ai Hcur with "Hregown Hpc") as "%Hpc".
   iDestruct (gen_reg_valid1 R0 i w2 Hcur with "Hregown Hr0") as "%Hr0".
-  iDestruct (gen_reg_valid_global1 R0 z a_ with "Hregown Hr1'") as "%Hr1'".
-  iDestruct (gen_reg_valid_global1 R1 z b_ with "Hregown Hr2'") as "%Hr2'".
+  iDestruct (gen_reg_valid_global1 R0 z a_ with "Hregown Hr0'") as "%Hr0'".
+  iDestruct (gen_reg_valid_global1 R1 z b_ with "Hregown Hr1") as "%Hr1".
   (* valid pt *)
   iDestruct (gen_access_valid_addr_Set ai s with "Haccessown Hacc") as %Hacc;eauto.
   (* valid mem *)
@@ -60,7 +62,7 @@ Proof.
     iPureIntro.
     apply (reducible_normal i Hvc ai w1);eauto.
   - iModIntro.
-    iIntros (m2 σ2) "[%P PAuth] %HstepP".
+    iIntros (m2 σ2) "[%U PAuth] %HstepP".
     apply (step_ExecI_normal i Hvc ai w1) in HstepP; eauto.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc in Heqc2; eauto.
@@ -93,20 +95,22 @@ Proof.
                     (PC, get_current_vm σ1) := ai]}
                   {[(R0, z):= of_imm (encode_hvc_func Yield);
                     (R1, z):= of_imm (encode_vmid (get_current_vm σ1));
-                    (PC, get_current_vm σ1) := (ai ^+ 1)%f]} with "Hregown [Hr1' Hr2' Hpc]") as ">[Hreg Hr12pc]"; [set_solver | |].
+                    (PC, get_current_vm σ1) := (ai ^+ 1)%f]} with "Hregown [Hr0' Hr1 Hpc]") as ">[Hreg Hr01pc]"; [set_solver | |].
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto; [iFrame | |].
         apply lookup_insert_None; split; eauto; intros P; by inversion P.
         apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto.
-        iDestruct "Hr12pc" as "(Hr0' & Hr1' & Hpc' & _)".
+        iDestruct "Hr01pc" as "(Hr0' & Hr1' & Hpc' & _)".
         rewrite /get_current_vm /update_current_vmid /update_incr_PC.
         simpl.
         rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
-        -- iModIntro.           
+        -- iDestruct (VMProp_update σ1.1.1.2 U P P' with "PAuth HPropi") as "HTemp".
+           iMod "HTemp".
+           iDestruct "HTemp" as "[PAuth HPropi]".
+           iModIntro.           
            iFrame.
            iSplitL "PAuth".
-           iExists P.
-           iFrame.
+           by iExists P'.
            iSplitL "Hreg".
            2 : {
              rewrite /scheduled.
@@ -141,14 +145,18 @@ Proof.
                      (seq 0 vm_count) = [fin_to_nat z]) as ->.
              admit.
              iSimpl.
-             iDestruct ("Himpl" with "[Hpc' Hr0 Hapc Hacc Hr0' Hr1']") as "[R U]".
+             iDestruct ("Himpl" with "[Hpc' Hr0 Hapc Hacc Hr0' Hr1' HR]") as "[Q R']".
              iFrame.
-             iSplitL "HProp U".
+             iDestruct (VMProp_split with "HPropi") as "[HPropi1 HPropi2]".
+             iSplitL "HPropz Q HPropi1".
              iSplit; last done.
-             iExists U.
-             rewrite Hz.
+             iExists (Q ∗ VMProp σ1.1.1.2 P' (1 / 2))%I.
+             iSplitR "HPropz".
+             iNext.
+             iFrame.
              iFrame.             
-             iApply ("Hϕ" with "R").
+             iApply ("Hϕ" with "[R' HPropi2]").
+             iFrame.
            }
            iSplit; first done.
            rewrite 2!update_reg_global_update_reg.
