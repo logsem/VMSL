@@ -5,15 +5,15 @@ From HypVeri.examples Require Import instr.
 From HypVeri Require Import proofmode.
 Require Import Setoid.
 
-Section RunYield1.
-
-  Local Program Instance vmconfig : HypervisorConstants :=
+Program Instance vmconfig : HypervisorConstants :=
     {vm_count := 2;
      vm_count_pos:= _}.
 
-  Program Definition V0 : VMID := (@nat_to_fin 0 _ _).
+Program Definition V0 : VMID := (@nat_to_fin 0 _ _).
 
-  Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
+Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
+
+Section RunYield1.
 
   Context `{hypparams: !HypervisorParameters}.
 
@@ -37,7 +37,7 @@ Section RunYield1.
       seq_in_page (of_pid prog1page) (length program1) prog1page ->
       prog1page ∈ sacc ->
       (program (program1) (of_pid prog1page)) ∗ (VMProp V0 True%I 1) ∗
-      (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 (R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp) ∗
+      (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp) ∗
       (A@V0 :={q1}[sacc]) ∗
       (PC @@ V0 ->r (of_pid prog1page)) ∗
       (∃ r0, R0 @@ V0 ->r r0) ∗
@@ -119,23 +119,20 @@ Section RunYield1.
     done.
   Qed.
 
-  Lemma machine_i_spec {q1 prog2page sacc r0_} :
+  Lemma machine_i_spec {q1 prog2page sacc} :
       seq_in_page (of_pid prog2page) (length program2) prog2page ->
       prog2page ∈ sacc ->
       (program program2 (of_pid prog2page))
         ∗ (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp)
         ∗ (A@V1 :={q1}[sacc])
         ∗ (PC @@ V1 ->r (of_pid prog2page))
-        ∗ (R0 @@ V1 ->r r0_)
+        ∗ (∃ r0, R0 @@ V1 ->r r0)
         ⊢ VMProp_holds V1 (1/2)%Qp -∗ (WP ExecI @ V1
-              {{ (λ m, ⌜m = ExecI⌝
-                                 ∗ (program program2 (of_pid prog2page))
-                                 ∗ (A@V1 :={q1}[sacc])
-                                 ∗ (PC @@ V1 ->r ((of_pid prog2page) ^+ (length program2))%f)
-                                 ∗ R0 @@ V1 ->r yield_I)}}%I).
+              {{ (λ m, False)}}%I).
   Proof.
     iIntros (HIn HpIn) "((p_1 & p_2 & _) & HPropi & Hacc & PCi & R0i)".
     iIntros "HPropH".
+    iDestruct "R0i" as "[%r0 R0i]".
     iDestruct (VMProp_holds_agree V1 with "[HPropH HPropi]") as "[Prop VMProp]".
     iFrame.
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
@@ -179,119 +176,38 @@ Section RunYield1.
     iMod "Prop".
     by iExFalso.
   Qed.
-  (* TODO *)
-  (*
-  Lemma run_yield_1_spec' γ1 γ2 γ3 ι ι1 z i q1 q2 prog1page prog2page sacc1 sacc2 r0_:
-      ι ## ι1 ->
-      fin_to_nat z = 0 ->
-      z ≠ i ->
+  
+  
+  Lemma run_yield_1_spec q1 q2 prog1page prog2page sacc1 sacc2 :
       prog1page ≠ prog2page ->
-      seq_in_page (of_pid prog1page) (length (program1 i)) prog1page ->
+      seq_in_page (of_pid prog1page) (length program1) prog1page ->
       prog1page ∈ sacc1 ->
       seq_in_page (of_pid prog2page) (length program2) prog2page ->
       prog2page ∈ sacc2 ->
-      program (program1 i) (of_pid prog1page) ∗
+      program (program1) (of_pid prog1page) ∗
       program (program2) (of_pid prog2page) ∗
-      inv ι (inv' z i γ1 γ2 γ3 ι1) ∗
-      nainv ι1 (na_inv  γ2 γ3 z i) ∗ tokI γ1 ∗
-      A@z :={q1}[sacc1] ∗ A@i :={q2}[sacc2] ∗
-      PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page) ∗
-      R0 @@ i ->r r0_
-        ⊢ (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝
-            ∗ program (program1 i) (of_pid prog1page)
-            ∗ A@z :={q1}[sacc1]
-            ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f )}}%I)
-       ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝
-            ∗ tokI γ1
-            ∗ program (program1 i) (of_pid prog2page)
-            ∗ A@i :={q2}[sacc2]
-            ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
-            ∗ R0 @@ i ->r yield_I) }}%I).
+      (VMProp V0 True%I 1) ∗
+      (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I 1%Qp) ∗
+      (A@V0 :={q1}[sacc1]) ∗
+      (A@V1 :={q2}[sacc2]) ∗
+      (PC @@ V0 ->r (of_pid prog1page)) ∗
+      (PC @@ V1 ->r (of_pid prog2page)) ∗
+      (∃ r0, R0 @@ V0 ->r r0) ∗
+      (∃ r1, R1 @@ V0 ->r r1) ∗
+      (∃ r0, R0 @@ V1 ->r r0)
+      ⊢ (WP ExecI @ V0 {{ (λ m, (⌜m = HaltI⌝) ∗
+                               (program (program1) (of_pid prog1page)) ∗
+                               (A@V0 :={q1}[sacc1]) ∗
+                               PC @@ V0 ->r ((of_pid prog1page) ^+ (length program1))%f )}}%I)
+      ∗ (VMProp_holds V1 (1/2)%Qp -∗ WP ExecI @ V1 {{ (λ m, False) }}%I).
   Proof.
-    iIntros (Hdisj Z Hvne Hpne HInz HpInz HIni HpIni) "(Hprogz & Hprogi & #Hinv & #Hnainv & H△ & Haccz & Hacci & PCz & PCi & R0i)".
-    iSplitL  "Hprogz H△ Haccz PCz".
-    - iApply machine_z_spec;eauto.
+    iIntros (Hpne HInz HpInz HIni HpIni) "(Hprogz & Hprogi & Hprop0 & Hprop1 & Haccz & Hacci & PCz & PCi & R0z & R1z & R0i)".
+    iDestruct (VMProp_split with "Hprop1") as "[Hprop1 Hprop1']".
+    iSplitL  "Hprogz Haccz PCz R0z R1z Hprop0 Hprop1".
+    - iApply machine_z_spec; eauto.
       iFrame.
-      iSplitL;done.
-    - iApply machine_i_spec;eauto.
+    - iApply machine_i_spec; eauto.
       iFrame.
-      iSplitL;done.
   Qed.
-
-  Lemma run_yield_1_spec z i q1 q2 prog1page prog2page sacc1 sacc2 r0_ r1_ r0_':
-      fin_to_nat z = 0 ->
-      z ≠ i ->
-      prog1page ≠ prog2page ->
-      prog1page ∈ sacc1 ->
-      prog2page ∈ sacc2 ->
-      program (program1 i) (of_pid prog1page) ∗
-      program (program2) (of_pid prog2page) ∗
-      nainv_closed ⊤ ∗
-      <<z>>{ 1%Qp} ∗ R0 @@ z ->r r0_ ∗ R1 @@ z ->r r1_ ∗
-      A@z :={q1}[sacc1] ∗ A@i :={q2}[sacc2] ∗
-      PC @@ z ->r (of_pid prog1page) ∗ PC @@ i ->r (of_pid prog2page) ∗
-      R0 @@ i ->r r0_'
-        ⊢ |={⊤}=>
-        (WP ExecI @ z {{ (λ m, ⌜m = HaltI⌝
-            ∗ program (program1 i) (of_pid prog1page)
-            ∗ A@z :={q1}[sacc1]
-            ∗ PC @@ z ->r ((of_pid prog1page) ^+ (length (program1 i)))%f )}}%I)
-       ∗ (WP ExecI @ i {{ (λ m, ⌜m = ExecI⌝
-            ∗ program (program1 i) (of_pid prog2page)
-            ∗ A@i :={q2}[sacc2]
-            ∗ PC @@ i ->r ((of_pid prog2page) ^+ (length program2))%f
-            ∗ R0 @@ i ->r yield_I) }}%I).
-  Proof.
-    iIntros ( Z Hvne Hpne HInz HIni) "(Hprogz & Hprogi & Hnatok & Hstok & R0z & R1z & Haccz & Hacci & PCz & PCi & R0i)".
-    iMod (own_alloc (Excl ())) as (γ1) "Htok1". done.
-    iMod (own_alloc (Excl ())) as (γ2) "Htok2". done.
-    iMod (own_alloc (Excl ())) as (γ3) "Htok3". done.
-    iMod ((nainv_alloc nainvN ⊤ (na_inv  γ2 γ3 z i)) with "[ R0z R1z Htok2 ]" ) as "Hnainv".
-    { iNext. iLeft. iExists r0_, r1_. iFrame. }
-    iMod (inv_alloc invN _ (inv' z i γ1 γ2 γ3 nainvN) with "[Hstok Hnatok Htok3]") as "Hinv".
-    { iNext. iRight;iLeft. iFrame. }
-    iModIntro.
-    iDestruct (run_yield_1_spec' γ1 γ2 γ3 invN nainvN z i q1 q2 prog1page prog2page sacc1 sacc2 r0_'
-                 with "[Hprogz Hprogi Haccz Hacci PCz PCi R0i Htok1 Hnainv Hinv]") as "[WP1 WP2]";eauto.
-    { apply namespace_disjoint. }
-    {
-      rewrite /seq_in_page.
-      split.
-      simpl;lia.
-      split.
-      rewrite Z.leb_refl //.
-      split.
-      cbn.
-      pose proof (last_addr_in_bound prog1page).
-      solve_finz.
-      cbn.
-      rewrite /Is_true.
-      case_match;[done|].
-      apply Z.leb_nle in Heqb.
-      solve_finz.
-    }
-    {
-      rewrite /seq_in_page.
-      split.
-      simpl;lia.
-      split.
-      rewrite Z.leb_refl //.
-      split.
-      cbn.
-      pose proof (last_addr_in_bound prog2page).
-      solve_finz.
-      cbn.
-      rewrite /Is_true.
-      case_match;[done|].
-      apply Z.leb_nle in Heqb.
-      solve_finz.
-    }
-    { iFrame. }
-    iFrame.
-    iApply (wp_mono with "WP2").
-    iIntros (?) "(? & ? & ? & ? & ? & ? )".
-    iFrame.
-  Qed.
-   *)
 
 End RunYield1.
