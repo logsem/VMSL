@@ -156,13 +156,32 @@ Section Adequacy.
       unfold get_vm_reg_file in *.
       unfold V0, V1 in *.
       simpl in *.
-      destruct P1 as [<- | [<- | ?]]; last done; simpl; destruct i1; try done; admit.
-      (*
+      destruct P1 as [<- | [<- | ?]]; last done; simpl; destruct i1; try done.
       {
         rewrite Hreg1 in P2; first (by inversion P2).
+        pose p := {[ PC := p1 ]}.
+        assert (SingletonM reg_name PID (gmap reg_name handle)).
+        unfold SingletonM.
+        intros.
+        apply of_pid in H1.
+        apply gset_to_gmap; auto.
+        apply singleton; auto.
+        apply lookup_weaken with ({[ PC := p1 ]}).
+        assert (SingletonM (reg_name * VMID) handle (gmap (reg_name * VMID) handle)).
+        unfold SingletonM.
+        intros.
+        apply to_pid_aligned in H0.
+        apply gset_to_gmap; auto.
+        apply singleton; auto.
+        
+        admit.
         admit.
       }
-       *)
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
       apply elem_of_list_In.
       apply in_flat_map.
       exists i.2.

@@ -67,7 +67,21 @@ Proof.
               (λ id : vmid,
                       base.negb (scheduled σ1 id) && scheduled (update_offset_PC σ1 1) id = true)
               (seq 0 n) = []) as ->.
-    admit.
+    {
+      rewrite /scheduled /machine.scheduler //= /scheduler Hcur.
+      rewrite update_offset_PC_preserve_current_vm.
+      rewrite Hcur.
+      induction n.
+      - simpl.
+        rewrite filter_nil //=.
+      - rewrite seq_S.
+        rewrite filter_app.
+        rewrite IHn.
+        simpl.
+        rewrite filter_cons_False //=.
+        rewrite andb_negb_l.
+        done.
+    }
     iSimpl.
     iSplit; first done.
     assert ((scheduled (update_offset_PC σ1 1) i) = true) as ->.
@@ -82,5 +96,5 @@ Proof.
     iApply ("Hϕ" with "[Hpc Hapc Hacc]").
     iFrame.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
-Admitted.
+Qed.
 End halt.
