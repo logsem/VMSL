@@ -3,13 +3,14 @@ From HypVeri Require Import lifting rules.rules_base.
 From HypVeri Require Import base reg mem pagetable.
 From HypVeri.lang Require Import lang_extra reg_extra current_extra.
 Require Import stdpp.fin.
+Require Import stdpp.listset_nodup.
 
 Section yield.
 
 Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma yield {E z i w1 w2 a_ b_ q s R R' Q P P'} ai :
+Lemma yield {E z i w1 w2 a_ b_ q s R R' Q P P' i'} ai :
   let T := (▷ (PC @@ i ->r ai)
               ∗ ▷ (ai ->a w1)
               ∗ ▷ (A@i :={q}[s])
@@ -26,8 +27,9 @@ Lemma yield {E z i w1 w2 a_ b_ q s R R' Q P P'} ai :
   in
   decode_instruction w1 = Some Hvc ->
   to_pid_aligned ai ∈ s ->
-  fin_to_nat z = 0 -> 
-  z ≠ i ->
+  fin_to_nat z = 0 ->
+  fin_to_nat i = i' ->
+  i' ≠ 0 ->
   decode_hvc_func w2 = Some Yield ->
   {SS{{ T ∗ ▷ (VMProp z (Q ∗ VMProp i P' (1/2)%Qp) (1/2)%Qp)
           ∗ ▷ (VMProp i P 1%Qp)
@@ -37,7 +39,7 @@ Lemma yield {E z i w1 w2 a_ b_ q s R R' Q P P'} ai :
     {{{ RET (true, ExecI); R' ∗ VMProp i P' (1/2)%Qp }}}.
 Proof.
   simpl.
-  iIntros (Hdecode Hin Hz Hzi Hhvc ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr0' & >Hr1) (HPropz & HPropi & Himpl & HR)] Hϕ".
+  iIntros (Hdecode Hin Hz Hi Hiz Hhvc ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr0' & >Hr1) (HPropz & HPropi & Himpl & HR)] Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -71,10 +73,8 @@ Proof.
     destruct (i =? 0) eqn:Hi0.
     + rewrite <-(reflect_iff (fin_to_nat i = 0) (i =? 0) (Nat.eqb_spec (fin_to_nat i) 0)) in Hi0.
       exfalso.
-      apply Hzi.
-      apply fin_to_nat_inj.
-      rewrite Hz Hi0.
-      reflexivity.
+      apply Hiz.
+      solve_finz.
     + destruct HstepP as [Hstep1 Hstep2].
       simplify_eq.
       assert (Hzeq : z = nat_to_fin vm_count_pos).
@@ -101,6 +101,100 @@ Proof.
         apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
       * rewrite !big_sepM_insert ?big_sepM_empty; eauto.
         iDestruct "Hr01pc" as "(Hr0' & Hr1' & Hpc' & _)".
+        assert ((negb (scheduled (update_current_vmid (update_offset_PC (update_reg_global (update_reg_global σ1 z R0 (encode_hvc_func Yield)) z R1 (encode_vmid (get_current_vm σ1))) 1) z) (get_current_vm σ1)) && true = true)) as ->.
+        {
+          rewrite andb_true_r.
+          rewrite /scheduled /machine.scheduler //= /scheduler.
+          rewrite /update_current_vmid /get_current_vm //=.
+          apply eq_true_not_negb.
+          intros c.
+          rewrite ->bool_decide_eq_true in c.
+          apply Hiz.
+          rewrite /get_current_vm.
+          by rewrite <-c.
+        }
+        rewrite /just_scheduled_vms /just_scheduled.
+        assert (filter
+                  (λ id : vmid,
+                          base.negb (scheduled σ1 id) && scheduled (update_current_vmid (update_offset_PC (update_reg_global (update_reg_global σ1 z R0 (encode_hvc_func Yield)) z R1 (encode_vmid (get_current_vm σ1))) 1) z) id = true)
+                  (seq 0 vm_count) = [fin_to_nat z]) as ->.
+        {
+        rewrite /scheduled /machine.scheduler //= /scheduler Hz.
+        rewrite /update_current_vmid /get_current_vm //=.        
+        pose proof (NoDup_seq 0 vm_count) as ND.
+        pose proof (NoDup_singleton ((@fin_to_nat (@vm_count H) z))) as ND'.
+        set f := (λ id : nat, base.negb (bool_decide ((@fin_to_nat (@vm_count H) σ1.1.1.2) = id)) && bool_decide (0 = id) = true).
+        pose proof (NoDup_filter f _ ND) as ND''.
+        assert (f z) as Prf.
+        {
+          subst f.
+          simpl.
+          unfold base.negb.
+          repeat case_bool_decide.
+          exfalso.
+          apply Hiz.
+          rewrite /get_current_vm.
+          (* FIXME *)
+          by rewrite H1.
+          exfalso.
+          apply H1.
+          by rewrite Hz.
+          done.
+          exfalso.
+          apply H1.
+          by rewrite Hz.
+        }
+        assert (In (@fin_to_nat (@vm_count H) z) (seq 0 vm_count)) as Prf'.
+        {
+          rewrite <-elem_of_list_In.
+          rewrite elem_of_seq.
+          split.
+          - solve_finz.
+          - rewrite plus_O_n.
+            pose proof (fin_to_nat_lt z).
+            auto.
+        }
+        rewrite <-elem_of_list_In in Prf'.
+        assert (In (@fin_to_nat (@vm_count H) z) (filter f (seq 0 vm_count))) as Prf''.
+        {
+          rewrite <-elem_of_list_In.
+          by apply (iffRL (elem_of_list_filter f (seq 0 vm_count) z)).
+        }
+        rewrite <-elem_of_list_In in Prf''.
+        assert (forall x, x ≠ (@fin_to_nat (@vm_count H) z) -> not (In x (filter f (seq 0 vm_count)))) as excl.
+        {
+          intros x neq c.
+          rewrite <-elem_of_list_In in c.
+          rewrite ->elem_of_list_filter in c.
+          destruct c as [c' _].
+          subst f.
+          simpl in c'.
+          unfold base.negb in c'.
+          case_match.
+          - by rewrite andb_false_l in c'.
+          - rewrite andb_true_l in c'.
+            apply neq.
+            rewrite ->bool_decide_eq_true in c'.
+            rewrite <-c'.
+            done.
+        }
+        apply Permutation_length_1_inv.
+        apply NoDup_Permutation; auto.
+        by rewrite <-Hz.
+        intros x'.
+        split.
+        - intros T.
+          rewrite ->elem_of_list_singleton in T.
+          rewrite Hz in Prf''.
+          by rewrite T.
+        - intros T.
+          rewrite ->elem_of_list_singleton.
+          rewrite ->elem_of_list_In in T.
+          destruct (decide (x' = z)) as [? | n].
+          by rewrite Hz in e.
+          exfalso.
+          by apply (excl x' n).
+      }
         rewrite /get_current_vm /update_current_vmid /update_incr_PC.
         simpl.
         rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
@@ -112,52 +206,6 @@ Proof.
            iSplitL "PAuth".
            by iExists P'.
            iSplitL "Hreg".
-           2 : {
-             rewrite /scheduled.
-             iSimpl.
-             rewrite /scheduler.
-             rewrite /get_current_vm.
-             iSimpl.
-             rewrite /bool_decide.
-             rewrite /decide_rel.
-             rewrite /nat_eq_dec.
-             assert (z ≠ σ1.1.1.2) as p.
-             solve_finz.
-             assert ((if PeanoNat.Nat.eq_dec z σ1.1.1.2 then true else false) = false) as ->.
-             case_match.
-             exfalso.
-             apply p.
-             admit.
-             reflexivity.
-             iSimpl.
-             rewrite /just_scheduled_vms.
-             rewrite /just_scheduled.
-             rewrite /scheduled.
-             iSimpl.
-             rewrite /scheduler.
-             iSimpl.
-             rewrite /vmid.
-             rewrite /get_current_vm.
-             iSimpl.
-             assert (filter
-                     (λ id : nat,
-                        base.negb (bool_decide (fin_to_nat σ1.1.1.2 = id)) && bool_decide (fin_to_nat z = id) = true)
-                     (seq 0 vm_count) = [fin_to_nat z]) as ->.
-             admit.
-             iSimpl.
-             iDestruct ("Himpl" with "[Hpc' Hr0 Hapc Hacc Hr0' Hr1' HR]") as "[Q R']".
-             iFrame.
-             iDestruct (VMProp_split with "HPropi") as "[HPropi1 HPropi2]".
-             iSplitL "HPropz Q HPropi1".
-             iSplit; last done.
-             iExists (Q ∗ VMProp σ1.1.1.2 P' (1 / 2))%I.
-             iSplitR "HPropz".
-             iNext.
-             iFrame.
-             iFrame.             
-             iApply ("Hϕ" with "[R' HPropi2]").
-             iFrame.
-           }
            iSplit; first done.
            rewrite 2!update_reg_global_update_reg.
            rewrite !insert_union_singleton_l.
@@ -178,13 +226,31 @@ Proof.
            eapply mk_is_Some; rewrite lookup_insert_Some;
              right; split; [done | rewrite get_reg_gmap_lookup_Some; eauto].
            eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
+           iDestruct ("Himpl" with "[Hpc' Hapc Hacc Hr0 Hr0' Hr1' HR]") as "[Q R']".
+           iFrame.
+           iDestruct (VMProp_split with "HPropi") as "[HPropi1 HPropi2]".
+           iSplitR "Hϕ R' HPropi1".
+           iSplit; last done.
+           iExists (Q ∗ VMProp σ1.1.1.2 P' (1 / 2))%I.
+           iFrame.
+           iApply ("Hϕ" with "[R' HPropi1]").
+           iFrame.
         -- apply get_reg_gmap_get_reg_Some; auto.
            apply get_reg_global_update_reg_global_ne_vmid.
            rewrite update_reg_global_preserve_current_vm; auto.
-           apply get_reg_global_update_reg_global_ne_vmid.
            rewrite update_reg_global_preserve_current_vm; auto.
+           intros c.
+           apply Hiz.
+           rewrite <-c.
+           by rewrite Hz.
+           apply get_reg_global_update_reg_global_ne_vmid.           
            rewrite 2!update_reg_global_preserve_current_vm; auto.
+           intros c.
+           apply Hiz.
+           rewrite <-c.
+           by rewrite Hz.
+           rewrite update_reg_global_preserve_current_vm; auto.
         -- apply lookup_insert_None; split; eauto; intros P; by inversion P.
         -- apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
-           Admitted.
+Qed.
 End yield.

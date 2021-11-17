@@ -166,15 +166,16 @@ Section Adequacy.
         apply of_pid in H1.
         apply gset_to_gmap; auto.
         apply singleton; auto.
-        apply lookup_weaken with ({[ PC := p1 ]}).
+        apply lookup_weaken with ({[ PC := of_pid p1 ]}).
         assert (SingletonM (reg_name * VMID) handle (gmap (reg_name * VMID) handle)).
         unfold SingletonM.
         intros.
         apply to_pid_aligned in H0.
         apply gset_to_gmap; auto.
         apply singleton; auto.
-        
+        assert (x = of_pid p1) as ->.
         admit.
+        apply (lookup_singleton PC (of_pid p1)).        
         admit.
       }
       admit.
