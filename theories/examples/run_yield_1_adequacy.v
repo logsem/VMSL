@@ -4,6 +4,7 @@ From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable.
 From HypVeri.examples Require Import instr run_yield_1.
 Require Import Setoid.
+Require Import Coq.Program.Equality.
 
 Section Adequacy.
     
@@ -132,75 +133,169 @@ Section Adequacy.
                                  (R1,V0):= r1_ ; (PC,V1):= (of_pid p2); (R0,V1):= r0_' ]}) with "Hreg") as "Hreg";eauto.
     { rewrite /get_reg_gmap.
       apply map_subseteq_spec.
-      intros.
+      intros i x H.
+      rewrite /flat_map.
+      simpl.
       apply elem_of_list_to_map_1'.
       intros y P.
       apply elem_of_list_In in P.
-      apply in_flat_map in P.
-      destruct P as [x' [P1 P2]].
-      unfold list_of_vmids in P1.
-      unfold vm_count in P1.
-      cbn in P1.
-      apply in_map_iff in P2.
-      destruct P2 as [[a b] [PEq P2]].
-      simpl in PEq.
-      destruct i as [i1 i2].
-      inversion PEq.
-      subst.
-      clear PEq.
-      rewrite <-elem_of_list_In in P2.
-      apply elem_of_map_to_list' in P2.
-      simpl in P2.
-      setoid_rewrite map_subseteq_spec in Hreg1.
-      specialize (Hreg1 i1 x).
-      unfold get_vm_reg_file in *.
-      unfold V0, V1 in *.
-      simpl in *.
-      destruct P1 as [<- | [<- | ?]]; last done; simpl; destruct i1; try done.
-      {
-        rewrite Hreg1 in P2; first (by inversion P2).
-        pose p := {[ PC := p1 ]}.
-        assert (SingletonM reg_name PID (gmap reg_name handle)).
-        unfold SingletonM.
-        intros.
-        apply of_pid in H1.
-        apply gset_to_gmap; auto.
-        apply singleton; auto.
-        apply lookup_weaken with ({[ PC := of_pid p1 ]}).
-        assert (SingletonM (reg_name * VMID) handle (gmap (reg_name * VMID) handle)).
-        unfold SingletonM.
-        intros.
-        apply to_pid_aligned in H0.
-        apply gset_to_gmap; auto.
-        apply singleton; auto.
-        assert (x = of_pid p1) as ->.
-        admit.
-        apply (lookup_singleton PC (of_pid p1)).        
-        admit.
-      }
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      apply elem_of_list_In.
-      apply in_flat_map.
-      exists i.2.
-      split.
-      apply in_list_of_vmids.
-      apply in_map_iff.
-      exists (i.1, x).
-      split.
-      destruct i.
-      cbn.
-      done.
-      apply elem_of_list_In.
-      apply elem_of_map_to_list.
-      rewrite /get_vm_reg_file.
-      destruct i.
-      cbn.
-      admit.
-      (* TODO: it is true, don't know how to prove... *)
+      rewrite ->!in_app_iff in P.
+      destruct P as [P | [P | P]].
+      - apply in_map_iff in P.
+        destruct P as [[a b] [PEq P]].
+        simpl in PEq.
+        destruct i as [i1 i2].
+        inversion PEq.
+        subst.        
+        clear PEq.
+        rewrite <-elem_of_list_In in P.
+        apply elem_of_map_to_list' in P.
+        simpl in P.
+        unfold get_vm_reg_file in *.
+        apply Some_eq_inj.
+        pose proof ((iffLR (map_subseteq_spec _ _)) Hreg1 i1 x) as HTemp1.
+        rewrite <-P.        
+        rewrite <-HTemp1.
+        unfold V0.
+        by simpl.
+        rewrite <-H.
+        destruct i1; simplify_map_eq /=.
+        + by rewrite lookup_insert.
+        + destruct n.
+          unfold R0 in *.
+          rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin).
+          rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin) in H.
+          unfold V0 in *.
+          simplify_map_eq /=.
+          rewrite lookup_insert_ne.
+          by rewrite lookup_insert.
+          discriminate.
+          destruct n.
+          unfold R1 in *.
+          rewrite (@proof_irrel (1 < 31) (nat_lt_pi 1 31) machine_extra.R1_obligation_1 fin).
+          rewrite (@proof_irrel (1 < 31) (nat_lt_pi 1 31) machine_extra.R1_obligation_1 fin) in H.
+          unfold V0 in *.
+          simplify_map_eq /=.
+          rewrite lookup_insert_ne.
+          rewrite lookup_insert_ne.
+          by rewrite lookup_insert.
+          discriminate.
+          discriminate.
+          simplify_map_eq /=.
+      - apply in_map_iff in P.
+        destruct P as [[a b] [PEq P]].
+        simpl in PEq.
+        destruct i as [i1 i2].
+        inversion PEq.
+        subst.        
+        clear PEq.
+        rewrite <-elem_of_list_In in P.
+        apply elem_of_map_to_list' in P.
+        simpl in P.
+        unfold get_vm_reg_file in *.
+        apply Some_eq_inj.
+        pose proof ((iffLR (map_subseteq_spec _ _)) Hreg2 i1 x) as HTemp1.
+        rewrite <-P.        
+        rewrite <-HTemp1.
+        unfold V1.
+        by simpl.
+        rewrite <-H.
+        destruct i1; simplify_map_eq /=.
+        + by rewrite lookup_insert.
+        + destruct n.
+          unfold R0 in *.
+          rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin).
+          rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin) in H.
+          unfold V1 in *.
+          simplify_map_eq /=.
+          rewrite lookup_insert_ne.
+          by rewrite lookup_insert.
+          discriminate.
+          destruct n.
+          unfold R0 in H.
+          inversion H.
+          discriminate.
+      - inversion P.
+      - rewrite app_nil_r.
+        apply elem_of_list_In.
+        rewrite in_app_iff.
+        rewrite !in_map_iff.
+        destruct i as [ir iv].
+        unfold VMID in iv.
+        unfold vm_count in iv.
+        cbn in iv.
+        dependent destruction iv.
+        + left.
+          exists (ir, x).
+          split; auto.
+          rewrite <-elem_of_list_In.
+          apply elem_of_map_to_list'.
+          simpl.
+          rewrite /get_vm_reg_file.
+          destruct ir; simplify_map_eq /=.
+          * unfold V0 in Hreg1.
+            simpl in Hreg1.
+            apply ((iffLR (map_subseteq_spec _ _)) Hreg1 PC p1).
+            by rewrite lookup_insert.
+          * destruct n.
+            unfold R0 in *.
+            simpl in *.
+            rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin) in H.
+            rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin) in Hreg1.
+            unfold V0 in Hreg1.
+            simpl in Hreg1.
+            simplify_map_eq /=.
+            apply ((iffLR (map_subseteq_spec _ _)) Hreg1 _ x).
+            rewrite lookup_insert_ne.
+            by rewrite lookup_insert.
+            discriminate.
+            destruct n.
+            unfold R1 in *.
+            simpl in *.
+            rewrite (@proof_irrel (1 < 31) (nat_lt_pi 1 31) machine_extra.R1_obligation_1 fin) in H.
+            rewrite (@proof_irrel (1 < 31) (nat_lt_pi 1 31) machine_extra.R1_obligation_1 fin) in Hreg1.
+            unfold V0 in Hreg1.
+            simpl in Hreg1.
+            simplify_map_eq /=.
+            apply ((iffLR (map_subseteq_spec _ _)) Hreg1 _ x).
+            rewrite lookup_insert_ne.
+            rewrite lookup_insert_ne.
+            by rewrite lookup_insert.
+            discriminate.
+            discriminate.
+            simplify_map_eq /=.
+        + right.
+          exists (ir, x).
+          split.
+          simpl.
+          repeat f_equal.
+          dependent destruction iv; auto.
+          inversion iv.
+          dependent destruction iv; auto.
+          2 : { inversion iv. }
+          rewrite <-elem_of_list_In.
+          apply elem_of_map_to_list'.
+          simpl.
+          rewrite /get_vm_reg_file.
+          destruct ir; simplify_map_eq /=.
+          * unfold V1 in Hreg2.
+            simpl in Hreg2.
+            apply ((iffLR (map_subseteq_spec _ _)) Hreg2 PC p2).
+            simplify_map_eq /=.
+            by rewrite lookup_insert.
+          * inversion H.
+            simplify_eq.
+            unfold R0 in *.
+            simpl in *.
+            rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin) in H.
+            rewrite (@proof_irrel (0 < 31) (nat_lt_pi 0 31) machine_extra.R0_obligation_1 fin) in Hreg2.
+            unfold V1 in Hreg2.
+            simpl in Hreg2.
+            simplify_map_eq /=.
+            apply ((iffLR (map_subseteq_spec _ _)) Hreg2 _ x).
+            rewrite lookup_insert_ne.
+            by rewrite lookup_insert.
+            discriminate.
     }
     
     iDestruct ((gen_pagetable_SepM_split2 V0 V1 (vmG := VMG) (σ := σ) (γ := access_gname) (λ pt, pt.2) is_accessible) with "[Haccess]") as "(Haccessz & Haccessi & _)"; eauto.
@@ -340,6 +435,6 @@ Section Adequacy.
     iStartProof.
     iIntros "[? _]".
     iFrame.    
-  Admitted.
+  Qed.
 
 End Adequacy.
