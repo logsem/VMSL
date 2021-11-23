@@ -25,6 +25,8 @@ Section Adequacy.
     (∃ r0 r1 ,{[PC := (of_pid p1); R0 := r0; R1 := r1]} ⊆ (get_reg_files σ)!!!V0) ∧
     ∃ r0 ,{[PC := (of_pid p2); R0 := r0]} ⊆ (get_reg_files σ) !!! V1 .
 
+  Definition mem_inv (σ : state) (p1 : PID) := (∃ a, is_owned a = true ∧ (get_vm_page_table σ V0).1 !! p1 = Some a).
+
   Definition transactions (σ: state):=
     (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
     (get_transactions σ).2 ≠ ∅ ∧
@@ -36,6 +38,7 @@ Section Adequacy.
                   ∃ (p1 p2: PID), p1 ≠ p2 ∧
                                   (run_vms ms) ∧
                                   (mem_layout σ p1 p2) ∧
+                                  (mem_inv σ p1) ∧
                                   (reg σ p1 p2) ∧
                                   transactions σ.
   
@@ -51,6 +54,8 @@ Section Adequacy.
   
   Context {vm_preG: gen_VMPreG Addr VMID Word reg_name PID transaction_type irisΣ}.
 
+  Definition invN : namespace := nroot .@ "inv".
+  
   (* exec_mode of all VMs *)
   Lemma run_yield_1_adequacy (σ : state) (ms : list exec_mode) φs:
     (* we need assumptions to be able to allocate resources *)
@@ -65,7 +70,7 @@ Section Adequacy.
     set (prop_name := (let (_, _, x, _) := iris_subG irisΣ (subG_refl irisΣ) in x)).
     set (name_map := (let (_, _, _, x) := iris_subG irisΣ (subG_refl irisΣ) in x)).
     eapply (wp_adequacy irisΣ); auto.
-    destruct Hinit as (Hcur & -> & (p1 & p2 & p1p2ne & -> & Hmem & Hreg & Htrans)).
+    destruct Hinit as (Hcur & -> & (p1 & p2 & p1p2ne & -> & Hmem & Hreg & Hreginv & Htrans)).
     by simpl.
     intro Hinv.
     iIntros.
@@ -77,25 +82,50 @@ Section Adequacy.
     iMod (gen_rx_agree_alloc (get_rx_agree σ)) as (rx_agree_gname) "[Hσrx_a _]".
     { apply get_txrx_auth_agree_valid. }
     iMod (gen_rx_option_alloc (get_rx_gmap σ)) as (rx_option_gname) "[Hσrx_o _]".
-    iMod (gen_pagetable_alloc (get_owned_gmap σ)) as (own_gname) "[Hσown _]".
+    iMod (gen_pagetable_alloc (get_owned_gmap σ)) as (own_gname) "[Hσown Hown]".
     iMod (gen_pagetable_alloc (get_access_gmap σ)) as (access_gname) "[Hσaccess Haccess]".
     iMod (gen_pagetable_alloc (get_excl_gmap σ)) as (excl_gname) "[Hσexcl _]".
     iMod (gen_trans_alloc (get_trans_gmap σ)) as (trans_gname) "[Hσtrans _]".
     iMod (gen_hpool_alloc (get_hpool_gset σ)) as (hpool_gname) "[Hσhpool _]".
     iMod (gen_retri_alloc (get_retri_gmap σ)) as (retri_gname) "[Hσretri _]".
     iMod (na_alloc) as (nainv_gname) "Hna".
-
+    
     iModIntro.
     iIntros (name_map_name).
     pose ((GenVMG irisΣ vm_preG Hinv _ nainv_gname _ _ _ name_map_name mem_gname reg_gname tx_gname rx_agree_gname rx_option_gname own_gname access_gname excl_gname trans_gname hpool_gname retri_gname)) as VMG.
     iExists (gen_vm_interp (Σ := irisΣ)).
     
-    destruct Hinit as (Hφ & p1 & p2 & Hpne & Hms & Hmem & Hreg & Htrans ).
+    destruct Hinit as (Hφ & p1 & p2 & Hpne & Hms & Hmem & Hmeminv & Hreg & Htrans ).    
     destruct Hreg as (Hreg1 & Hreg2).
     destruct Hreg1 as (r0_ & r1_ & Hreg1).
     destruct Hreg2 as (r0_' & Hreg2).
     destruct Htrans as (Hdisj & Hnempty & Hlen).
-    iModIntro.
+
+    iDestruct ((gen_pagetable_SepM_split1 V0 (vmG := VMG) (σ := σ) (γ := own_gname) (λ pt, pt.1) is_owned) with "[Hown]") as "(Hownz & _)"; eauto.
+    iAssert (∃ s, O@V0 :={1}[s] ∧ ⌜p1 ∈ s⌝)%I with "[Hownz]" as "Hownz".
+    {
+      rewrite owned_mapsto_eq /owned_mapsto_def //=.
+      rewrite /get_pagetable_gset.
+      unfold mem_inv in Hmeminv.
+      destruct Hmeminv as [o Hmeminv].      
+      iExists (list_to_set (map (λ p : PID * ownership, p.1) (map_to_list (filter (λ p : PID * ownership, is_owned p.2 = true) (get_vm_page_table σ V0).1)))).
+      iSplit; first done.
+      iPureIntro.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_list_In.
+      rewrite in_map_iff.
+      exists (p1, Owned).
+      split; first done.
+      rewrite <-elem_of_list_In.
+      rewrite elem_of_map_to_list.
+      apply map_filter_lookup_Some_2.
+      destruct Hmeminv as [Hmeminv ->].
+      destruct o; try done.
+      by simpl.
+    }
+    iMod (inv_alloc invN ⊤ with "Hownz") as "#Hinv".    
+    
+    iModIntro.    
 
     iExists [True%I; ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I].
     iSimpl.
@@ -286,8 +316,8 @@ Section Adequacy.
     
     iDestruct ((gen_pagetable_SepM_split2 V0 V1 (vmG := VMG) (σ := σ) (γ := access_gname) (λ pt, pt.2) is_accessible) with "[Haccess]") as "(Haccessz & Haccessi & _)"; eauto.
     set (sacc1 := (get_pagetable_gset σ V0 (λ pt : page_table, pt.2) is_accessible)) in *.
-    set (sacc2 := (get_pagetable_gset σ V1 (λ pt : page_table, pt.2) is_accessible)) in *.    
-
+    set (sacc2 := (get_pagetable_gset σ V1 (λ pt : page_table, pt.2) is_accessible)) in *.            
+    
     rewrite !big_sepM_insert ?big_sepM_empty;eauto.
     rewrite reg_mapsto_eq /reg_mapsto_def.
     iDestruct "Hreg" as "(PCz & R0z & R1z & PCi & R0i & _)".
@@ -423,20 +453,14 @@ Section Adequacy.
     iFrame.    
   Qed.
 
-  Definition reg_final (σ : state) (p1 p2 : PID) :=
-    let gm0 := {[ PC := ((of_pid p1) ^+ (length program1))%f; R0 := of_imm yield_I; R1 := of_imm (encode_vmid V1) ]} in
-    let gm1 := {[ PC := ((of_pid p2) ^+ (length program2))%f; R0 := of_imm yield_I ]} in
-    (gm0 ⊆ ((get_reg_files σ) !!! V0)) ∧ (gm1 ⊆ ((get_reg_files σ) !!! V1)).
-
   Definition is_final_config (σ: state) :=
-                  (get_current_vm σ) = V0 ∧
-                  ∃ (p1 p2: PID), p1 ≠ p2 ∧
-                                  (reg_final σ p1 p2).
+                  ∃ (p1 : PID), (mem_inv σ p1).
 
   Definition is_initial_config' (σ: state) :=
     (get_current_vm σ) = V0 ∧    
     ∃ (p1 p2: PID), p1 ≠ p2 ∧
                     (mem_layout σ p1 p2) ∧
+                    (mem_inv σ p1) ∧
                     (reg σ p1 p2) ∧
                     transactions σ.
 
@@ -444,14 +468,14 @@ Section Adequacy.
   Lemma run_yield_1_adequacy' (σ σ' : state) :
     (is_initial_config' σ) ->
     rtc machine.step ([ExecI; ExecI], σ) ([HaltI; ExecI], σ') →
-    True (*(is_final_config σ')*).
+    is_final_config σ'.
   Proof.
     intros Hinit.
     set (saved_props := (let (_, x, _, _) := iris_subG irisΣ (subG_refl irisΣ) in x)).
     set (prop_name := (let (_, _, x, _) := iris_subG irisΣ (subG_refl irisΣ) in x)).
     set (name_map := (let (_, _, _, x) := iris_subG irisΣ (subG_refl irisΣ) in x)).
     eapply (wp_invariance irisΣ); auto.
-    destruct Hinit as (Hcur & (p1 & p2 & p1p2ne & Hmem & Hreg & Htrans)).
+    destruct Hinit as (Hcur & (p1 & p2 & p1p2ne & Hmem & Hmeminv & Hreg & Htrans)).
     intro Hinv.
     iStartProof.
     iMod (gen_mem_alloc (get_mem σ)) as (mem_gname) "[Hσmem Hmem]".
@@ -461,7 +485,7 @@ Section Adequacy.
     iMod (gen_rx_agree_alloc (get_rx_agree σ)) as (rx_agree_gname) "[Hσrx_a _]".
     { apply get_txrx_auth_agree_valid. }
     iMod (gen_rx_option_alloc (get_rx_gmap σ)) as (rx_option_gname) "[Hσrx_o _]".
-    iMod (gen_pagetable_alloc (get_owned_gmap σ)) as (own_gname) "[Hσown _]".
+    iMod (gen_pagetable_alloc (get_owned_gmap σ)) as (own_gname) "[Hσown Hown]".
     iMod (gen_pagetable_alloc (get_access_gmap σ)) as (access_gname) "[Hσaccess Haccess]".
     iMod (gen_pagetable_alloc (get_excl_gmap σ)) as (excl_gname) "[Hσexcl _]".
     iMod (gen_trans_alloc (get_trans_gmap σ)) as (trans_gname) "[Hσtrans _]".
@@ -474,6 +498,30 @@ Section Adequacy.
     pose ((GenVMG irisΣ vm_preG Hinv _ nainv_gname _ _ _ name_map_name mem_gname reg_gname tx_gname rx_agree_gname rx_option_gname own_gname access_gname excl_gname trans_gname hpool_gname retri_gname)) as VMG.
     iExists (gen_vm_interp (Σ := irisΣ)).
 
+    iDestruct ((gen_pagetable_SepM_split1 V0 (vmG := VMG) (σ := σ) (γ := own_gname) (λ pt, pt.1) is_owned) with "[Hown]") as "(Hownz & _)"; eauto.
+    iAssert (∃ s, O@V0 :={1}[s] ∧ ⌜p1 ∈ s⌝)%I with "[Hownz]" as "Hownz".
+    {
+      rewrite owned_mapsto_eq /owned_mapsto_def //=.
+      rewrite /get_pagetable_gset.
+      unfold mem_inv in Hmeminv.
+      destruct Hmeminv as [o Hmeminv].      
+      iExists (list_to_set (map (λ p : PID * ownership, p.1) (map_to_list (filter (λ p : PID * ownership, is_owned p.2 = true) (get_vm_page_table σ V0).1)))).
+      iSplit; first done.
+      iPureIntro.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_list_In.
+      rewrite in_map_iff.
+      exists (p1, Owned).
+      split; first done.
+      rewrite <-elem_of_list_In.
+      rewrite elem_of_map_to_list.
+      apply map_filter_lookup_Some_2.
+      destruct Hmeminv as [Hmeminv ->].
+      destruct o; try done.
+      by simpl.
+    }
+    iMod (inv_alloc invN ⊤ with "Hownz") as "#Hinv".    
+    
     iModIntro.
 
     iExists [True%I; ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I].
@@ -817,10 +865,41 @@ Section Adequacy.
     iIntros "interp".
 
     unfold gen_vm_interp.
-    (* TODO: Open the provided invariant, prove pure prop *)
-    iExists ⊤.
+    iExists (⊤ ∖ ↑invN).
+    iInv invN as ">Hx" "_".
     iModIntro.
-    done.
+    unfold is_final_config.
+    unfold mem_inv.
+    iDestruct "Hx" as "(%s & Hown & %Hin)".
+    iDestruct "interp" as "(_ & _ & _ & _ & _ & _ & Hσ'own & _)".
+    iDestruct (gen_own_valid_pure (σ := σ') with "Hσ'own Hown") as "%Hown".
+    iPureIntro.
+    exists p1, Owned.
+    split; first done.
+    rewrite /get_vm_page_table /get_page_tables.
+    rewrite /get_owned_gmap /get_pagetable_gmap in Hown.
+    apply elem_of_list_to_map_2 in Hown.
+    rewrite ->elem_of_list_In in Hown.
+    rewrite ->in_map_iff in Hown.
+    destruct Hown as (x' & Heq & Hin').
+    inversion Heq.
+    subst.
+    clear Heq.
+    rewrite /get_pagetable_gset in Hin.
+    rewrite ->elem_of_list_to_set in Hin.
+    rewrite ->elem_of_list_In in Hin.
+    rewrite ->in_map_iff in Hin.
+    destruct Hin as ((x1 & x2) & Heq & Hin).
+    simpl in Heq.
+    subst.
+    rewrite <-elem_of_list_In in Hin.
+    rewrite ->elem_of_map_to_list in Hin.
+    rewrite ->map_filter_lookup_Some in Hin.
+    rewrite /get_vm_page_table in Hin.
+    rewrite /get_page_tables in Hin.
+    destruct Hin as [-> Hin].
+    simpl in Hin.
+    destruct x2; done.
   Qed.
   
 End Adequacy.

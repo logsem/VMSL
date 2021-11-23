@@ -32,7 +32,7 @@ Section RunYield1.
     ].
 
   Context `{!gen_VMG Σ}.
-
+  
   Lemma machine_z_spec {q1 sacc prog1page} :
       seq_in_page (of_pid prog1page) (length program1) prog1page ->
       prog1page ∈ sacc ->
