@@ -144,7 +144,7 @@ Definition get_reg (st : state) (r : reg_name) : option Word :=
 Definition update_ownership' (pt : page_table) (v : VMID) (p : PID) : page_table :=
   match (pt !! p) with
   | Some (_, s) => <[p:=(v, s)]> pt
-  | None => <[p:=(v, singleton v)]> pt
+  | None => pt
   end.
       
 Definition update_ownership_global (st : state) (v : VMID) (p : PID) : state :=
@@ -159,7 +159,7 @@ Definition update_ownership (st : state) (p : PID) : state :=
 Definition update_access' (pt : page_table) (v : VMID) (p : PID) : page_table :=
   match (pt !! p) with
   | Some (o, s) => <[p:=(o, {[v]} ∪ s)]> pt
-  | None => <[p:=(v, singleton v)]> pt
+  | None => pt
   end.
 
 Definition update_access_global (st : state) (v : VMID) (p : PID) : state :=
@@ -324,7 +324,6 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
   | _ => (FailI, s)
   end.
 
-
 Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : Word) : exec_mode * state :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
@@ -349,9 +348,6 @@ Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode *
       Some(update_incr_PC m)
   in
   (option_state_unpack s comp).
-
-
-
 
 Definition add (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
@@ -617,7 +613,7 @@ Definition parse_transaction_descriptor (st : state) (b: Addr) : option transact
   vs' <- decode_vmid vs ;;;
   unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, md.1, md.2).
 
-(*TODO: validate length*)
+(* TODO: validate length *)
 
 Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transaction_type)
            (t : transaction_descriptor) : hvc_result () :=
@@ -715,8 +711,7 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
            match ty with
            | Sharing =>
              unit(update_reg (update_reg
-                                (update_access_batch st' ps)
-                                R0 (encode_hvc_ret_code Succ))
+                                 st' R0 (encode_hvc_ret_code Succ))
                              R2 hd)
            | _ => 
              unit(update_reg (update_reg
