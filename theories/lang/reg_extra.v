@@ -12,20 +12,16 @@ Proof. f_equal. Qed.
 Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma update_reg_global_preserve_tx σ i r w :
-  get_tx_agree (update_reg_global σ i r w) = (get_tx_agree σ).
+Lemma update_reg_global_preserve_mb σ i r w :
+  get_mb_gmap (update_reg_global σ i r w) = (get_mb_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_reg_global_preserve_rx1 σ i r w :
-  get_rx_agree (update_reg_global σ i r w) = (get_rx_agree σ).
-Proof. f_equal. Qed.
-
-Lemma update_reg_global_preserve_rx2 σ i r w :
+Lemma update_reg_global_preserve_rx σ i r w :
   get_rx_gmap (update_reg_global σ i r w) = (get_rx_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_reg_global_preserve_pt σ i i' r w:
-  get_vm_page_table (update_reg_global σ i r w) i' = get_vm_page_table σ i'.
+Lemma update_reg_global_preserve_pt σ i r w:
+  get_page_table (update_reg_global σ i r w) = get_page_table σ.
 Proof. f_equal. Qed.
 
 Lemma update_reg_global_preserve_owned σ i r w :
@@ -34,10 +30,6 @@ Proof. f_equal. Qed.
 
 Lemma update_reg_global_preserve_access σ i r w :
   get_access_gmap (update_reg_global σ i r w) = (get_access_gmap σ).
-Proof. f_equal. Qed.
-
-Lemma update_reg_global_preserve_excl σ i r w :
-  get_excl_gmap (update_reg_global σ i r w) = (get_excl_gmap σ).
 Proof. f_equal. Qed.
 
 Lemma update_reg_global_preserve_trans σ i r w :
@@ -73,30 +65,21 @@ Proof.
   done.
 Qed.
 
-Lemma update_offset_PC_preserve_tx σ o :
-  get_tx_agree (update_offset_PC σ o) = get_tx_agree σ.
+Lemma update_offset_PC_preserve_mb σ o :
+  get_mb_gmap (update_offset_PC σ o) = get_mb_gmap σ.
 Proof.
   unfold update_offset_PC.
   destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-  rewrite /update_reg update_reg_global_preserve_tx;done.
+  rewrite /update_reg update_reg_global_preserve_mb;done.
   done.
 Qed.
 
-Lemma update_offset_PC_preserve_rx1 σ o :
-  get_rx_agree (update_offset_PC σ o) = get_rx_agree σ.
-Proof.
-  unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-  rewrite /update_reg update_reg_global_preserve_rx1;done.
-  done.
-Qed.
-
-Lemma update_offset_PC_preserve_rx2 σ o :
+Lemma update_offset_PC_preserve_rx σ o :
   get_rx_gmap (update_offset_PC σ o) = get_rx_gmap σ.
 Proof.
   unfold update_offset_PC.
   destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-  rewrite /update_reg update_reg_global_preserve_rx2;done.
+  rewrite /update_reg update_reg_global_preserve_rx;done.
   done.
 Qed.
 
@@ -125,15 +108,6 @@ Proof.
   rewrite /update_offset_PC /check_access_addr /check_access_page.
   simpl.
   destruct (get_vm_reg_file σ (get_current_vm σ) !! PC);eauto.
-Qed.
-
-Lemma update_offset_PC_preserve_excl σ o :
-  get_excl_gmap (update_offset_PC σ o) = get_excl_gmap σ.
-Proof.
-  unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
-  rewrite /update_reg update_reg_global_preserve_excl;done.
-  done.
 Qed.
 
 Lemma update_offset_PC_preserve_trans σ o :
@@ -365,12 +339,10 @@ Ltac rewrite_reg_global :=
   | |- _ =>
     try rewrite -> update_reg_global_preserve_current_vm;
     try rewrite -> update_reg_global_preserve_mem;
-    try rewrite -> update_reg_global_preserve_tx;
-    try rewrite  -> update_reg_global_preserve_rx1;
-    try rewrite  -> update_reg_global_preserve_rx2;
+    try rewrite -> update_reg_global_preserve_mb;
+    try rewrite -> update_reg_global_preserve_rx;
     try rewrite -> update_reg_global_preserve_owned;
     try rewrite -> update_reg_global_preserve_access;
-    try rewrite -> update_reg_global_preserve_excl;
     try rewrite -> update_reg_global_preserve_trans;
     try rewrite -> update_reg_global_preserve_trans';
     try rewrite -> update_reg_global_preserve_hpool;
@@ -390,12 +362,10 @@ Ltac rewrite_reg_pc :=
   | |- _ =>
     try rewrite -> update_offset_PC_preserve_current_vm;
     try rewrite -> update_offset_PC_preserve_mem;
-    try rewrite -> update_offset_PC_preserve_tx;
-    try rewrite -> update_offset_PC_preserve_rx1;
-    try rewrite -> update_offset_PC_preserve_rx2;
+    try rewrite -> update_offset_PC_preserve_mb;
+    try rewrite -> update_offset_PC_preserve_rx;
     try rewrite -> update_offset_PC_preserve_owned;
     try rewrite -> update_offset_PC_preserve_access;
-    try rewrite -> update_offset_PC_preserve_excl;
     try rewrite -> update_offset_PC_preserve_trans;
     try rewrite -> update_offset_PC_preserve_trans';
     try rewrite -> update_offset_PC_preserve_hpool;

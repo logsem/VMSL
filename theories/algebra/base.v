@@ -1,21 +1,23 @@
 From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_map saved_prop.
 From iris.algebra Require Export auth agree dfrac excl gmap gset frac_agree frac_auth.
 From iris.proofmode Require Export tactics.
-From HypVeri Require Import monad machine.
-From HypVeri Require Export machine_extra lang.
+From HypVeri Require Import monad machine machine_extra.
+From HypVeri Require Export lang.
+
+Inductive OwnAndMB :=
+| Owned 
+| Rx
+| Tx.
 
 Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
   (* gen_token_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO V))); *)
   gen_mem_preG_inG :> gen_heapGpreS A W Σ;
   gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
-  gen_tx_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
-  gen_rx_agree_preG_inG :> inG Σ (authR (gmapUR V (agreeR (leibnizO P))));
-  gen_rx_option_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
-  gen_owned_preG_inG :> gen_heapGpreS V (gset P) Σ;
-  gen_access_preG_inG :> gen_heapGpreS V (gset P) Σ;
-  gen_excl_preG_inG :> gen_heapGpreS V (gset P) Σ;
-  gen_trans_preG_inG :> gen_heapGpreS W (V * W*  V * (list P)*F) Σ;
+  gen_rx_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
+  gen_owned_and_mb_preG_inG :> gen_heapGpreS P (V * OwnAndMB) Σ;
+  gen_access_preG_inG :> inG Σ (authUR (gmapUR P (prodR fracR (gset_disjR (leibnizO V)))));
+  gen_trans_preG_inG :> gen_heapGpreS W (V * W * V * (list P) * F) Σ;
   gen_hpool_preG_inG :> inG Σ (frac_authR (gset_disjR (leibnizO W)));
   gen_retri_preG_inG :> gen_heapGpreS W bool Σ
   }.
@@ -35,12 +37,9 @@ Class gen_VMG Σ := GenVMG{
                        (* gen_token_name : gname; *)
                        gen_mem_name : gname;
                        gen_reg_name : gname;
-                       gen_tx_name : gname;
-                       gen_rx_agree_name : gname;
-                       gen_rx_option_name : gname;
-                       gen_owned_name : gname;
+                       gen_rx_state_name : gname;
+                       gen_owned_mb_name : gname;
                        gen_access_name : gname;
-                       gen_excl_name : gname;
                        gen_trans_name : gname;
                        gen_hpool_name : gname;
                        gen_retri_name : gname
@@ -50,22 +49,14 @@ Global Arguments gen_nainv_name {Σ} _.
 (* Global Arguments gen_token_name {Σ} _. *)
 Global Arguments gen_mem_name {Σ} _.
 Global Arguments gen_reg_name {Σ} _.
-Global Arguments gen_rx_agree_name {Σ} _.
-Global Arguments gen_rx_option_name {Σ} _.
-Global Arguments gen_tx_name {Σ} _.
-Global Arguments gen_owned_name {Σ} _.
+Global Arguments gen_rx_state_name {Σ} _.
+Global Arguments gen_owned_mb_name {Σ} _.
 Global Arguments gen_access_name {Σ} _.
-Global Arguments gen_excl_name {Σ} _.
 Global Arguments gen_trans_name {Σ} _.
 Global Arguments gen_hpool_name {Σ} _.
 Global Arguments gen_retri_name {Σ} _.
 Global Arguments gen_name_map_name {Σ} {_}.
 
-Definition ra_rx_tx_agree := (authR (gmapUR VMID (agreeR (leibnizO PID)))).
-
-Definition ra_rx := (gmap VMID (option (Word*VMID))).
-
-Definition ra_page_table:= gmap VMID (gset_disj PID).
 
 Definition gen_VMΣ : gFunctors :=
   #[
@@ -74,12 +65,9 @@ Definition gen_VMΣ : gFunctors :=
     (* GFunctor (frac_authR (agreeR (leibnizO VMID))); *)
     gen_heapΣ Addr Word;
     gen_heapΣ (reg_name * VMID) Word;
-    GFunctor ra_rx_tx_agree;
-    GFunctor ra_rx_tx_agree;
     gen_heapΣ VMID (option (Word*VMID));
-    gen_heapΣ VMID (gset PID);
-    gen_heapΣ VMID (gset PID);
-    gen_heapΣ VMID (gset PID);
+    gen_heapΣ PID (VMID* OwnAndMB);
+    GFunctor (authUR (gmapUR PID (prodR fracR (gset_disjR (leibnizO VMID)))));
     gen_heapΣ Word (VMID * Word *  VMID * (list PID) * transaction_type);
     GFunctor (frac_authR (gset_disjR (leibnizO Word)));
     gen_heapΣ Word bool
@@ -99,19 +87,16 @@ Section definitions.
   Context `{vmG : gen_VMG Σ}.
 
   Implicit Type σ: state.
+ 
+Definition gmap_rx := (gmap VMID (option (Word*VMID))).
+Definition gmap_own_mb:= gmap PID (VMID * OwnAndMB).
+Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
 
   (* Definition get_token  (v:VMID) :=
      (frac_auth_auth (to_agree (v: leibnizO VMID))). *)
 
   Definition get_reg_gmap σ: gmap (reg_name * VMID) Word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
-
-  Definition get_txrx_auth_agree σ (f: mail_box -> PID) :(gmap VMID (agreeR (leibnizO PID))) :=
-    (list_to_map (map (λ v, (v,to_agree (f (get_vm_mail_box σ v)))) (list_of_vmids))).
-
-  Definition get_tx_agree σ := get_txrx_auth_agree σ (λ p, p.1).
-
-  Definition get_rx_agree σ := get_txrx_auth_agree σ (λ p, p.2.1).
 
   Definition get_rx_gmap σ : gmap VMID _ :=
             ((list_to_map (map (λ v, let mb := (get_vm_mail_box σ v) in
@@ -120,21 +105,29 @@ Section definitions.
                                       | None => (v,None)
                                     end) (list_of_vmids)))).
 
-  Definition get_pagetable_gset {Perm: Type}  σ v  (proj: page_table -> gmap PID Perm)
-             (checkb: Perm -> bool):=
-    ((list_to_set (map (λ (p:(PID*Perm)), p.1)
-           (map_to_list (filter (λ p, (checkb p.2) = true)
-                                (proj (get_vm_page_table σ v))))) : gset PID)).
+  Definition get_owned_gmap σ : gmap_own_mb  :=
+    let pt := (get_page_table σ) in 
+    let own :=(map_to_list ((λ (p: (VMID * _)), (p.1, Owned)) <$> pt)) in
+    list_to_map own.
 
-  Definition get_pagetable_gmap{Perm: Type} σ (proj: page_table -> gmap PID Perm)
-             (checkb: Perm -> bool) : (gmap VMID (gset PID)) :=
-    (list_to_map (map (λ v, (v, (get_pagetable_gset σ v proj checkb))) (list_of_vmids))).
+  Definition get_mb_gmap σ : gmap_own_mb:=
+    (* let pt := (get_page_table σ) in *)
+    list_to_map (flat_map (λ v, let mb := (get_vm_mail_box σ v) in
+                        (* match (pt !! (mb.1), pt !! (mb.2.1)) with *)
+                        (* | (None, None) => *)
+                                (* XXX: validate here?  *)
+                            [(mb.1, (v,Tx));(mb.2.1, (v,Rx))]
+                        (* | _ => [] *)
+                        (* end *)
+                          ) (list_of_vmids)).
 
-  Definition get_owned_gmap σ := (get_pagetable_gmap σ (λ pt, pt.1) is_owned).
+  (* Definition get_access_gmap σ : gmap_acc :=
+    let pt := (get_page_table σ) in
+    list_to_map ((λ v, (v, (1%Qp,(GSet ((list_to_set (map (λ p: (PID * _), p.1) (filter (λ (p: (_* (_ * gset VMID))), v ∈ p.2.2) (map_to_list pt)))): gset PID))))) <$> (list_of_vmids)). *)
 
-  Definition get_access_gmap σ := (get_pagetable_gmap σ (λ pt, pt.2) is_accessible).
-
-  Definition get_excl_gmap σ := (get_pagetable_gmap σ (λ pt, pt.2) is_exclusive).
+  Definition get_access_gmap σ : gmap_acc :=
+    let pt := (get_page_table σ) in
+    ((λ (v: ( _ * gset VMID)), (1%Qp,(GSet v.2))) <$> pt).
 
   (* TODO we need getters for transations.. *)
 
@@ -155,12 +148,10 @@ Section definitions.
       (* own (gen_token_name vmG) (get_token (get_current_vm σ)) ∗ *)
       ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) ∗
       ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
-      own (gen_tx_name vmG) (● (get_tx_agree σ)) ∗
-      own (gen_rx_agree_name vmG) (● (get_rx_agree σ)) ∗
-      ghost_map_auth (gen_rx_option_name vmG) 1 (get_rx_gmap σ) ∗
-      ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) ∗
-      ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ) ∗
-      ghost_map_auth (gen_excl_name vmG) 1 (get_excl_gmap σ) ∗
+      ghost_map_auth (gen_rx_state_name vmG) 1 (get_rx_gmap σ) ∗
+      ghost_map_auth (gen_owned_mb_name vmG) 1 (get_owned_gmap σ) ∗
+      ghost_map_auth (gen_owned_mb_name vmG) 1 (get_mb_gmap σ) ∗
+      own (gen_access_name vmG) (● (get_access_gmap σ)) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
       own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))) ∗
       ⌜ (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ⌝ ∗
@@ -172,7 +163,6 @@ Section definitions.
   Definition token_agree_aux : seal (@token_agree_def). Proof. by eexists. Qed.
   Definition token_agree:= token_agree_aux.(unseal).
   Definition token_agree_eq : @token_agree = @token_agree_def := token_agree_aux.(seal_eq). *)
-
 
   Definition mem_mapsto_def (a:Addr) (dq : dfrac) (w:Word) : iProp Σ :=
     (ghost_map_elem (gen_mem_name vmG) a dq w).
@@ -186,43 +176,24 @@ Section definitions.
   Definition reg_mapsto := reg_mapsto_aux.(unseal).
   Definition reg_mapsto_eq : @reg_mapsto = @reg_mapsto_def := reg_mapsto_aux.(seal_eq).
 
-  Definition tx_mapsto_def (i:VMID) (p:PID) : iProp Σ :=
-    own (gen_tx_name vmG) (◯ {[i := (to_agree (p: leibnizO PID))]}).
-  Definition tx_mapsto_aux : seal (@tx_mapsto_def). Proof. by eexists. Qed.
-  Definition tx_mapsto := tx_mapsto_aux.(unseal).
-  Definition tx_mapsto_eq : @tx_mapsto = @tx_mapsto_def := tx_mapsto_aux.(seal_eq).
+  Definition rx_state_mapsto_def (i:VMID) (nr : option (Word *  VMID)) : iProp Σ :=
+    ghost_map_elem (gen_rx_state_name vmG) i (DfracOwn 1) nr.
+  Definition rx_state_mapsto_aux : seal (@rx_state_mapsto_def). Proof. by eexists. Qed.
+  Definition rx_state_mapsto := rx_state_mapsto_aux.(unseal).
+  Definition rx_state_mapsto_eq : @rx_state_mapsto = @rx_state_mapsto_def :=
+    rx_state_mapsto_aux.(seal_eq).
 
-  Definition rx_option_mapsto_def (i:VMID) (nr : option (Word *  VMID)) : iProp Σ :=
-    ghost_map_elem (gen_rx_option_name vmG) i (DfracOwn 1) nr.
-  Definition rx_option_mapsto_aux : seal (@rx_option_mapsto_def). Proof. by eexists. Qed.
-  Definition rx_option_mapsto := rx_option_mapsto_aux.(unseal).
-  Definition rx_option_mapsto_eq : @rx_option_mapsto = @rx_option_mapsto_def :=
-    rx_option_mapsto_aux.(seal_eq).
+  Definition owned_mb_mapsto_def (i:VMID) (p: PID) (om:OwnAndMB) : iProp Σ :=
+    ghost_map_elem (gen_owned_mb_name vmG) p (DfracOwn 1) (i,om).
+  Definition owned_mb_mapsto_aux : seal (@owned_mb_mapsto_def). Proof. by eexists. Qed.
+  Definition owned_mb_mapsto := owned_mb_mapsto_aux.(unseal).
+  Definition owned_mb_mapsto_eq : @owned_mb_mapsto = @owned_mb_mapsto_def := owned_mb_mapsto_aux.(seal_eq).
 
-  Definition rx_agree_mapsto_def (i:VMID) (p:PID) : iProp Σ :=
-    own (gen_rx_agree_name vmG) (◯ {[i := (to_agree p)]}).
-  Definition rx_agree_mapsto_aux : seal (@rx_agree_mapsto_def). Proof. by eexists. Qed.
-  Definition rx_agree_mapsto := rx_agree_mapsto_aux.(unseal).
-  Definition rx_agree_mapsto_eq : @rx_agree_mapsto = @rx_agree_mapsto_def :=
-    rx_agree_mapsto_aux.(seal_eq).
-
-  Definition owned_mapsto_def (i:VMID) dq (s: gset PID) : iProp Σ :=
-    ghost_map_elem (gen_owned_name vmG) i dq s.
-  Definition owned_mapsto_aux : seal (@owned_mapsto_def). Proof. by eexists. Qed.
-  Definition owned_mapsto := owned_mapsto_aux.(unseal).
-  Definition owned_mapsto_eq : @owned_mapsto = @owned_mapsto_def := owned_mapsto_aux.(seal_eq).
-
-  Definition access_mapsto_def (i:VMID) dq (s: gset PID) : iProp Σ :=
-    ghost_map_elem (gen_access_name vmG) i dq s.
+  Definition access_mapsto_def (p: PID) (dq:frac) (s: gset VMID) : iProp Σ :=
+    own (gen_access_name vmG) (◯ {[p:=(dq,(GSet s))]}).
   Definition access_mapsto_aux : seal (@access_mapsto_def). Proof. by eexists. Qed.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
-
-  Definition excl_mapsto_def (i:VMID) dq (s: gset PID) : iProp Σ :=
-    ghost_map_elem (gen_excl_name vmG) i dq s.
-  Definition excl_mapsto_aux : seal (@excl_mapsto_def). Proof. by eexists. Qed.
-  Definition excl_mapsto := excl_mapsto_aux.(unseal).
-  Definition excl_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
 
   Definition trans_mapsto_def(wh : Word) dq (v r: VMID) (wf: Word) (pgs : (list PID)) (fid : transaction_type) : iProp Σ :=
     wh ↪[ (gen_trans_name vmG) ]{ dq } (((((v, wf) , r), pgs), fid): (leibnizO (VMID * Word * VMID * (list PID) * transaction_type))).
@@ -259,35 +230,29 @@ Notation "r @@ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
 Notation "r @@ i ->r w" :=
   (reg_mapsto r i (DfracOwn 1) w) (at level 21, w at level 50) : bi_scope.
 
-Notation "a ->a{ q } w" := (mem_mapsto a (DfracOwn q) w)
+Notation "a ->a{ q } w" := (mem_mapsto a q w)
   (at level 20, q at level 50, format "a ->a{ q } w") : bi_scope.
-Notation "a ->a w" := (mem_mapsto a (DfracOwn 1) w) (at level 20) : bi_scope.
+Notation "a ->a w" := (mem_mapsto a 1%Qp w) (at level 20) : bi_scope.
 
 (* predicates for TX and RX *)
-Notation "TX@ i := p" := (tx_mapsto i p)
+Notation "TX@ i := p" := (owned_mb_mapsto i p Tx)
                               (at level 20, format "TX@ i := p"): bi_scope.
-Notation "RX@ i :=( n , r )" := ((rx_option_mapsto i (Some (n,r))))%I
+Notation "RX@ i :=( n , r )" := ((rx_state_mapsto i (Some (n,r))))%I
                                         (at level 20, format "RX@ i :=( n , r )"):bi_scope.
-Notation "RX@ i :=()" := ((rx_option_mapsto i None))%I
+Notation "RX@ i :=()" := ((rx_state_mapsto i None))%I
                                         (at level 20, format "RX@ i :=()"):bi_scope.
-Notation "RX@ i := p " := (rx_agree_mapsto i p)
+Notation "RX@ i := p " := (owned_mb_mapsto i p Rx)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)
-Notation "O@ i :={ q }[ s ] " := (owned_mapsto i (DfracOwn q) s)
-                                           (at level 20, format "O@ i :={ q }[ s ] "):bi_scope.
-Notation "O@ i :={ q } p" := (owned_mapsto  i (DfracOwn q) {[p]})
-                                           (at level 20, format "O@ i :={ q } p "):bi_scope.
+Notation "O@ p := v" := (owned_mb_mapsto v p Owned )
+                              (at level 20, format "O@ p := v"):bi_scope.
 
-Notation "A@ i :={ q }[ s ] " := (access_mapsto i (DfracOwn q) s)
-                                          (at level 20, format "A@ i :={ q }[ s ] "):bi_scope.
-Notation "A@ i :={ q } p " := (access_mapsto  i (DfracOwn q) {[p]})
-                                           (at level 20, format "A@ i :={ q } p "):bi_scope.
+Notation "A@ p :={ q } [ s ] " := (access_mapsto p q s)
+                              (at level 20, format "A@ p :={ q } [ s ] "):bi_scope.
 
-Notation "E@ i :={ q }[ s ] " := (excl_mapsto i (DfracOwn q) s)
-                                          (at level 20, format "E@ i :={ q }[ s ] "):bi_scope.
-Notation "E@ i :={ q } p " := (excl_mapsto  i (DfracOwn q) {[p]})
-                                           (at level 20, format "E@ i :={ q } p "):bi_scope.
+Notation "EA@ p := v" := (access_mapsto p 1%Qp {[v]})
+                              (at level 20, format "EA@ p := v"):bi_scope.
 
 (* predicates for transactions *)
 Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v y x m f)
@@ -331,22 +296,7 @@ Section alloc_rules.
     iApply (ghost_map_alloc mem).
   Qed.
 
-  Lemma gen_tx_alloc (gm : (gmap VMID (agreeR (leibnizO PID)))) :
-   ✓ gm ->
-   ⊢ |==> ∃ γ, own γ (● gm) ∗ own γ (◯ gm).
-  Proof.
-    iIntros.
-    iDestruct (own_alloc ((● gm) ⋅ (◯ gm ))) as ">Halloc".
-    { apply auth_both_valid_discrete. split;done. }
-    iModIntro.
-    iDestruct "Halloc" as (γ) "Halloc".
-    iExists γ.
-    rewrite own_op //.
-  Qed.
-
-  Definition gen_rx_agree_alloc := gen_tx_alloc.
-
-  Lemma gen_rx_option_alloc (gmo: gmap VMID (option (Word * VMID))):
+  Lemma gen_rx_state_alloc (gmo: gmap VMID (option (Word * VMID))):
    ⊢ |==> ∃ γ, ghost_map_auth γ 1 gmo ∗
                               [∗ map] k ↦ v∈ gmo, ghost_map_elem γ k (DfracOwn 1) v.
   Proof.
@@ -354,10 +304,30 @@ Section alloc_rules.
     iApply (ghost_map_alloc gmo).
   Qed.
 
-  Lemma gen_pagetable_alloc (gm : gmap VMID (gset PID) ):
-   ⊢ |==> ∃ γ, ghost_map_auth γ 1 gm ∗ [∗ map] k ↦ v ∈ gm, ghost_map_elem γ k (DfracOwn 1) v.
+  Lemma gen_owned_mb_alloc (gm : gmap PID (VMID* OwnAndMB)) :
+    ⊢ |==> ∃ γ, ghost_map_auth γ 1 gm ∗ [∗ map] k ↦ v ∈ gm, ghost_map_elem γ k (DfracOwn 1) v.
   Proof.
     iApply (ghost_map_alloc gm).
+  Qed.
+
+  Lemma gen_access_alloc (gm : gmap PID (gset VMID)):
+   ⊢ |==> ∃ γ, own γ (● (((λ (s: gset VMID), (1%Qp, (GSet s))) <$> gm) :(gmap PID (frac * (gset_disj VMID))) )) ∗ [∗ map] k ↦ v ∈ gm, own γ (◯ {[k:= (1%Qp, (GSet v))]}).
+  Proof.
+    iIntros.
+    iMod (own_alloc ((● (((λ s, (1%Qp, (GSet s))) <$> gm) :(gmap PID (frac * (gset_disj VMID))) )) ⋅ (◯ (((λ s, (1%Qp, (GSet s))) <$> gm) :(gmap PID (frac * (gset_disj VMID))) )))) as (γ) "Halloc".
+    { apply auth_both_valid;split;first done. intro. 
+    rewrite lookup_fmap.
+    destruct (gm !! i); simpl;last done.
+    apply Some_valid.
+    apply pair_valid;split;done.
+    }
+    rewrite own_op.
+    iDestruct "Halloc" as "[Hauth Hfrag]".
+    iExists γ.
+    iSplitR "Hfrag"; first done.
+    rewrite -big_opM_own_1 -big_opM_auth_frag. 
+    rewrite -(big_opM_fmap (λ s : gset VMID, (1%Qp, GSet s)) (λ k v, {[k := v]})).
+    rewrite big_opM_singletons //.
   Qed.
 
   Lemma gen_trans_alloc (gm: gmap Word _):
@@ -408,27 +378,21 @@ Section other_rules.
 
   Global Instance reg_mapsto_timeless r i a : Timeless ((r @@ i ->r a)).
   Proof. rewrite reg_mapsto_eq /reg_mapsto_def. apply _. Qed.
-
-  Global Instance access_mapsto_timeless i q s : Timeless (A@i:={q}[s]).
+  
+  Global Instance access_mapsto_timeless p q v : Timeless (A@ p :={ q } [ v ]).
   Proof. rewrite access_mapsto_eq /access_mapsto_def. apply _. Qed.
 
-  Global Instance owned_mapsto_timeless i q s : Timeless (O@i:={q}[s]).
-  Proof. rewrite owned_mapsto_eq /owned_mapsto_def. apply _. Qed.
-
-  Global Instance excl_mapsto_timeless i q s : Timeless (E@i:={q}[s]).
-  Proof. rewrite excl_mapsto_eq /excl_mapsto_def. apply _. Qed.
+  Global Instance owned_mapsto_timeless p v : Timeless (O@ p := v).
+  Proof. rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def. apply _. Qed.
 
   Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).
-  Proof. rewrite tx_mapsto_eq /tx_mapsto_def. apply _. Qed.
+  Proof. rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def. apply _. Qed.
 
-  Global Instance rx_mapsto_timeless1 i p : Timeless (RX@ i :=p).
-  Proof. rewrite rx_agree_mapsto_eq /rx_agree_mapsto_def. apply _. Qed.
+  Global Instance rx_mapsto_timeless1 i n (r:VMID) : Timeless (RX@ i :=( n , r )).
+  Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
-  Global Instance rx_mapsto_timeless2 i n (r:VMID) : Timeless (RX@ i :=( n , r )).
-  Proof. rewrite rx_option_mapsto_eq /rx_option_mapsto_def. apply _. Qed.
-
-  Global Instance rx_mapsto_timeless3 i : Timeless (RX@ i :=()).
-  Proof. rewrite rx_option_mapsto_eq /rx_option_mapsto_def. apply _. Qed.
+  Global Instance rx_mapsto_timeless2 i : Timeless (RX@ i :=()).
+  Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
   Global Instance trans_mapsto_timeless w q v x y m f : Timeless (w ->t{ q }( v , x , y , m , f )).
   Proof. rewrite trans_mapsto_eq /trans_mapsto_def. apply _. Qed.

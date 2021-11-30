@@ -14,21 +14,16 @@ Lemma update_current_vmid_preserve_mem σ i :
 Proof. f_equal. Qed.
 
 
-Lemma update_current_vmid_preserve_tx σ i :
-  get_tx_agree (update_current_vmid σ i) = (get_tx_agree σ).
+Lemma update_current_vmid_preserve_mb σ i :
+  get_mb_gmap (update_current_vmid σ i) = (get_mb_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_current_vmid_preserve_rx1 σ i :
-  get_rx_agree (update_current_vmid σ i) = (get_rx_agree σ).
-Proof. f_equal. Qed.
-
-
-Lemma update_current_vmid_preserve_rx2 σ i :
+Lemma update_current_vmid_preserve_rx σ i :
   get_rx_gmap (update_current_vmid σ i) = (get_rx_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_current_vmid_preserve_pt σ i i':
-  get_vm_page_table (update_current_vmid σ i) i' = get_vm_page_table σ i'.
+Lemma update_current_vmid_preserve_pt σ i :
+  get_page_table (update_current_vmid σ i) = get_page_table σ.
 Proof. f_equal. Qed.
 
 Lemma update_current_vmid_preserve_owned σ i :
@@ -37,10 +32,6 @@ Proof. f_equal. Qed.
 
 Lemma update_current_vmid_preserve_access σ i :
   get_access_gmap (update_current_vmid σ i) = (get_access_gmap σ).
-Proof. f_equal. Qed.
-
-Lemma update_current_vmid_preserve_excl σ i :
-  get_excl_gmap (update_current_vmid σ i) = (get_excl_gmap σ).
 Proof. f_equal. Qed.
 
 Lemma update_current_vmid_preserve_trans σ i :
@@ -66,12 +57,10 @@ Ltac rewrite_vmid_all :=
   | |- _ =>
     try rewrite -> update_current_vmid_preserve_reg;
     try rewrite -> update_current_vmid_preserve_mem;
-    try rewrite -> update_current_vmid_preserve_tx;
-    try rewrite -> update_current_vmid_preserve_rx1;
-    try rewrite -> update_current_vmid_preserve_rx2;
+    try rewrite -> update_current_vmid_preserve_mb;
+    try rewrite -> update_current_vmid_preserve_rx;
     try rewrite -> update_current_vmid_preserve_owned;
     try rewrite -> update_current_vmid_preserve_access;
-    try rewrite -> update_current_vmid_preserve_excl;
     try rewrite -> update_current_vmid_preserve_trans;
     try rewrite -> update_current_vmid_preserve_trans';
     try rewrite -> update_current_vmid_preserve_hpool;

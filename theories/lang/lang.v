@@ -21,7 +21,7 @@ Definition reg_file : Type :=
   gmap reg_name Word.
 
 Definition page_table : Type :=
-  gmap PID ownership * gmap PID access.
+  gmap PID (VMID * gset VMID).
 
 Definition tx_buffer : Type :=
   PID.
@@ -48,7 +48,7 @@ Definition transactions : Type :=
 Definition state : Type :=
   vec reg_file vm_count
   * vec mail_box vm_count
-  * vec page_table vm_count
+  * page_table
   * VMID
   * mem
   * transactions.
@@ -75,11 +75,8 @@ Definition get_mail_boxes (st : state) : vec mail_box vm_count :=
 Definition get_vm_mail_box (st : state) (v : VMID) : mail_box :=
   (get_mail_boxes st) !!! v.
 
-Definition get_page_tables (st : state) : vec page_table vm_count :=
+Definition get_page_table (st : state) : page_table :=
   snd (fst (fst (fst st))).
-
-Definition get_vm_page_table (st : state) (v : VMID) : page_table :=
-  (get_page_tables st) !!! v.
 
 (* Conf *)
 Inductive exec_mode : Type :=
@@ -89,10 +86,10 @@ Inductive exec_mode : Type :=
 | FailPageFaultI.
 
 (* Aux funcs *)
-Definition check_ownership_page (st : state) (v : VMID) (p : PID) (pm : ownership ) : bool :=
-  match (get_vm_page_table st v).1 !! p  with
-  | Some p' =>
-    match (decide (pm = p')) with
+Definition check_ownership_page (st : state) (v : VMID) (p : PID) : bool :=
+  match (get_page_table st !! p)  with
+  | Some (p', _) =>
+    match (decide (v = p')) with
     | left _ => true
     | right _ => false
     end
@@ -100,46 +97,38 @@ Definition check_ownership_page (st : state) (v : VMID) (p : PID) (pm : ownershi
   | _ => false
   end.
 
-Definition check_access_page (st : state) (v : VMID) (p : PID) (pm : access) : bool :=
-  match (get_vm_page_table st v).2 !! p  with
-  | Some p' =>
-    match (decide (pm = p')) with
+Definition check_access_page (st : state) (v : VMID) (p : PID) : bool :=
+  match (get_page_table st !! p)  with
+  | Some (_, s) =>
+    match (decide (v ∈ s)) with
     | left _ => true
     | right _ => false
     end
   | _ => false
   end.
 
-Definition check_perm_page (st : state) (v : VMID) (p:PID) (pm : ownership* access) : bool :=
-  andb (check_ownership_page st v p pm.1)
-  (check_access_page st v p pm.2).
-
-
-Definition check_perm_addr (st : state) (v : VMID) (a : Addr) (p : ownership* access) : bool :=
-  check_perm_page st v (to_pid_aligned a) p.
-
-Definition check_ownership_page' (st : state) (v : VMID) (p : PID)  : bool :=
-  match (get_vm_page_table st v).1 !! p  with
-  | Some p' => is_owned p'
-  | _ => false
-  end.
-
-
-Definition check_access_page' (st : state) (v : VMID) (p : PID) : bool :=
-  match (get_vm_page_table st v).2 !! p with
-  | Some p' => is_accessible p'
+Definition check_excl_access_page (st : state) (v : VMID) (p : PID) : bool :=
+  match (get_page_table st !! p)  with
+  | Some (_, s) =>
+    match (decide (v ∈ s)) with
+    | left _ => match (decide (size s = 1)) with
+               | left _ => true
+               | right _ => false
+               end
+    | right _ => false
+    end
   | _ => false
   end.
 
 Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
-  check_access_page' st v (to_pid_aligned a).
+  check_access_page st v (to_pid_aligned a).
 
 Definition check_ownership_addr (st : state) (v : VMID) (a : Addr) : bool :=
-  check_ownership_page' st v (to_pid_aligned a).
+  check_ownership_page st v (to_pid_aligned a).
 
 Definition update_reg_global (st : state) (v : VMID) (r : reg_name) (w : Word) : state :=
   (vinsert v (<[r:=w]>(get_vm_reg_file st v)) (get_reg_files st),
-   (get_mail_boxes st), (get_page_tables st),
+   (get_mail_boxes st), (get_page_table st),
    get_current_vm st,
    get_mem st, get_transactions st).
 
@@ -152,49 +141,83 @@ Definition get_reg_global (st : state) (v : VMID) (r : reg_name) : option Word :
 Definition get_reg (st : state) (r : reg_name) : option Word :=
   get_reg_global st (get_current_vm st) r.
 
-Definition update_ownership_global (st : state) (v : VMID) (p : PID) (pm : ownership) : state :=
+Definition update_ownership' (pt : page_table) (v : VMID) (p : PID) : page_table :=
+  match (pt !! p) with
+  | Some (_, s) => <[p:=(v, s)]> pt
+  | None => pt
+  end.
+      
+Definition update_ownership_global (st : state) (v : VMID) (p : PID) : state :=
   (get_reg_files st, get_mail_boxes st,
-   vinsert v (<[p:=pm]>(get_vm_page_table st v).1, (get_vm_page_table st v).2) (get_page_tables st),
+   update_ownership' (get_page_table st) v p,
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_ownership (st : state) (p : PID) (pm : ownership) : state :=
-  update_ownership_global st (get_current_vm st) p pm.
+Definition update_ownership (st : state) (p : PID) : state :=
+  update_ownership_global st (get_current_vm st) p.
 
-Definition update_access_global (st : state) (v : VMID) (p : PID) (pm : access) : state :=
+Definition update_access' (pt : page_table) (v : VMID) (p : PID) : page_table :=
+  match (pt !! p) with
+  | Some (o, s) => <[p:=(o, {[v]} ∪ s)]> pt
+  | None => pt
+  end.
+
+Definition update_access_global (st : state) (v : VMID) (p : PID) : state :=
   (get_reg_files st, get_mail_boxes st,
-   vinsert v ((get_vm_page_table st v).1, <[p:=pm]>(get_vm_page_table st v).2) (get_page_tables st),
+   update_access' (get_page_table st) v p,
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_access(st : state) (p : PID) (pm : access) : state :=
-  update_access_global st (get_current_vm st) p pm.
+Definition update_access(st : state) (p : PID) : state :=
+  update_access_global st (get_current_vm st) p.
 
-Definition update_ownership_global_batch st (v:VMID) (ps : list PID) (pm: ownership): state :=
-   (get_reg_files st, get_mail_boxes st,
-   vinsert v ((foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v).1 ps),
-              (get_vm_page_table st v).2) (get_page_tables st),
+Definition revoke_access' (pt : page_table) (v : VMID) (p : PID) : page_table :=
+  match (pt !! p) with
+  | Some (o, s) => <[p:=(o, s ∖ {[v]})]> pt
+  | None => pt
+  end.
+
+Definition revoke_access_global (st : state) (v : VMID) (p : PID) : state :=
+  (get_reg_files st, get_mail_boxes st,
+   revoke_access' (get_page_table st) v p,
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_access_global_batch st (v:VMID) (ps : list PID) (pm: access): state :=
+Definition revoke_access (st : state) (p : PID) : state :=
+  revoke_access_global st (get_current_vm st) p.
+
+Definition update_ownership_global_batch st (v : VMID) (ps : list PID) : state :=
    (get_reg_files st, get_mail_boxes st,
-   vinsert v ((get_vm_page_table st v).1,
-              (foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v).2 ps)) (get_page_tables st),
+   (foldr (λ p acc, update_ownership' acc v p) (get_page_table st) ps),
+   get_current_vm st,
+   get_mem st, get_transactions st).
+
+Definition update_access_global_batch st (v:VMID) (ps : list PID) : state :=
+   (get_reg_files st, get_mail_boxes st,
+    (foldr (λ p acc, update_access' acc v p) (get_page_table st) ps),
+   get_current_vm st,
+   get_mem st, get_transactions st).
+
+Definition revoke_access_global_batch st (v:VMID) (ps : list PID) : state :=
+   (get_reg_files st, get_mail_boxes st,
+    (foldr (λ p acc, revoke_access' acc v p) (get_page_table st) ps),
    get_current_vm st,
    get_mem st, get_transactions st).
 
 Definition update_memory_global_batch (st : state) (l : list (Addr * Word)) : state :=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, (list_to_map l) ∪ (get_mem st), get_transactions st).
+  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, (list_to_map l) ∪ (get_mem st), get_transactions st).
 
-Definition update_ownership_batch st (ps : list PID) (pm: ownership): state :=
-  update_ownership_global_batch st (get_current_vm st) ps pm.
+Definition update_ownership_batch st (ps : list PID) : state :=
+  update_ownership_global_batch st (get_current_vm st) ps.
 
-Definition update_access_batch st (ps : list PID) (pm: access): state :=
-  update_access_global_batch st (get_current_vm st) ps pm.
+Definition update_access_batch st (ps : list PID) : state :=
+  update_access_global_batch st (get_current_vm st) ps.
+
+Definition revoke_access_batch st (ps : list PID) : state :=
+  revoke_access_global_batch st (get_current_vm st) ps.
 
 Definition update_memory_unsafe (st : state) (a : Addr) (w : Word) : state :=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st,
+  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st,
    <[a:=w]>(get_mem st), get_transactions st).
 
 Definition get_memory_unsafe (st : state) (a : Addr) : option Word :=
@@ -301,7 +324,6 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
   | _ => (FailI, s)
   end.
 
-
 Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : Word) : exec_mode * state :=
   let comp :=
       arg1' <- get_reg s arg1 ;;;
@@ -326,9 +348,6 @@ Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode *
       Some(update_incr_PC m)
   in
   (option_state_unpack s comp).
-
-
-
 
 Definition add (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
@@ -408,7 +427,7 @@ Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) : exec_mo
   end.
 
 Definition update_current_vmid (st : state) (v : VMID) : state :=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, v, get_mem st, get_transactions st).
+  (get_reg_files st, get_mail_boxes st, get_page_table st, v, get_mem st, get_transactions st).
 
 Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * VMID)) : exec_mode * state :=
   match q with
@@ -462,7 +481,7 @@ Definition empty_rx_global (st : state) (v : VMID) : state :=
   | (txAddr, (rxAddr, _)) =>
     (get_reg_files st,
      vinsert v (txAddr, (rxAddr,  None)) (get_mail_boxes st),
-     get_page_tables st,
+     get_page_table st,
      get_current_vm st,
      get_mem st, get_transactions st)
   end.
@@ -484,7 +503,7 @@ Definition copy_page_segment_unsafe (st : state) (src dst : PID) (l : Word) : st
 
 
 Definition fill_rx_unsafe (st : state) (l : Word) (v r : VMID) (tx rx : PID) : state :=
-  (get_reg_files st, vinsert r (tx, (rx, Some(l, v))) (get_mail_boxes st), get_page_tables st, get_current_vm st, get_mem st, get_transactions st).
+  (get_reg_files st, vinsert r (tx, (rx, Some(l, v))) (get_mail_boxes st), get_page_table st, get_current_vm st, get_mem st, get_transactions st).
 
 Definition fill_rx (st : state) (l : Word) (v r : VMID) : hvc_result state :=
   match get_vm_mail_box st r with
@@ -594,7 +613,7 @@ Definition parse_transaction_descriptor (st : state) (b: Addr) : option transact
   vs' <- decode_vmid vs ;;;
   unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, md.1, md.2).
 
-(*TODO: validate length*)
+(* TODO: validate length *)
 
 Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transaction_type)
            (t : transaction_descriptor) : hvc_result () :=
@@ -622,7 +641,7 @@ Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transa
   end.
 
 Definition insert_transaction (st : state) (h : handle) (t : transaction) (shp: gset handle):=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, get_mem st,
+  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, get_mem st,
    (<[h:=t]>(get_transactions st).1 ,shp)).
 
 Definition alloc_transaction (st : state) (h : handle) (t : transaction) : state :=
@@ -640,7 +659,7 @@ Definition get_transaction (st : state) (h : handle) : option transaction :=
   ((get_transactions st).1) !! h.
 
 Definition remove_transaction (s : state) (h : handle) : state :=
-  (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
+  (get_reg_files s, get_mail_boxes s, get_page_table s, get_current_vm s, get_mem s,
     (delete h (get_transactions s).1, union (get_transactions s).2 {[h]})).
 
 Definition new_transaction_from_descriptor (st : state) (ty : transaction_type)
@@ -652,10 +671,10 @@ Definition new_transaction_from_descriptor (st : state) (ty : transaction_type)
 
 (* all pages have the same required permission *)
 Definition check_transition_transaction (s : state) (td : transaction_descriptor) : bool :=
-  let p := (Owned, ExclusiveAccess) in
   match td with
   | (_, _, _, _, m) => forallb (fun v' =>
-                           (check_perm_page s (get_current_vm s) v' p))  m
+                                 (check_excl_access_page s (get_current_vm s) v')
+                                 && check_ownership_page s (get_current_vm s) v') m
   end.
 
 Definition list_pid_to_addr (ps: list PID):=
@@ -666,7 +685,7 @@ Definition flat_list_list_word (wss: list (list Word)):=
 
 Definition zero_pages (st: state) (ps: list PID):=
    (get_reg_files st, get_mail_boxes st,
-  get_page_tables st, get_current_vm st,
+  get_page_table st, get_current_vm st,
   (list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word (pages_of_W0 (length ps))))) ∪ (get_mem st),
    get_transactions st).
 
@@ -692,12 +711,11 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
            match ty with
            | Sharing =>
              unit(update_reg (update_reg
-                                (update_access_batch st' ps SharedAccess)
-                                R0 (encode_hvc_ret_code Succ))
+                                 st' R0 (encode_hvc_ret_code Succ))
                              R2 hd)
            | _ => 
              unit(update_reg (update_reg
-                                (update_access_batch st' ps NoAccess)
+                                (revoke_access_batch st' ps)
                                 R0 (encode_hvc_ret_code Succ))
                              R2 hd)
            end
@@ -735,9 +753,9 @@ Definition relinquish_transaction (s : state)
   let ps := t.1.2 in
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
   if (f =? W1)%Z then
-    unit (update_access_batch (update_reg (zero_pages s' ps) R0 (encode_hvc_ret_code Succ)) ps NoAccess)
+    unit (revoke_access_batch (update_reg (zero_pages s' ps) R0 (encode_hvc_ret_code Succ)) ps)
   else
-  unit (update_access_batch (update_reg s' R0 (encode_hvc_ret_code Succ)) ps NoAccess).
+  unit (revoke_access_batch (update_reg s' R0 (encode_hvc_ret_code Succ)) ps).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
   match t with
@@ -766,16 +784,12 @@ Definition retrieve (s : state) : exec_mode * state :=
            | true, false =>
              s' <- (write_retrieve_msg s (get_rx_pid_global s (get_current_vm s)) handle trn) ;;;
              match ty with
-             | Sharing =>
+             | Sharing | Lending =>
                unit (update_access_batch (update_reg (update_transaction s' handle (vs, w1, true ,r, ps, ty))
-                                                     R0 (encode_hvc_ret_code Succ)) ps SharedAccess)
-             | Lending =>
-               (* it is fine because we only allow at most one receiver *)
-               unit (update_access_batch (update_reg (update_transaction s' handle (vs, w1, true ,r, ps, ty))
-                                                     R0 (encode_hvc_ret_code Succ)) ps ExclusiveAccess)
+                                                     R0 (encode_hvc_ret_code Succ)) ps)
              | Donation =>
                unit (update_access_batch (update_ownership_batch (update_reg (remove_transaction s' handle)
-                                                R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
+                                                R0 (encode_hvc_ret_code Succ)) ps) ps)
              end
            | _ , _ => throw Denied
            end
@@ -811,7 +825,7 @@ Definition reclaim (s : state) : exec_mode * state :=
       if no_borrowers s handle (get_current_vm s)
       then
         unit (update_reg  (update_access_batch
-                             (remove_transaction s handle) l ExclusiveAccess) R0 (encode_hvc_ret_code Succ))
+                             (remove_transaction s handle) l) R0 (encode_hvc_ret_code Succ))
       else throw Denied
   in
   unpack_hvc_result_normal s comp.

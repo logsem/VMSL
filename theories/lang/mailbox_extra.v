@@ -1,10 +1,10 @@
-From HypVeri Require Import machine.
+From HypVeri Require Import machine machine_extra.
 From HypVeri.algebra Require Import base.
 
 
 Section mailbox_extra.
 
-Context `{HyperConst : HypervisorConstants}.
+Context {HyperConst : HypervisorConstants}.
 
 Lemma empty_rx_global_preserve_current_vm σ i :
   (get_current_vm (empty_rx_global σ i)) = (get_current_vm σ).
@@ -30,68 +30,48 @@ Proof.
   by rewrite (surjective_pairing (get_vm_mail_box σ i).2).
 Qed.
 
-Lemma empty_rx_global_preserve_tx σ i :
-  get_tx_agree (empty_rx_global σ i) = (get_tx_agree σ).
+(* TODO *)
+Lemma empty_rx_global_preserve_mb σ i :
+  get_mb_gmap (empty_rx_global σ i) = (get_mb_gmap σ).
 Proof.
   rewrite /empty_rx_global.
   rewrite (surjective_pairing (get_vm_mail_box σ i)).
   rewrite (surjective_pairing (get_vm_mail_box σ i).2).
-  rewrite /get_tx_agree /get_txrx_auth_agree.
+  rewrite /get_mb_gmap /get_vm_mail_box /get_mail_boxes /=.
   f_equal.
-  simplify_list_eq.
-  apply (list_eq_same_length _ _ vm_count).
-  rewrite fmap_length.
-  apply length_list_of_vmids.
-  rewrite fmap_length.
-  apply length_list_of_vmids.
-  intros.
-  apply list_lookup_fmap_inv in H0, H1.
-  destruct H0, H1.
-  destruct H0, H1.
-  rewrite H3 in H2.
-  inversion H2;subst x1.
-  clear H2.
-  rewrite H0 H1.
-  do 2 f_equal.
-  rewrite /get_vm_mail_box /get_mail_boxes /=.
-  destruct (decide (i = x0)).
-  subst x0.
-  by rewrite vlookup_insert //.
-  by rewrite vlookup_insert_ne //.
-Qed.
+  (* apply (list_eq_same_length _ _ (2*vm_count)). *)
+  (* induction list_of_vmids eqn:Heqn. *)
+  (* { assert (length list_of_vmids = 0). *)
+  (*   { rewrite Heqn. done. } *)
+  (*   rewrite length_list_of_vmids in H. *)
+  (*   simpl. *)
+  (*   lia. *)
+  (*   } *)
+  (*   simpl. *)
+(* XXX: couldn't find useful lemmas about flat_map, maybe redefine get_mb_gmap? *)
+Admitted.
+(*   rewrite list_length. *)
+(*   rewrite fmap_length. *)
+(*   rewrite fmap_length. *)
+(*   apply length_list_of_vmids. *)
+(*   intros. *)
+(*   apply list_lookup_fmap_inv in H0, H1. *)
+(*   destruct H0, H1. *)
+(*   destruct H0, H1. *)
+(*   rewrite H3 in H2. *)
+(*   inversion H2;subst x1. *)
+(*   clear H2. *)
+(*   rewrite H0 H1. *)
+(*   do 2 f_equal. *)
+(*   rewrite /get_vm_mail_box /get_mail_boxes /=. *)
+(*   destruct (decide (i = x0)). *)
+(*   subst x0. *)
+(*   by rewrite vlookup_insert //. *)
+(*   by rewrite vlookup_insert_ne //. *)
+(* Qed. *)
 
-Lemma empty_rx_global_preserve_rx1 σ i :
-  get_rx_agree (empty_rx_global σ i) = (get_rx_agree σ).
-Proof.
-  rewrite /empty_rx_global.
-  rewrite (surjective_pairing (get_vm_mail_box σ i)).
-  rewrite (surjective_pairing (get_vm_mail_box σ i).2).
-  rewrite /get_rx_agree /get_txrx_auth_agree.
-  f_equal.
-  simplify_list_eq.
-  apply (list_eq_same_length _ _ vm_count).
-  rewrite fmap_length.
-  apply length_list_of_vmids.
-  rewrite fmap_length.
-  apply length_list_of_vmids.
-  intros.
-  apply list_lookup_fmap_inv in H0, H1.
-  destruct H0, H1.
-  destruct H0, H1.
-  rewrite H3 in H2.
-  inversion H2;subst x1.
-  clear H2.
-  rewrite H0 H1.
-  do 2 f_equal.
-  rewrite /get_vm_mail_box /get_mail_boxes /=.
-  destruct (decide (i = x0)).
-  subst x0.
-  by rewrite vlookup_insert //.
-  by rewrite vlookup_insert_ne //.
-Qed.
-
-Lemma empty_rx_global_preserve_pt σ i i':
-  get_vm_page_table (empty_rx_global σ i) i' = get_vm_page_table σ i'.
+Lemma empty_rx_global_preserve_pagetable σ i:
+  get_page_table (empty_rx_global σ i)  = get_page_table σ.
 Proof.
   rewrite /empty_rx_global.
   rewrite (surjective_pairing (get_vm_mail_box σ i)).
@@ -108,14 +88,6 @@ Qed.
 
 Lemma empty_rx_global_preserve_access σ i :
   get_access_gmap (empty_rx_global σ i) = (get_access_gmap σ).
-Proof.
-  rewrite /empty_rx_global.
-  rewrite (surjective_pairing (get_vm_mail_box σ i)).
-  by rewrite (surjective_pairing (get_vm_mail_box σ i).2).
-Qed.
-
-Lemma empty_rx_global_preserve_excl σ i :
-  get_excl_gmap (empty_rx_global σ i) = (get_excl_gmap σ).
 Proof.
   rewrite /empty_rx_global.
   rewrite (surjective_pairing (get_vm_mail_box σ i)).
@@ -314,11 +286,9 @@ Ltac rewrite_empty_rx_global :=
     try rewrite -> empty_rx_global_preserve_current_vm;
     try rewrite -> empty_rx_global_preserve_regs;
     try rewrite -> empty_rx_global_preserve_mem;
-    try rewrite -> empty_rx_global_preserve_tx;
-    try rewrite  -> empty_rx_global_preserve_rx1;
+    try rewrite -> empty_rx_global_preserve_mb;
     try rewrite -> empty_rx_global_preserve_owned;
     try rewrite -> empty_rx_global_preserve_access;
-    try rewrite -> empty_rx_global_preserve_excl;
     try rewrite -> empty_rx_global_preserve_trans;
     try rewrite -> empty_rx_global_preserve_trans';
     try rewrite -> empty_rx_global_preserve_hpool;

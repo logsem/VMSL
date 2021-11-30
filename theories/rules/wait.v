@@ -38,7 +38,8 @@ Proof.
   iDestruct (gen_reg_valid1 PC i ai Hcur with "Hregown HPC") as "%HPC".
   iDestruct (gen_reg_valid1 R0 i r0 Hcur with "Hregown HR0") as "%HR0".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set ai p s with "Haccessown Hacc") as %Hacc; eauto.
+  iDestruct (gen_access_valid_addr_Set ai s with "Haccessown Hacc") as %Hacc; eauto.
+  rewrite (to_pid_aligned_in_page _ p); auto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hai") as "%Hmem".
   (* valid rx *)
@@ -127,7 +128,8 @@ Proof.
   iDestruct (gen_reg_valid1 R0 i r0 Hcur with "Hregown HR0") as "%HR0".
   iDestruct (gen_reg_valid_global1 R1 z b_ with "Hregown HR1'") as "%HR1'".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set ai p s with "Haccessown Hacc") as %Hacc; eauto.
+  iDestruct (gen_access_valid_addr_Set ai s with "Haccessown Hacc") as %Hacc; eauto.
+  rewrite (to_pid_aligned_in_page _ p); auto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hai") as "%Hmem".
   (* valid rx *)

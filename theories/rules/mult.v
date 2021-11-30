@@ -30,7 +30,7 @@ Proof.
   iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & ? & Haccess & H2)".
   pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
   rewrite Hinstr in Hvalidinstr.
-  inversion Hvalidinstr as [| | | | | | | |imm dst Hvalidra  | | | ].
+  inversion Hvalidinstr as [| | | | | | | |imm dst Hvalidra  | | |].
   subst imm dst.
   inversion Hvalidra as [HneqPC HneqNZ].
   (* valid regs *)

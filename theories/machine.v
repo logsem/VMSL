@@ -309,6 +309,7 @@ Inductive valid_instruction : instruction -> Prop :=
                 valid_instruction (Br r)
 | valid_nop : valid_instruction Nop.
 
+
 (* the decoding instruction is always valid,
 so that we can avoid considering the invalid instruction exceptions  *)
 Class InstructionSerialization := {
@@ -338,11 +339,14 @@ Proof.
   apply decode_encode_instruction.
 Qed.
 
+Section hyp_config.
 (* there are only fixed number of VMs in the machine *)
 Class HypervisorConstants := {
   vm_count : nat;
   vm_count_pos : 0 < vm_count;
 }.
+
+End hyp_config.
 
 Section hyp_def.
 Context `{_: HypervisorConstants}.
