@@ -1,8 +1,8 @@
 From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_map.
 From iris.algebra Require Export auth agree dfrac excl gmap gset frac_agree frac_auth.
 From iris.proofmode Require Export tactics.
-From HypVeri Require Import monad machine.
-From HypVeri Require Export machine_extra lang.
+From HypVeri Require Import monad machine machine_extra.
+From HypVeri Require Export lang.
 
 Inductive OwnAndMB :=
 | Owned 
@@ -106,12 +106,15 @@ Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
     list_to_map own.
 
   Definition get_mb_gmap σ : gmap_own_mb:=
-    let pt := (get_page_table σ) in
+    (* let pt := (get_page_table σ) in *)
     list_to_map (flat_map (λ v, let mb := (get_vm_mail_box σ v) in
-                        match (pt !! (mb.1), pt !! (mb.2.1)) with
-                        | (None, None) =>  [(mb.1, (v,Tx));(mb.2.1, (v,Rx))]
-                        | _ => []
-                        end ) (list_of_vmids)).
+                        (* match (pt !! (mb.1), pt !! (mb.2.1)) with *)
+                        (* | (None, None) => *)
+                                (* XXX: validate here?  *)
+                            [(mb.1, (v,Tx));(mb.2.1, (v,Rx))]
+                        (* | _ => [] *)
+                        (* end *)
+                          ) (list_of_vmids)).
 
   (* Definition get_access_gmap σ : gmap_acc :=
     let pt := (get_page_table σ) in

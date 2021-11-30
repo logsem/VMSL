@@ -17,22 +17,13 @@ Lemma alloc_transaction_preserve_mem σ h trans:
   get_mem (alloc_transaction σ h trans) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma alloc_transaction_preserve_tx σ h trans:
-  get_tx_agree (alloc_transaction σ h trans) = get_tx_agree σ.
+Lemma alloc_transaction_preserve_mb σ h trans:
+  get_mb_gmap (alloc_transaction σ h trans) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma alloc_transaction_preserve_rx1 σ h trans:
-  get_rx_agree (alloc_transaction σ h trans) = get_rx_agree σ.
-Proof. f_equal. Qed.
-
-Lemma alloc_transaction_preserve_rx2 σ h trans:
+Lemma alloc_transaction_preserve_rx σ h trans:
   get_rx_gmap(alloc_transaction σ h trans) = get_rx_gmap σ.
 Proof. f_equal. Qed.
-
-Lemma alloc_transaction_preserve_rx  σ h trans:
-  (get_rx_agree (alloc_transaction σ h trans), get_rx_gmap (alloc_transaction σ h trans) ) =
-  (get_rx_agree σ, get_rx_gmap σ).
-Proof. by rewrite alloc_transaction_preserve_rx1 alloc_transaction_preserve_rx2 . Qed.
 
 Lemma alloc_transaction_preserve_owned σ h trans:
   get_owned_gmap (alloc_transaction σ h trans) = get_owned_gmap σ.
@@ -40,12 +31,6 @@ Proof. f_equal. Qed.
 Lemma alloc_transaction_preserve_access σ h trans:
   get_access_gmap (alloc_transaction σ h trans) = get_access_gmap σ.
 Proof. f_equal. Qed.
-
-Lemma alloc_transaction_preserve_excl σ h trans:
-  get_excl_gmap (alloc_transaction σ h trans) = get_excl_gmap σ.
-Proof. f_equal. Qed.
-
-
 
 Lemma insert_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran shp:
   (get_transactions_gmap (insert_transaction σ h tran shp) proj)
@@ -292,7 +277,7 @@ Qed.
 Lemma get_retri_gmap_to_get_transaction σ wh {j wf b i psd tt}:
   (<[wh:=b]> (get_retri_gmap σ)) =
   (get_retri_gmap
-     (get_reg_files σ, get_mail_boxes σ, get_page_tables σ,
+     (get_reg_files σ, get_mail_boxes σ, get_page_table σ,
       get_current_vm σ, get_mem σ,
       (<[wh := (j, wf, b, i, psd, tt)]>
        (get_transactions σ).1, (get_transactions σ).2))).
@@ -305,7 +290,7 @@ Proof.
               (map (λ p : Addr * transaction, (p.1, p.2.1.1.1.2))
                    (map_to_list
                       (get_transactions
-                         (get_reg_files σ, get_mail_boxes σ, get_page_tables σ,
+                         (get_reg_files σ, get_mail_boxes σ, get_page_table σ,
                           get_current_vm σ, get_mem σ,
                           (<[wh := (j, wf, b, i, psd, tt)]> (get_transactions σ).1, (get_transactions σ).2))).1))
               !! x) eqn:Heqn.
@@ -430,22 +415,13 @@ Lemma update_transaction_preserve_mem σ h trans:
   get_mem (update_transaction σ h trans) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma update_transaction_preserve_tx σ h trans:
-  get_tx_agree (update_transaction σ h trans) = get_tx_agree σ.
+Lemma update_transaction_preserve_mb σ h trans:
+  get_mb_gmap (update_transaction σ h trans) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma update_transaction_preserve_rx1 σ h trans:
-  get_rx_agree (update_transaction σ h trans) = get_rx_agree σ.
-Proof. f_equal. Qed.
-
-Lemma update_transaction_preserve_rx2 σ h trans:
+Lemma update_transaction_preserve_rx σ h trans:
   get_rx_gmap(update_transaction σ h trans) = get_rx_gmap σ.
 Proof. f_equal. Qed.
-
-Lemma update_transaction_preserve_rx  σ h trans:
-  (get_rx_agree (update_transaction σ h trans), get_rx_gmap (update_transaction σ h trans) ) =
-  (get_rx_agree σ, get_rx_gmap σ).
-Proof. by rewrite update_transaction_preserve_rx1 update_transaction_preserve_rx2 . Qed.
 
 Lemma update_transaction_preserve_owned σ h trans:
   get_owned_gmap (update_transaction σ h trans) = get_owned_gmap σ.
@@ -454,14 +430,9 @@ Lemma update_transaction_preserve_access σ h trans:
   get_access_gmap (update_transaction σ h trans) = get_access_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma update_transaction_preserve_excl σ h trans:
-  get_excl_gmap (update_transaction σ h trans) = get_excl_gmap σ.
-Proof. f_equal. Qed.
-
 Lemma update_transaction_preserve_hpool σ h tran:
   (get_hpool_gset (update_transaction σ h tran)) = (get_hpool_gset σ).
 Proof. f_equal. Qed.
-
 
 Lemma update_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran:
   (get_transactions_gmap (update_transaction σ h tran) proj)
@@ -551,22 +522,13 @@ Lemma remove_transaction_preserve_mem σ h :
   get_mem (remove_transaction σ h ) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma remove_transaction_preserve_tx σ h :
-  get_tx_agree (remove_transaction σ h ) = get_tx_agree σ.
+Lemma remove_transaction_preserve_mb σ h :
+  get_mb_gmap (remove_transaction σ h ) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma remove_transaction_preserve_rx1 σ h :
-  get_rx_agree (remove_transaction σ h ) = get_rx_agree σ.
-Proof. f_equal. Qed.
-
-Lemma remove_transaction_preserve_rx2 σ h :
+Lemma remove_transaction_preserve_rx σ h :
   get_rx_gmap(remove_transaction σ h ) = get_rx_gmap σ.
 Proof. f_equal. Qed.
-
-Lemma remove_transaction_preserve_rx  σ h :
-  (get_rx_agree (remove_transaction σ h ), get_rx_gmap (remove_transaction σ h ) ) =
-  (get_rx_agree σ, get_rx_gmap σ).
-Proof. by rewrite remove_transaction_preserve_rx1 remove_transaction_preserve_rx2 . Qed.
 
 Lemma remove_transaction_preserve_owned σ h :
   get_owned_gmap (remove_transaction σ h ) = get_owned_gmap σ.
@@ -574,11 +536,6 @@ Proof. f_equal. Qed.
 Lemma remove_transaction_preserve_access σ h :
   get_access_gmap (remove_transaction σ h ) = get_access_gmap σ.
 Proof. f_equal. Qed.
-
-Lemma remove_transaction_preserve_excl σ h :
-  get_excl_gmap (remove_transaction σ h ) = get_excl_gmap σ.
-Proof. f_equal. Qed.
-
 
 Lemma remove_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h :
   (get_transactions_gmap (remove_transaction σ h) proj)
@@ -724,12 +681,10 @@ Ltac rewrite_trans_alloc :=
     try rewrite -> alloc_transaction_preserve_current_vm;
     try rewrite -> alloc_transaction_preserve_regs;
     try rewrite -> alloc_transaction_preserve_mem;
-    try rewrite -> alloc_transaction_preserve_tx;
-    try rewrite -> alloc_transaction_preserve_rx1;
-    try rewrite -> alloc_transaction_preserve_rx2;
+    try rewrite -> alloc_transaction_preserve_mb;
+    try rewrite -> alloc_transaction_preserve_rx;
     try rewrite -> alloc_transaction_preserve_owned;
-    try rewrite -> alloc_transaction_preserve_access;
-    try rewrite -> alloc_transaction_preserve_excl
+    try rewrite -> alloc_transaction_preserve_access
   end.
 
 Ltac rewrite_trans_update :=
@@ -738,12 +693,10 @@ Ltac rewrite_trans_update :=
     try rewrite -> update_transaction_preserve_current_vm;
     try rewrite -> update_transaction_preserve_regs;
     try rewrite -> update_transaction_preserve_mem;
-    try rewrite -> update_transaction_preserve_tx;
-    try rewrite -> update_transaction_preserve_rx1;
-    try rewrite -> update_transaction_preserve_rx2;
+    try rewrite -> update_transaction_preserve_mb;
+    try rewrite -> update_transaction_preserve_rx;
     try rewrite -> update_transaction_preserve_owned;
     try rewrite -> update_transaction_preserve_access;
-    try rewrite -> update_transaction_preserve_excl;
     try rewrite -> update_transaction_preserve_hpool
   end.
 
@@ -753,10 +706,8 @@ Ltac rewrite_trans_remove :=
     try rewrite -> remove_transaction_preserve_current_vm;
     try rewrite -> remove_transaction_preserve_regs;
     try rewrite -> remove_transaction_preserve_mem;
-    try rewrite -> remove_transaction_preserve_tx;
-    try rewrite -> remove_transaction_preserve_rx1;
-    try rewrite -> remove_transaction_preserve_rx2;
+    try rewrite -> remove_transaction_preserve_mb;
+    try rewrite -> remove_transaction_preserve_rx;
     try rewrite -> remove_transaction_preserve_owned;
-    try rewrite -> remove_transaction_preserve_access;
-    try rewrite -> remove_transaction_preserve_excl
+    try rewrite -> remove_transaction_preserve_access
   end.

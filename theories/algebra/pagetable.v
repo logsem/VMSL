@@ -111,39 +111,9 @@ Section pagetable_rules.
     iDestruct (own_valid_2 with "Hσ Hpt") as "%Hvalid".
 
     apply auth_frag_valid in Hvalid.
+    Admitted.
 
-    iApply (ghost_map_lookup with "Hσ Hpt").
-  Qed.
-
-  Lemma gen_access_valid_pure {σ i q} s:
-   ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ) -∗
-   (A@ i :={q}[s] ) -∗
-   ⌜(get_access_gmap σ) !! i = Some s⌝.
-  Proof.
-    iIntros  "Hσ Hacc".
-    rewrite access_mapsto_eq /access_mapsto_def.
-    iApply (gen_pagetable_valid_pure with "Hσ Hacc").
-  Qed.
-
-  Lemma gen_excl_valid_pure {σ i q} s:
-   ghost_map_auth (gen_excl_name vmG) 1 (get_excl_gmap σ) -∗
-   (E@ i :={q}[s] ) -∗
-   ⌜(get_excl_gmap σ) !! i = Some s⌝.
-  Proof.
-    iIntros "Hσ Hexcl".
-    rewrite excl_mapsto_eq /excl_mapsto_def.
-    iApply (gen_pagetable_valid_pure with "Hσ Hexcl").
-  Qed.
-
-  Lemma gen_own_valid_pure {σ i q} s:
-   ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
-   (O@ i :={q}[s] ) -∗
-   ⌜(get_owned_gmap σ) !! i = Some s⌝.
-  Proof.
-    iIntros  "Hσ Hown".
-    rewrite owned_mapsto_eq /owned_mapsto_def.
-    iApply (gen_pagetable_valid_pure with "Hσ Hown").
-  Qed.
+  (* TODO *)
 
   Lemma gen_pagetable_valid_SepS_pure {Perm: Type} {σ i q γ} proj (checkb: Perm -> bool) (s:gset PID):
    ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb) -∗

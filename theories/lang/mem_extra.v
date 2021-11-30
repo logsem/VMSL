@@ -14,15 +14,11 @@ Lemma update_memory_unsafe_preserve_reg σ a w:
   get_reg_gmap (update_memory_unsafe σ a w) = get_reg_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_tx σ a w :
-  get_tx_agree (update_memory_unsafe σ a w) = get_tx_agree σ.
+Lemma update_memory_unsafe_preserve_mb σ a w :
+  get_mb_gmap (update_memory_unsafe σ a w) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_rx1 σ a w :
-  get_rx_agree (update_memory_unsafe σ a w) = (get_rx_agree σ).
-Proof. f_equal. Qed.
-
-Lemma update_memory_unsafe_preserve_rx2 σ a w :
+Lemma update_memory_unsafe_preserve_rx σ a w :
   get_rx_gmap (update_memory_unsafe σ a w) = (get_rx_gmap σ).
 Proof. f_equal. Qed.
 
@@ -32,10 +28,6 @@ Proof. f_equal. Qed.
 
 Lemma update_memory_unsafe_preserve_access σ a w :
   get_access_gmap (update_memory_unsafe σ a w) = (get_access_gmap σ).
-Proof. f_equal. Qed.
-
-Lemma update_memory_unsafe_preserve_excl σ a w :
-  get_excl_gmap (update_memory_unsafe σ a w) = (get_excl_gmap σ).
 Proof. f_equal. Qed.
 
 Lemma update_memory_unsafe_preserve_trans σ a w :
@@ -96,8 +88,8 @@ Proof.
   apply IHl.
 Qed.
 
-Lemma zero_pages_preserve_tx σ ps:
-  (get_tx_agree (zero_pages σ ps)) = (get_tx_agree σ).
+Lemma zero_pages_preserve_mb σ ps:
+  (get_mb_gmap (zero_pages σ ps)) = (get_mb_gmap σ).
 Proof.
   rewrite /zero_pages.
   cbn.
@@ -113,24 +105,7 @@ Proof.
   apply IHl.
 Qed.
 
-Lemma zero_pages_preserve_rx1 σ ps:
-  (get_rx_agree (zero_pages σ ps)) = (get_rx_agree σ).
-Proof.
-  rewrite /zero_pages.
-  cbn.
-  generalize σ.
-  induction ps.
-  done.
-  intro.
-  cbn.
-  induction (finz.seq a (Z.to_nat page_size)).
-  cbn.
-  apply IHps.
-  cbn.
-  apply IHl.
-Qed.
-
-Lemma zero_pages_preserve_rx2 σ ps:
+Lemma zero_pages_preserve_rx σ ps:
   (get_rx_gmap (zero_pages σ ps)) = (get_rx_gmap σ).
 Proof.
   rewrite /zero_pages.
@@ -166,23 +141,6 @@ Qed.
 
 Lemma zero_pages_preserve_access σ ps :
   get_access_gmap (zero_pages σ ps) = (get_access_gmap σ).
-Proof.
-  rewrite /zero_pages.
-  cbn.
-  generalize σ.
-  induction ps.
-  done.
-  intro.
-  cbn.
-  induction (finz.seq a (Z.to_nat page_size)).
-  cbn.
-  apply IHps.
-  cbn.
-  apply IHl.
-Qed.
-
-Lemma zero_pages_preserve_excl σ ps :
-  get_excl_gmap (zero_pages σ ps) = (get_excl_gmap σ).
 Proof.
   rewrite /zero_pages.
   cbn.
@@ -282,24 +240,13 @@ Lemma copy_page_segment_unsafe_preserve_regs σ src dst l:
   get_reg_gmap (copy_page_segment_unsafe σ src dst l) = get_reg_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_tx σ src dst l:
-  get_tx_agree (copy_page_segment_unsafe σ src dst l) = get_tx_agree σ.
-Proof. f_equal. Qed.
-
-Lemma copy_page_segment_unsafe_preserve_rx1 σ src dst l:
-  get_rx_agree (copy_page_segment_unsafe σ src dst l) = get_rx_agree σ.
-Proof. f_equal. Qed.
-
-Lemma copy_page_segment_unsafe_preserve_rx2 σ src dst l:
-  get_rx_gmap (copy_page_segment_unsafe σ src dst l) = get_rx_gmap σ.
+Lemma copy_page_segment_unsafe_preserve_mb σ src dst l:
+  get_mb_gmap (copy_page_segment_unsafe σ src dst l) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma copy_page_segment_unsafe_preserve_rx σ src dst l:
-  (get_rx_agree (copy_page_segment_unsafe σ src dst l),
-   get_rx_gmap (copy_page_segment_unsafe σ src dst l)) =
-  (get_rx_agree σ, get_rx_gmap σ).
-Proof. by rewrite copy_page_segment_unsafe_preserve_rx1
-                  copy_page_segment_unsafe_preserve_rx2 . Qed.
+  get_rx_gmap (copy_page_segment_unsafe σ src dst l) = get_rx_gmap σ.
+Proof. f_equal. Qed.
 
 Lemma copy_page_segment_unsafe_preserve_owned σ src dst l:
   get_owned_gmap (copy_page_segment_unsafe σ src dst l) = get_owned_gmap σ.
@@ -307,10 +254,6 @@ Proof. f_equal. Qed.
 
 Lemma copy_page_segment_unsafe_preserve_access σ src dst l:
   get_access_gmap (copy_page_segment_unsafe σ src dst l) = get_access_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma copy_page_segment_unsafe_preserve_excl σ src dst l:
-  get_excl_gmap (copy_page_segment_unsafe σ src dst l) = get_excl_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma copy_page_segment_unsafe_preserve_trans σ src dst l:
@@ -334,24 +277,13 @@ Lemma write_mem_segment_unsafe_preserve_regs σ dst ws:
   get_reg_gmap (write_mem_segment_unsafe σ dst ws) = get_reg_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma write_mem_segment_unsafe_preserve_tx σ dst ws:
-  get_tx_agree (write_mem_segment_unsafe σ dst ws) = get_tx_agree σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_rx1 σ dst ws:
-  get_rx_agree (write_mem_segment_unsafe σ dst ws) = get_rx_agree σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_rx2 σ dst ws:
-  get_rx_gmap (write_mem_segment_unsafe σ dst ws) = get_rx_gmap σ.
+Lemma write_mem_segment_unsafe_preserve_mb σ dst ws:
+  get_mb_gmap (write_mem_segment_unsafe σ dst ws) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma write_mem_segment_unsafe_preserve_rx σ dst ws:
-  (get_rx_agree (write_mem_segment_unsafe σ dst ws),
-   get_rx_gmap (write_mem_segment_unsafe σ dst ws)) =
-  (get_rx_agree σ, get_rx_gmap σ).
-Proof. by rewrite write_mem_segment_unsafe_preserve_rx1
-                  write_mem_segment_unsafe_preserve_rx2 . Qed.
+  get_rx_gmap (write_mem_segment_unsafe σ dst ws) = get_rx_gmap σ.
+Proof. f_equal. Qed.
 
 Lemma write_mem_segment_unsafe_preserve_owned σ dst ws:
   get_owned_gmap (write_mem_segment_unsafe σ dst ws) = get_owned_gmap σ.
@@ -359,10 +291,6 @@ Proof. f_equal. Qed.
 
 Lemma write_mem_segment_unsafe_preserve_access σ dst ws:
   get_access_gmap (write_mem_segment_unsafe σ dst ws) = get_access_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_excl σ dst ws:
-  get_excl_gmap (write_mem_segment_unsafe σ dst ws) = get_excl_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma write_mem_segment_unsafe_preserve_trans σ dst ws:
@@ -391,53 +319,30 @@ Lemma fill_rx_unsafe_preserve_regs σ l v r tx rx :
   get_reg_gmap (fill_rx_unsafe σ l v r tx rx) = get_reg_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma fill_rx_unsafe_preserve_tx σ l v r tx rx :
+Lemma fill_rx_unsafe_preserve_mb σ l v r tx rx :
   tx = get_tx_pid_global σ r ->
-  get_tx_agree (fill_rx_unsafe σ l v r tx rx) = get_tx_agree σ.
+  get_mb_gmap (fill_rx_unsafe σ l v r tx rx) = get_mb_gmap σ.
 Proof.
-  intros H.
-  rewrite /fill_rx_unsafe /get_tx_agree /get_txrx_auth_agree H
-          /get_tx_pid_global /get_vm_mail_box /get_mail_boxes.
-  simpl.
-  f_equal.
-  induction list_of_vmids as [|? ? IH].
-  - reflexivity.
-  - simpl.
-    f_equal.
-    + f_equal.
-      f_equal.
-      destruct (decide (a = r)) as [p|p].
-      * rewrite p.
-        rewrite vlookup_insert.
-        reflexivity.
-      * rewrite vlookup_insert_ne; auto.
-    + rewrite IH.
-      reflexivity.
-Qed.
-
-Lemma fill_rx_unsafe_preserve_rx1 σ l v r tx rx :
-  rx = get_rx_pid_global σ r ->
-  get_rx_agree (fill_rx_unsafe σ l v r tx rx) = get_rx_agree σ.
-Proof.
-  intros H.
-  rewrite /fill_rx_unsafe /get_rx_agree /get_txrx_auth_agree H
-          /get_rx_pid_global /get_vm_mail_box /get_mail_boxes.
-  simpl.
-  f_equal.
-  induction list_of_vmids as [|? ? IH].
-  - reflexivity.
-  - simpl.
-    f_equal.
-    + f_equal.
-      f_equal.
-      destruct (decide (a = r)) as [p|p].
-      * rewrite p.
-        rewrite vlookup_insert.
-        reflexivity.
-      * rewrite vlookup_insert_ne; auto.
-    + rewrite IH.
-      reflexivity.
-Qed.
+  Admitted.
+(*   intros H. *)
+(*   rewrite /fill_rx_unsafe /get_mb_gmap H *)
+(*           /get_tx_pid_global /get_vm_mail_box /get_mail_boxes. *)
+(*   simpl. *)
+(*   f_equal. *)
+(*   induction list_of_vmids as [|? ? IH]. *)
+(*   - reflexivity. *)
+(*   - simpl. *)
+(*     f_equal. *)
+(*     + f_equal. *)
+(*       f_equal. *)
+(*       destruct (decide (a = r)) as [p|p]. *)
+(*       * rewrite p. *)
+(*         rewrite vlookup_insert. *)
+(*         reflexivity. *)
+(*       * rewrite vlookup_insert_ne; auto. *)
+(*     + rewrite IH. *)
+(*       reflexivity. *)
+(* Qed. *)
 
 Lemma fill_rx_unsafe_preserve_owned σ l v r tx rx :
   get_owned_gmap (fill_rx_unsafe σ l v r tx rx) = get_owned_gmap σ.
@@ -445,10 +350,6 @@ Proof. f_equal. Qed.
 
 Lemma fill_rx_unsafe_preserve_access σ l v r tx rx :
   get_access_gmap (fill_rx_unsafe σ l v r tx rx) = get_access_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_excl σ l v r tx rx :
-  get_excl_gmap (fill_rx_unsafe σ l v r tx rx) = get_excl_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma fill_rx_unsafe_preserve_trans σ l v r tx rx :
@@ -613,12 +514,10 @@ Ltac rewrite_mem_unsafe :=
   | |- _ =>
     try rewrite -> update_memory_unsafe_preserve_current_vm;
     try rewrite -> update_memory_unsafe_preserve_reg;
-    try rewrite -> update_memory_unsafe_preserve_tx;
-    try rewrite -> update_memory_unsafe_preserve_rx1;
-    try rewrite -> update_memory_unsafe_preserve_rx2;
+    try rewrite -> update_memory_unsafe_preserve_mb;
+    try rewrite -> update_memory_unsafe_preserve_rx;
     try rewrite -> update_memory_unsafe_preserve_owned;
     try rewrite -> update_memory_unsafe_preserve_access;
-    try rewrite -> update_memory_unsafe_preserve_excl;
     try rewrite -> update_memory_unsafe_preserve_trans;
     try rewrite -> update_memory_unsafe_preserve_trans';
     try rewrite -> update_memory_unsafe_preserve_hpool;
@@ -630,12 +529,10 @@ Ltac rewrite_mem_zero :=
   | |- _ =>
     try rewrite -> zero_pages_preserve_current_vm;
     try rewrite -> zero_pages_preserve_reg;
-    try rewrite -> zero_pages_preserve_tx;
-    try rewrite -> zero_pages_preserve_rx1;
-    try rewrite -> zero_pages_preserve_rx2;
+    try rewrite -> zero_pages_preserve_mb;
+    try rewrite -> zero_pages_preserve_rx;
     try rewrite -> zero_pages_preserve_owned;
     try rewrite -> zero_pages_preserve_access;
-    try rewrite -> zero_pages_preserve_excl;
     try rewrite -> zero_pages_preserve_trans;
     try rewrite -> zero_pages_preserve_trans';
     try rewrite -> zero_pages_preserve_hpool;
