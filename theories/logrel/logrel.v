@@ -34,8 +34,12 @@ Section logrel.
   Definition shared_or_noaccess_pages (i:VMID) (pgt: page_table) : iProp Σ:=
     (
       [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
-                               (⌜i ∉ sacc ∨ ∃ (j: VMID), j ≠ i ∧ j ∈ sacc⌝ -∗
-                                (p -@{1}A> [sacc] ∗
+                              (* no access, the full entry must be provided *)
+                               ((⌜i ∉ sacc⌝ -∗ p -@{1}A> [sacc]) ∗
+                              (* shared access, only need the i part *)
+                              (* XXX: may need full entry for mem sharing? *)
+                                (⌜∃ (j: VMID), j ≠ i ∧ j ∈ sacc⌝ -∗
+                                  ∃ (q:frac), p -@{q}A> [{[i]}] ∗
                                   (⌜i ∈ sacc⌝ -∗ unknown_mem_page p)))
     )%I.
 

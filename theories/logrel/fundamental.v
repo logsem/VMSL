@@ -12,7 +12,7 @@ Section fundamental.
   Context `{vmG: !gen_VMG Σ}.
 
   Lemma ftlr (i:VMID) (pgt:page_table) (regs: reg_file):
-    interp_access i pgt regs⊢ interp_execute i.
+    interp_access i pgt regs ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
     iIntros "((%Hreg_full & regs) & %Hpgt_full & VMProp) Hnotp VMProp_holds".
@@ -36,18 +36,17 @@ Section fundamental.
     destruct Hlookup_ai as [[? sacc] Hlookup_ai].
     (* sswp *)
     rewrite wp_sswp.
-    (* if i has access *)
     destruct (decide (i ∈ sacc)).
-    { admit. }
-    {
+    { (* i has access *)
+      admit.
+    }
+    { (* i doesn't have access *)
       iClear "VMProp VMPropz".
       rewrite /shared_or_noaccess_pages.
       rewrite (big_opM_delete _ _ (to_pid_aligned ai) _ Hlookup_ai).
-      iDestruct ("shared_pages") as "[pi shared_pages]".
+      iDestruct ("shared_pages") as "[[pi _] shared_pages]".
       simpl.
-      iDestruct ("pi" with "[]") as "[pi _]".
-      iPureIntro.
-      left;done.
+      iDestruct ("pi" with "[]") as "pi"; first done.
       iApply (not_valid_pc with "[PC pi]");
       [exact n|iFrame|].
       iNext;simpl.

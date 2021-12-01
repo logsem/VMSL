@@ -92,4 +92,30 @@ Proof.
       inversion H.
 Qed.
 
+Lemma not_valid_instr {s} i a wi :
+  i ∈ s ->
+  decode_instruction wi = None ->
+  {SS{{ ▷ (PC @@ i ->r a)
+        ∗ ▷ (to_pid_aligned a) -@{1}A> [s]
+        ∗ ▷ a ->a wi}}}
+  ExecI @ i
+  {{{ RET (false, FailI);
+    PC @@ i ->r a
+    ∗ (to_pid_aligned a) -@{1}A> [s]
+    ∗ a ->a wi
+  }}}.
+Proof.
+  iIntros (Hin_s Hdecode_none ϕ) "(>Hpc & >Ha & >Hw) Hϕ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche Hσ1".
+  rewrite /scheduled /= /scheduler /Is_true in Hsche.
+  case_match;[|done].
+  apply bool_decide_eq_true in Heqb.
+  apply fin_to_nat_inj in Heqb.
+  rename Heqb into Hcur.
+  iModIntro.
+  iDestruct "Hσ1" as "( ? & ? & Hreg & ? & ? & ? & Haccess & ?)".
+  iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
+Admitted.
+
 End rules_base.
