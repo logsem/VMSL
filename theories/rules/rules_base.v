@@ -44,13 +44,12 @@ Proof.
   rewrite just_scheduled_no_step_false //.
 Qed.
 
-Lemma not_valid_pc {q s} i a :
+Lemma not_valid_pc {s} i a :
   i ∉ s ->
   {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ (to_pid_aligned a) -@{1}A> [s] }}}
   ExecI @ i
   {{{ RET (false, FailI); PC @@ i ->r a ∗ (to_pid_aligned a) -@{1}A> [s] }}}.
 Proof.
-  simpl.
   iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ1".
