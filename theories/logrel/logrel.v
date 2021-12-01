@@ -46,10 +46,15 @@ Section logrel.
                                 p -@EA> i ∗ unknown_mem_page p
     )%I.
 
+  Definition full_reg_map (reg : reg_file) : iProp Σ := (∀ (r :reg_name), ⌜is_Some (reg !! r)⌝)%I.
+
+  (*TODO: full_mem_map*)
+  (*XXX: partial pgt_map? *)
+
   Program Definition interp_access: V :=
     λne (i:leibnizO VMID) (pgt: page_table) (regs: reg_file),
       ( (* registers *)
-        ([∗ map] r ↦ w ∈ regs, r @@i ->r w) ∗
+        ( full_reg_map regs ∗ [∗ map] r ↦ w ∈ regs, r @@i ->r w) ∗
         (* VMProp  *)
         VMProp i (
           (* in case of yielding, we need the following to apply yield rule*)

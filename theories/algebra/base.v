@@ -11,7 +11,6 @@ Inductive OwnAndMB :=
 
 Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P} := {
-  (* gen_token_preG_inG :> inG Σ (frac_authR (agreeR (leibnizO V))); *)
   gen_mem_preG_inG :> gen_heapGpreS A W Σ;
   gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
   gen_rx_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
@@ -23,62 +22,60 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   }.
 
 Section gen_vmG.
-Context `{hypconst : !HypervisorConstants}.
+  Context `{hypconst : !HypervisorConstants}.
 
-Class gen_VMG Σ := GenVMG{
-                       gen_VM_inG :> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ;
-                       gen_invG :> invGS Σ;
-                       gen_na_invG :> na_invG Σ;
-                       gen_nainv_name : na_inv_pool_name;
-                       gen_saved_propG :> savedPropG Σ;
-                       gen_prop_nameG :> inG Σ (authUR (optionUR (frac_agreeR gnameO)));
-                       gen_name_mapG :> inG Σ (authUR (gmapUR nat (agreeR gnameO)));                       
-                       gen_name_map_name: gname;
-                       (* gen_token_name : gname; *)
-                       gen_mem_name : gname;
-                       gen_reg_name : gname;
-                       gen_rx_state_name : gname;
-                       gen_owned_mb_name : gname;
-                       gen_access_name : gname;
-                       gen_trans_name : gname;
-                       gen_hpool_name : gname;
-                       gen_retri_name : gname
-                     }.
+  Class gen_VMG Σ := GenVMG{
+                            gen_VM_inG :> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ;
+                            gen_invG :> invGS Σ;
+                            gen_na_invG :> na_invG Σ;
+                            gen_nainv_name : na_inv_pool_name;
+                            gen_saved_propG :> savedPropG Σ;
+                            gen_prop_nameG :> inG Σ (authUR (optionUR (frac_agreeR gnameO)));
+                            gen_name_mapG :> inG Σ (authUR (gmapUR nat (agreeR gnameO)));
+                            gen_name_map_name: gname;
+                            gen_mem_name : gname;
+                            gen_reg_name : gname;
+                            gen_rx_state_name : gname;
+                            gen_owned_mb_name : gname;
+                            gen_access_name : gname;
+                            gen_trans_name : gname;
+                            gen_hpool_name : gname;
+                            gen_retri_name : gname
+                       }.
 
-Global Arguments gen_nainv_name {Σ} _.
-(* Global Arguments gen_token_name {Σ} _. *)
-Global Arguments gen_mem_name {Σ} _.
-Global Arguments gen_reg_name {Σ} _.
-Global Arguments gen_rx_state_name {Σ} _.
-Global Arguments gen_owned_mb_name {Σ} _.
-Global Arguments gen_access_name {Σ} _.
-Global Arguments gen_trans_name {Σ} _.
-Global Arguments gen_hpool_name {Σ} _.
-Global Arguments gen_retri_name {Σ} _.
-Global Arguments gen_name_map_name {Σ} {_}.
-
-
-Definition gen_VMΣ : gFunctors :=
-  #[
-    invΣ;
-    na_invΣ;
-    (* GFunctor (frac_authR (agreeR (leibnizO VMID))); *)
-    gen_heapΣ Addr Word;
-    gen_heapΣ (reg_name * VMID) Word;
-    gen_heapΣ VMID (option (Word*VMID));
-    gen_heapΣ PID (VMID* OwnAndMB);
-    GFunctor (authUR (gmapUR PID (prodR fracR (gset_disjR (leibnizO VMID)))));
-    gen_heapΣ Word (VMID * Word *  VMID * (list PID) * transaction_type);
-    GFunctor (frac_authR (gset_disjR (leibnizO Word)));
-    gen_heapΣ Word bool
-   ].
+  Global Arguments gen_nainv_name {Σ} _.
+  (* Global Arguments gen_token_name {Σ} _. *)
+  Global Arguments gen_mem_name {Σ} _.
+  Global Arguments gen_reg_name {Σ} _.
+  Global Arguments gen_rx_state_name {Σ} _.
+  Global Arguments gen_owned_mb_name {Σ} _.
+  Global Arguments gen_access_name {Σ} _.
+  Global Arguments gen_trans_name {Σ} _.
+  Global Arguments gen_hpool_name {Σ} _.
+  Global Arguments gen_retri_name {Σ} _.
+  Global Arguments gen_name_map_name {Σ} {_}.
 
 
-Global Instance subG_gen_VMPreG {Σ}:
-  subG gen_VMΣ Σ -> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ.
-Proof.
-  solve_inG.
-Qed.
+  Definition gen_VMΣ : gFunctors :=
+    #[
+           invΣ;
+           na_invΣ;
+           gen_heapΣ Addr Word;
+           gen_heapΣ (reg_name * VMID) Word;
+           gen_heapΣ VMID (option (Word*VMID));
+           gen_heapΣ PID (VMID* OwnAndMB);
+           GFunctor (authUR (gmapUR PID (prodR fracR (gset_disjR (leibnizO VMID)))));
+           gen_heapΣ Word (VMID * Word *  VMID * (list PID) * transaction_type);
+           GFunctor (frac_authR (gset_disjR (leibnizO Word)));
+           gen_heapΣ Word bool
+      ].
+
+
+  Global Instance subG_gen_VMPreG {Σ}:
+   subG gen_VMΣ Σ -> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ.
+  Proof.
+    solve_inG.
+  Qed.
 
 End gen_vmG.
 
@@ -88,12 +85,9 @@ Section definitions.
 
   Implicit Type σ: state.
  
-Definition gmap_rx := (gmap VMID (option (Word*VMID))).
-Definition gmap_own_mb:= gmap PID (VMID * OwnAndMB).
-Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
-
-  (* Definition get_token  (v:VMID) :=
-     (frac_auth_auth (to_agree (v: leibnizO VMID))). *)
+  Definition gmap_rx := (gmap VMID (option (Word*VMID))).
+  Definition gmap_own_mb:= gmap PID (VMID * OwnAndMB).
+  Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
 
   Definition get_reg_gmap σ: gmap (reg_name * VMID) Word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
@@ -121,10 +115,6 @@ Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
                         (* end *)
                           ) (list_of_vmids)).
 
-  (* Definition get_access_gmap σ : gmap_acc :=
-    let pt := (get_page_table σ) in
-    list_to_map ((λ v, (v, (1%Qp,(GSet ((list_to_set (map (λ p: (PID * _), p.1) (filter (λ (p: (_* (_ * gset VMID))), v ∈ p.2.2) (map_to_list pt)))): gset PID))))) <$> (list_of_vmids)). *)
-
   Definition get_access_gmap σ : gmap_acc :=
     let pt := (get_page_table σ) in
     ((λ (v: ( _ * gset VMID)), (1%Qp,(GSet v.2))) <$> pt).
@@ -145,7 +135,6 @@ Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
 
   Definition gen_vm_interp n σ: iProp Σ :=
       ⌜n = vm_count ⌝ ∗
-      (* own (gen_token_name vmG) (get_token (get_current_vm σ)) ∗ *)
       ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) ∗
       ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) ∗
       ghost_map_auth (gen_rx_state_name vmG) 1 (get_rx_gmap σ) ∗
@@ -212,11 +201,6 @@ Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
   Definition nainv γ P := na_inv (gen_nainv_name vmG) γ P.
 
 End definitions.
-
-(* predicate for current vm (token) *)
-
-(* Notation "<< n >>{ q }" := (token_agree n q)
-                        (at level 50, format "<< n >>{ q  }"): bi_scope. *)
 
 (* point-to predicates for registers and memory *)
 Notation "r @@ i ->r{ q } w" := (reg_mapsto r i q w)
@@ -352,8 +336,6 @@ Section other_rules.
 
   (* all resources are timeless(▷ P -> P),
     which means we can easily get rid of the later modalities of resources when opening invariants. *)
-  (* Global Instance token_timeless i q : Timeless (<<i>>{ q }).
-  Proof. rewrite token_agree_eq /token_agree_def. apply _. Qed. *)
 
   Global Instance mem_mapsto_timeless a q w : Timeless ((a ->a{q} w)).
   Proof. rewrite mem_mapsto_eq /mem_mapsto_def. apply _. Qed.
