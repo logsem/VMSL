@@ -4,7 +4,6 @@ From HypVeri Require Import lifting.
 From HypVeri.lang Require Import lang_extra.
 Require Import stdpp.fin.
 
-Locate gen_prop_nameG.
 Global Instance hyp_irisG `{HypervisorParameters} `{!gen_VMG Σ} :
   irisG hyp_machine Σ:=
   {
@@ -45,9 +44,11 @@ Proof.
   rewrite just_scheduled_no_step_false //.
 Qed.
 
-Lemma not_valid_pc {a i s} :
-  (to_pid_aligned a) ∉ s ->
-  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ A@i:={1}[s] }}} ExecI @ i {{{ RET (false, FailI); PC @@ i ->r a ∗ A@i:={1}[s] }}}.
+Lemma not_valid_pc {q s} i a :
+  i ∉ s ->
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ A@(to_pid_aligned a):={1} [s] }}}
+  ExecI @ i
+  {{{ RET (false, FailI); PC @@ i ->r a ∗ A@(to_pid_aligned a):={1} [s] }}}.
 Proof.
   simpl.
   iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
@@ -59,9 +60,9 @@ Proof.
   apply fin_to_nat_inj in Heqb.
   rename Heqb into Hcur.
   iModIntro.
-  iDestruct "Hσ1" as "(? & ? & Hreg & ? & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ1" as "( ? & ? & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  iDestruct (gen_access_valid_not (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
+  iDestruct (access_agree_check_noaccess (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.
   - iPureIntro.
     rewrite /reducible.
@@ -91,20 +92,5 @@ Proof.
       rewrite Hnacc in H.
       inversion H.
 Qed.
-
-(* 
-Lemma eliminate_wrong_token {i j q E} :
-  j ≠ i ->
-  {SS{{ ▷ (<<j>>{ q })}}} ExecI @ i ; E {{{ RET ExecI ; <<j>>{ q } ∗ False }}}.
-Proof.
-  iIntros (Hne Φ ) "> Htok HΦ".
-  iApply (sswp_lift_atomic_step ExecI) ;[done|].
-  iIntros (σ1) "%Hsche Hσ".
-  iDestruct "Hσ" as "(Htokown & ? & ? & ? & ? & ? & ? & ?)".
-  iDestruct (gen_token_valid_neq j i Hne with "Htok Htokown") as "%Hnsch".
-  iExFalso.
-  iPureIntro.
-  done.
-Qed. *)
 
 End rules_base.

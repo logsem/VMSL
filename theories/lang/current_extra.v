@@ -13,7 +13,6 @@ Lemma update_current_vmid_preserve_mem σ i :
   get_mem (update_current_vmid σ i) = get_mem σ.
 Proof. f_equal. Qed.
 
-
 Lemma update_current_vmid_preserve_mb σ i :
   get_mb_gmap (update_current_vmid σ i) = (get_mb_gmap σ).
 Proof. f_equal. Qed.
