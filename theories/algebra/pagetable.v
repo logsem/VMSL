@@ -85,9 +85,43 @@ Section pagetable_rules.
   Proof.
     iIntros  "Hσ Hpt".
     iDestruct (own_valid_2 with "Hσ Hpt") as "%Hvalid".
-
-    apply auth_frag_valid in Hvalid.
-  Admitted.
+    setoid_rewrite auth_both_valid_discrete in Hvalid.
+    destruct Hvalid as [Hvalid1 Hvalid2].
+    apply singleton_included_l in Hvalid1.
+    destruct Hvalid1 as [y [Hvalid1 Hvalid1']].
+    apply option_included in Hvalid1'.
+    destruct Hvalid1' as [? | Hvalid1']; first done.
+    destruct Hvalid1' as [Hvalid1' Hvalid1''].
+    destruct Hvalid1'' as [b [? [? Hvalid1'']]].
+    simplify_eq.
+    iPureIntro.
+    destruct b as [b1 b2].
+    destruct b2 as [b' |].
+    - exists b'.
+      split.
+      + rewrite Hvalid1.
+        assert (b1 = 1%Qp) as ->.
+        {
+          unfold get_access_gmap in Hvalid1.
+          apply lookup_fmap_Some in Hvalid1.
+          destruct Hvalid1 as [Hvalid1 [Hvalid1' Hvalid1''']].
+          simplify_eq.
+          reflexivity.
+        }
+        reflexivity.
+      + destruct Hvalid1'' as [Hvalid1'' | Hvalid1''].
+        * simplify_eq.
+          done.
+        * apply pair_included in Hvalid1'' as [_ Hvalid1''].
+          apply gset_disj_included in Hvalid1''.
+          done.
+    - destruct Hvalid1'' as [Hvalid1'' | Hvalid1''].
+      + simplify_eq.
+      + apply (lookup_valid_Some (get_access_gmap σ) p (b1, GSetBot)) in Hvalid2; rewrite Hvalid1; last done.
+        apply pair_valid in Hvalid2 as [_ Hvalid2].
+        simpl in Hvalid2.
+        done.
+  Qed.
 
   Lemma access_agree_1 {σ γ} (p:PID) s :
    own γ (● (get_access_gmap σ)) -∗
@@ -96,10 +130,44 @@ Section pagetable_rules.
   Proof.
     iIntros  "Hσ Hpt".
     iDestruct (own_valid_2 with "Hσ Hpt") as "%Hvalid".
-
-    apply auth_frag_valid in Hvalid.
-  Admitted.
-
+    setoid_rewrite auth_both_valid_discrete in Hvalid.
+    destruct Hvalid as [Hvalid1 Hvalid2].
+    apply singleton_included_l in Hvalid1.
+    destruct Hvalid1 as [y [Hvalid1 Hvalid1']].
+    apply option_included in Hvalid1'.
+    destruct Hvalid1' as [? | Hvalid1']; first done.
+    destruct Hvalid1' as [Hvalid1' Hvalid1''].
+    destruct Hvalid1'' as [b [? [? Hvalid1'']]].
+    simplify_eq.
+    iPureIntro.
+    destruct b as [b1 b2].
+    assert (b1 = 1%Qp) as ->.
+    {
+      unfold get_access_gmap in Hvalid1.
+      apply lookup_fmap_Some in Hvalid1.
+      destruct Hvalid1 as [Hvalid1 [Hvalid1' Hvalid1''']].
+      simplify_eq.
+      reflexivity.
+    }        
+    destruct b2 as [b' |].
+    - destruct Hvalid1'' as [Hvalid1'' | Hvalid1''].
+      + simplify_eq.
+        done.
+      + unfold included in Hvalid1''.
+        destruct Hvalid1'' as [z Hvalid1''].
+        exfalso.
+        apply exclusive0_l with (1%Qp, GSet s) z.
+        apply pair_exclusive_l.
+        apply frac_full_exclusive.
+        setoid_rewrite <-Hvalid1''.
+        apply (lookup_valid_Some (get_access_gmap σ) p (1%Qp, GSet b')) in Hvalid2; first done.
+        by rewrite Hvalid1.
+    - apply (lookup_valid_Some (get_access_gmap σ) p (1%Qp, GSetBot)) in Hvalid2.
+      setoid_rewrite pair_valid in Hvalid2.
+      destruct Hvalid2 as [_ Hvalid2].
+      by cbv in Hvalid2.
+      by rewrite Hvalid1.
+  Qed.
 
   Lemma access_agree_check_noaccess {σ i} p s:
    i ∉ s ->
