@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Import lifting rules.rules_base stdpp_extra.
-From HypVeri.algebra Require Import base reg mem pagetable mailbox token.
+From HypVeri.algebra Require Import base reg mem pagetable mailbox.
 From HypVeri.lang Require Import lang_extra mem_extra reg_extra current_extra.
 Require Import stdpp.fin.
 

@@ -9,7 +9,7 @@ Section pagetable_rules.
 
   (* owned *)
   Lemma owned_ne p1 p2 (v1 v2 : VMID):
-   O@p1:=v1 ∗ O@p2:=v2 -∗ ⌜p1 ≠ p2⌝ .
+   p1 -@O> v1 ∗ p2 -@O>v2 -∗ ⌜p1 ≠ p2⌝ .
   Proof using.
     iIntros "[HO1 HO2]".
     rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
@@ -35,7 +35,7 @@ Section pagetable_rules.
 
   Lemma access_split_set_union {p} q1 q2 (s1 s2 : gset VMID):
    s1 ## s2 ->
-   A@p:={(q1+q2)%Qp} [s1 ∪ s2] -∗ A@p:={q1} [s1] ∗ A@p:={q2} [s2].
+   p -@{(q1+q2)%Qp}A> [s1 ∪ s2] -∗ p -@{q1}A> [s1] ∗ p -@{q2}A> [s2].
   Proof using.
     iIntros (Hdisj) "HO".
     rewrite access_mapsto_eq /access_mapsto_def.
@@ -47,7 +47,7 @@ Section pagetable_rules.
   Qed.
 
   Lemma access_split_set_diff {p} q1 q2 (s1 s2 : gset VMID):
-   s2 ⊆ s1 -> A@p:={(q1+q2)%Qp} [s1] -∗ A@p:={q1} [s2] ∗ A@p:={q2} [s1 ∖ s2].
+   s2 ⊆ s1 -> p -@{(q1+q2)%Qp}A> [s1] -∗ p -@{q1}A> [s2] ∗ p -@{q2}A> [s1 ∖ s2].
   Proof using.
     iIntros (Hsub) "HO".
     rewrite access_mapsto_eq.
@@ -172,7 +172,7 @@ Section pagetable_rules.
   Lemma access_agree_check_noaccess {σ i} p s:
    i ∉ s ->
    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
-   (A@ p :={1} [s]) -∗
+   (p -@{1}A> [s]) -∗
    ⌜(check_access_page σ i p)= false⌝.
   Proof.
     iIntros (Hnin) "Hσ Hacc".
