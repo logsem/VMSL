@@ -1,5 +1,5 @@
 From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_map saved_prop.
-From iris.algebra Require Export auth agree dfrac excl gmap gset frac_agree frac_auth.
+From iris.algebra Require Export auth agree frac excl gmap gset frac_agree frac_auth.
 From iris.proofmode Require Export tactics.
 From HypVeri Require Import monad machine machine_extra.
 From HypVeri Require Export lang.
@@ -157,21 +157,15 @@ Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
       ⌜ (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ⌝ ∗
       ⌜ map_Forall (λ _ v, (Z.of_nat (length v.1.2) <? word_size)%Z = true) (get_transactions σ).1 ⌝ ∗
       ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ).
-(* 
-  Definition token_agree_def (v:VMID) (q:frac) : iProp Σ :=
-    own (gen_token_name vmG) (frac_auth_frag q (to_agree (v: leibnizO VMID))) .
-  Definition token_agree_aux : seal (@token_agree_def). Proof. by eexists. Qed.
-  Definition token_agree:= token_agree_aux.(unseal).
-  Definition token_agree_eq : @token_agree = @token_agree_def := token_agree_aux.(seal_eq). *)
 
-  Definition mem_mapsto_def (a:Addr) (dq : dfrac) (w:Word) : iProp Σ :=
-    (ghost_map_elem (gen_mem_name vmG) a dq w).
+  Definition mem_mapsto_def (a:Addr) (q : frac) (w:Word) : iProp Σ :=
+    (ghost_map_elem (gen_mem_name vmG) a (DfracOwn q) w).
   Definition mem_mapsto_aux : seal (@mem_mapsto_def). Proof. by eexists. Qed.
   Definition mem_mapsto := mem_mapsto_aux.(unseal).
   Definition mem_mapsto_eq : @mem_mapsto = @mem_mapsto_def := mem_mapsto_aux.(seal_eq).
 
-  Definition reg_mapsto_def (r:reg_name) (i:VMID) (dq : dfrac) (w:Word) : iProp Σ :=
-    (ghost_map_elem (gen_reg_name vmG) (r,i) dq w).
+  Definition reg_mapsto_def (r:reg_name) (i:VMID) (q : frac) (w:Word) : iProp Σ :=
+    (ghost_map_elem (gen_reg_name vmG) (r,i) (DfracOwn q) w).
   Definition reg_mapsto_aux : seal (@reg_mapsto_def). Proof. by eexists. Qed.
   Definition reg_mapsto := reg_mapsto_aux.(unseal).
   Definition reg_mapsto_eq : @reg_mapsto = @reg_mapsto_def := reg_mapsto_aux.(seal_eq).
@@ -225,14 +219,14 @@ End definitions.
                         (at level 50, format "<< n >>{ q  }"): bi_scope. *)
 
 (* point-to predicates for registers and memory *)
-Notation "r @@ i ->r{ q } w" := (reg_mapsto r i (DfracOwn q) w)
+Notation "r @@ i ->r{ q } w" := (reg_mapsto r i q w)
   (at level 22, q at level 50, format "r @@ i ->r{ q } w") : bi_scope.
 Notation "r @@ i ->r w" :=
-  (reg_mapsto r i (DfracOwn 1) w) (at level 21, w at level 50) : bi_scope.
+  (reg_mapsto r i 1 w) (at level 21, w at level 50) : bi_scope.
 
 Notation "a ->a{ q } w" := (mem_mapsto a q w)
   (at level 20, q at level 50, format "a ->a{ q } w") : bi_scope.
-Notation "a ->a w" := (mem_mapsto a 1%Qp w) (at level 20) : bi_scope.
+Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 
 (* predicates for TX and RX *)
 Notation "TX@ i := p" := (owned_mb_mapsto i p Tx)
@@ -245,19 +239,19 @@ Notation "RX@ i := p " := (owned_mb_mapsto i p Rx)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)
-Notation "O@ p := v" := (owned_mb_mapsto v p Owned )
-                              (at level 20, format "O@ p := v"):bi_scope.
+Notation "p -@O> v" := (owned_mb_mapsto v p Owned )
+                              (at level 20, format "p  -@O>  v"):bi_scope.
 
-Notation "A@ p :={ q } [ s ] " := (access_mapsto p q s)
-                              (at level 20, format "A@ p :={ q } [ s ] "):bi_scope.
+Notation "p -@{ q }A> [ s ] " := (access_mapsto p q s)
+                              (at level 20, format "p  -@{ q }A>  [ s ]"):bi_scope.
 
-Notation "EA@ p := v" := (access_mapsto p 1%Qp {[v]})
-                              (at level 20, format "EA@ p := v"):bi_scope.
+Notation "p -@EA> v" := (access_mapsto p 1%Qp {[v]})
+                              (at level 20, format "p  -@EA>  v"):bi_scope.
 
 (* predicates for transactions *)
 Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v y x m f)
-                                                   (at level 20, format "w ->t{ q }( v , x , y , m , f )"):bi_scope.
-Notation "w ->re b" := (retri_mapsto w b) (at level 20, format "w ->re b"):bi_scope.
+                                                   (at level 20, format "w  ->t{ q }( v , x , y , m , f )"):bi_scope.
+Notation "w ->re b" := (retri_mapsto w b) (at level 20, format "w  ->re  b"):bi_scope.
 
 (* predicates for hpool *)
 Notation "hp{ q }[ s ]" := (hpool_mapsto q s) (at level 20, format "hp{ q }[ s ]"):bi_scope.
@@ -269,18 +263,6 @@ Section alloc_rules.
   Context `{HyperConst : !HypervisorConstants}.
   Context `{HyperParams : !HypervisorParameters}.
   Context `{!gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ}.
-  (* Lemma gen_token_alloc i :
-   ⊢ |==> ∃ γ, own γ (get_token i) ∗ own γ (frac_auth_frag 1%Qp (to_agree (i: leibnizO VMID))).
-  Proof.
-    iIntros.
-    rewrite /get_token.
-    iDestruct (own_alloc ((●F (to_agree (i: leibnizO VMID))) ⋅ (◯F (to_agree (i: leibnizO VMID))))) as ">Halloc".
-    { apply frac_auth_valid. done. }
-    iModIntro.
-    iDestruct "Halloc" as (γ) "Halloc".
-    iExists γ.
-    rewrite own_op //.
-  Qed. *)
 
   Lemma gen_reg_alloc (regs: gmap (reg_name * VMID) Word) :
    ⊢ |==> ∃ γ, ghost_map_auth γ 1%Qp regs ∗
@@ -379,10 +361,10 @@ Section other_rules.
   Global Instance reg_mapsto_timeless r i a : Timeless ((r @@ i ->r a)).
   Proof. rewrite reg_mapsto_eq /reg_mapsto_def. apply _. Qed.
   
-  Global Instance access_mapsto_timeless p q v : Timeless (A@ p :={ q } [ v ]).
+  Global Instance access_mapsto_timeless p q v : Timeless (p -@{ q }A> [ v ]).
   Proof. rewrite access_mapsto_eq /access_mapsto_def. apply _. Qed.
 
-  Global Instance owned_mapsto_timeless p v : Timeless (O@ p := v).
+  Global Instance owned_mapsto_timeless p v : Timeless (p -@O> v).
   Proof. rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def. apply _. Qed.
 
   Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).

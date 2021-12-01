@@ -46,9 +46,9 @@ Qed.
 
 Lemma not_valid_pc {q s} i a :
   i ∉ s ->
-  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ A@(to_pid_aligned a):={1} [s] }}}
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ (to_pid_aligned a) -@{1}A> [s] }}}
   ExecI @ i
-  {{{ RET (false, FailI); PC @@ i ->r a ∗ A@(to_pid_aligned a):={1} [s] }}}.
+  {{{ RET (false, FailI); PC @@ i ->r a ∗ (to_pid_aligned a) -@{1}A> [s] }}}.
 Proof.
   simpl.
   iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
