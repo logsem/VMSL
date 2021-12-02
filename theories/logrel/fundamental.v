@@ -39,7 +39,7 @@ Section fundamental.
     destruct (decide (i ∈ sacc)).
     {
       (* i has access *)
-      destruct (decide (sacc = {[i]})).
+      destruct (decide (sacc = {[i]})) as [Heqs | Heqs].
       { (* i has exclusive access *)
         iEval(rewrite /exclusive_access_pages) in "excl_pages".
         rewrite (big_opM_delete _ _ (to_pid_aligned ai) _ Hlookup_ai).
@@ -50,6 +50,29 @@ Section fundamental.
         pose proof (in_page_to_pid_aligned ai) as Hinpage_ai.
         pose proof (addr_of_page_NoDup (tpa ai)) as HNoDup_ai.
         rewrite -big_opS_list_to_set; last exact HNoDup_ai.
+        rewrite big_opS_delete.
+        Unshelve.
+        3 : { exact ai. }
+        2 : {
+          apply elem_of_list_to_set.
+          apply tpa_addr_of_page.
+          (* apply of_pid_tpa_addr_of_page. *)
+        }
+        iDestruct "pi_mem" as "((%instr & instrp) & pi_mem)".
+        destruct (decode_instruction instr) as [instr'|] eqn:Heqn.
+        {
+          admit.
+        }
+        {
+          iApply (not_valid_instr (s := sacc) (q := 1%Qp) _ ai instr with "[PC pi instrp]"); auto.
+          {
+            rewrite Heqs.
+            iFrame.
+          }
+          iNext.
+          iIntros "? _".
+          by iApply wp_terminated.
+        }
       }
       {
         (* i has shared access *)
@@ -69,5 +92,6 @@ Section fundamental.
       iIntros "? _".
       by iApply wp_terminated.
     }
+  Admitted.
 
 End fundamental.
