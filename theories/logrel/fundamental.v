@@ -50,6 +50,7 @@ Section fundamental.
         pose proof (in_page_to_pid_aligned ai) as Hinpage_ai.
         pose proof (addr_of_page_NoDup (tpa ai)) as HNoDup_ai.
         rewrite -big_opS_list_to_set; last exact HNoDup_ai.
+        admit.
       }
       {
         (* i has shared access *)
@@ -69,5 +70,6 @@ Section fundamental.
       iIntros "? _".
       by iApply wp_terminated.
     }
+Admitted.
 
 End fundamental.

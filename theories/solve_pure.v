@@ -11,7 +11,7 @@ From machine_utils Require Export solve_pure.
 
 (** decode_instruction w = Some ? *)
 
-Class DecodeInstr (w: handle) (i: instruction) :=
+Class DecodeInstr (w: Word) (i: instruction) :=
   MkDecodeInstr: decode_instruction w = Some i.
 #[global] Hint Mode DecodeInstr + - : typeclass_instances.
 

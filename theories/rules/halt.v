@@ -10,14 +10,14 @@ Context `{vmG: !gen_VMG Σ}.
   
 Lemma halt {E i w1 q s} ai :
   decode_instruction w1 = Some(Halt) ->
-  to_pid_aligned ai ∈ s ->
+  i ∈ s ->
   {SS{{▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
-          ∗ ▷ (A@i:={q}[s])}}}
+          ∗ ▷ ((tpa ai) -@{q}A> [s])}}}
     ExecI @ i ;E
  {{{ RET (false, HaltI);  PC @@ i ->r (ai ^+ 1)%f
                   ∗ ai ->a w1
-                  ∗ A@i:={q}[s] }}}.
+                  ∗ (tpa ai) -@{q}A> [s] }}}.
 Proof.
   iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -29,11 +29,11 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(#Hneq & Hmem & Hreg & Htx & Hrx1 & Hrx2 & Hown & Haccess & Hrest)".
+  iDestruct "Hσ" as "(#Hneq & Hmem & Hreg & Hrx & Hown & Hmb & Haccess & Hrest)".
   (* valid regs *)
   iDestruct ((gen_reg_valid1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr_Set ai s) with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct (access_agree_check_true (tpa ai) s Hin with "Haccess Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.
@@ -51,7 +51,7 @@ Proof.
     (* unchanged part *)
     rewrite_reg_pc.
     rewrite_reg_global.
-    iFrame "Hmem Htx Hrx1 Hrx2 Hown Haccess Hrest".
+    iFrame "Hmem Hrx Hown Hmb Haccess Hrest".
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.

@@ -14,18 +14,18 @@ Context `{vmG: !gen_VMG Σ}.
 Lemma run {z w1 w2 w3 q s E R R' Q P P' i'} ai i :
   let T := (▷ (PC @@ z ->r ai)
             ∗ ▷ (ai ->a w1)
-            ∗ ▷ (A@z :={q}[s] )
+            ∗ ▷ ((tpa ai) -@{q}A> [s])
             ∗ ▷ (R0 @@ z ->r w2)
             ∗ ▷ (R1 @@ z ->r w3))%I
   in
   let T' := ((PC @@ z ->r (ai ^+ 1)%f)
                ∗ (ai ->a w1)
-               ∗ (A@z :={q}[s])
+               ∗ ((tpa ai) -@{q}A> [s])
                ∗ (R0 @@ z ->r w2)
                ∗ (R1 @@ z ->r w3))%I
   in
   decode_instruction w1 = Some Hvc ->
-  to_pid_aligned ai ∈ s ->
+  z ∈ s ->
   fin_to_nat z = 0 ->
   fin_to_nat i = i' ->
   i' ≠ 0 ->
@@ -49,13 +49,13 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(%Hneq & Hmemown & Hregown & Htx & Hrx1 & Hrx2 & Hown & Haccessown & Hrest)".
+  iDestruct "Hσ" as "(%Hneq & Hmemown & Hregown & Hrx & Hown & Hmb & Haccessown & Hrest)".
   (* valid regs *)
   iDestruct (gen_reg_valid1 PC z ai Hcur with "Hregown Hpc") as "%Hpc".
   iDestruct (gen_reg_valid1 R0 z w2 Hcur with "Hregown Hr0") as "%Hr0".
   iDestruct (gen_reg_valid1 R1 z w3 Hcur with "Hregown Hr1") as "%Hr1".
   (* valid pt *)
-  iDestruct (gen_access_valid_addr_Set ai s with "Haccessown Hacc") as %Hacc;eauto.
+  iDestruct (access_agree_check_true (tpa ai)  with "Haccessown Hacc") as %Hacc;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.
@@ -79,7 +79,7 @@ Proof.
     rewrite /gen_vm_interp /update_incr_PC.
     rewrite_vmid_all.
     rewrite_reg_pc.
-    iFrame "Hrest Htx Hrx1 Hrx2 Hmemown Haccessown Hown".
+    iFrame "Hrest Hrx Hmb Hmemown Haccessown Hown".
     iDestruct ((gen_reg_update1_global PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
     rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
     + rewrite Hz.
@@ -101,7 +101,7 @@ Proof.
                 (seq 0 vm_count) = [fin_to_nat i]) as ->.
       {
         rewrite /scheduled /machine.scheduler //= /scheduler Hz.
-        rewrite /update_current_vmid /get_current_vm //=.        
+        rewrite /update_current_vmid //=.
         pose proof (NoDup_seq 0 vm_count) as ND.
         pose proof (NoDup_singleton ((@fin_to_nat (@vm_count H) i))) as ND'.
         set f := (λ id : nat, base.negb (bool_decide (0 = id)) && bool_decide ((@fin_to_nat (@vm_count H) i) = id) = true).
@@ -165,7 +165,7 @@ Proof.
       {
         rewrite andb_true_r.
         rewrite /scheduled /machine.scheduler //= /scheduler.
-        rewrite /update_current_vmid /get_current_vm //=.
+        rewrite /update_current_vmid //=.
         apply eq_true_not_negb.
         intros c.
         rewrite ->bool_decide_eq_true in c.
