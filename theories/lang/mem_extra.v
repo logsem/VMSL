@@ -56,7 +56,7 @@ Proof. intros. rewrite  /update_memory_unsafe //. Qed.
 Lemma zero_pages_preserve_current_vm σ ps:
   (get_current_vm (zero_pages σ ps)) = (get_current_vm σ).
 Proof.
-  rewrite /get_current_vm /zero_pages.
+  rewrite /zero_pages.
   cbn.
   generalize σ.
   induction ps.
@@ -67,7 +67,6 @@ Proof.
   cbn.
   apply IHps.
   cbn.
-  rewrite /get_current_vm.
   apply IHl.
 Qed.
 
@@ -320,7 +319,7 @@ Lemma fill_rx_unsafe_preserve_regs σ l v r tx rx :
 Proof. f_equal. Qed.
 
 Lemma fill_rx_unsafe_preserve_mb σ l v r tx rx :
-  tx = get_tx_pid_global σ r ->
+  tx = (get_mail_box σ @ r).1 ->
   get_mb_gmap (fill_rx_unsafe σ l v r tx rx) = get_mb_gmap σ.
 Proof.
   Admitted.
@@ -372,14 +371,12 @@ Proof.
   apply map_eq.
   intros i.
   destruct (list_to_map
-              (map
-                 (λ v0 : VMID,
-                         match (get_vm_mail_box (fill_rx_unsafe σ l v r tx rx) v0).2.2 with
-                         | Some (l0, j) => (v0, Some (l0, j))
-                         | None => (v0, None)
-                         end
-                 )
-                 list_of_vmids) !! i) eqn:Heqn.
+    (map
+       (λ v0 : fin vm_count,
+          match get_transactions (get_transactions get_mail_boxes fill_rx_unsafe σ l v r tx rx !!! v0) with
+          | Some (l0, j) => (v0, Some (l0, j))
+          | None => (v0, None)
+          end) list_of_vmids) !! i) eqn:Heqn.
   - apply elem_of_list_to_map_2 in Heqn.
     apply elem_of_list_In in Heqn.
     apply in_map_iff in Heqn.
@@ -388,7 +385,6 @@ Proof.
     rewrite /fill_rx_unsafe //= in Heqn1.
     destruct (decide (r = y)).
     + subst.
-      rewrite /get_vm_mail_box /get_mail_boxes //= in Heqn1.
       rewrite vlookup_insert in Heqn1.
       simpl in Heqn1.
       inversion Heqn1; subst; clear Heqn1.
@@ -396,7 +392,6 @@ Proof.
       reflexivity.
     + symmetry.
       rewrite lookup_insert_Some.
-      rewrite /get_vm_mail_box /get_mail_boxes //= in Heqn1.
       rewrite vlookup_insert_ne in Heqn1; auto.
       destruct (σ.1.1.1.1.2 !!! y) as [a b] eqn:Heqn3.
       destruct b as [c d] eqn:Heqn4.
@@ -404,7 +399,6 @@ Proof.
       destruct d as [e|] eqn:Heqn5.
       * destruct e as [f g] eqn:Heqn6.
         inversion Heqn1; subst; clear Heqn1.
-        rewrite /get_vm_mail_box /get_mail_boxes.
         right.
         split; auto.
         apply elem_of_list_to_map_1'.
@@ -430,7 +424,6 @@ Proof.
            apply elem_of_list_In in Heqn2.
            split; auto.
       * simplify_eq.
-        rewrite /get_vm_mail_box /get_mail_boxes //=.
         right.
         split; auto.
         apply elem_of_list_to_map_1'.
@@ -463,17 +456,17 @@ Proof.
       apply Heqn.
       rewrite <-list_fmap_compose.
       rewrite /compose.
-      rewrite /get_vm_mail_box /fill_rx_unsafe /get_mail_boxes //=.
+      rewrite /fill_rx_unsafe //=.
       apply elem_of_list_In.
       apply in_map_iff.
       exists i.
       split; auto using in_list_of_vmids.
       rewrite vlookup_insert //=.
-    + rewrite /get_vm_mail_box /fill_rx_unsafe /get_mail_boxes //=.
+    + rewrite /fill_rx_unsafe //=.
       rewrite lookup_insert_None.
       split; auto.
       rewrite <-not_elem_of_list_to_map.
-      rewrite /get_vm_mail_box /fill_rx_unsafe /get_mail_boxes //= in Heqn.
+      rewrite  /fill_rx_unsafe //= in Heqn.
       intros H.
       apply Heqn.
       apply elem_of_list_In.

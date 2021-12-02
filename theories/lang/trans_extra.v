@@ -4,6 +4,8 @@ From HypVeri.algebra Require Import base.
 Section trans_extra.
 
 Context `{HyperConst : HypervisorConstants}.
+Implicit Type σ : state.
+Implicit Type h : Word.
 
 Lemma alloc_transaction_preserve_current_vm σ h trans:
   get_current_vm (alloc_transaction σ h trans) = get_current_vm σ.
@@ -146,7 +148,7 @@ Proof.
   assert (HlkSome : ∀  m k v,
                m !! k = Some v ->
                ((list_to_map
-    (map (λ p : handle * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
+    (map (λ p : Word * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
        (map_to_list m))): gmap _ _) !! k =
             Some (v.1.1.1.1.1, v.1.1.1.1.2, v.1.1.2, v.1.2, v.2)).
     {
@@ -171,7 +173,7 @@ Proof.
       rewrite //=.
     }
   destruct (((list_to_map
-    (map (λ p : handle * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
+    (map (λ p : Word * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
        (map_to_list (<[wh:= (j, wf, b', i, psd, tt)]> (get_transactions σ).1)))):gmap _ _) !! x) eqn:Heqn.
   - apply elem_of_list_to_map_2 in Heqn.
     apply elem_of_list_In in Heqn.
@@ -286,14 +288,11 @@ Proof.
   rewrite /get_transactions_gmap.
   apply map_eq.
   intros x.
+  simpl.
   destruct (list_to_map
-              (map (λ p : Addr * transaction, (p.1, p.2.1.1.1.2))
-                   (map_to_list
-                      (get_transactions
-                         (get_reg_files σ, get_mail_boxes σ, get_page_table σ,
-                          get_current_vm σ, get_mem σ,
-                          (<[wh := (j, wf, b, i, psd, tt)]> (get_transactions σ).1, (get_transactions σ).2))).1))
-              !! x) eqn:Heqn.
+    (map (λ p : Addr * transaction, (p.1, get_page_table (get_transactions p)))
+       (map_to_list (<[wh := (j, wf, b, i, psd, tt)]> (get_transactions σ).1))) !! x)
+           eqn:Heqn.
   - apply elem_of_list_to_map_2 in Heqn.
     apply elem_of_list_In in Heqn.
     apply in_map_iff in Heqn.
@@ -303,15 +302,11 @@ Proof.
     inversion Heqn1; subst; clear Heqn1.
     destruct (decide (wh = y.1)).
     + subst.
-      rewrite /get_transactions in Heqn2.
-      simpl in Heqn2.
       apply lookup_insert_rev in Heqn2.
       inversion Heqn2; subst; clear Heqn2.
       simpl.
       apply lookup_insert.
-    + rewrite /get_transactions in Heqn2.
-      simpl in Heqn2.
-      rewrite ->lookup_insert_Some in Heqn2.
+    + rewrite ->lookup_insert_Some in Heqn2.
       destruct Heqn2 as [H | H].
       destruct H; done.
       destruct H as [_ H].
@@ -328,7 +323,6 @@ Proof.
       apply elem_of_list_In in Q2.
       apply elem_of_map_to_list' in Q2.
       simpl in Q2.
-      rewrite /get_transactions in Q2.
       rewrite H1 in Q2.
       rewrite Q2 in H.
       inversion H; subst; clear H.
@@ -337,7 +331,6 @@ Proof.
       apply in_map_iff.
       exists (y.1, y.2).
       split; auto.
-      rewrite /get_transactions.
       apply elem_of_list_In.
       apply elem_of_map_to_list.
       assumption.
@@ -456,7 +449,7 @@ Proof.
 Qed.
 
 Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
-  dom (gset handle) (get_transactions_gmap σ proj) = dom (gset handle) (get_transactions σ).1.
+  dom (gset Word) (get_transactions_gmap σ proj) = dom (gset Word) (get_transactions σ).1.
 Proof.
   apply set_eq.
   split.
@@ -499,13 +492,13 @@ Proof.
 Qed.
 
 Lemma get_trans_gmap_preserve_dom {σ}:
-  dom (gset handle) (get_trans_gmap σ) = dom (gset handle) (get_transactions σ).1.
+  dom (gset Word) (get_trans_gmap σ) = dom (gset Word) (get_transactions σ).1.
 Proof.
   apply get_transactions_gmap_preserve_dom.
 Qed.
 
 Lemma get_retri_gmap_preserve_dom {σ}:
-  dom (gset handle) (get_retri_gmap σ) = dom (gset handle) (get_transactions σ).1.
+  dom (gset Word) (get_retri_gmap σ) = dom (gset Word) (get_transactions σ).1.
 Proof.
   apply get_transactions_gmap_preserve_dom.
 Qed.

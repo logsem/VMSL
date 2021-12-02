@@ -169,7 +169,7 @@ Section pagetable_rules.
       by rewrite Hvalid1.
   Qed.
 
-  Lemma access_agree_check_noaccess {σ i} p s:
+  Lemma access_agree_check_false {σ i} p s:
    i ∉ s ->
    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
    (p -@{1}A> [s]) -∗
@@ -185,6 +185,22 @@ Section pagetable_rules.
     contradiction.
   Qed.
 
+  Lemma access_agree_check_true {σ i q} p s:
+   i ∈ s ->
+   own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
+   (p -@{q}A> [s]) -∗
+   ⌜(check_access_page σ i p)= true⌝.
+  Proof.
+    iIntros (Hnin) "Hσ Hacc".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    iDestruct (access_agree with "Hσ Hacc") as %[s' [Hvalid Hsubs]].
+    rewrite /check_access_page.
+    apply opsem_access_lookup in Hvalid as [? Hvalid].
+    rewrite Hvalid.
+    case_match; first done.
+    destruct n.
+    set_solver + n Hnin Hsubs.
+  Qed.
 
   (** bigSL/M **)
   (* TODO *)

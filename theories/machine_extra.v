@@ -603,7 +603,6 @@ Proof.
   solve_finz.
 Qed.
 
-Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
 
 
 (* an alternative definition, not sure which is better *)
@@ -648,6 +647,35 @@ Proof using.
       solve_finz. } }
 Qed.
 
+
+Lemma finz_seq_in_inv{b} (f f' : finz.finz b) n:
+   (f' <= f )%f ->
+   (f <= f' ^+ ((Z.of_nat n)-1))%f ->
+   f ∈ finz.seq f' n.
+Proof.
+  revert f f'. induction n; cbn.
+  admit.
+  Admitted.
+  (* { intros.  solve_finz. lia. done. inversion H. } *)
+  (* { intros. apply  elem_of_cons in H. *)
+  (*   destruct H. *)
+  (*   solve_finz. *)
+  (*   eapply IHn in H. solve_finz. } *)
+(* Qed. *)
+
+
+Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
+
+Lemma tpa_addr_of_page (a:Addr) : a ∈ (addr_of_page (tpa a)).
+Proof.
+  Admitted.
+
+Lemma addr_of_page_NoDup (p:PID) : NoDup (addr_of_page p).
+Proof.
+  rewrite /addr_of_page.
+  apply finz_seq_NoDup'.
+  apply last_addr_in_bound.
+Qed.
 
 Lemma pid_lt_lt (p1 p2:PID):
   ((of_pid p1) < (of_pid p2))%f -> (p1 ^+ (page_size - 1) < p2)%f.

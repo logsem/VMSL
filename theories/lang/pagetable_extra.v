@@ -5,6 +5,8 @@ Section pagetable_extra.
 
 Context `{HyperConst : HypervisorConstants}.
 
+Implicit Type σ : state.
+
 Lemma update_ownership_batch_preserve_current_vm σ (ps: list PID):
  get_current_vm (update_ownership_batch σ ps) = get_current_vm σ.
 Proof. f_equal. Qed.
@@ -40,7 +42,7 @@ Proof. f_equal. Qed.
 Lemma update_ownership_batch_preserve_access σ ps:
 ((get_access_gmap (update_ownership_batch σ ps)):gmap _ _) = ((get_access_gmap σ): gmap _ _).
 Proof.
-  rewrite /get_access_gmap /update_ownership_batch /update_ownership_global_batch /get_page_table /=.
+  rewrite /get_access_gmap /update_ownership_batch /update_ownership_global_batch /=.
   generalize dependent σ.
   induction ps.
   done.
@@ -129,7 +131,7 @@ Proof. f_equal. Qed.
 Lemma update_access_batch_preserve_ownerships σ ps:
  (get_owned_gmap (update_access_batch σ ps)) = (get_owned_gmap σ).
 Proof.
-  rewrite /get_owned_gmap /update_access_batch /update_access_global_batch /get_page_table /=.
+  rewrite /get_owned_gmap /update_access_batch /update_access_global_batch /=.
   do 2 f_equal.
   generalize dependent σ.
   induction ps.
@@ -244,8 +246,7 @@ Proof.
   intros.
   rewrite /get_owned_gmap in H.
   apply (elem_of_list_to_map_2 _ p (i,Owned) ) in H.
-  (* inv_map_in. clear H0. *)
-    apply elem_of_map_to_list' in H.
+  apply elem_of_map_to_list' in H.
   simpl in H.
   rewrite lookup_fmap in H.
   destruct (get_page_table σ !! p) eqn:Heqn.
@@ -263,10 +264,6 @@ Lemma get_access_gmap_is_accessible {σ} p sacc:
 Proof.
   intros.
   rewrite /get_access_gmap in H.
-  (* apply (elem_of_list_to_map_2 _ p (1%Qp,GSet sacc) ) in H. *)
-  (* inv_map_in. clear H0. *)
-    (* apply elem_of_map_to_list' in H. *)
-  (* simpl in H. *)
   rewrite lookup_fmap in H.
   destruct (get_page_table σ !! p) eqn:Heqn.
   exists p0.1.

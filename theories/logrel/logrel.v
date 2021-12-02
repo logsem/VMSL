@@ -23,7 +23,7 @@ Section logrel.
   Defined.
 
   Definition unknown_mem_page (p: PID):=
-   ([∗ list] a ∈ (finz.seq (of_pid p) (Z.to_nat page_size)), ∃ w, (a ->a w))%I.
+   ([∗ list] a ∈ addr_of_page p, ∃ w, (a ->a w))%I.
 
 
   (** definition **)

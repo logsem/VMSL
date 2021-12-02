@@ -114,6 +114,8 @@ exists (w / page_size)%Z.
 lia.
 Defined.
 
+Notation tpa := to_pid_aligned.
+
 Global Instance pid_eq_dec: EqDecision PID.
 intros x y.
 destruct x,y .

@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base reg pagetable.
+From HypVeri.algebra Require Import base reg pagetable mem.
 From HypVeri Require Import lifting.
 From HypVeri.lang Require Import lang_extra.
 Require Import stdpp.fin.
@@ -46,9 +46,9 @@ Qed.
 
 Lemma not_valid_pc {s} i a :
   i ∉ s ->
-  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ (to_pid_aligned a) -@{1}A> [s] }}}
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ (tpa a) -@{1}A> [s] }}}
   ExecI @ i
-  {{{ RET (false, FailI); PC @@ i ->r a ∗ (to_pid_aligned a) -@{1}A> [s] }}}.
+  {{{ RET (false, FailI); PC @@ i ->r a ∗ (tpa a) -@{1}A> [s] }}}.
 Proof.
   iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -61,17 +61,15 @@ Proof.
   iModIntro.
   iDestruct "Hσ1" as "( ? & ? & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  iDestruct (access_agree_check_noaccess (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
+  iDestruct (access_agree_check_false (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.
   - iPureIntro.
     rewrite /reducible.
     exists FailI, σ1.
-    apply step_exec_fail.
-    rewrite /is_valid_PC Hpc Hcur.
-    simpl.
+    apply step_exec_fail_invalid_pc.
+    rewrite /is_valid_PC Hpc Hcur /=.
     rewrite check_access_page_mem_eq in Hnacc.
-    rewrite Hnacc.
-    done.
+    rewrite Hnacc //.
   - iModIntro.
     iIntros (m2 σ2) "? %HstepP".
     iModIntro.
@@ -90,18 +88,24 @@ Proof.
       rewrite check_access_page_mem_eq in Hnacc.
       rewrite Hnacc in H.
       inversion H.
+    + simplify_eq.
+      rewrite /is_valid_PC Hpc in H.
+      simpl in H.
+      rewrite check_access_page_mem_eq in Hnacc.
+      rewrite Hnacc in H.
+      inversion H.
 Qed.
 
-Lemma not_valid_instr {s} i a wi :
+Lemma not_valid_instr {s q} i a wi :
   i ∈ s ->
   decode_instruction wi = None ->
   {SS{{ ▷ (PC @@ i ->r a)
-        ∗ ▷ (to_pid_aligned a) -@{1}A> [s]
+        ∗ ▷ (tpa a) -@{q}A> [s]
         ∗ ▷ a ->a wi}}}
   ExecI @ i
   {{{ RET (false, FailI);
     PC @@ i ->r a
-    ∗ (to_pid_aligned a) -@{1}A> [s]
+    ∗ (tpa a) -@{q}A> [s]
     ∗ a ->a wi
   }}}.
 Proof.
@@ -114,8 +118,44 @@ Proof.
   apply fin_to_nat_inj in Heqb.
   rename Heqb into Hcur.
   iModIntro.
-  iDestruct "Hσ1" as "( ? & ? & Hreg & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ1" as "( ? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-Admitted.
+  iDestruct (access_agree_check_true (tpa a) s Hin_s with "Haccess Ha") as "%Hacc".
+  iDestruct (gen_mem_valid with "Hmem Hw") as "%Hlookup_w".
+  iSplit.
+  - iPureIntro.
+    rewrite /reducible.
+    exists FailI, σ1.
+    rewrite check_access_page_mem_eq in Hacc.
+    eapply step_exec_fail_invalid_instr;eauto.
+    rewrite /is_valid_PC Hpc Hcur /=.
+    rewrite Hacc //.
+    rewrite /get_memory Hcur Hacc //.
+  - iModIntro.
+    iIntros (m2 σ2) "? %HstepP".
+    iModIntro.
+    inversion HstepP; subst.
+    + simplify_eq.
+      rewrite /is_valid_PC Hpc in H.
+      simpl in H.
+      rewrite check_access_page_mem_eq in Hacc.
+      rewrite Hacc in H.
+      contradiction.
+    + simpl. rewrite /gen_vm_interp.
+      iFrame.
+      rewrite just_scheduled_vms_no_step_empty.
+      iSplitR;[done|].
+      rewrite andb_false_intro2;auto.
+      iApply "Hϕ".
+      iFrame.
+    + rewrite /get_memory in H1.
+      case_match.
+      rewrite H0 in Hpc.
+      inversion Hpc;subst.
+      rewrite Hlookup_w in H1.
+      inversion H1;subst w.
+      rewrite H2 // in Hdecode_none.
+      rewrite check_access_page_mem_eq // in Hacc.
+Qed.
 
 End rules_base.

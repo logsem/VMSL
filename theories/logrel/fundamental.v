@@ -37,8 +37,24 @@ Section fundamental.
     (* sswp *)
     rewrite wp_sswp.
     destruct (decide (i ∈ sacc)).
-    { (* i has access *)
+    {
+      (* i has access *)
+      destruct (decide (sacc = {[i]})).
+      { (* i has exclusive access *)
+        iEval(rewrite /exclusive_access_pages) in "excl_pages".
+        rewrite (big_opM_delete _ _ (to_pid_aligned ai) _ Hlookup_ai).
+        iDestruct ("excl_pages") as "[pi excl_pages]".
+        simpl.
+        iDestruct ("pi" with "[]") as "[pi pi_mem]";first done.
+        rewrite /unknown_mem_page.
+        pose proof (in_page_to_pid_aligned ai) as Hinpage_ai.
+        pose proof (addr_of_page_NoDup (tpa ai)) as HNoDup_ai.
+        rewrite -big_opS_list_to_set; last exact HNoDup_ai.
+      }
+      {
+        (* i has shared access *)
       admit.
+      }
     }
     { (* i doesn't have access *)
       iClear "VMProp VMPropz".

@@ -9,6 +9,8 @@ Section lang_extra.
 Context `{HyperConst : !HypervisorConstants}.
 Context `{HyperParams : !HypervisorParameters}.
 
+Implicit Type σ : state.
+
 Lemma check_access_page_mem_eq {σ i a} :
   check_access_page σ i (to_pid_aligned a) =
   check_access_addr σ i a.
@@ -106,7 +108,7 @@ Qed.
 
   Definition serialized_memory_descirptor l (r:VMID) ps := [l; (of_imm (encode_vmid r))]++ (map (λ pid, (of_pid pid)) ps).
 
-  Definition serialized_transaction_descriptor (v r:VMID) (wf  l : Word) (ps: list PID) (h : handle ): list Word :=
+  Definition serialized_transaction_descriptor (v r:VMID) (wf  l : Word) (ps: list PID) (h : Word): list Word :=
     [(of_imm (encode_vmid v)); wf; h] ++ (serialized_memory_descirptor l r ps).
 
   Lemma trans_desc_length{i j wf l ps wh} des :
@@ -121,11 +123,11 @@ Qed.
     lia.
   Qed.
 
-  Lemma mem_desc_valid{ b psd σ}l ps:
-    l =  (length ps) ->
+  Lemma mem_desc_valid{ b psd σ} l (ps : list PID):
+   l =  (length ps) ->
    psd =  (map (λ pid, (of_pid pid)) ps) ->
    (∀ (k : nat) (y1 y2 : Addr),
-   finz.seq b (length psd) !! k = Some y1 → psd !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
+            finz.seq b (length psd) !! k = Some y1 → psd !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
    map (λ v : Addr,(bind ((get_mem σ) !! v) to_pid )) (finz.seq b l)
    = map (λ pid, Some pid) ps.
   Proof.
@@ -249,7 +251,6 @@ Qed.
         apply (finz_seq_lookup' _ y1 k _ ) in H3.
         2: { rewrite Hlenmapeq. solve_finz. }
         destruct H3.
-        (* rewrite Hlenmapeq in H3. *)
         solve_finz.
         rewrite H0 /serialized_transaction_descriptor.
         simpl.
@@ -323,21 +324,25 @@ Qed.
    (exec instr σ).1 = m' ∧ (exec instr σ).2 = σ'.
   Proof.
     intros HstepP Heqi Hacc HPC Hmem Hdecode.
-  inversion HstepP as
-        [ σ1' Hnotvalid
+    inversion HstepP as
+        [ σ1' Hinvalid
+        | σ1' Ha w _ Hdecode' Hmem' Hinvalid_ins
         | σ1'  ? ? ? ? Hvalid Hreg2 Hmem2 Hdecode2 Hexec Hcontrol];
       simplify_eq /=.
     + (*Fail*)
-      by rewrite /is_valid_PC //= HPC Hacc in  Hnotvalid.
+      by rewrite /is_valid_PC //= HPC Hacc in Hinvalid.
+    + rewrite /get_memory Hacc Hmem in Hmem'.
+      inversion Hmem';subst.
+      rewrite Hdecode // in Hinvalid_ins.
     + (* Normal. *)
       (* eliminate Hmem2 *)
-      rewrite /get_memory  Hacc /get_memory_unsafe Hmem in Hmem2 .
+      rewrite /get_memory  Hacc Hmem in Hmem2 .
       inversion Hmem2;subst wi; clear Hmem2.
       (* eliminate Hdecode2 *)
       by rewrite Hdecode in Hdecode2;inversion Hdecode2;subst i0.
   Qed.
 
- Lemma option_state_unpack_preserve_state_Some σ1 σ2 σ2' :
+ Lemma option_state_unpack_preserve_state_Some σ1 σ2 (σ2': option state) :
    σ2' = Some σ2 ->  (ExecI, σ2) = (option_state_unpack σ1 σ2').
   Proof.
     intros.

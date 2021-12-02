@@ -5,8 +5,11 @@ Section reg_extra.
 
 Context `{HyperConst : HypervisorConstants}.
 
+Implicit Type σ : state.
+Implicit Type i : VMID.
+
 Lemma update_reg_global_preserve_current_vm σ i r w :
-  (get_current_vm (update_reg_global σ i r w)) = (get_current_vm σ).
+  get_current_vm (update_reg_global σ i r w) = get_current_vm σ.
 Proof. f_equal. Qed.
 
 Lemma update_reg_global_preserve_mem σ i r w : get_mem (update_reg_global σ i r w) = get_mem σ.
@@ -52,15 +55,15 @@ Proof. f_equal. Qed.
 Lemma update_offset_PC_preserve_current_vm σ o :
   (get_current_vm (update_offset_PC σ o )) = (get_current_vm σ).
 Proof.
-  rewrite /update_offset_PC /get_current_vm.
-  destruct (get_vm_reg_file σ σ.1.1.2 !! PC);eauto.
+  rewrite /update_offset_PC .
+  destruct (get_reg_file σ @ σ.1.1.2 !! PC);eauto.
 Qed.
 
 Lemma update_offset_PC_preserve_mem σ o :
   get_mem (update_offset_PC σ o) = get_mem σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   f_equal.
   done.
 Qed.
@@ -69,7 +72,7 @@ Lemma update_offset_PC_preserve_mb σ o :
   get_mb_gmap (update_offset_PC σ o) = get_mb_gmap σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_mb;done.
   done.
 Qed.
@@ -78,7 +81,7 @@ Lemma update_offset_PC_preserve_rx σ o :
   get_rx_gmap (update_offset_PC σ o) = get_rx_gmap σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_rx;done.
   done.
 Qed.
@@ -87,7 +90,7 @@ Lemma update_offset_PC_preserve_owned σ o :
   get_owned_gmap (update_offset_PC σ o) = get_owned_gmap σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_owned;done.
   done.
 Qed.
@@ -96,7 +99,7 @@ Lemma update_offset_PC_preserve_access σ o :
   get_access_gmap (update_offset_PC σ o) = get_access_gmap σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_access;done.
   done.
 Qed.
@@ -107,14 +110,14 @@ Lemma update_offset_PC_preserve_check_access σ o a:
 Proof.
   rewrite /update_offset_PC /check_access_addr /check_access_page.
   simpl.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC);eauto.
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC);eauto.
 Qed.
 
 Lemma update_offset_PC_preserve_trans σ o :
   get_trans_gmap (update_offset_PC σ o) = get_trans_gmap σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_trans;done.
   done.
 Qed.
@@ -123,7 +126,7 @@ Lemma update_offset_PC_preserve_trans' σ o :
   get_transactions (update_offset_PC σ o) = get_transactions σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_trans';done.
   done.
 Qed.
@@ -132,7 +135,7 @@ Lemma update_offset_PC_preserve_hpool σ o :
   get_hpool_gset (update_offset_PC σ o) = get_hpool_gset σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_hpool;done.
   done.
 Qed.
@@ -141,7 +144,7 @@ Lemma update_offset_PC_preserve_retri σ o :
   get_retri_gmap (update_offset_PC σ o) = get_retri_gmap σ.
 Proof.
   unfold update_offset_PC.
-  destruct (get_vm_reg_file σ (get_current_vm σ) !! PC).
+  destruct (get_reg_file σ @ (get_current_vm σ) !! PC).
   rewrite /update_reg update_reg_global_preserve_retri;done.
   done.
 Qed.
@@ -153,13 +156,13 @@ Lemma get_reg_global_update_reg_global_ne_vmid {σ i j R1 R2 A B} :
   get_reg_global (update_reg_global σ i R1 A) j R2 = Some B.
 Proof.
   intros Hne Hlk.
-  rewrite /get_reg_global /get_vm_reg_file /get_reg_files /update_reg_global.
+  rewrite /get_reg_global /update_reg_global.
   simpl.
   rewrite vlookup_insert_ne; auto.
 Qed.
 
 Lemma get_reg_gmap_lookup_Some σ i r w :
-  (get_reg_gmap σ) !! (r,i)= Some w <->  get_vm_reg_file σ i !! r = Some w.
+  (get_reg_gmap σ) !! (r,i)= Some w <->  get_reg_file σ @ i !! r = Some w.
 Proof.
   split.
   - unfold get_reg_gmap.
@@ -203,10 +206,10 @@ Proof.
 Qed.
 
 Lemma get_reg_gmap_lookup_None σ i r :
-  (get_reg_gmap σ) !! (r,i)= None <->  get_vm_reg_file σ i !! r = None.
+  (get_reg_gmap σ) !! (r,i)= None <->  get_reg_file σ @ i !! r = None.
 Proof.
   split.
-  - destruct (get_vm_reg_file σ i !! r) as [w|]  eqn:Heqn;[|done].
+  - destruct (get_reg_file σ @ i !! r) as [w|]  eqn:Heqn;[|done].
     intro HNone.
     apply not_elem_of_list_to_map_2 in HNone.
     exfalso.
@@ -248,8 +251,8 @@ Proof.
     by inversion HNone.
 Qed.
 
-Lemma get_reg_gmap_get_vm_reg_file σ (r:reg_name) (i:VMID) :
-  (get_reg_gmap σ) !! (r,i) = (get_vm_reg_file σ i) !! r.
+Lemma get_reg_gmap_get_reg_file σ (r:reg_name) (i:VMID) :
+  (get_reg_gmap σ) !! (r,i) = (get_reg_file σ @ i) !! r.
 Proof.
   destruct (get_reg_gmap σ !! (r, i)) eqn:Heqn.
   apply get_reg_gmap_lookup_Some in Heqn;done.
@@ -261,7 +264,7 @@ Lemma get_reg_gmap_get_reg_Some σ (r:reg_name) (w:Word) (i:VMID) :
   (get_reg_gmap σ) !! (r,i) = Some w <-> ((get_reg σ r) = Some w).
 Proof.
   intros.
-  rewrite get_reg_gmap_get_vm_reg_file.
+  rewrite get_reg_gmap_get_reg_file.
   unfold get_reg,get_reg_global;subst;done.
 Qed.
 
@@ -277,23 +280,20 @@ Proof.
   destruct( decide (j=(r,i)) ).
   - subst j.
     rewrite lookup_insert.
-    rewrite get_reg_gmap_get_vm_reg_file.
-    rewrite /get_vm_reg_file /get_reg_files.
-    simpl.
+    rewrite get_reg_gmap_get_reg_file /=.
     rewrite -> (vlookup_insert i _  _).
-      by rewrite lookup_insert.
+    by rewrite lookup_insert.
   - destruct ((get_reg_gmap σ) !! j) eqn:Heqn;
       rewrite lookup_insert_ne;[|done | |done];
         rewrite -> Heqn;
         destruct j as [r' i'];
-        rewrite ->get_reg_gmap_get_vm_reg_file in Heqn;
-        rewrite ->get_reg_gmap_get_vm_reg_file;
+        rewrite ->get_reg_gmap_get_reg_file in Heqn;
+        rewrite ->get_reg_gmap_get_reg_file;
         destruct (decide (i=i'));
         destruct (decide (r=r'));
         subst;
         try contradiction;
-        rewrite - Heqn;
-        rewrite /get_vm_reg_file /get_reg_files;simpl.
+        rewrite -Heqn /=.
     + rewrite -> (vlookup_insert i' _ _).
         by rewrite lookup_insert_ne ;[|done].
     + by rewrite vlookup_insert_ne.
@@ -305,7 +305,7 @@ Proof.
 Qed.
 
 Lemma update_offset_PC_update_PC1 σ i (w:Word) (o:Z):
-  i=get_current_vm σ -> ((get_reg_gmap σ) !! (PC,i) = Some w) ->
+  (i= get_current_vm σ) -> ((get_reg_gmap σ) !! (PC,i) = Some w) ->
   get_reg_gmap (update_offset_PC σ o) = <[(PC,i) := (w ^+ o)%f]>(get_reg_gmap σ).
 Proof.
   intros.
