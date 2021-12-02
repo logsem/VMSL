@@ -90,10 +90,10 @@ Section definitions.
   Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
 
   Definition get_reg_gmap σ: gmap (reg_name * VMID) Word :=
-     (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_vm_reg_file σ v)))) (list_of_vmids))).
+     (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_reg_file σ @ v)))) (list_of_vmids))).
 
   Definition get_rx_gmap σ : gmap VMID _ :=
-            ((list_to_map (map (λ v, let mb := (get_vm_mail_box σ v) in
+            ((list_to_map (map (λ v, let mb := (get_mail_box σ @ v) in
                                     match mb.2.2 with
                                       | Some (l, j) => (v, (Some ( l, j)))
                                       | None => (v,None)
@@ -106,7 +106,7 @@ Section definitions.
 
   Definition get_mb_gmap σ : gmap_own_mb:=
     (* let pt := (get_page_table σ) in *)
-    list_to_map (flat_map (λ v, let mb := (get_vm_mail_box σ v) in
+    list_to_map (flat_map (λ v, let mb := (get_mail_box σ @ v) in
                         (* match (pt !! (mb.1), pt !! (mb.2.1)) with *)
                         (* | (None, None) => *)
                                 (* XXX: validate here?  *)
@@ -122,7 +122,7 @@ Section definitions.
   (* TODO we need getters for transations.. *)
 
   Definition get_transactions_gmap{Info: Type} σ (proj : transaction -> Info):
-   gmap handle Info :=
+   gmap Word Info :=
     list_to_map (map (λ (p:Word * transaction) ,
                          (p.1, (proj p.2)))  (map_to_list (get_transactions σ).1)).
 
@@ -143,7 +143,7 @@ Section definitions.
       own (gen_access_name vmG) (● (get_access_gmap σ)) ∗
       ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ) ∗
       own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))) ∗
-      ⌜ (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ⌝ ∗
+      ⌜ (dom (gset Word) (get_transactions σ).1) ## ((get_transactions σ).2) ⌝ ∗
       ⌜ map_Forall (λ _ v, (Z.of_nat (length v.1.2) <? word_size)%Z = true) (get_transactions σ).1 ⌝ ∗
       ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ).
 
@@ -190,7 +190,7 @@ Section definitions.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
   Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
 
-  Definition hpool_mapsto_def q (s: gset handle) : iProp Σ :=
+  Definition hpool_mapsto_def q (s: gset Word) : iProp Σ :=
     own (gen_hpool_name vmG) (frac_auth_frag q (GSet s)).
   Definition hpool_mapsto_aux : seal (@hpool_mapsto_def). Proof. by eexists. Qed.
   Definition hpool_mapsto := hpool_mapsto_aux.(unseal).

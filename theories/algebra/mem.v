@@ -4,7 +4,7 @@ From HypVeri Require Import lang_extra.
 Section mem_rules.
 
   Context `{vmG : gen_VMG Σ}.
-
+  Implicit Type σ : state.
   Implicit Types w: Word.
   Implicit Types a: Addr.
 

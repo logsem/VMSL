@@ -23,7 +23,7 @@ Section logrel.
   Defined.
 
   Definition unknown_mem_page (p: PID):=
-   ([∗ list] a ∈ (finz.seq (of_pid p) (Z.to_nat page_size)), ∃ w, (a ->a w))%I.
+   ([∗ list] a ∈ addr_of_page p, ∃ w, (a ->a w))%I.
 
 
   (** definition **)
@@ -34,27 +34,31 @@ Section logrel.
   Definition shared_or_noaccess_pages (i:VMID) (pgt: page_table) : iProp Σ:=
     (
       [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
-                              ∃ (j: VMID), ⌜j ≠ i ∧ j ∈ sacc⌝ -∗
-                                p -@{1}A> [sacc] ∗
-                                  (⌜i ∈ sacc⌝ -∗ unknown_mem_page p)
+                              (* no access, the full entry must be provided *)
+                               ((⌜i ∉ sacc⌝ -∗ p -@{1}A> [sacc]) ∗
+                              (* shared access, only need the i part *)
+                              (* XXX: may need full entry for mem sharing? *)
+                                (⌜∃ (j: VMID), j ≠ i ∧ j ∈ sacc⌝ -∗
+                                  ∃ (q:frac), p -@{q}A> [{[i]}] ∗
+                                  (⌜i ∈ sacc⌝ -∗ unknown_mem_page p)))
     )%I.
 
-  Definition exclusive_access_pages (i:VMID) (pgt: page_table) : iProp Σ:=
+  Definition exclusive_access_pages (i: VMID) (pgt: page_table) : iProp Σ:=
     (
       [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
                                ⌜{[i]} = sacc⌝ -∗
                                 p -@EA> i ∗ unknown_mem_page p
     )%I.
 
-  Definition full_reg_map (reg : reg_file) : iProp Σ := (∀ (r :reg_name), ⌜is_Some (reg !! r)⌝)%I.
+  Definition full_reg_map (reg: reg_file) : iProp Σ := (∀ (r: reg_name), ⌜is_Some (reg !! r)⌝)%I.
 
-  (*TODO: full_mem_map*)
-  (*XXX: partial pgt_map? *)
+  Definition full_pgt_map (pgt: page_table) : iProp Σ := (∀ (p: PID), ⌜is_Some (pgt !! p)⌝)%I.
 
   Program Definition interp_access: V :=
     λne (i:leibnizO VMID) (pgt: page_table) (regs: reg_file),
       ( (* registers *)
-        ( full_reg_map regs ∗ [∗ map] r ↦ w ∈ regs, r @@i ->r w) ∗
+        (full_reg_map regs ∗ [∗ map] r ↦ w ∈ regs, r @@i ->r w) ∗
+         full_pgt_map pgt ∗
         (* VMProp  *)
         VMProp i (
           (* in case of yielding, we need the following to apply yield rule*)
