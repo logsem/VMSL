@@ -3,6 +3,8 @@ From HypVeri.algebra Require Import base.
 Section mailbox_rules.
 
   Context `{vmG :gen_VMG Σ}.
+  Implicit Type σ : state.
+  Implicit Type i : VMID.
 
   Lemma rx_owned_dupl_false i j w :
     RX@ i := w -∗ RX@ j := w -∗ False.
@@ -29,13 +31,12 @@ Section mailbox_rules.
   Lemma rx_owned_valid {σ} i p :
     (RX@ i := p) -∗
     ghost_map_auth (gen_owned_mb_name vmG) 1 (get_owned_gmap σ) -∗
-    ⌜(get_vm_mail_box σ i).2.1 = p⌝.
+    ⌜(get_mail_box σ @ i).2.1 = p⌝.
   Proof.
     iIntros "Hrx Hrxown".
     rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
     iDestruct (ghost_map_lookup with "Hrxown Hrx") as "%Hsome".
     iPureIntro.
-    rewrite /get_vm_mail_box /get_mail_boxes.
     rewrite /get_owned_gmap in Hsome.
     set l := map_to_list ((λ p : VMID * gset VMID, (p.1, Owned)) <$> get_page_table σ).
     apply (elem_of_list_to_map_2 l p (i, Rx)) in Hsome.
@@ -49,38 +50,36 @@ Section mailbox_rules.
   Lemma rx_state_valid {σ} i x :
     (rx_state_mapsto i x) -∗
     ghost_map_auth (gen_rx_state_name vmG) 1 (get_rx_gmap σ) -∗
-    ⌜(get_vm_mail_box σ i).2.2 = x⌝.
+    ⌜(get_mail_box σ @ i).2.2 = x⌝.
   Proof.
     iIntros "Hrx Hrxown".
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
     iDestruct (ghost_map_lookup with "Hrxown Hrx") as "%Hsome".
     iPureIntro.
-    rewrite /get_vm_mail_box /get_mail_boxes.
-    rewrite /get_rx_gmap in Hsome.
-    set l := map (λ v : VMID, match (get_vm_mail_box σ v).2.2 with
-                              | Some (l, j) => (v, Some (l, j))
-                              | None => (v, None)
-                              end) list_of_vmids.
+    rewrite /get_rx_gmap /=in Hsome.
+    set l := (map
+               (λ v : fin vm_count,
+                  match get_transactions (get_transactions get_mail_boxes σ !!! v) with
+                  | Some (l, j) => (v, Some (l, j))
+                  | None => (v, None)
+                  end) list_of_vmids).
     apply (elem_of_list_to_map_2 l i x) in Hsome.
     subst l.
     rewrite ->elem_of_list_In in Hsome.
     rewrite ->in_map_iff in Hsome.
     destruct Hsome as [y [Hsome1 Hsome2]].
-    rewrite /get_vm_mail_box /get_mail_boxes in Hsome1.
     destruct ((σ.1.1.1.1.2 !!! y).2.2) eqn:Heq; simplify_eq.
-    - rewrite Heq in Hsome1.
-      destruct p.
+    - destruct p.
+      inversion Hsome1.
       simplify_eq /=.
       done.
-    - rewrite Heq in Hsome1.
-      simplify_eq /=.
-      done.
+    - done.
   Qed.
 
   Lemma rx_state_valid_None {σ} i :
     (RX@i :=()) -∗
     ghost_map_auth (gen_rx_state_name vmG) 1 (get_rx_gmap σ) -∗
-    ⌜(get_vm_mail_box σ i).2.2 = None⌝.
+    ⌜(get_mail_box σ @ i).2.2 = None⌝.
   Proof.
     iIntros "H1 H2".
     by iApply (rx_state_valid with "H1 H2").
@@ -89,7 +88,7 @@ Section mailbox_rules.
   Lemma rx_state_valid_Some {σ} i a b :
     (RX@i :=(a, b)) -∗
     ghost_map_auth (gen_rx_state_name vmG) 1 (get_rx_gmap σ) -∗
-    ⌜(get_vm_mail_box σ i).2.2 = Some (a, b)⌝.
+    ⌜(get_mail_box σ @ i).2.2 = Some (a, b)⌝.
   Proof.
     iIntros "H1 H2".
     by iApply (rx_state_valid with "H1 H2").

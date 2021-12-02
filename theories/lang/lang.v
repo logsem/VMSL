@@ -9,12 +9,12 @@ Open Scope monad_scope.
 
 
 (* Getters *)
-Notation "'get_current_vm' st" := (snd (fst (fst st))) (at level 70).
-Notation "'get_mem' st" := (snd (fst st)) (at level 18).
-Notation "'get_transactions' st" := (snd st) (at level 70).
-Notation "'get_reg_files' st" := (fst (fst (fst (fst (fst st))))) (at level 18).
-Notation "'get_mail_boxes' st" := (snd (fst (fst (fst (fst st))))) (at level 18).
-Notation "'get_page_table' st" := (snd (fst (fst (fst st)))) (at level 18).
+Notation "'get_current_vm' st" := (snd (fst (fst st))) (at level 70, only parsing).
+Notation "'get_mem' st" := (snd (fst st)) (at level 18, only parsing).
+Notation "'get_transactions' st" := (snd st) (at level 70, only parsing).
+Notation "'get_reg_files' st" := (fst (fst (fst (fst (fst st))))) (at level 18, only parsing).
+Notation "'get_mail_boxes' st" := (snd (fst (fst (fst (fst st))))) (at level 18, only parsing).
+Notation "'get_page_table' st" := (snd (fst (fst (fst st)))) (at level 18, only parsing).
 Notation "'get_reg_file' st @ v" := (get_reg_files st !!! v) (at level 18, st as ident, only parsing).
 Notation "'get_mail_box' st @ v" := (get_mail_boxes st !!! v) (at level 18, only parsing).
 
