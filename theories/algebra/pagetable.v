@@ -185,54 +185,92 @@ Section pagetable_rules.
     contradiction.
   Qed.
 
+  Lemma gen_access_split {q} p s s1 s2 :
+    s = s1 ∪ s2 ->
+    s1 ## s2 ->
+    p -@{ q }A> [ s ] -∗
+    p -@{ q/2 }A> [ s1 ] ∗
+    p -@{ q/2 }A> [ s2 ].
+  Proof.
+    iIntros (Heq Hdisj) "H".
+    rewrite Heq.
+    rewrite access_mapsto_eq /access_mapsto_def.
+    rewrite <-gset_disj_union; auto.
+    rewrite <-(Qp_div_2 q).
+    rewrite pair_op.
+    setoid_rewrite <- singleton_op.
+    rewrite auth_frag_op.
+    rewrite own_op.
+    iDestruct "H" as "[? ?]".
+    rewrite (Qp_div_2 q).
+    by iFrame.
+  Qed.
 
-  (** bigSL/M **)
-  (* TODO *)
+  Lemma gen_access_valid {q} σ p s :
+    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
+    p -@{ q }A> [ s ] -∗
+    ⌜∀ i, i ∈ s -> check_access_page σ i p = true⌝.
+  Proof.
+    iIntros "Hσ Hacc".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    iDestruct (access_agree with "Hσ Hacc") as %Hvalid.
+    destruct Hvalid as [s' [Hvalid1 Hvalid2]].
+    iPureIntro.
+    intros i Hin.
+    rewrite /check_access_page.
+    apply opsem_access_lookup in Hvalid1 as [? Hvalid1].
+    rewrite Hvalid1.
+    assert (Hvalid3 : i ∈ s').
+    {
+      apply elem_of_weaken with s; auto.
+    }
+    rewrite decide_True; auto.
+  Qed.
+  
+  (* Lemma gen_pagetable_SepM_split1 {Perm: Type} {σ γ} i (proj: page_table -> gmap PID Perm) *)
+  (*       (checkb: Perm -> bool): *)
+  (*  ([∗ map] k↦v ∈ (get_pagetable_gmap σ proj checkb ), ghost_map_elem γ k (dfrac.DfracOwn 1) v)%I -∗ *)
+  (*  ghost_map_elem γ i (dfrac.DfracOwn 1) (get_pagetable_gset σ i proj checkb) ∗ *)
+  (*  [∗ map] k↦v ∈ (delete i (get_pagetable_gmap σ proj checkb)), ghost_map_elem γ k (dfrac.DfracOwn 1) v. *)
+  (* Proof. *)
+  (*   iIntros "Hall". *)
+  (*   iApply ((big_sepM_delete _ (get_pagetable_gmap σ proj checkb) i *)
+  (*                            (get_pagetable_gset σ i proj checkb)) with "Hall"). *)
+  (*   rewrite /get_pagetable_gmap. *)
+  (*   apply elem_of_list_to_map_1. *)
+  (*   {  rewrite -list_fmap_compose /compose /=. rewrite list_fmap_id. apply NoDup_list_of_vmids. } *)
+  (*   rewrite elem_of_list_In. *)
+  (*   rewrite in_map_iff. *)
+  (*   exists i. *)
+  (*   split. *)
+  (*   rewrite /get_pagetable_gset //. *)
+  (*   apply in_list_of_vmids. *)
+  (* Qed. *)
 
- (* Lemma gen_pagetable_SepM_split1 {Perm: Type} {σ γ} i (proj: page_table -> gmap PID Perm) *)
- (*        (checkb: Perm -> bool): *)
- (*   ([∗ map] k↦v ∈ (get_pagetable_gmap σ proj checkb ), ghost_map_elem γ k (dfrac.DfracOwn 1) v)%I -∗ *)
- (*   ghost_map_elem γ i (dfrac.DfracOwn 1) (get_pagetable_gset σ i proj checkb) ∗ *)
- (*   [∗ map] k↦v ∈ (delete i (get_pagetable_gmap σ proj checkb)), ghost_map_elem γ k (dfrac.DfracOwn 1) v. *)
- (*  Proof. *)
- (*    iIntros "Hall". *)
- (*    iApply ((big_sepM_delete _ (get_pagetable_gmap σ proj checkb) i *)
- (*                             (get_pagetable_gset σ i proj checkb)) with "Hall"). *)
- (*    rewrite /get_pagetable_gmap. *)
- (*    apply elem_of_list_to_map_1. *)
- (*    {  rewrite -list_fmap_compose /compose /=. rewrite list_fmap_id. apply NoDup_list_of_vmids. } *)
- (*    rewrite elem_of_list_In. *)
- (*    rewrite in_map_iff. *)
- (*    exists i. *)
- (*    split. *)
- (*    rewrite /get_pagetable_gset //. *)
- (*    apply in_list_of_vmids. *)
- (*  Qed. *)
-
- (*  Lemma gen_pagetable_SepM_split2 {Perm: Type} {σ γ} i j (proj: page_table -> gmap PID Perm) *)
- (*        (checkb: Perm -> bool): *)
- (*   i ≠ j -> *)
- (*   ([∗ map] k↦v ∈ (get_pagetable_gmap σ proj checkb ), ghost_map_elem γ k (dfrac.DfracOwn 1) v)%I -∗ *)
- (*   ghost_map_elem γ i (dfrac.DfracOwn 1) (get_pagetable_gset σ i proj checkb) ∗ *)
- (*   ghost_map_elem γ j (dfrac.DfracOwn 1) (get_pagetable_gset σ j proj checkb) ∗ *)
- (*   [∗ map] k↦v ∈ (delete j (delete i (get_pagetable_gmap σ proj checkb))), *)
- (*                  ghost_map_elem γ k (dfrac.DfracOwn 1) v. *)
- (*  Proof. *)
- (*    iIntros (Hne) "Hall". *)
- (*    iDestruct ((gen_pagetable_SepM_split1 i) with "Hall") as "[Hi Hrest]". *)
- (*    iFrame. *)
- (*    iApply ((big_sepM_delete _ _ j (get_pagetable_gset σ j proj checkb)) with "Hrest"). *)
- (*    rewrite /get_pagetable_gmap. *)
- (*    rewrite lookup_delete_ne;eauto. *)
- (*    apply elem_of_list_to_map_1. *)
- (*    {  rewrite -list_fmap_compose /compose /=. rewrite list_fmap_id. apply NoDup_list_of_vmids. } *)
- (*    rewrite elem_of_list_In. *)
- (*    rewrite in_map_iff. *)
- (*    exists j. *)
- (*    split. *)
- (*    rewrite /get_pagetable_gset //. *)
- (*    apply in_list_of_vmids. *)
- (*  Qed. *)
+  (* Lemma gen_pagetable_SepM_split2 {Perm: Type} {σ γ} i j (proj: page_table -> gmap PID Perm) *)
+  (*       (checkb: Perm -> bool): *)
+  (*  i ≠ j -> *)
+  (*  ([∗ map] k↦v ∈ (get_pagetable_gmap σ proj checkb ), ghost_map_elem γ k (dfrac.DfracOwn 1) v)%I -∗ *)
+  (*  ghost_map_elem γ i (dfrac.DfracOwn 1) (get_pagetable_gset σ i proj checkb) ∗ *)
+  (*  ghost_map_elem γ j (dfrac.DfracOwn 1) (get_pagetable_gset σ j proj checkb) ∗ *)
+  (*  [∗ map] k↦v ∈ (delete j (delete i (get_pagetable_gmap σ proj checkb))), *)
+  (*                 ghost_map_elem γ k (dfrac.DfracOwn 1) v. *)
+  (* Proof. *)
+  (*   iIntros (Hne) "Hall". *)
+  (*   iDestruct ((gen_pagetable_SepM_split1 i) with "Hall") as "[Hi Hrest]". *)
+  (*   iFrame. *)
+  (*   iApply ((big_sepM_delete _ _ j (get_pagetable_gset σ j proj checkb)) with "Hrest"). *)
+  (*   rewrite /get_pagetable_gmap. *)
+  (*   rewrite lookup_delete_ne;eauto. *)
+  (*   apply elem_of_list_to_map_1. *)
+  (*   {  rewrite -list_fmap_compose /compose /=. rewrite list_fmap_id. apply NoDup_list_of_vmids. } *)
+  (*   rewrite elem_of_list_In. *)
+  (*   rewrite in_map_iff. *)
+  (*   exists j. *)
+  (*   split. *)
+  (*   rewrite /get_pagetable_gset //. *)
+  (*   apply in_list_of_vmids. *)
+  (* Qed. *)
 
   (* Lemma gen_pagetable_valid_SepS_pure {Perm: Type} {σ i q γ} proj (checkb: Perm -> bool) (s:gset PID): *)
   (*  ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb) -∗ *)
