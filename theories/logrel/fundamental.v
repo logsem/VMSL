@@ -2,7 +2,7 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base.
-From HypVeri.rules Require Import rules_base.
+From HypVeri.rules Require Import rules_base nop.
 From HypVeri.logrel Require Import logrel.
 Import uPred.
 
@@ -11,11 +11,12 @@ Section fundamental.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Lemma ftlr (i:VMID) (pgt:page_table) (regs: reg_file):
-    interp_access i pgt regs ⊢ interp_execute i.
+  Lemma ftlr (i:VMID) (pgt:page_table) :
+    interp_access i pgt ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
-    iIntros "((%Hreg_full & regs) & %Hpgt_full & VMProp) Hnotp VMProp_holds".
+    iLöb as "IH". 
+    iIntros "((%reg & %Hreg_full & regs) & %Hpgt_full & VMProp) Hnotp VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[VMProp_holds VMProp]") as "[Hres VMProp]".
     { iFrame. }
     iDestruct( later_or with "Hres") as "Hres".
@@ -23,7 +24,7 @@ Section fundamental.
     (* the vm is scheduled *)
     rewrite !later_sep.
     (* we have to do this because VMProp is not(?) timeless *)
-    iDestruct "Hres" as "(>R0z & >R1z & (VMPropz & >excl_pages & >shared_pages))".
+    iDestruct "Hres" as "(>R0z & >R1z & (VMPropz & >excl_pages & >shared_pages))".    
     (* getting the PC *)
     pose proof (Hlookup_PC:= (Hreg_full PC)).
     simpl in Hlookup_PC.
@@ -61,7 +62,113 @@ Section fundamental.
         iDestruct "pi_mem" as "((%instr & instrp) & pi_mem)".
         destruct (decode_instruction instr) as [instr'|] eqn:Heqn.
         {
-          admit.
+          destruct instr'.
+          (* NOP *)
+          {            
+            iApply (nop ai (w1 := instr) (s := sacc) (q := 1%Qp) with "[PC pi instrp]"); auto.
+            rewrite Heqs.
+            iFrame.
+            iSimpl.            
+            iNext.
+            iIntros "(PC & instrp & pi) _".
+            iAssert ((∃ regs : reg_file, full_reg_map regs ∗ ([∗ map] r↦w ∈ regs, r @@ i ->r w)))%I with "[PC regs]" as "HRegs".
+            {
+              iCombine "PC regs" as "regs".
+              pose proof (big_opM_fn_insert (o := bi_sep) (fun k v _ => (k @@ i ->r v)%I) (fun _ => True) (delete PC reg) PC (ai ^+ 1)%f) as Hrewrite.
+              simpl in Hrewrite.
+              specialize (Hrewrite True (ltac:(apply lookup_delete))).
+              rewrite <-Hrewrite.
+              rewrite insert_delete_insert.
+              iExists (<[PC := (ai ^+ 1)%f]> reg).
+              iFrame.
+              unfold full_reg_map.
+              iIntros (r).
+              iPureIntro.
+              specialize (Hreg_full r).
+              simpl in Hreg_full.
+              destruct Hreg_full as [v' Hreg_full].
+              destruct (decide (r = PC)).
+              - subst r.
+                simplify_map_eq /=.
+                done.
+              - simplify_map_eq /=.
+                exists v'.
+                rewrite lookup_insert_Some.
+                right.
+                split; first done.
+                done.                
+            }
+            iAssert (full_pgt_map pgt ∗ exclusive_access_pages i pgt)%I with "[pi_mem instrp excl_pages pi]" as "[Hpt Hexcl]".
+            {              
+              pose proof (big_opS_insert (fun x => (∃ w, x ->a w)%I) (list_to_set (addr_of_page (tpa ai)) ∖ {[ai]}) ai) as Hrewrite.
+              cbv beta in Hrewrite.
+              iAssert (∃ w : Addr, ai ->a w)%I with "[instrp]" as "instrp".
+              {
+                by iExists instr.                
+              }
+              iCombine "instrp pi_mem" as "instrp".
+              rewrite <-Hrewrite.
+              - unfold full_pgt_map.
+                iSplit.
+                iIntros (p).
+                iPureIntro.
+                specialize (Hpgt_full p).
+                by simpl in Hpgt_full.
+                unfold exclusive_access_pages.
+                unfold unknown_mem_page.
+                pose proof (big_opM_fn_insert (o := bi_sep) (fun k y _ => (⌜{[i]} = y.2⌝ -∗ k -@EA> i ∗ ([∗ list] a ∈ addr_of_page k, ∃ w : Addr, a ->a w))%I) (fun _ => True) (delete (tpa ai) pgt) (tpa ai) (v, sacc)) as Hrewrite'.
+                specialize (Hrewrite' True).
+                feed specialize Hrewrite'.
+                unfold page_table in *.
+                apply lookup_delete.
+                cbn in Hrewrite'.
+                set s := list_to_set (addr_of_page (tpa ai)) : gset Addr.
+                assert (({[ai]} ∪ s ∖ {[ai]}) = s) as ->.
+                {
+                  symmetry.
+                  apply union_difference_singleton_L.
+                  subst s.
+                  apply elem_of_list_to_set.
+                  apply tpa_addr_of_page.
+                }
+                subst s.
+                iAssert (⌜{[i]} = sacc⌝ -∗ tpa ai -@EA> i ∗ ([∗ list] a ∈ addr_of_page (tpa ai), ∃ w : Addr, a ->a w))%I with "[pi instrp]" as "H2".
+                {
+                  iIntros.
+                  rewrite Heqs.
+                  iFrame.
+                  rewrite <-big_opS_list_to_set; last exact HNoDup_ai.
+                  iFrame.
+                }
+                iCombine "H2 excl_pages" as "excl_pages".
+                rewrite <-Hrewrite'.
+                rewrite insert_delete_insert.
+                assert (<[tpa ai := (v, sacc)]> pgt = pgt) as H1.
+                {
+                  rewrite insert_id; auto.
+                }
+                rewrite H1.
+                iFrame.
+              - intros c.
+                rewrite ->elem_of_difference in c.
+                destruct c as [_ c].
+                apply c.
+                by apply elem_of_singleton_2.
+            }
+            iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
+            iSpecialize ("IH" with "[HRegs Hpt VMProp1]").
+            iFrame.
+            iSpecialize ("IH" with "Hnotp").
+            iEval (rewrite <-wp_sswp) in "IH".
+            iApply "IH".
+            set Pred := (X in VMProp i X _).
+            iExists Pred.
+            iFrame.
+            iNext.
+            iLeft.
+            iFrame.
+          }
+          all: admit.
         }
         {
           iApply (not_valid_instr (s := sacc) (q := 1%Qp) _ ai instr with "[PC pi instrp]"); auto.
