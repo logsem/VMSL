@@ -32,20 +32,21 @@ Section RunYield1.
     ].
 
   Context `{!gen_VMG Σ}.
-  
+
+
   Lemma machine_z_spec {q1 sacc prog1page} :
       seq_in_page (of_pid prog1page) (length program1) prog1page ->
-      prog1page ∈ sacc ->
+      V0 ∈ sacc ->
       (program (program1) (of_pid prog1page)) ∗ (VMProp V0 True%I 1) ∗
       (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp) ∗
-      (A@V0 :={q1}[sacc]) ∗
+      (prog1page -@{q1}A> [sacc]) ∗
       (PC @@ V0 ->r (of_pid prog1page)) ∗
       (∃ r0, R0 @@ V0 ->r r0) ∗
       (∃ r1, R1 @@ V0 ->r r1)
         ⊢ (WP ExecI @ V0
               {{ (λ m, ⌜m = HaltI⌝
                             ∗ program program1 (of_pid prog1page)
-                            ∗ (A@V0 :={q1}[sacc])
+                            ∗ (prog1page -@{q1}A> [sacc])
                             ∗ PC @@ V0 ->r ((of_pid prog1page) ^+ (length program1))%f
                             ∗ (R0 @@ V0 ->r yield_I)
                             ∗ (R1 @@ V0 ->r encode_vmid V1)
@@ -61,8 +62,7 @@ Section RunYield1.
     iDestruct "R1z" as "(%r1 & R1z)".
     (* mov_word_I R0 run_I *)
     rewrite wp_sswp.
-    iApply ((mov_word (of_pid prog1page) run_I R0) with "[p_1 PCz Hacc R0z]"); iFrameAutoSolve.
-    { rewrite HIn. set_solver + HaccIn. set_solver +. }
+    iApply ((mov_word (of_pid prog1page) run_I R0) with "[p_1 PCz Hacc R0z]");try rewrite HIn //; iFrameAutoSolve; try set_solver + HaccIn.
     iModIntro.
     iIntros "(PCz & p_1 & Hacc & R0z)".
     iSimpl.
@@ -70,8 +70,7 @@ Section RunYield1.
     (* mov_word_I R1 (encode_vmid i) *)
     rewrite wp_sswp.
     rewrite HV0.
-    iApply ((mov_word ((of_pid prog1page) ^+ 1)%f (encode_vmid V1) R1) with "[p_2 PCz Hacc R1z]"); iFrameAutoSolve.
-    { rewrite HIn. set_solver + HaccIn. set_solver +. }
+    iApply ((mov_word ((of_pid prog1page) ^+ 1)%f (encode_vmid V1) R1) with "[p_2 PCz Hacc R1z]"); try rewrite HIn //; iFrameAutoSolve; try set_solver + HaccIn.
     iModIntro.
     iIntros "(PCz & p_2 & Hacc & R1z)".
     iSimpl.
@@ -79,9 +78,8 @@ Section RunYield1.
     (* hvc_I *)
     rewrite wp_sswp.
     rewrite HV0.
-    set (T := (PC @@ V0 ->r (((prog1page ^+ 1) ^+ 1) ^+ 1)%f ∗ ((prog1page ^+ 1) ^+ 1)%f ->a hvc_I ∗ A@V0:={q1}[sacc])%I).
-    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True%I) (R' := T) (i' := 1)) with "[PCz p_3 Hacc R0z R1z Hprop0 Hprop1]"); iFrameAutoSolve.
-    { rewrite HIn. set_solver + HaccIn. set_solver +. }
+    set (T := (PC @@ V0 ->r (((prog1page ^+ 1) ^+ 1) ^+ 1)%f ∗ ((prog1page ^+ 1) ^+ 1)%f ->a hvc_I ∗ prog1page -@{q1}A> [sacc])%I).
+    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True%I) (R' := T) (i' := 1)) with "[PCz p_3 Hacc R0z R1z Hprop0 Hprop1]"); try rewrite HIn //;iFrameAutoSolve.
     { solve_finz. }
     { apply decode_encode_hvc_func. }
     { apply decode_encode_vmid. }
@@ -97,6 +95,9 @@ Section RunYield1.
           iFrame.
         + by iNext. 
     }
+    {
+    set_solver.
+    }
     iModIntro.
     iSimpl.
     subst T.
@@ -104,8 +105,7 @@ Section RunYield1.
     (* halt_I *)
     rewrite wp_sswp.
     rewrite HV0.
-    iApply ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f) with "[HPC p_4 HAcc]");iFrameAutoSolve.
-    { rewrite HIn. set_solver + HaccIn. set_solver +. }
+    iApply ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f) with "[HPC p_4 HAcc]");try rewrite HIn //;iFrameAutoSolve;try set_solver + HaccIn.
     iDestruct (VMProp_holds_agree V0 with "[Hprop0 HProp' P']") as "[Prop VMProp]".
     iSplitL "HProp' P'".
     iExists P'.

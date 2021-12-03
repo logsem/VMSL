@@ -8,21 +8,20 @@ Section mov.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma mov_word {E i w1 w3 q s vmset} a w2 ra :
+Lemma mov_word {E i w1 w3 q s} a w2 ra :
   decode_instruction w1 = Some (Mov ra (inl w2)) ->
-  to_pid_aligned a = s ->
-  i ∈ vmset ->
+  i ∈ s ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
-        ∗ ▷ (s -@{ q }A> [ vmset ])
+        ∗ ▷ ((tpa a) -@{ q }A> [s])
         ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
   {{{ RET (false, ExecI);  (PC @@ i ->r (a ^+ 1)%f)
                            ∗ (a ->a w1)
-                           ∗ (s -@{ q }A> [ vmset ])
+                           ∗ ((tpa a) -@{ q }A> [s])
                            ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hdecode Hin Hin' ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -41,14 +40,13 @@ Proof.
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)  
   iDestruct (gen_access_valid σ1 with "Haccess Hacc") as %Hacc;eauto.
-  specialize (Hacc i Hin').
+  specialize (Hacc i Hin).
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
   - (* reducible *)
     iPureIntro.
     eapply (reducible_normal i _ a w1); eauto.
-    rewrite /check_access_addr Hin //.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "[%P PAuth] %HstepP".
@@ -107,7 +105,6 @@ Proof.
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros Q; symmetry in Q; inversion Q; contradiction.
-    + rewrite /check_access_addr Hin //.
     Qed.
 
 (* Lemma mov_reg {E i w1 w3 q s} a w2 ra rb : *)

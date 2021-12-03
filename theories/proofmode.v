@@ -12,8 +12,11 @@ Class FramableRegisterPointsto `{HypervisorConstants} (r: reg_name) (i: VMID) (w
 Class FramableMemoryPointsto (a: Addr) (w: Addr) := {}.
 #[export] Hint Mode FramableMemoryPointsto + - : typeclass_instances.
 
-Class FramablePageTablePointsto `{HypervisorConstants} (i: VMID) (s: gset PID) := {}.
-#[export] Hint Mode FramablePageTablePointsto + + - : typeclass_instances.
+Class FramableOwnershipPointsto `{HypervisorConstants} (p : PID) (v: VMID) := {}.
+#[export] Hint Mode FramableOwnershipPointsto + - - : typeclass_instances.
+
+Class FramableAccessPointsto `{HypervisorConstants} (p : PID) (q: frac) (s: gset VMID) := {}.
+#[export] Hint Mode FramableAccessPointsto + - - - : typeclass_instances.
 
 Class FramableTXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
 #[export] Hint Mode FramableTXPointsto + + - : typeclass_instances.
@@ -21,8 +24,8 @@ Class FramableTXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
 Class FramableRXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
 #[export] Hint Mode FramableRXPointsto + + - : typeclass_instances.
 
-Class FramableHandlePool (s: gset handle) := {}.
-#[export] Hint Mode FramableHandlePool - : typeclass_instances.
+Class FramableWordPool (s: gset Word) := {}.
+#[export] Hint Mode FramableWordPool - : typeclass_instances.
 
 Class FramableTransaction `{HypervisorConstants} (wh : Word) (v r: VMID) (wf: Word) (pgs : (list PID)) (fid : transaction_type)  := {}.
 #[export] Hint Mode FramableTransaction + + - - - - - : typeclass_instances.
@@ -38,8 +41,12 @@ Instance FramableMemoryPointsto_default a w :
   FramableMemoryPointsto a w
 | 100. Qed.
 
-Instance FramablePageTablePointsto_default `{HypervisorConstants} i s :
-  FramablePageTablePointsto i s
+Instance FramableOwnershipPointsto_default `{HypervisorConstants} p v :
+  FramableOwnershipPointsto p v
+| 100. Qed.
+
+Instance FramableAccessPointsto_default `{HypervisorConstants} p q s :
+  FramableAccessPointsto p q s
 | 100. Qed.
 
 Instance FramableTXPointsto_default `{HypervisorConstants} i p :
@@ -50,8 +57,8 @@ Instance FramableRXPointsto_default `{HypervisorConstants} i p :
   FramableRXPointsto i p
 | 100. Qed.
 
-Instance FramableHandlePool_default `{HypervisorConstants} s :
-  FramableHandlePool s
+Instance FramableWordPool_default `{HypervisorConstants} s :
+  FramableWordPool s
 | 100. Qed.
 
 Instance FramableTransaction_default `{HypervisorConstants} wh v r wf pgs fid :
@@ -72,19 +79,14 @@ Instance FramableMachineResource_mem `{gen_VMG Σ} a w :
   FramableMachineResource (a ->a w).
 Qed.
 
-Instance FramableMachineResource_own `{gen_VMG Σ} i q s :
-  FramablePageTablePointsto i s →
-  FramableMachineResource (O@i :={q}[s]).
+Instance FramableMachineResource_own `{gen_VMG Σ} p v:
+  FramableOwnershipPointsto p v →
+  FramableMachineResource (p -@O> v).
 Qed.
 
-Instance FramableMachineResource_access `{gen_VMG Σ} i q s :
-  FramablePageTablePointsto i s →
-  FramableMachineResource (A@i :={q}[s]).
-Qed.
-
-Instance FramableMachineResource_excl `{gen_VMG Σ} i q s :
-  FramablePageTablePointsto i s →
-  FramableMachineResource (E@i :={q}[s]).
+Instance FramableMachineResource_access `{gen_VMG Σ} p q s :
+  FramableAccessPointsto p q s →
+  FramableMachineResource (p -@{q}A> [s]).
 Qed.
 
 Instance FramableMachineResource_TX `{gen_VMG Σ} i p :
@@ -98,7 +100,7 @@ Instance FramableMachineResource_RX `{gen_VMG Σ} i p :
 Qed.
 
 Instance FramableMachineResource_hp`{gen_VMG Σ} q s :
-  FramableHandlePool s →
+  FramableWordPool s →
   FramableMachineResource (hp{q}[s]).
 Qed.
 
