@@ -34,7 +34,7 @@ Section RunYield1.
   Context `{!gen_VMG Σ}.
 
 
-  Lemma machine_z_spec {q1 sacc prog1page} :
+  Lemma machine_0_spec {q1 sacc prog1page} :
       seq_in_page (of_pid prog1page) (length program1) prog1page ->
       V0 ∈ sacc ->
       (program (program1) (of_pid prog1page)) ∗ (VMProp V0 True%I 1) ∗
@@ -105,7 +105,8 @@ Section RunYield1.
     (* halt_I *)
     rewrite wp_sswp.
     rewrite HV0.
-    iApply ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f) with "[HPC p_4 HAcc]");try rewrite HIn //;iFrameAutoSolve;try set_solver + HaccIn.
+    iApply ((halt ((((of_pid prog1page) ^+ 1) ^+ 1) ^+1 )%f) with "[HPC p_4 HAcc]");
+      try rewrite HIn //; iFrameAutoSolve;try set_solver + HaccIn.
     iDestruct (VMProp_holds_agree V0 with "[Hprop0 HProp' P']") as "[Prop VMProp]".
     iSplitL "HProp' P'".
     iExists P'.
@@ -130,12 +131,13 @@ Section RunYield1.
     iFrame.
   Qed.
 
-  Lemma machine_i_spec {q1 prog2page sacc} :
+  Lemma machine_1_spec {q1 prog2page sacc} :
       seq_in_page (of_pid prog2page) (length program2) prog2page ->
-      prog2page ∈ sacc ->
+      V1 ∈ sacc ->
       (program program2 (of_pid prog2page))
-        ∗ (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp)
-        ∗ (A@V1 :={q1}[sacc])
+        ∗ (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1)
+        ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp)
+        ∗ (prog2page -@{q1}A> [sacc])
         ∗ (PC @@ V1 ->r (of_pid prog2page))
         ∗ (∃ r0, R0 @@ V1 ->r r0)
         ⊢ VMProp_holds V1 (1/2)%Qp -∗ (WP ExecI @ V1
@@ -152,8 +154,7 @@ Section RunYield1.
     by simpl.
     (* mov_word_I R0 yield_I *)    
     rewrite wp_sswp.
-    iApply ((mov.mov_word (of_pid prog2page) yield_I R0) with "[p_1 PCi Hacc R0i]");iFrameAutoSolve.
-    { rewrite HIn. set_solver + HpIn. set_solver +. }
+    iApply ((mov.mov_word (of_pid prog2page) yield_I R0) with "[p_1 PCi Hacc R0i]");try rewrite HIn //;iFrameAutoSolve;try set_solver.
     iModIntro.
     iIntros "(PCi & p_1 & Hacc & R0i)".
     iSimpl.
@@ -162,10 +163,11 @@ Section RunYield1.
     (* hvc_I *)
     rewrite wp_sswp.
     iDestruct "Prop" as "[(HRz0 & HRz1) VMPropz]".
-    iApply ((yield ((of_pid prog2page) ^+ 1)%f (z := V0) (Q := (R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1)%I) (P' := False%I) (R := True%I) (i' := 1) (R' := (PC @@ V1 ->r ((prog2page ^+ 1) ^+ 1)%f ∗ (prog2page ^+ 1)%f ->a hvc_I ∗ A@V1:={q1}[sacc]  ∗ R0 @@ V1 ->r yield_I)%I))
-         with "[PCi p_2 Hacc R0i HRz0 HRz1 VMPropz VMProp]"); iFrameAutoSolve.
-    { rewrite HIn. set_solver + HpIn. set_solver +. }
-    { solve_finz. } 
+    iApply ((yield ((of_pid prog2page) ^+ 1)%f (z := V0) (Q := (R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1)%I)
+                   (P' := False%I) (R := True%I) (i' := 1)
+                   (R' := (PC @@ V1 ->r ((prog2page ^+ 1) ^+ 1)%f ∗ (prog2page ^+ 1)%f ->a hvc_I ∗ prog2page -@{q1}A> [sacc]  ∗ R0 @@ V1 ->r yield_I)%I))
+         with "[PCi p_2 Hacc R0i HRz0 HRz1 VMPropz VMProp]"); try rewrite HIn //;iFrameAutoSolve.
+    { solve_finz. }
     { apply decode_encode_hvc_func. }
     { iSplitL "VMPropz".
       iNext.
@@ -179,6 +181,7 @@ Section RunYield1.
         iFrame.
       - by iNext.
     }
+    { set_solver +. }
     iModIntro.
     iIntros "[? VMProp] VMPropH".
     simpl.
@@ -192,15 +195,15 @@ Section RunYield1.
   Lemma run_yield_1_spec q1 q2 prog1page prog2page sacc1 sacc2 :
       prog1page ≠ prog2page ->
       seq_in_page (of_pid prog1page) (length program1) prog1page ->
-      prog1page ∈ sacc1 ->
+      V0 ∈ sacc1 ->
       seq_in_page (of_pid prog2page) (length program2) prog2page ->
-      prog2page ∈ sacc2 ->
+      V1 ∈ sacc2 ->
       program (program1) (of_pid prog1page) ∗
       program (program2) (of_pid prog2page) ∗
       (VMProp V0 True%I 1) ∗
       (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I 1%Qp) ∗
-      (A@V0 :={q1}[sacc1]) ∗
-      (A@V1 :={q2}[sacc2]) ∗
+      (prog1page -@{q1}A> [sacc1]) ∗
+      (prog2page -@{q2}A> [sacc2]) ∗
       (PC @@ V0 ->r (of_pid prog1page)) ∗
       (PC @@ V1 ->r (of_pid prog2page)) ∗
       (∃ r0, R0 @@ V0 ->r r0) ∗
@@ -208,7 +211,7 @@ Section RunYield1.
       (∃ r0, R0 @@ V1 ->r r0)
         ⊢ (True -∗ WP ExecI @ V0 {{ (λ m, (⌜m = HaltI⌝)
                                        ∗ (program (program1) (of_pid prog1page))
-                                       ∗ (A@V0 :={q1}[sacc1])
+                                       ∗ (prog1page -@{q1}A> [sacc1])
                                        ∗ (PC @@ V0 ->r ((of_pid prog1page) ^+ (length program1))%f)
                                        ∗ (R0 @@ V0 ->r yield_I)
                                        ∗ (R1 @@ V0 ->r encode_vmid V1)
@@ -220,9 +223,9 @@ Section RunYield1.
     iDestruct (VMProp_split with "Hprop1") as "[Hprop1 Hprop1']".
     iSplitL  "Hprogz Haccz PCz R0z R1z Hprop0 Hprop1".
     - iIntros "_".
-      iApply machine_z_spec; eauto.
+      iApply machine_0_spec; eauto.
       iFrame.
-    - iApply machine_i_spec; eauto.
+    - iApply machine_1_spec; eauto.
       iFrame.
   Qed.
 
