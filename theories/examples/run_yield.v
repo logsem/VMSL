@@ -13,7 +13,7 @@ Program Definition V0 : VMID := (@nat_to_fin 0 _ _).
 
 Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
 
-Section RunYield1.
+Section run_yield.
 
   Context `{hypparams: !HypervisorParameters}.
 
@@ -229,4 +229,4 @@ Section RunYield1.
       iFrame.
   Qed.
 
-End RunYield1.
+End run_yield.
