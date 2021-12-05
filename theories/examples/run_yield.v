@@ -192,7 +192,7 @@ Section run_yield.
   Qed.
   
   
-  Lemma run_yield_1_spec q1 q2 prog1page prog2page sacc1 sacc2 :
+  Lemma run_yield_spec q1 q2 prog1page prog2page sacc1 sacc2 :
       prog1page ≠ prog2page ->
       seq_in_page (of_pid prog1page) (length program1) prog1page ->
       V0 ∈ sacc1 ->

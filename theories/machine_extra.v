@@ -670,6 +670,14 @@ Lemma tpa_addr_of_page (a:Addr) : a ∈ (addr_of_page (tpa a)).
 Proof.
   Admitted.
 
+Lemma of_pid_tpa_addr_of_page (a : Addr) : of_pid (tpa a) ∈ addr_of_page (tpa a).
+Proof.
+  unfold addr_of_page.
+  unfold tpa.
+  rewrite finz_seq_cons; first lia.
+  apply elem_of_list_here.            
+Qed.
+
 Lemma addr_of_page_NoDup (p:PID) : NoDup (addr_of_page p).
 Proof.
   rewrite /addr_of_page.

@@ -12,7 +12,7 @@ Section logrel.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Notation V := ((leibnizO VMID) -n> (leibnizO page_table) -n> (leibnizO reg_file) -n> iPropO Σ).
+  Notation V := ((leibnizO VMID) -n> (leibnizO page_table) -n> iPropO Σ).
   Notation E := ((leibnizO VMID) -n> iPropO Σ).
   Implicit Types i : (leibnizO VMID).
   Implicit Types interp_expr : (E).
@@ -55,9 +55,9 @@ Section logrel.
   Definition full_pgt_map (pgt: page_table) : iProp Σ := (∀ (p: PID), ⌜is_Some (pgt !! p)⌝)%I.
 
   Program Definition interp_access: V :=
-    λne (i:leibnizO VMID) (pgt: page_table) (regs: reg_file),
-      ( (* registers *)
-        (full_reg_map regs ∗ [∗ map] r ↦ w ∈ regs, r @@i ->r w) ∗
+    λne (i:leibnizO VMID) (pgt: page_table),
+    ( (* registers *)
+        (∃ regs, full_reg_map regs ∗ [∗ map] r ↦ w ∈ regs, r @@i ->r w) ∗
          full_pgt_map pgt ∗
         (* VMProp  *)
         VMProp i (

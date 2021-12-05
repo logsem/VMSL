@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import machine weakestpre adequacy.
-From iris.bi Require Import big_op.
+From iris.algebra Require Import big_op.
 From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable.
 From HypVeri.examples Require Import instr run_yield_with_unknown.
@@ -8,7 +8,8 @@ Require Import Coq.Program.Equality.
 
 Section run_yield_with_unknown_adequacy.
     
-  Context `{hypparams: HypervisorParameters}.
+  Context `{hypconst: HypervisorConstants}.
+  Context `{hypparams: !HypervisorParameters}.
 
   Definition run_vms (ms: list exec_mode):=
     ms = [ExecI;ExecI;ExecI].
@@ -20,7 +21,8 @@ Section run_yield_with_unknown_adequacy.
     (∃ (e:VMID * gset VMID) , (get_page_table σ) !! p1 = Some e ∧ {[V0]} = e.2) ∧
     (∃ e, (get_page_table σ) !! p2 = Some e ∧ {[V1]} = e.2) ∧
     (∀ p, ∃ e, (get_page_table σ) !! p = Some e ∧ ((V2 ∈ e.2) -> (∀ a, a ∈ addr_of_page p -> ∃ w, (get_memory σ) !! a = Some w)) ) ∧
-    (mk_region p1 (program1)) ∪ (mk_region p2 program2) ⊆ (get_mem σ).
+    (∀ a w, (a,w) ∈ zip (finz.seq (of_pid p1) (length program1)) program1 -> (get_memory σ) !! a = Some w) ∧
+    (∀ a w, (a,w) ∈ zip (finz.seq (of_pid p2) (length program2)) program2 -> (get_memory σ) !! a = Some w).
 
   Definition reg (σ : state) (p1 p2 : PID):=
     (∃ r0 r1 ,{[PC := (of_pid p1); R0 := r0; R1 := r1]} ⊆ (get_reg_files σ)!!!V0) ∧
