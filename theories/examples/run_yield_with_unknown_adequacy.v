@@ -2,23 +2,24 @@ From machine_program_logic.program_logic Require Import machine weakestpre adequ
 From iris.bi Require Import big_op.
 From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable.
-From HypVeri.examples Require Import instr run_yield.
+From HypVeri.examples Require Import instr run_yield_with_unknown.
 Require Import Setoid.
 Require Import Coq.Program.Equality.
 
-Section Adequacy.
+Section run_yield_with_unknown_adequacy.
     
-  Context `{hypparams: !HypervisorParameters}.
+  Context `{hypparams: HypervisorParameters}.
 
   Definition run_vms (ms: list exec_mode):=
-    ms = [ExecI;ExecI].
+    ms = [ExecI;ExecI;ExecI].
 
   Definition mk_region (p:PID) (ws: list Word) : gmap Addr Word:=
     (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
 
   Definition mem_layout (σ : state) (p1 p2 : PID) :=
-    (∃ a, is_accessible a = true ∧ (get_vm_page_table σ V0).2 !! p1 = Some a) ∧
-    (∃ a, is_accessible a = true ∧ (get_vm_page_table σ V1).2 !! p2 = Some a) ∧
+    (∃ (e:VMID * gset VMID) , (get_page_table σ) !! p1 = Some e ∧ {[V0]} = e.2) ∧
+    (∃ e, (get_page_table σ) !! p2 = Some e ∧ {[V1]} = e.2) ∧
+    (∀ p, ∃ e, (get_page_table σ) !! p = Some e ∧ ((V2 ∈ e.2) -> (∀ a, a ∈ addr_of_page p -> ∃ w, (get_memory σ) !! a = Some w)) ) ∧
     (mk_region p1 (program1)) ∪ (mk_region p2 program2) ⊆ (get_mem σ).
 
   Definition reg (σ : state) (p1 p2 : PID):=
@@ -68,6 +69,7 @@ Section Adequacy.
     intros Hinit.
     set (saved_props := (let (_, x, _, _) := iris_subG irisΣ (subG_refl irisΣ) in x)).
     set (prop_name := (let (_, _, x, _) := iris_subG irisΣ (subG_refl irisΣ) in x)).
+
     set (name_map := (let (_, _, _, x) := iris_subG irisΣ (subG_refl irisΣ) in x)).
     eapply (wp_adequacy irisΣ); auto.
     destruct Hinit as (Hcur & -> & (p1 & p2 & p1p2ne & -> & Hmem & Hreg & Hreginv & Htrans)).
@@ -902,4 +904,4 @@ Section Adequacy.
     destruct x2; done.
   Qed.
   
-End Adequacy.
+End run_yield_with_unknown_adequacy.
