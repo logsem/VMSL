@@ -61,6 +61,14 @@ Proof.
   rewrite /scheduled /machine.scheduler //= /scheduler.
 Qed.
 
+Lemma update_memory_unsafe_preserve_just_scheduled_vms {σ σ' n} a w:
+  just_scheduled_vms n σ (update_memory_unsafe σ' a w) = just_scheduled_vms n σ σ'.
+Proof.
+  unfold just_scheduled_vms, just_scheduled.
+  rewrite /scheduled /machine.scheduler //= /scheduler.
+Qed.
+
+
 Lemma scheduled_true {σ: state} i:
   get_current_vm σ = i ->  (scheduled σ i) = true.
 Proof.
@@ -81,6 +89,12 @@ Qed.
 
 Lemma update_reg_global_preserve_scheduled {σ} i r w:
   scheduled (update_reg_global σ i r w)  = scheduled σ.
+Proof.
+  rewrite /scheduled /machine.scheduler //= /scheduler.
+Qed.
+
+Lemma update_memory_unsafe_preserve_scheduled {σ} a w:
+  scheduled (update_memory_unsafe σ a w) = scheduled σ.
 Proof.
   rewrite /scheduled /machine.scheduler //= /scheduler.
 Qed.

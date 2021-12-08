@@ -353,7 +353,7 @@ Qed.
   Qed.
 
   Lemma mov_word_ExecI σ1 r w :
-   PC ≠ r ->  NZ ≠ r -> (mov_word σ1 r w)= (ExecI, (update_incr_PC (update_reg σ1 r w))).
+   PC ≠ r -> NZ ≠ r -> (mov_word σ1 r w)= (ExecI, (update_incr_PC (update_reg σ1 r w))).
   Proof.
     intros.
     unfold mov_word .
@@ -364,7 +364,7 @@ Qed.
   Qed.
 
   Lemma mov_reg_ExecI σ1 r1 r2 w:
-   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r1 -> NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
    (get_reg σ1 r2) = Some w ->
    (mov_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 w))).
@@ -381,7 +381,7 @@ Qed.
   Qed.
 
   Lemma ldr_ExecI σ1 r1 r2 a w:
-   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r1 -> NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
    (get_mail_boxes σ1 !!! get_current_vm σ1).1 ≠ (to_pid_aligned a) ->
    (get_reg σ1 r2) = Some a ->
@@ -402,7 +402,7 @@ Qed.
   Qed.
 
   Lemma ldr_FailPageFaultI_ldr_from_tx σ1 r1 r2 a :
-   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r1 -> NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
    (get_mail_boxes σ1 !!! get_current_vm σ1).1 = (to_pid_aligned a) ->
    (get_reg σ1 r2) = Some a ->
@@ -420,7 +420,7 @@ Qed.
   Qed.
 
  Lemma ldr_FailPageFaultI_ldr_from_page σ1 r1 r2 a :
-   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r1 -> NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
    check_access_page σ1 (get_current_vm σ1) (tpa a) = false->
    (get_reg σ1 r2) = Some a ->
@@ -438,11 +438,8 @@ Qed.
     done.
   Qed.
 
-
-
-
-   Lemma str_ExecI σ1 r1 r2 w a:
-   PC ≠ r1 ->  NZ ≠ r1 ->
+  Lemma str_ExecI σ1 r1 r2 w a:
+   PC ≠ r1 -> NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->
    (get_mail_boxes σ1 !!! get_current_vm σ1).2.1 ≠ (to_pid_aligned a) ->
    (get_reg σ1 r1) = Some w ->
@@ -465,8 +462,51 @@ Qed.
     done.
   Qed.
 
-  Lemma cmp_word_ExecI  σ1 r w1 w2:
-   PC ≠ r ->  NZ ≠ r ->
+  Lemma str_FailPageFaultI_str_to_rx σ1 r1 r2 w a :
+   PC ≠ r1 -> NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   (get_mail_boxes σ1 !!! get_current_vm σ1).2.1 = (to_pid_aligned a) ->
+   (get_reg σ1 r1) = Some w ->
+   (get_reg σ1 r2) = Some a ->
+   (str σ1 r1 r2)= (FailPageFaultI, σ1).
+  Proof.
+    intros.
+    unfold str.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    rewrite H4 H5.
+    destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+    simpl in H3.
+    unfold bind.
+    simpl.
+    destruct p.
+    destruct (decide (tpa a = p)).
+    done.
+    done.
+  Qed.
+
+ Lemma str_FailPageFaultI_str_to_page σ1 r1 r2 w a :
+   PC ≠ r1 -> NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   check_access_page σ1 (get_current_vm σ1) (tpa a) = false->
+   (get_reg σ1 r1) = Some w ->
+   (get_reg σ1 r2) = Some a ->
+   (str σ1 r1 r2)= (FailPageFaultI, σ1).
+  Proof.
+    intros.
+    unfold str.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    rewrite H4 H5.
+    destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+    simpl in H3.
+    rewrite /bind /=.
+    destruct p.
+    destruct (decide (to_pid_aligned a = p)).
+    done.
+    rewrite /update_memory  /check_access_addr H3 //.
+  Qed.
+
+  Lemma cmp_word_ExecI σ1 r w1 w2:
+   PC ≠ r -> NZ ≠ r ->
    (get_reg σ1 r) = Some w1 ->
    (cmp_word σ1 r w2)= (ExecI, (update_incr_PC (update_reg σ1 NZ
             (if (w1 <? w2)%f then W2 else if (w2 <? w1)%f then W0 else W1)))).
@@ -486,9 +526,9 @@ Qed.
   Qed.
 
 
-   Lemma cmp_reg_ExecI  σ1 r1 w1 r2 w2:
-   PC ≠ r1 ->  NZ ≠ r1 ->
-   PC ≠ r2 ->  NZ ≠ r2 ->
+   Lemma cmp_reg_ExecI σ1 r1 w1 r2 w2:
+   PC ≠ r1 -> NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
    (get_reg σ1 r1) = Some w1 ->
    (get_reg σ1 r2) = Some w2 ->
    (cmp_reg σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 NZ
@@ -509,9 +549,9 @@ Qed.
     done.
   Qed.
 
-  Lemma add_ExecI  σ1 r1 w1 r2 w2:
-   PC ≠ r1 ->  NZ ≠ r1 ->
-   PC ≠ r2 ->  NZ ≠ r2 ->
+  Lemma add_ExecI σ1 r1 w1 r2 w2:
+   PC ≠ r1 -> NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
    (get_reg σ1 r1) = Some w1 ->
    (get_reg σ1 r2) = Some w2 ->
    (add σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 (w1 ^+ (finz.to_z w2))%f))).
@@ -526,8 +566,8 @@ Qed.
   Qed.
 
   Lemma sub_ExecI σ1 r1 w1 r2 w2:
-   PC ≠ r1 ->  NZ ≠ r1 ->
-   PC ≠ r2 ->  NZ ≠ r2 ->
+   PC ≠ r1 -> NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
    (get_reg σ1 r1) = Some w1 ->
    (get_reg σ1 r2) = Some w2 ->
    (sub σ1 r1 r2)= (ExecI, (update_incr_PC (update_reg σ1 r1 (w1 ^- (finz.to_z w2))%f))).
@@ -541,8 +581,8 @@ Qed.
     done.
   Qed.
 
-  Lemma mult_word_ExecI (σ1: state) r1 w1 w2:
-   PC ≠ r1 ->  NZ ≠ r1 ->
+  Lemma mult_word_ExecI σ1 r1 w1 w2:
+   PC ≠ r1 -> NZ ≠ r1 ->
    (get_reg σ1 r1) = Some w1 ->
    (lang.mult σ1 r1 w2)= (ExecI, (update_incr_PC (update_reg σ1 r1 (w1 ^* (finz.to_z w2))%f))).
   Proof.
@@ -555,8 +595,8 @@ Qed.
     done.
   Qed.
 
-  Lemma bne_ExecI  σ1 w1 r w2:
-   PC ≠ r ->  NZ ≠ r ->
+  Lemma bne_ExecI σ1 w1 r w2:
+   PC ≠ r -> NZ ≠ r ->
    (get_reg σ1 r) = Some w2 ->
    (get_reg σ1 NZ) = Some w1 ->
    (bne σ1 r)= (ExecI, if (w1 =? W1)%f then (update_incr_PC σ1) else (update_reg σ1 PC w2)).
@@ -569,8 +609,8 @@ Qed.
     destruct (w1 =? W1)%f;eauto.
   Qed.
 
-  Lemma br_ExecI  σ1 r w1:
-   PC ≠ r ->  NZ ≠ r ->
+  Lemma br_ExecI σ1 r w1:
+   PC ≠ r -> NZ ≠ r ->
    (get_reg σ1 r) = Some w1 ->
    (br σ1 r)= (ExecI,  (update_reg σ1 PC w1)).
   Proof.

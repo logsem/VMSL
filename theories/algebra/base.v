@@ -351,6 +351,9 @@ Section other_rules.
   Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).
   Proof. rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def. apply _. Qed.
 
+  Global Instance rx_mapsto_timeless i p : Timeless (RX@ i := p).
+  Proof. rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def. apply _. Qed.
+
   Global Instance rx_mapsto_timeless1 i n (r:VMID) : Timeless (RX@ i :=( n , r )).
   Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
