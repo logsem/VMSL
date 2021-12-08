@@ -206,7 +206,7 @@ Section pagetable_rules.
     by iFrame.
   Qed.
 
-  Lemma access_agree_check_true {σ i q} p s:
+  Lemma access_agree_check_true {σ q} p i s:
    i ∈ s ->
    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
    (p -@{q}A> [s]) -∗

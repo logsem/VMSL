@@ -33,7 +33,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
-  iDestruct (access_agree_check_true (tpa ai) s Hin with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc") as %Hacc;first set_solver + Hin.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.

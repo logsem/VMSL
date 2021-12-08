@@ -127,4 +127,50 @@ Section mailbox_rules.
     by iApply (gen_rx_gmap_update_global with "Hσ Hrx").
   Qed.
 
+
+  Lemma gen_tx_valid {σ} i p:
+   TX@ i := p -∗ ghost_map_auth (gen_owned_mb_name vmG) 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).1 = p ⌝.
+  Proof.
+    iIntros "Htx Hσ".
+    rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
+    destruct σ as [[[[[? mb] ?] ?] ?] ?].
+    rewrite /get_mb_gmap.
+    simpl.
+    iDestruct (ghost_map_lookup with "Hσ Htx") as %Hlookup.
+    apply elem_of_list_to_map_2 in Hlookup.
+    apply elem_of_list_In in Hlookup.
+    apply in_flat_map in Hlookup.
+    destruct Hlookup as [? [? Hin]].
+    apply elem_of_list_In in Hin.
+    inversion Hin.
+    subst.
+    done.
+    subst.
+    set_solver + H2.
+  Qed.
+
+  Lemma gen_rx_valid {σ} i p:
+   RX@ i := p -∗ ghost_map_auth (gen_owned_mb_name vmG) 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).2.1 = p ⌝.
+  Proof.
+    iIntros "Htx Hσ".
+    rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
+    destruct σ as [[[[[? mb] ?] ?] ?] ?].
+    rewrite /get_mb_gmap.
+    simpl.
+    iDestruct (ghost_map_lookup with "Hσ Htx") as %Hlookup.
+    apply elem_of_list_to_map_2 in Hlookup.
+    apply elem_of_list_In in Hlookup.
+    apply in_flat_map in Hlookup.
+    destruct Hlookup as [? [? Hin]].
+    apply elem_of_list_In in Hin.
+    inversion Hin.
+    subst.
+    inversion H2.
+    subst.
+    done.
+    subst.
+    set_solver + H3.
+  Qed.
+
+
 End mailbox_rules.

@@ -401,6 +401,46 @@ Qed.
     done.
   Qed.
 
+  Lemma ldr_FailPageFaultI_ldr_from_tx σ1 r1 r2 a :
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   (get_mail_boxes σ1 !!! get_current_vm σ1).1 = (to_pid_aligned a) ->
+   (get_reg σ1 r2) = Some a ->
+   (ldr σ1 r1 r2)= (FailPageFaultI, σ1).
+  Proof.
+    intros.
+    unfold ldr.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    rewrite H4.
+    destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+    simpl in H3.
+    destruct (decide (to_pid_aligned a = p)).
+    done.
+    done.
+  Qed.
+
+ Lemma ldr_FailPageFaultI_ldr_from_page σ1 r1 r2 a :
+   PC ≠ r1 ->  NZ ≠ r1 ->
+   PC ≠ r2 -> NZ ≠ r2 ->
+   check_access_page σ1 (get_current_vm σ1) (tpa a) = false->
+   (get_reg σ1 r2) = Some a ->
+   (ldr σ1 r1 r2)= (FailPageFaultI, σ1).
+  Proof.
+    intros.
+    unfold ldr.
+    destruct r1 eqn:Heqn1,r2 eqn:Heqn2 ;try contradiction.
+    rewrite H4.
+    destruct (get_mail_boxes σ1 !!! get_current_vm σ1).
+    simpl in H3.
+    destruct (decide (to_pid_aligned a = p)).
+    done.
+    rewrite /get_memory /check_access_addr H3.
+    done.
+  Qed.
+
+
+
+
    Lemma str_ExecI σ1 r1 r2 w a:
    PC ≠ r1 ->  NZ ≠ r1 ->
    PC ≠ r2 -> NZ ≠ r2 ->

@@ -85,9 +85,9 @@ Section definitions.
 
   Implicit Type σ: state.
  
-  Definition gmap_rx := (gmap VMID (option (Word*VMID))).
-  Definition gmap_own_mb:= gmap PID (VMID * OwnAndMB).
-  Definition gmap_acc:= gmap PID (frac * (gset_disj VMID)).
+  Notation gmap_rx := (gmap VMID (option (Word*VMID))).
+  Notation gmap_own_mb:= (gmap PID (VMID * OwnAndMB)).
+  Notation gmap_acc:= (gmap PID (frac * (gset_disj VMID))).
 
   Definition get_reg_gmap σ: gmap (reg_name * VMID) Word :=
      (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_reg_file σ @ v)))) (list_of_vmids))).
@@ -107,9 +107,8 @@ Section definitions.
   Definition get_mb_gmap σ : gmap_own_mb:=
     (* let pt := (get_page_table σ) in *)
     list_to_map (flat_map (λ v, let mb := (get_mail_box σ @ v) in
-                        (* match (pt !! (mb.1), pt !! (mb.2.1)) with *)
-                        (* | (None, None) => *)
-                                (* XXX: validate here?  *)
+                        (* match (bool_decide (pt !! (mb.1) = Some (∅,{[v]})), bool_decide (pt !! (mb.2.1) = Some (∅,{[v]}))) with *)
+                        (* | (true,  true) => *)
                             [(mb.1, (v,Tx));(mb.2.1, (v,Rx))]
                         (* | _ => [] *)
                         (* end *)

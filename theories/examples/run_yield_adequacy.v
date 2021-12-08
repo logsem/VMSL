@@ -17,18 +17,19 @@ Section Adequacy.
     (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
 
   Definition mem_layout (σ : state) (p1 p2 : PID) :=
-    (∃ a, is_accessible a = true ∧ (get_vm_page_table σ V0).2 !! p1 = Some a) ∧
-    (∃ a, is_accessible a = true ∧ (get_vm_page_table σ V1).2 !! p2 = Some a) ∧
+    (∃ a, V0 ∈ a.2 ∧ (get_page_table σ) !! p1 = Some a) ∧
+    (∃ a, V1 ∈ a.2 ∧ (get_page_table σ) !! p2 = Some a) ∧
     (mk_region p1 (program1)) ∪ (mk_region p2 program2) ⊆ (get_mem σ).
 
   Definition reg (σ : state) (p1 p2 : PID):=
     (∃ r0 r1 ,{[PC := (of_pid p1); R0 := r0; R1 := r1]} ⊆ (get_reg_files σ)!!!V0) ∧
     ∃ r0 ,{[PC := (of_pid p2); R0 := r0]} ⊆ (get_reg_files σ) !!! V1 .
 
-  Definition mem_inv (σ : state) (p1 : PID) := (∃ a, is_owned a = true ∧ (get_vm_page_table σ V0).1 !! p1 = Some a).
+  Definition mem_inv (σ : state) (p1 : PID) :=
+    (∃ a, a.1= V0 ∧ (get_page_table σ) !! p1 = Some a).
 
   Definition transactions (σ: state):=
-    (dom (gset handle) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
+    (dom (gset Word) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
     (get_transactions σ).2 ≠ ∅ ∧
     (map_Forall (λ _ v , (length v.1.2 <? word_size)%Z = true) (get_transactions σ).1).
 
@@ -77,6 +78,7 @@ Section Adequacy.
     destruct Hinit as ( Hcur & Hinit).
     iMod (gen_mem_alloc (get_mem σ)) as (mem_gname) "[Hσmem Hmem]".
     iMod (gen_reg_alloc (get_reg_gmap σ)) as (reg_gname) "[Hσreg Hreg]".
+    (* FIXME *)
     iMod (gen_tx_alloc (get_tx_agree σ)) as (tx_gname) "[Hσtx _]".
     { apply get_txrx_auth_agree_valid. }
     iMod (gen_rx_agree_alloc (get_rx_agree σ)) as (rx_agree_gname) "[Hσrx_a _]".

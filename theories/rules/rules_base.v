@@ -1,7 +1,7 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base reg pagetable mem.
 From HypVeri Require Import lifting.
-From HypVeri.lang Require Import lang_extra.
+From HypVeri.lang Require Import lang_extra reg_extra.
 Require Import stdpp.fin.
 
 Global Instance hyp_irisG `{HypervisorParameters} `{!gen_VMG Σ} :
@@ -43,6 +43,48 @@ Proof.
   apply IHl.
   rewrite just_scheduled_no_step_false //.
 Qed.
+
+
+Lemma update_offset_PC_preserve_just_scheduled_vms {σ σ' n} o:
+  just_scheduled_vms n σ (update_offset_PC σ' o) = just_scheduled_vms n σ σ'.
+Proof.
+  unfold just_scheduled_vms, just_scheduled.
+  rewrite /scheduled /machine.scheduler //= /scheduler.
+  rewrite update_offset_PC_preserve_current_vm.
+  done.
+Qed.
+
+Lemma update_reg_global_preserve_just_scheduled_vms {σ σ' n} i r w:
+  just_scheduled_vms n σ (update_reg_global σ' i r w) = just_scheduled_vms n σ σ'.
+Proof.
+  unfold just_scheduled_vms, just_scheduled.
+  rewrite /scheduled /machine.scheduler //= /scheduler.
+Qed.
+
+Lemma scheduled_true {σ: state} i:
+  get_current_vm σ = i ->  (scheduled σ i) = true.
+Proof.
+  intros.
+  rewrite /scheduled /machine.scheduler //= /scheduler.
+  case_bool_decide.
+  done.
+  rewrite H in H0.
+  done.
+Qed.
+
+Lemma update_offset_PC_preserve_scheduled {σ} o:
+  scheduled (update_offset_PC σ o)  = scheduled σ.
+Proof.
+  rewrite /scheduled /machine.scheduler //= /scheduler.
+  rewrite update_offset_PC_preserve_current_vm //.
+Qed.
+
+Lemma update_reg_global_preserve_scheduled {σ} i r w:
+  scheduled (update_reg_global σ i r w)  = scheduled σ.
+Proof.
+  rewrite /scheduled /machine.scheduler //= /scheduler.
+Qed.
+
 
 Lemma not_valid_pc {s} i a :
   i ∉ s ->
@@ -120,7 +162,8 @@ Proof.
   iModIntro.
   iDestruct "Hσ1" as "( ? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  iDestruct (access_agree_check_true (tpa a) s Hin_s with "Haccess Ha") as "%Hacc".
+  iDestruct (access_agree_check_true (tpa a) i with "Haccess Ha") as "%Hacc".
+  { set_solver + Hin_s. }
   iDestruct (gen_mem_valid with "Hmem Hw") as "%Hlookup_w".
   iSplit.
   - iPureIntro.
