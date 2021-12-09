@@ -3,38 +3,9 @@ From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base.
 From HypVeri.rules Require Import rules_base nop mov.
-From HypVeri.logrel Require Import logrel.
+From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
-
-(* 
-For memory chunks
-TODO: move to iris.algebra.big_op 
-*)
-Section sep_map.
-  Context `{Countable K} {A : Type}.
-  Context {PROP : bi}.
-  Implicit Types m : gmap K A.
-  Implicit Types Φ Ψ : K → A → PROP.
-  
-  Lemma big_sepM_union_acc Φ m m' :
-    m' ⊆ m ->
-    ([∗ map] k↦y ∈ m, Φ k y) ⊢ ([∗ map] k↦y ∈ m', Φ k y) ∗ (([∗ map] k↦y ∈ m', Φ k y) -∗ [∗ map] k↦y ∈ m, Φ k y).
-  Proof.
-    iIntros (subseteq) "Hmap".
-    pose proof (map_difference_union m' m subseteq) as Hrewrite.
-    rewrite <-Hrewrite.
-    iDestruct (big_sepM_union with "Hmap") as "[Hmap1 Hmap2]".
-    apply map_disjoint_difference_r; auto.
-    iSplitL "Hmap1"; first iFrame.
-    iIntros "Hmap1".
-    iCombine "Hmap1 Hmap2" as "Hmap".
-    rewrite <-(big_opM_union _ m' (m ∖ m')).
-    done.
-    apply map_disjoint_difference_r; auto.
-  Qed.
-  
-End sep_map.
 
 Section fundamental.
   Context `{hypconst:HypervisorConstants}.
@@ -102,7 +73,10 @@ Section fundamental.
             iSimpl.            
             iNext.
             iIntros "(PC & instrp & pi) _".
-            iAssert ((∃ regs : reg_file, full_reg_map regs ∗ ([∗ map] r↦w ∈ regs, r @@ i ->r w)))%I with "[PC regs]" as "HRegs".
+            (* TODO *)
+            (* [∗ map] k↦y ∈ delete PC reg, k @@ i ->r y *)
+            iAssert ((∃ regs : reg_file, full_reg_map regs ∗ ([∗ map] r↦w ∈ regs, r @@ i ->r w)))%I
+              with "[PC regs]" as "HRegs".
             {
               iCombine "PC regs" as "regs".
               pose proof (big_opM_fn_insert (o := bi_sep) (fun k v _ => (k @@ i ->r v)%I) (fun _ => True) (delete PC reg) PC (ai ^+ 1)%f) as Hrewrite.
