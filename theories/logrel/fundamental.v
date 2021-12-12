@@ -12,6 +12,14 @@ Section fundamental.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
+
+  (* TODO:
+   - [] fix iIntros
+   - [] fix pgt accessor
+   - [] new lemmas for updating VMProp
+   - [] fix nop & mov
+   - [] str & ldr *)
+
   (* TODO: separate into helper lemmas *)
   Lemma ftlr (i:VMID)  :
    ∀ pgt, interp_access i pgt ⊢ interp_execute i.
@@ -69,8 +77,7 @@ Section fundamental.
             iDestruct ("Hacc_pgt" $! (v,{[i]}) with "[pi pi_mem]") as (pgt') "[pgt mem]".
             (* NOTE: accessor doesn't work on pagetable, since we could update mem.
                We could solve it by moving the existential into sepM. But it means losing the capability to destruct on instr before split
-             pagetable sepM, which further implies one more splitting is needed. So we cannot use accessor anymore. *)
-            (* But why do we use accessor here? IH doesn't need pgt and mem as they are in VMProp!! *)
+             pagetable sepM, which further implies one more splitting is needed. So we cannot use the accessor anymore. *)
             { iIntros "?". iFrame "pi". (* here accessor needs mem, we have mem' instead. *) admit. }
             iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
             iSpecialize ("IH" $! pgt' with "[regs $rx $tx VMProp1]").
