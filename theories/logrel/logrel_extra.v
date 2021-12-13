@@ -385,7 +385,47 @@ Section logrel_extra.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  (* we provide lookup, so r and w can be implicit *)
+  Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
+         (f: K -> V -> iProp Σ)
+    :
+    map !! k = Some v ->
+    (([∗ map] k↦y ∈ map, f k y)%I
+     ⊢  (f k v) ∗ ( (f k v) -∗  [∗ map] k↦y ∈ map , f k y))%I.
+  Proof.
+    iIntros (Hlookup) "map".
+    iDestruct (big_sepM_union_acc map {[k := v]} f with "map") as "[single Hacc]".
+    {
+      apply insert_subseteq_l ;first done.
+      apply map_empty_subseteq.
+    }
+    iSplitL "single".
+    {
+      rewrite big_opM_singleton.
+      iFrame.
+    }
+    iIntros "single".
+      iDestruct ("Hacc" $! {[k := v]}) as "Hacc".
+        assert (map = {[k := v]} ∪ map) as <-.
+    {
+      rewrite map_eq_iff.
+      intro.
+      destruct (decide (k = i)).
+       - subst i.
+         simplify_map_eq /=.
+         done.
+       - simplify_map_eq /=.
+         rewrite lookup_union_r.
+         done.
+         apply lookup_singleton_None.
+         done.
+    }
+    iApply "Hacc".
+      iPureIntro. set_solver +.
+      rewrite big_opM_singleton.
+      iFrame.
+  Qed.
+
+
   Lemma ra_big_sepM_split_upd `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
         (total:= (λ m, (∀ k,  ⌜is_Some (m !! k)⌝)%I) : gmap K V -> iProp Σ) (f: K -> V -> iProp Σ)
     :
@@ -438,60 +478,237 @@ Section logrel_extra.
       iFrame.
   Qed.
 
-   Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
+
+  Lemma ra_big_sepM_split2 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 : K) (v1 v2:V)
          (f: K -> V -> iProp Σ)
     :
-    map !! k = Some v ->
+    k1 ≠ k2 ->
+    map !! k1 = Some v1 ->
+    map !! k2 = Some v2 ->
     (([∗ map] k↦y ∈ map, f k y)%I
-     ⊢  (f k v) ∗ ( (f k v) -∗  [∗ map] k↦y ∈ map , f k y))%I.
+     ⊢  (f k1 v1) ∗ (f k2 v2) ∗ (((f k1 v1) ∗ (f k2 v2)) -∗  [∗ map] k↦y ∈ map , f k y))%I.
   Proof.
-    iIntros (Hlookup) "map".
-    iDestruct (big_sepM_union_acc map {[k := v]} f with "map") as "[single Hacc]".
+    iIntros (Hneq Hlookup1 Hlookup2) "map".
+    iDestruct (big_sepM_union_acc map {[k1 := v1; k2:= v2]} f with "map") as "[singles Hacc]".
     {
+      apply insert_subseteq_l ;first done.
       apply insert_subseteq_l ;first done.
       apply map_empty_subseteq.
     }
-    iSplitL "single".
-    {
-      rewrite big_opM_singleton.
-      iFrame.
+      rewrite !big_opM_insert.
+    2: {
+      done.
     }
+    2: {
+      apply lookup_singleton_None.
+      done.
+    }
+    iDestruct "singles" as "(single1 & single2 & _)".
+    iFrame.
     iIntros "single".
-      iDestruct ("Hacc" $! {[k := v]}) as "Hacc".
-        assert (map = {[k := v]} ∪ map) as <-.
+    iDestruct ("Hacc" $! {[k1 := v1; k2 := v2]}) as "Hacc".
+    assert (map = {[k1 := v1; k2 := v2]} ∪ map) as <-.
     {
       rewrite map_eq_iff.
       intro.
-      destruct (decide (k = i)).
-       - subst i.
-         simplify_map_eq /=.
-         done.
-       - simplify_map_eq /=.
-         rewrite lookup_union_r.
-         done.
-         apply lookup_singleton_None.
-         done.
+      destruct (decide (k1 = i)).
+      - subst i.
+        simplify_map_eq /=.
+        done.
+      -
+        destruct (decide (k2 = i)).
+        + subst i.
+          simplify_map_eq /=.
+          symmetry.
+          rewrite lookup_union_Some_raw.
+          left.
+          apply lookup_insert_Some.
+          right.
+          split;eauto.
+          apply lookup_singleton_Some.
+          done.
+        + symmetry.
+          destruct (map !! i) eqn:Hlookup.
+          rewrite lookup_union_Some_raw.
+          right.
+          split;last done.
+          rewrite !lookup_insert_None;repeat split;done.
+          rewrite lookup_union_r.
+          done.
+          apply lookup_insert_None.
+          split;eauto.
+          apply lookup_singleton_None.
+          done.
     }
     iApply "Hacc".
-      iPureIntro. set_solver +.
-      rewrite big_opM_singleton.
-      iFrame.
+    iPureIntro. set_solver +.
+    rewrite !big_opM_insert.
+    iDestruct "single" as "[single1 single2]".
+    iFrame.
+    done.
+      done.
+      apply lookup_insert_None.
+      split;done.
   Qed.
 
-
-
-  (* we provide lookup, so r and w can be implicit *)
-  Lemma reg_big_sepM_split_upd reg i {r w}:
-    reg !! r = Some w ->
-    ((total_reg_map (reg: gmap reg_name Addr) ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
-     ⊢  (r @@ i ->r w) ∗ (∀ w', r @@ i ->r w' -∗ total_reg_map (<[r := w']>reg) ∗ [∗ map] k↦y ∈  <[r := w']>reg, k @@ i ->r y))%I.
+  Lemma ra_big_sepM_split_upd2 `{Countable K} { V :Type} (map : gmap K V) (k1 k2: K) (v1 v2:V)
+        (total:= (λ m, (∀ k,  ⌜is_Some (m !! k)⌝)%I) : gmap K V -> iProp Σ) (f: K -> V -> iProp Σ):
+    k1 ≠ k2 ->
+    map !! k1 = Some v1 ->
+    map !! k2 = Some v2 ->
+    ((total map ∗ [∗ map] k↦y ∈ map, f k y)%I
+     ⊢  (f k1 v1) ∗ (f k2 v2) ∗
+          (∀ v1' v2', f k1 v1' ∗ f k2 v2'-∗ ∃ map', (total map' ∗ [∗ map] k↦y ∈ map', f k y)))%I.
   Proof.
-    rewrite /reg_file /total_reg_map.
-    iIntros (Hlookup).
-    iApply (ra_big_sepM_split_upd reg r w (λ k v, k @@ i ->r v)%I Hlookup).
+    iIntros (Hneq Hlookup1 Hlookup2) "[%Htotal Hmaps]".
+    pose proof (Htotal k1) as Hlookup_k1.
+    pose proof (Htotal k2) as Hlookup_k2.
+    simplify_map_eq.
+    iDestruct (big_sepM_union_acc map {[k1 := v1 ; k2 := v2 ]} f with "Hmaps")
+      as "[Hsingle Hrestore]".
+    {
+      apply insert_subseteq_l ;first done.
+      apply insert_subseteq_l ;first done.
+      apply map_empty_subseteq.
+    }
+    rewrite !big_opM_insert.
+    2: {
+      done.
+    }
+    2: {
+      apply lookup_singleton_None.
+      done.
+    }
+    iDestruct "Hsingle" as "(Hsingle1 & Hsingle2 & _)".
+    iFrame "Hsingle1 Hsingle2".
+    iIntros (v1' v2') "Hsingle_upd".
+    iExists ({[k1 := v1'; k2:= v2']} ∪ map).
+    iSplitL "".
+    {
+      iPureIntro.
+      intro k0.
+      specialize (Htotal k0).
+      destruct Htotal as [? Hlookup_k0].
+      destruct (decide (k1 = k0)).
+      - subst k1.
+        simplify_map_eq /=.
+        done.
+      - simplify_map_eq /=.
+        destruct (decide (k2 = k0)).
+        + exists v2'.
+          rewrite lookup_union_Some_raw.
+          left.
+          subst k0.
+          apply lookup_insert_Some.
+          right.
+          split;first done.
+          apply lookup_insert_Some.
+          left.
+          rewrite Hlookup2 in Hlookup_k0.
+          inversion Hlookup_k0;subst x. done.
+        + exists x.
+          rewrite lookup_union_Some_raw.
+          right.
+          split;last done.
+          rewrite !lookup_insert_None;repeat split;done.
+    }
+    {
+      iApply "Hrestore".
+      iPureIntro. set_solver +.
+      rewrite !big_opM_insert.
+      iDestruct "Hsingle_upd" as "[Hsingle_upd1 Hsingle_upd2]".
+      iFrame.
+      done.
+      done.
+      apply lookup_insert_None.
+      split;done.
+    }
   Qed.
 
-  (* we provide lookup, so r and w can be implicit *)
+  Lemma ra_big_sepM_split_upd3 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3: K) (v1 v2 v3:V)
+        (total:= (λ m, (∀ k,  ⌜is_Some (m !! k)⌝)%I) : gmap K V -> iProp Σ) (f: K -> V -> iProp Σ):
+    k1 ≠ k2 ->
+    k1 ≠ k3 ->
+    k2 ≠ k3 ->
+    map !! k1 = Some v1 ->
+    map !! k2 = Some v2 ->
+    map !! k3 = Some v3 ->
+    ((total map ∗ [∗ map] k↦y ∈ map, f k y)%I
+     ⊢ f k1 v1 ∗ f k2 v2 ∗ f k3 v3 ∗
+          (∀ v1' v2' v3', f k1 v1' ∗ f k2 v2' ∗ f k3 v3' -∗ ∃ map', (total map' ∗ [∗ map] k↦y ∈ map', f k y)))%I.
+  Proof.
+    iIntros (Hneq1 Hneq2 Hneq3 Hlookup1 Hlookup2 Hlookup3) "[%Htotal Hmaps]".
+    pose proof (Htotal k1) as Hlookup_k1.
+    pose proof (Htotal k2) as Hlookup_k2.
+    pose proof (Htotal k3) as Hlookup_k3.
+    simplify_map_eq.
+    iDestruct (big_sepM_union_acc map {[k1 := v1 ; k2 := v2 ; k3 := v3]} f with "Hmaps")
+      as "[Hsingle Hrestore]".
+    {
+      repeat apply insert_subseteq_l;eauto.
+      apply map_empty_subseteq.
+    }
+    rewrite !big_opM_insert;try rewrite !lookup_insert_None;eauto.
+    iDestruct "Hsingle" as "(single1 & single2 & single3 & _)".
+    iFrame "single1 single2 single3".
+    iIntros (v1' v2' v3') "Hsingle_upd".
+    iExists ({[k1 := v1'; k2:= v2'; k3 := v3']} ∪ map).
+    iSplitL "".
+    {
+      iPureIntro.
+      intro k0.
+      specialize (Htotal k0).
+      destruct Htotal as [? Hlookup_k0].
+      destruct (decide (k1 = k0)).
+      - subst k1.
+        simplify_map_eq /=.
+        done.
+      - simplify_map_eq /=.
+        destruct (decide (k2 = k0)).
+        + exists v2'.
+          rewrite lookup_union_Some_raw.
+          left.
+          subst k0.
+          apply lookup_insert_Some.
+          right.
+          split;first done.
+          apply lookup_insert_Some.
+          left.
+          done.
+        + destruct (decide (k3 = k0)).
+          * simplify_map_eq /=.
+            exists v3'.
+            rewrite lookup_union_Some_raw.
+            left.
+            rewrite !lookup_insert_Some.
+            right.
+            split;first done.
+            right.
+            split;first done.
+            left;done.
+          * exists x.
+            rewrite lookup_union_Some_raw.
+            right.
+            split;last done.
+            rewrite !lookup_insert_None;repeat split;done.
+    }
+    {
+      iApply "Hrestore".
+      iPureIntro. set_solver +.
+      rewrite !big_opM_insert.
+      iDestruct "Hsingle_upd" as "(single_upd1 & single_upd2 & single_upd3)".
+      iFrame.
+      done.
+      done.
+      apply lookup_insert_None.
+      split;done.
+      rewrite !lookup_insert_None.
+      repeat split;done.
+    }
+  Qed.
+
+  (** registers **)
+   (* we provide lookup, so r and w can be implicit *)
   Lemma reg_big_sepM_split reg i {r w}:
     reg !! r = Some w ->
     (([∗ map] k↦y ∈ reg, k @@ i ->r y)%I
@@ -503,6 +720,16 @@ Section logrel_extra.
   Qed.
 
 
+  Lemma reg_big_sepM_split_upd reg i {r w}:
+    reg !! r = Some w ->
+    ((total_reg_map (reg: gmap reg_name Addr) ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
+     ⊢  (r @@ i ->r w) ∗ (∀ w', r @@ i ->r w' -∗ total_reg_map (<[r := w']>reg) ∗ [∗ map] k↦y ∈  <[r := w']>reg, k @@ i ->r y))%I.
+  Proof.
+    rewrite /reg_file /total_reg_map.
+    iIntros (Hlookup).
+    iApply (ra_big_sepM_split_upd reg r w (λ k v, k @@ i ->r v)%I Hlookup).
+  Qed.
+
 
   Lemma reg_big_sepM_split_upd2 reg i {r1 w1 r2 w2}:
     r1 ≠ r2 ->
@@ -513,71 +740,26 @@ Section logrel_extra.
           (∀ w1' w2', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2'-∗ ∃ reg', (total_reg_map reg' ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
   Proof.
     iIntros (Hneq Hlookup1 Hlookup2) "[%Hfull Hregs]".
-    pose proof (Hfull r1) as Hlookup_r1.
-    pose proof (Hfull r2) as Hlookup_r2.
-    simplify_map_eq.
-    iDestruct (big_sepM_union_acc reg {[r1 := w1 ; r2 := w2 ]} (λ k v, k @@ i ->r v)%I with "Hregs")
-      as "[Hsingle Hrestore]".
-    {
-      apply insert_subseteq_l ;first done.
-      apply insert_subseteq_l ;first done.
-      apply map_empty_subseteq.
-    }
-    rewrite !big_opM_insert.
-    2: {
-      done.
-    }
-    2: {
-      apply lookup_singleton_None.
-      done.
-    }
-    iDestruct "Hsingle" as "(Hsingle1 & Hsingle2 & _)".
-    iFrame "Hsingle1 Hsingle2".
-    iIntros (w1' w2') "Hsingle_upd".
-    iExists ({[r1 := w1'; r2:= w2']} ∪ reg).
-    iSplitL "".
-    {
-      unfold total_reg_map.
-      iPureIntro.
-      intro r0.
-      specialize (Hfull r0).
-      destruct Hfull as [? Hlookup_r0].
-      destruct (decide (r1 = r0)).
-      - subst r1.
-        simplify_map_eq /=.
-        done.
-      - simplify_map_eq /=.
-        destruct (decide (r2 = r0)).
-        + exists w2'.
-          rewrite lookup_union_Some_raw.
-          left.
-          subst r0.
-          apply lookup_insert_Some.
-          right.
-          split;first done.
-          apply lookup_insert_Some.
-          left.
-          rewrite Hlookup2 in Hlookup_r0.
-          inversion Hlookup_r0;subst x. done.
-        + exists x.
-          rewrite lookup_union_Some_raw.
-          right.
-          split;last done.
-          rewrite !lookup_insert_None;repeat split;done.
-    }
-    {
-      iApply "Hrestore".
-      iPureIntro. set_solver +.
-      rewrite !big_opM_insert.
-      iDestruct "Hsingle_upd" as "[Hsingle_upd1 Hsingle_upd2]".
-      iFrame.
-      done.
-      done.
-      apply lookup_insert_None.
-      split;done.
-    }
+    iApply (ra_big_sepM_split_upd2 reg r1 r2 w1 w2 (λ k v, k @@ i ->r v)%I);eauto.
   Qed.
 
+  Lemma reg_big_sepM_split_upd3 reg i {r1 w1 r2 w2 r3 w3}:
+    r1 ≠ r2 ->
+    r1 ≠ r3 ->
+    r2 ≠ r3 ->
+    reg !! r1 = Some w1 ->
+    reg !! r2 = Some w2 ->
+    reg !! r3 = Some w3 ->
+    ((total_reg_map reg ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
+     ⊢  (r1 @@ i ->r w1) ∗ (r2 @@ i ->r w2) ∗ (r3 @@ i ->r w3) ∗
+          (∀ w1' w2' w3', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2' ∗ r3 @@ i ->r w3' -∗ ∃ reg', (total_reg_map reg' ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
+  Proof.
+    iIntros (Hneq1 Hneq2 Hneq3 Hlookup1 Hlookup2 Hlookup3) "[%Hfull Hregs]".
+    iApply (ra_big_sepM_split_upd3 reg r1 r2 r3 w1 w2 w3 (λ k v, k @@ i ->r v)%I);eauto.
+  Qed.
+
+
+(** pagetable **)
  Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}:
     pgt !! p = Some pe->
     (( [∗ map] k↦y ∈ pgt, f k y)%I
@@ -588,8 +770,19 @@ Section logrel_extra.
     iApply (ra_big_sepM_split pgt p pe f Hlookup).
   Qed.
 
-  (* TODO: the proofs of xxx_big_sepM_splitn are almost identical,
-    make a more general lemma to cover reg, pgt and mem *)
+
+ Lemma pgt_big_sepM_split2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}:
+    p1 ≠ p2 ->
+    pgt !! p1 = Some pe1 ->
+    pgt !! p2 = Some pe2->
+    (( [∗ map] k↦y ∈ pgt, f k y)%I
+     ⊢  (f p1 pe1) ∗ (f p2 pe2) ∗ ((f p1 pe1 ∗ f p2 pe2 ) -∗ [∗ map] k↦y ∈ pgt, f k y))%I.
+  Proof.
+    rewrite /total_pgt_map.
+    iIntros (Hneq Hlookup1 Hlookup2).
+    iApply (ra_big_sepM_split2 pgt p1 p2 pe1 pe2 f);eauto.
+  Qed.
+
   (* f is also implicit because coq can infer it from big_sepM *)
   Lemma pgt_big_sepM_split_upd2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}:
     p1 ≠ p2 ->
@@ -600,82 +793,10 @@ Section logrel_extra.
                           ∃ (pgt': gmap PID (VMID * gset VMID) ), (total_pgt_map pgt' ∗ [∗ map] k↦y ∈ pgt', f k y)))%I.
   Proof.
     iIntros (Hneq Hlookup1 Hlookup2) "[%Htotal pgt]".
-    pose proof (Htotal p1) as Hlookup_p1.
-    pose proof (Htotal p2) as Hlookup_p2.
-    simplify_map_eq.
-    iDestruct (big_sepM_union_acc pgt {[p1 := pe1 ; p2 := pe2 ]} f with "pgt")
-      as "[Hsingle Hrestore]".
-    {
-      apply insert_subseteq_l ;first done.
-      apply insert_subseteq_l ;first done.
-      apply map_empty_subseteq.
-    }
-    rewrite !big_opM_insert.
-    2: {
-      done.
-    }
-    2: {
-      apply lookup_singleton_None.
-      done.
-    }
-    iDestruct "Hsingle" as "(Hsingle1 & Hsingle2 & _)".
-    iFrame "Hsingle1 Hsingle2".
-    iIntros (pe1' pe2') "Hsingle_upd".
-    iExists ({[p1 := pe1'; p2:= pe2']} ∪ pgt).
-    iSplitL "".
-    {
-      unfold total_pgt_map.
-      iPureIntro.
-      intro p0.
-      specialize (Htotal p0).
-      destruct Htotal as [? Hlookup_p0].
-      destruct (decide (p1 = p0)).
-      - subst p1.
-        simplify_map_eq /=.
-        done.
-      - simplify_map_eq /=.
-        destruct (decide (p2 = p0)).
-        + exists pe2'.
-          rewrite lookup_union_Some_raw.
-          left.
-          subst p0.
-          apply lookup_insert_Some.
-          right.
-          split;first done.
-          apply lookup_insert_Some.
-          left.
-          rewrite Hlookup2 in Hlookup_p0.
-          inversion Hlookup_p0;subst x. done.
-        + exists x.
-          rewrite lookup_union_Some_raw.
-          right.
-          split;last done.
-          rewrite !lookup_insert_None;repeat split;done.
-    }
-    {
-      iApply "Hrestore".
-      iPureIntro. set_solver +.
-      rewrite !big_opM_insert.
-      iDestruct "Hsingle_upd" as "[Hsingle_upd1 Hsingle_upd2]".
-      iFrame.
-      done.
-      done.
-      apply lookup_insert_None.
-      split;done.
-    }
-  Qed.
+    iApply (ra_big_sepM_split_upd2 pgt p1 p2 pe1 pe2 f);eauto.
+    Qed.
 
-
- Lemma mem_big_sepM_split_upd (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
-    mem !! a = Some w->
-    ((total_mem_map mem ∗ [∗ map] k↦y ∈ mem, f k y)%I
-     ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗
-                          (total_mem_map (<[a := w']>mem) ∗ [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
-  Proof.
-    rewrite /total_mem_map.
-    iIntros (Hlookup).
-    iApply (ra_big_sepM_split_upd mem a w f Hlookup).
-  Qed.
+  (** memory **)
 
  Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
     mem !! a = Some w->
@@ -688,12 +809,17 @@ Section logrel_extra.
     iApply (ra_big_sepM_split mem a w f Hlookup).
   Qed.
 
+  Lemma mem_big_sepM_split_upd (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+    mem !! a = Some w->
+    ((total_mem_map mem ∗ [∗ map] k↦y ∈ mem, f k y)%I
+     ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗
+                          (total_mem_map (<[a := w']>mem) ∗ [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
+  Proof.
+    rewrite /total_mem_map.
+    iIntros (Hlookup).
+    iApply (ra_big_sepM_split_upd mem a w f Hlookup).
+  Qed.
 
-
-  (*
-TODO: For memory chunks
-*)
-
-
+  (* TODO: For memory chunks *)
 
 End logrel_extra.

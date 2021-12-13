@@ -2,7 +2,7 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base.
-From HypVeri.rules Require Import rules_base nop mov.
+From HypVeri.rules Require Import rules_base nop mov ldr str.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
@@ -19,7 +19,8 @@ Section fundamental.
    - [x] new lemmas for updating VMProp (not necessary)
    - [x] fix nop
    - [x] fix mov
-   - [] str & ldr *)
+   - [] str
+   - [] ldr *)
 
   (* TODO: separate into helper lemmas *)
   Lemma ftlr (i:VMID)  :
@@ -157,6 +158,51 @@ Section fundamental.
             { (* mov reg *)
               admit.
             }
+          }
+          {(* ldr *)
+            pose proof Heqn as Hdecode.
+            apply decode_instruction_valid in Heqn.
+            inversion Heqn as [| | ? ? Hvalid_dst Hvalid_src Hvalid_neq | | | | | | | | | ].
+            subst dst0 src0.
+            unfold reg_valid_cond in Hvalid_dst, Hvalid_src.
+            iPoseProof ("Htotal_regs" $! src) as (src_a) "%Hlookup_src".
+            iPoseProof ("Htotal_regs" $! dst) as (dst_w) "%Hlookup_dst".
+            iPoseProof ("Htotal_pgt" $! (tpa src_a)) as (src_perm) "%Hlookup_src_a".
+            iDestruct "tx" as (tx_p) "tx".
+            (* case analysis on src  *)
+            destruct (decide (i ∈ src_perm.2)).
+            { (* access to the page, more cases.. *)
+              admit.
+            }
+            { (* no access to the page, apply ldr_error *)
+               iDestruct ((reg_big_sepM_split_upd3 regs i _ _ _ Hlookup_PC Hlookup_src Hlookup_dst)
+                            with "[$Htotal_regs $regs]") as "(PC & r_src & r_dst & Hacc_regs)".
+              (* getting mem *)
+               rewrite /accessible_memory.
+               (* we don't update memory *)
+               iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+                 as "[instrm Hacc_mem]".
+               iDestruct ("instrm" with "[]") as "a_instr".
+               { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+               (* getting pgt *)
+               (* we don't update pagetable *)
+               iDestruct (pgt_big_sepM_split pgt Hlookup_ai  with "[$excl_pages]")
+                 as "(p_instr & Hacc_excl_pgt)".
+               iDestruct ("p_instr" with "[]") as "p_instr";first done.
+               iDestruct (pgt_big_sepM_split pgt Hlookup_src_a  with "[$shared_pages]")
+                 as "([p_src _] & Hacc__shared_pgt)".
+               iDestruct ("p_src" with "[]") as "p_src";first done.
+               iApply (ldr_error ai src_a dst src with "[PC p_instr a_instr r_src r_dst tx p_src]"); iFrameAutoSolve.
+               { left;done. }
+               iNext.
+               iIntros "(tx & PC & a_instr & r_src & p_src & r_dst) _".
+               by iApply wp_terminated.
+            }
+
+            admit.
+          }
+          {(* str *)
+            admit.
           }
           all: admit.
         }
