@@ -386,12 +386,12 @@ Section logrel_extra.
   Context `{vmG: !gen_VMG Σ}.
 
   (* we provide lookup, so r and w can be implicit *)
-  Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
+  Lemma ra_big_sepM_split_upd `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
         (total:= (λ m, (∀ k,  ⌜is_Some (m !! k)⌝)%I) : gmap K V -> iProp Σ) (f: K -> V -> iProp Σ)
     :
     map !! k = Some v ->
     ((total map ∗ [∗ map] k↦y ∈ map, f k y)%I
-     ⊢  (f k v) ∗ (∀ v', (f k v') -∗ ∃ map', (total map' ∗ [∗ map] k↦y ∈ map', f k y)))%I.
+     ⊢  (f k v) ∗ (∀ v', (f k v') -∗  total (<[k := v']>map) ∗ [∗ map] k↦y ∈ <[k := v']>map , f k y))%I.
   Proof.
     iIntros (Hlookup) "[#Htotal Hregs]".
     iPoseProof  ("Htotal" $! k) as "Hlookup".
@@ -406,45 +406,93 @@ Section logrel_extra.
       iFrame.
     }
     iIntros (v') "Hsingle_upd".
-    iExists ({[k := v']} ∪ map).
     iSplitL "".
     {
-       unfold total_reg_map.
-       iIntros (k0).
-       iDestruct ("Htotal" $! k0) as (?)"Hlookup_k0".
-       destruct (decide (k = k0)).
+      iIntros (?).
+      iDestruct ("Htotal" $! k0) as "%Hlookup'".
+      iPureIntro.
+      destruct (decide (k = k0)).
        - subst k0.
          simplify_map_eq /=.
          done.
        - simplify_map_eq /=.
-         iExists x.
+         done.
+    }
+    assert (<[k:= v']> map = {[k := v']} ∪ map) as ->.
+    {
+      rewrite map_eq_iff.
+      intro.
+      destruct (decide (k = i)).
+       - subst i.
+         simplify_map_eq /=.
+         done.
+       - simplify_map_eq /=.
          rewrite lookup_union_r.
          done.
          apply lookup_singleton_None.
          done.
     }
-    {
       iApply "Hrestore".
       iPureIntro. set_solver +.
       rewrite big_opM_singleton.
       iFrame.
-    }
   Qed.
+
+   Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
+         (f: K -> V -> iProp Σ)
+    :
+    map !! k = Some v ->
+    (([∗ map] k↦y ∈ map, f k y)%I
+     ⊢  (f k v) ∗ ( (f k v) -∗  [∗ map] k↦y ∈ map , f k y))%I.
+  Proof.
+    iIntros (Hlookup) "map".
+    iDestruct (big_sepM_union_acc map {[k := v]} f with "map") as "[single Hacc]".
+    {
+      apply insert_subseteq_l ;first done.
+      apply map_empty_subseteq.
+    }
+    iSplitL "single".
+    {
+      rewrite big_opM_singleton.
+      iFrame.
+    }
+    iIntros "single".
+      iDestruct ("Hacc" $! {[k := v]}) as "Hacc".
+        assert (map = {[k := v]} ∪ map) as <-.
+    {
+      rewrite map_eq_iff.
+      intro.
+      destruct (decide (k = i)).
+       - subst i.
+         simplify_map_eq /=.
+         done.
+       - simplify_map_eq /=.
+         rewrite lookup_union_r.
+         done.
+         apply lookup_singleton_None.
+         done.
+    }
+    iApply "Hacc".
+      iPureIntro. set_solver +.
+      rewrite big_opM_singleton.
+      iFrame.
+  Qed.
+
 
 
   (* we provide lookup, so r and w can be implicit *)
-  Lemma reg_big_sepM_split reg i {r w}:
+  Lemma reg_big_sepM_split_upd reg i {r w}:
     reg !! r = Some w ->
     ((total_reg_map (reg: gmap reg_name Addr) ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
-     ⊢  (r @@ i ->r w) ∗ (∀ w', r @@ i ->r w' -∗ ∃ reg', (total_reg_map reg' ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
+     ⊢  (r @@ i ->r w) ∗ (∀ w', r @@ i ->r w' -∗ total_reg_map (<[r := w']>reg) ∗ [∗ map] k↦y ∈  <[r := w']>reg, k @@ i ->r y))%I.
   Proof.
     rewrite /reg_file /total_reg_map.
     iIntros (Hlookup).
-    iApply (ra_big_sepM_split reg r w (λ k v, k @@ i ->r v)%I Hlookup).
+    iApply (ra_big_sepM_split_upd reg r w (λ k v, k @@ i ->r v)%I Hlookup).
   Qed.
 
 
-  Lemma reg_big_sepM_split2 reg i {r1 w1 r2 w2}:
+  Lemma reg_big_sepM_split_upd2 reg i {r1 w1 r2 w2}:
     r1 ≠ r2 ->
     reg !! r1 = Some w1 ->
     reg !! r2 = Some w2 ->
@@ -520,9 +568,8 @@ Section logrel_extra.
 
  Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}:
     pgt !! p = Some pe->
-    ((total_pgt_map pgt ∗ [∗ map] k↦y ∈ pgt, f k y)%I
-     ⊢  (f p pe) ∗ (∀ (pe' : VMID * gset VMID) , f p pe' -∗
-                          ∃ (pgt': gmap PID (VMID * gset VMID) ), (total_pgt_map pgt' ∗ [∗ map] k↦y ∈ pgt', f k y)))%I.
+    (( [∗ map] k↦y ∈ pgt, f k y)%I
+     ⊢  (f p pe) ∗ (f p pe -∗ [∗ map] k↦y ∈ pgt, f k y))%I.
   Proof.
     rewrite /total_pgt_map.
     iIntros (Hlookup).
@@ -532,7 +579,7 @@ Section logrel_extra.
   (* TODO: the proofs of xxx_big_sepM_splitn are almost identical,
     make a more general lemma to cover reg, pgt and mem *)
   (* f is also implicit because coq can infer it from big_sepM *)
-  Lemma pgt_big_sepM_split2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}:
+  Lemma pgt_big_sepM_split_upd2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}:
     p1 ≠ p2 ->
     pgt !! p1 = Some pe1->
     pgt !! p2 = Some pe2->
@@ -607,16 +654,28 @@ Section logrel_extra.
   Qed.
 
 
- Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+ Lemma mem_big_sepM_split_upd (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
     mem !! a = Some w->
     ((total_mem_map mem ∗ [∗ map] k↦y ∈ mem, f k y)%I
      ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗
-                          ∃ (mem': gmap Addr Word), (total_mem_map mem' ∗ [∗ map] k↦y ∈ mem', f k y)))%I.
+                          (total_mem_map (<[a := w']>mem) ∗ [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
+  Proof.
+    rewrite /total_mem_map.
+    iIntros (Hlookup).
+    iApply (ra_big_sepM_split_upd mem a w f Hlookup).
+  Qed.
+
+ Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+    mem !! a = Some w->
+    (([∗ map] k↦y ∈ mem, f k y)
+     ⊢  (f a w) ∗ (f a w -∗
+                          ( [∗ map] k↦y ∈ mem, f k y)))%I.
   Proof.
     rewrite /total_mem_map.
     iIntros (Hlookup).
     iApply (ra_big_sepM_split mem a w f Hlookup).
   Qed.
+
 
 
   (*

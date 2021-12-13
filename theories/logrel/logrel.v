@@ -39,20 +39,21 @@ Section logrel.
                               (* shared access, only need the i part *)
                               (* XXX: may need full entry for mem sharing? *)
                                 (⌜∃ (j: VMID), j ≠ i ∧ j ∈ sacc⌝ -∗
-                                  ∃ (q:frac), p -@{q}A> [{[i]}] ∗
-                                  (⌜i ∈ sacc⌝ -∗ unknown_mem_page p)))
+                                  ∃ (q:frac), p -@{q}A> [{[i]}]))
     )%I.
 
   Definition exclusive_access_pages (i: VMID) (pgt: page_table) : iProp Σ:=
-    (
-      [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
-                               ⌜{[i]} = sacc⌝ -∗
-                                p -@EA> i ∗ unknown_mem_page p
-    )%I.
+    [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
+                              ⌜{[i]} = sacc⌝ -∗ p -@EA> i.
 
+  (* Definition accessible_memory (i:VMID) (pgt: page_table) (mem:mem): iProp Σ := *)
+  (*   [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in *)
+  (*                            ⌜i ∈ sacc⌝ -∗ unknown_mem_page p. *)
+
+  Definition accessible_memory (i:VMID) (pgt: page_table) (mem:mem): iProp Σ :=
+    [∗ map] a ↦ w ∈ mem, (∃ perm, ⌜pgt !! (tpa a) = Some perm⌝ ∗ ⌜i ∈ perm.2⌝) -∗ a ->a w.
 
   (* FIXME: replace gmap *)
-
   Definition total_reg_map (reg: gmap reg_name Addr) : iProp Σ := (∀ (r: reg_name), ⌜is_Some (reg !! r)⌝)%I.
 
   Definition total_pgt_map (pgt: gmap PID (VMID * (gset VMID))) : iProp Σ := (∀ (p: PID), ⌜is_Some (pgt !! p)⌝)%I.
@@ -61,26 +62,27 @@ Section logrel.
 
   Program Definition interp_access: V :=
     λne (i:leibnizO VMID) (pgt: page_table),
-    (∃ regs pgt_act shandle,
+    (∃ regs ,
       (* registers *)
       (total_reg_map regs ∗ [∗ map] r ↦ w ∈ regs, r @@ i ->r w) ∗
       (* mailbox *)
       (∃ p, RX@i := p) ∗ (∃ p, TX@i := p) ∗
-      (* pgt, considering mem sharing *)
-      ⌜dom (gset PID) pgt = dom (gset PID) pgt_act⌝ ∗
-      (* pgt is the upper bound of pgt_act in terms of accessibility of VM i*)
-      ([∗ map] p ↦ pe ∈ pgt, ⌜i ∉ pe.2⌝ -∗ ⌜pgt_act !! p = Some pe⌝) ∗
-      ([∗ map] p ↦ pe ∈ pgt, ⌜i ∈ pe.2⌝ -∗
-        (∃ (pe_act: (VMID * gset VMID)), ⌜pgt_act !! p = Some pe_act⌝ ∗ ⌜pe.1 = pe_act.1⌝ ∗ (⌜pe_act.2 = pe.2⌝
-           ∨ (⌜pe_act.2 = pe.2 ∖ {[i]}⌝ ∗ (∃wh v x y m f, wh->t{1}( v , x , y , m , f ) ∗ ⌜wh ∉ shandle⌝ ∨ True))))) ∗
-      (* handle pool *)
-      hp{1}[shandle] ∗
       (* VMProp *)
       VMProp i (
+        ∃ mem (* pgt_act shandle *),
         (* pagetable is total *)
         total_pgt_map pgt ∗
+        (* (* pgt, considering mem sharing *) *)
+        (* ⌜dom (gset PID) pgt = dom (gset PID) pgt_act⌝ ∗ *)
+        (* (* pgt is the upper bound of pgt_act in terms of accessibility of VM i*) *)
+        (* ([∗ map] p ↦ pe ∈ pgt, ⌜i ∉ pe.2⌝ -∗ ⌜pgt_act !! p = Some pe⌝) ∗ *)
+        (* ([∗ map] p ↦ pe ∈ pgt, ⌜i ∈ pe.2⌝ -∗ *)
+        (* (∃ (pe_act: (VMID * gset VMID)), ⌜pgt_act !! p = Some pe_act⌝ ∗ ⌜pe.1 = pe_act.1⌝ ∗ (⌜pe_act.2 = pe.2⌝ *)
+        (*    ∨ (⌜pe_act.2 = pe.2 ∖ {[i]}⌝ ∗ (∃wh v x y m f, wh->t{1}( v , x , y , m , f ) ∗ ⌜wh ∉ shandle⌝ ∨ True))))) ∗ *)
+        (* (* handle pool *) *)
+        (* hp{1}[shandle] ∗ *)
         (* memory is total *)
-        (* total_mem_map mem ∗ *)
+        total_mem_map mem ∗
         (* in case of yielding, we need the following to apply yield rule*)
         (* R0 & R1 of pvm *)
         (R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
@@ -90,15 +92,17 @@ Section logrel.
           (* R0 and R1 of pvm *)
           R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
            (* exclusive access pagetable entries + mem *)
-           (exclusive_access_pages i pgt_act) ∗
+           (exclusive_access_pages i pgt) ∗
            (* shared/noaccess pagetable entries + shared mem *)
-           (shared_or_noaccess_pages i pgt_act)
+           (shared_or_noaccess_pages i pgt)
                (* NOTE: if i will be scheduled arbitrary number of times, need recursive definition *)
                ) (1/2)%Qp ∗
-        (* exclusive access pagetable entries + mem *)
-        (exclusive_access_pages i pgt_act) ∗
-        (* shared/noaccess pagetable entries + shared mem *)
-        (shared_or_noaccess_pages i pgt_act) ∗
+        (* exclusive access pagetable entries *)
+        (exclusive_access_pages i pgt) ∗
+        (* shared/noaccess pagetable entries *)
+        (shared_or_noaccess_pages i pgt) ∗
+        (* accessible memory *)
+        (accessible_memory i pgt mem) ∗
         (* status of RX *)
         (RX@ i :=() ∨ ∃ w s, RX@ i :=(w, s)))
         (* no scheduling, we finish the proof *)

@@ -14,10 +14,11 @@ Section fundamental.
 
 
   (* TODO:
-   - [] fix iIntros
+   - [x] fix iIntros
    - [] fix pgt accessor
-   - [] new lemmas for updating VMProp
-   - [] fix nop & mov
+   - [x] new lemmas for updating VMProp (not necessary)
+   - [x] fix nop
+   - [] fix mov
    - [] str & ldr *)
 
   (* TODO: separate into helper lemmas *)
@@ -34,7 +35,7 @@ Section fundamental.
     (* the vm is scheduled *)
     rewrite !later_sep.
     (* we have to do this because VMProp is not(?) timeless *)
-    iDestruct "Hres" as "(>#Htotal_pgt & >#Htotal_mem & >R0z & >R1z & (VMPropz & >excl_pages & >shared_pages & >rx_status))".
+    iDestruct "Hres" as "(>#Htotal_pgt & >#Htotal_mem & >R0z & >R1z & (VMPropz & >excl_pages & >shared_pages & >mem & >rx_status))".
     (* we don't really need to get the resource of PC, but just the value *)
     iPoseProof ("Htotal_regs" $! PC) as "%Hlookup_PC".
     destruct Hlookup_PC as [ai Hlookup_PC].
@@ -54,36 +55,34 @@ Section fundamental.
           destruct instr'.
           { (* NOP *)
             (* getting the PC *)
-            iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$Htotal_regs $regs]")
-              as "[PC Hregs_restore]".
+            iDestruct (reg_big_sepM_split_upd regs i Hlookup_PC with "[$Htotal_regs $regs]")
+              as "[PC Hacc_regs]".
             (* getting pgt *)
-            iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$Htotal_pgt $excl_pages]")
+            (* we don't update pagetable *)
+            iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
                        as "[pi Hacc_pgt]".
+            iDestruct ("pi" with "[]") as "pi";first done.
             (* getting mem *)
-            iDestruct ("pi" with "[]") as "[pi pi_mem]";first done.
-            rewrite /unknown_mem_page.
-            iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$Htotal_mem $pi_mem]")
+            rewrite /accessible_memory.
+            (* we don't update memory *)
+            iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
                       as "[instrm Hacc_mem]".
             iDestruct ("instrm" with "[]") as "instrm".
-            { iPureIntro. apply tpa_addr_of_page. }
-            iApply (nop ai (w1 := instr) (s := {[i]}) (q := 1%Qp) with "[PC pi instrm]"); auto.
-            iFrame.
-            iSimpl.            
+            { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+            iApply (nop ai (w1 := instr) (s := {[i]}) (q := 1%Qp) with "[PC pi instrm]"); iFrameAutoSolve.
             iNext.
             iIntros "(PC & instrm & pi) _".
-            iDestruct ("Hregs_restore" $! (ai ^+ 1)%f with "PC") as (regs') "regs".
-            iDestruct ("Hacc_mem" $! instr with "[instrm]") as (mem') "[#Htotal_mem' pi_mem]".
-            {  iIntros "Hin". iFrame "instrm". }
-            iDestruct ("Hacc_pgt" $! (v,{[i]}) with "[pi pi_mem]") as (pgt') "[pgt mem]".
-            (* NOTE: accessor doesn't work on pagetable, since we could update mem.
-               We could solve it by moving the existential into sepM. But it means losing the capability to destruct on instr before split
-             pagetable sepM, which further implies one more splitting is needed. So we cannot use the accessor anymore. *)
-            { iIntros "?". iFrame "pi". (* here accessor needs mem, we have mem' instead. *) admit. }
+            iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "PC") as "[#Htotal_regs' regs]".
+            iDestruct ("Hacc_mem" with "[instrm]") as "mem".
+            { iIntros "_". iFrame "instrm". }
+            iDestruct ("Hacc_pgt" with "[pi]") as "pgt".
+            { iIntros "_". iFrame "pi". }
+            (* NOTE: accessor doesn't work on pagetable, since we could update it. need to extend interp_access *)
             iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
-            iSpecialize ("IH" $! pgt' with "[regs $rx $tx VMProp1]").
-            iExists regs'.
-            admit.
-            (* iFrame "VMProp1". *)
+            iSpecialize ("IH" $! pgt with "[regs $rx $tx VMProp1]").
+            iExists (<[PC:= (ai ^+ 1)%f]> regs).
+            iFrame.
+            iFrame "Htotal_regs'".
             iSpecialize ("IH" with "Hnotp").
             (* iEval (rewrite <-wp_sswp) in "IH". *)
             iApply "IH".
@@ -91,9 +90,10 @@ Section fundamental.
             iExists Pred.
             iFrame.
             iNext.
-            iExists mem'.
+            iExists mem.
             iLeft.
             iFrame.
+            iFrame "#".
           }
           { (* MOV *)
             destruct src as [imm | srcreg].
@@ -117,13 +117,13 @@ Section fundamental.
                 iPoseProof ("Htotal_regs" $! (R n fin)) as (w) "%Hlookup_R".
                 (* getting the R *)
                 iDestruct ((reg_bigM_split2 reg i PC ai (R n fin) w _ Hlookup_PC Hlookup_R)
-                            with "[$Htotal_regs $regs]") as "(PC & R & Hregs_restore)".
+                            with "[$Htotal_regs $regs]") as "(PC & R & Hacc_regs)".
                 iApply (mov_word (w3 := w) _ imm (R n fin) with "[PC pi instrp R]"); iFrameAutoSolve.
                 set_solver.
                 iSimpl.            
                 iNext.
                 iIntros "(PC & instrp & pi & R) _".
-                iDestruct ("Hregs_restore" with "[PC R]") as (regs') "[Hfull' Hregs]".
+                iDestruct ("Hacc_regs" with "[PC R]") as (regs') "[Hfull' Hregs]".
                 {
                   iFrame.
                 }
