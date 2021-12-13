@@ -31,6 +31,13 @@ Section logrel.
    λne (i: leibnizO VMID), (⌜ fin_to_nat i ≠ 0 ⌝ -∗
         (VMProp_holds i (1/2)%Qp -∗ WP ExecI @ i {{(λ _, True )}}))%I.
 
+  (* XXX/FIXME : Spliting pagetable into two is probably not a good idea.
+     As it introduces one more case when we want to get pagetable resource of one entry.
+     (have to destruct on permission to decide if VM has exclusive access or not)
+     One can imagine it would be impractical to prove mem sharing cases,
+     in which we have to get resource of many page entries.
+   *)
+
   Definition shared_or_noaccess_pages (i:VMID) (pgt: page_table) : iProp Σ:=
     (
       [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
@@ -45,10 +52,6 @@ Section logrel.
   Definition exclusive_access_pages (i: VMID) (pgt: page_table) : iProp Σ:=
     [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
                               ⌜{[i]} = sacc⌝ -∗ p -@EA> i.
-
-  (* Definition accessible_memory (i:VMID) (pgt: page_table) (mem:mem): iProp Σ := *)
-  (*   [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in *)
-  (*                            ⌜i ∈ sacc⌝ -∗ unknown_mem_page p. *)
 
   Definition accessible_memory (i:VMID) (pgt: page_table) (mem:mem): iProp Σ :=
     [∗ map] a ↦ w ∈ mem, (∃ perm, ⌜pgt !! (tpa a) = Some perm⌝ ∗ ⌜i ∈ perm.2⌝) -∗ a ->a w.

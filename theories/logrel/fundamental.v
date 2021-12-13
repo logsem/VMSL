@@ -19,8 +19,10 @@ Section fundamental.
    - [x] new lemmas for updating VMProp (not necessary)
    - [x] fix nop
    - [x] fix mov
-   - [] str
-   - [] ldr *)
+   - [x] str
+   - [x] ldr
+   - [] merging excl and shared pgt
+   - [] mem share *)
 
   (* TODO: separate into helper lemmas *)
   Lemma ftlr (i:VMID)  :
@@ -392,7 +394,236 @@ Section fundamental.
             }
           }
           { (* str *)
-            admit.
+            pose proof Heqn as Hdecode.
+            apply decode_instruction_valid in Heqn.
+            inversion Heqn as [| | | ? ? Hvalid_dst Hvalid_src Hvalid_neq | | | | | | | | ].
+            subst dst0 src0.
+            unfold reg_valid_cond in Hvalid_dst, Hvalid_src.
+            iPoseProof ("Htotal_regs" $! src) as (w_src) "%Hlookup_src".
+            iPoseProof ("Htotal_regs" $! dst) as (a_dst) "%Hlookup_dst".
+            iPoseProof ("Htotal_pgt" $! (tpa a_dst)) as (perm_dst) "%Hlookup_p_dst".
+            iDestruct "rx" as (p_rx) "rx".
+            (* getting registers *)
+            iDestruct ((reg_big_sepM_split_upd3 regs i _ _ _ Hlookup_PC Hlookup_src Hlookup_dst)
+                        with "[$Htotal_regs $regs]") as "(PC & r_src & r_dst & Hacc_regs)".
+            (* case analysis on src  *)
+            destruct (decide (i ∈ perm_dst.2)).
+            { (* has access to the page, more cases.. *)
+              destruct (decide((tpa a_dst) = p_rx)).
+              { (* trying to write to rx page, fail *)
+              (* getting mem *)
+               rewrite /accessible_memory.
+               iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+                 as "[instrm Hacc_mem]".
+               iDestruct ("instrm" with "[]") as "a_instr".
+               { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+               (* getting pgt *)
+               iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$excl_pages]")
+                 as "(p_instr & p_src & Hacc_excl_pgt)".
+               iDestruct ("p_instr" with "[]") as "p_instr";first done.
+               iApply (str_access_rx ai a_dst src dst with "[PC p_instr a_instr r_src r_dst rx]"); iFrameAutoSolve.
+               iNext.
+               iIntros "(rx & PC & a_instr & r_src & r_dst) _".
+               by iApply wp_terminated.
+              }
+              { (* normal case *)
+                destruct (decide (a_dst =ai)).
+                { (* exact same addr *)
+                  iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                    as "(p_instr  & Hacc_excl_pgt)".
+                  iDestruct ("p_instr" with "[]") as "p_instr";first done.
+                  iDestruct (mem_big_sepM_split_upd mem Hlookup_instr with "[$mem $Htotal_mem]")
+                     as "[instrm Hacc_mem]".
+                  iDestruct ("instrm" with "[]") as "a_instr".
+                  { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+                  iApply (str_same_addr ai a_dst src dst with "[PC p_instr a_instr r_src r_dst rx]"); iFrameAutoSolve.
+                  { symmetry;done. }
+                  iNext.
+                  iIntros "(PC & a_instr & r_src & r_dst & p_instr & rx) _".
+                  iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[#Htotal_regs' regs]";iFrame.
+                  iDestruct ("Hacc_mem" with "[a_instr]") as "[#Htotal_mem' mem]".
+                  { iIntros "_". iFrame "a_instr". }
+                  iDestruct ("Hacc_excl_pgt" with "[p_instr]") as "excl_pgt".
+                  { iIntros "_". iFrame "p_instr". }
+                  iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
+                  iSpecialize ("IH" $! pgt with "[regs Htotal_regs' rx tx VMProp1]").
+                  iExists regs'.
+                  iFrame.
+                  iFrame "#".
+                  iExists p_rx.
+                  iFrame.
+                  iSpecialize ("IH" with "Hnotp").
+                  iApply "IH".
+                  set Pred := (X in VMProp i X _).
+                  iExists Pred.
+                  iFrame.
+                  iNext.
+                  iExists (<[ai:=w_src]>mem).
+                  iLeft.
+                  iFrame.
+                  iFrame "#".
+                }
+                { (* different addresses *)
+                  iPoseProof ("Htotal_mem" $! a_dst) as (w_dst) "%Hlookup_a_dst".
+                  destruct (decide ((tpa a_dst)=(tpa ai))).
+                  { (* in same page *)
+                    iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                      as "(p_instr & Hacc_excl_pgt)".
+                    iDestruct ("p_instr" with "[]") as "p_instr";first done.
+                    iDestruct (mem_big_sepM_split_upd2 mem _ Hlookup_instr Hlookup_a_dst with "[$mem $Htotal_mem]")
+                      as "[a_instr [a_src Hacc_mem]]".
+                    iDestruct ("a_instr" with "[]") as "a_instr".
+                    { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+                    iDestruct ("a_src" with "[]") as "a_src".
+                    { iPureIntro. exists (v,{[i]}).  split. rewrite e1 //. simpl;set_solver +. }
+                    iApply (str_same_page ai a_dst src dst with "[PC p_instr a_instr a_src r_src r_dst rx]"); iFrameAutoSolve.
+                    { symmetry;done. }
+                    iNext.
+                    iIntros "(PC & a_instr & r_src & a_src & r_dst & p_instr & rx) _".
+                    iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[#Htotal_regs' regs]";iFrame.
+                    iDestruct ("Hacc_mem" with "[a_instr a_src]") as (mem') "[#Htotal_mem' mem]".
+                    { iSplitL "a_instr".
+                      iIntros "_". iFrame "a_instr".
+                      iIntros "_". iFrame "a_src".
+                    }
+                    iDestruct ("Hacc_excl_pgt" with "[p_instr]") as "excl_pgt".
+                    { iIntros "_". iFrame "p_instr". }
+                    iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
+                    iSpecialize ("IH" $! pgt with "[regs Htotal_regs' rx tx VMProp1]").
+                    iExists regs'.
+                    iFrame.
+                    iFrame "#".
+                    iExists p_rx.
+                    iFrame.
+                    iSpecialize ("IH" with "Hnotp").
+                    iApply "IH".
+                    set Pred := (X in VMProp i X _).
+                    iExists Pred.
+                    iFrame.
+                    iNext.
+                    iExists mem'.
+                    iLeft.
+                    iFrame.
+                    iFrame "#".
+                  }
+                  { (* in difference pages, we again have two cases.. *)
+                    destruct (decide (perm_dst.2 = {[i]})).
+                    { (* has exclusive access to src *)
+                      (* getting pgt *)
+                      iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$excl_pages]")
+                        as "(p_instr & p_src & Hacc_excl_pgt)".
+                      iDestruct ("p_instr" with "[]") as "p_instr";first done.
+                      iDestruct ("p_src" with "[]") as "p_src";first done.
+                      (* getting mem *)
+                      rewrite /accessible_memory.
+                      iDestruct (mem_big_sepM_split_upd2 mem _ Hlookup_instr Hlookup_a_dst with "[$mem $Htotal_mem]")
+                        as "(a_instr & a_src & Hacc_mem)".
+                      iDestruct ("a_instr" with "[]") as "a_instr".
+                      { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+                      iDestruct ("a_src" with "[]") as "a_src".
+                      { iPureIntro. exists perm_dst.  split;done. }
+                      iApply (str ai a_dst src dst with "[PC p_instr p_src a_instr a_src r_src r_dst rx]"); iFrameAutoSolve.
+                      iNext.
+                      iIntros "(PC & a_instr & r_src & a_dst & r_dst & p_instr & p_src & rx) _".
+                      iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[#Htotal_regs' regs]";iFrame.
+                      iDestruct ("Hacc_mem" with "[a_instr a_dst]") as (mem') "[#Htotal_mem' mem]".
+                      { iSplitL "a_instr".
+                        iIntros "_". iFrame "a_instr".
+                        iIntros "_". iFrame "a_dst".
+                      }
+                      iDestruct ("Hacc_excl_pgt" with "[p_instr p_src]") as "excl_pgt".
+                      { iSplitL "p_instr". iIntros "_". iFrame "p_instr". iIntros "_". iFrame "p_src". }
+                      iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
+                      iSpecialize ("IH" $! pgt with "[regs Htotal_regs' rx tx VMProp1]").
+                      iExists regs'.
+                      iFrame.
+                      iFrame "#".
+                      iExists p_rx.
+                      iFrame.
+                      iSpecialize ("IH" with "Hnotp").
+                      iApply "IH".
+                      set Pred := (X in VMProp i X _).
+                      iExists Pred.
+                      iFrame.
+                      iNext.
+                      iExists mem'.
+                      iLeft.
+                      iFrame.
+                      iFrame "#".
+                    }
+                    { (* has shared access to src *)
+                      (* getting pgt *)
+                      iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                        as "(p_instr  & Hacc_excl_pgt)".
+                      iDestruct ("p_instr" with "[]") as "p_instr";first done.
+                      iDestruct (pgt_big_sepM_split pgt Hlookup_p_dst with "[$shared_pages]")
+                        as "(p_src & Hacc_shared_pgt)".
+                      iDestruct "p_src" as "[_ p_src]".
+                      iDestruct ("p_src" with "[]") as (q) "p_src". { iPureIntro. split;done. }
+                      (* getting mem *)
+                      rewrite /accessible_memory.
+                      iDestruct (mem_big_sepM_split_upd2 mem _ Hlookup_instr Hlookup_a_dst with "[$mem $Htotal_mem]")
+                        as "(a_instr & a_src & Hacc_mem)".
+                      iDestruct ("a_instr" with "[]") as "a_instr".
+                      { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+                      iDestruct ("a_src" with "[]") as "a_src".
+                      { iPureIntro. exists perm_dst.  split;done. }
+                      iApply (str ai a_dst src dst with "[PC p_instr p_src a_instr a_src r_src r_dst rx]"); iFrameAutoSolve.
+                      iNext.
+                      iIntros "(PC & a_instr & r_src & a_dst & r_dst & p_instr & p_src & rx) _".
+                      iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[#Htotal_regs' regs]";iFrame.
+                      iDestruct ("Hacc_mem" with "[a_instr a_dst]") as (mem') "[#Htotal_mem' mem]".
+                      { iSplitL "a_instr".
+                        iIntros "_". iFrame "a_instr".
+                        iIntros "_". iFrame "a_dst".
+                      }
+                      iDestruct ("Hacc_excl_pgt" with "[p_instr]") as "excl_pgt".
+                      { iIntros "_". iFrame "p_instr". }
+                      iDestruct ("Hacc_shared_pgt" with "[p_src]") as "shared_pgt".
+                      { iSplitL "". iIntros "%". done. iIntros "_". iExists q. iFrame "p_src". }
+                      iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
+                      iSpecialize ("IH" $! pgt with "[regs Htotal_regs' rx tx VMProp1]").
+                      iExists regs'.
+                      iFrame.
+                      iFrame "#".
+                      iExists p_rx.
+                      iFrame.
+                      iSpecialize ("IH" with "Hnotp").
+                      iApply "IH".
+                      set Pred := (X in VMProp i X _).
+                      iExists Pred.
+                      iFrame.
+                      iNext.
+                      iExists mem'.
+                      iLeft.
+                      iFrame.
+                      iFrame "#".
+                    }
+                  }
+                }
+              }
+            }
+            { (* no access to the page, apply ldr_error *)
+              (* getting mem *)
+               rewrite /accessible_memory.
+               (* we don't update memory *)
+               iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+                 as "[instrm Hacc_mem]".
+               iDestruct ("instrm" with "[]") as "a_instr".
+               { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+               (* getting pgt *)
+               (* we don't update pagetable *)
+               iDestruct (pgt_big_sepM_split pgt Hlookup_ai  with "[$excl_pages]")
+                 as "(p_instr & Hacc_excl_pgt)".
+               iDestruct ("p_instr" with "[]") as "p_instr";first done.
+               iDestruct (pgt_big_sepM_split pgt Hlookup_p_dst with "[$shared_pages]")
+                 as "([p_dst _] & Hacc__shared_pgt)".
+               iDestruct ("p_dst" with "[]") as "p_dst";first done.
+               iApply (str_no_access ai a_dst src dst with "[PC p_instr a_instr r_src r_dst p_dst]"); iFrameAutoSolve.
+               iNext.
+               iIntros "(PC & a_instr & r_src & p_src & r_dst) _".
+               by iApply wp_terminated.
+            }
           }
           all: admit.
         }

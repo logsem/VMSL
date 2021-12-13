@@ -279,7 +279,7 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
 
-Lemma ldr_no_access{i w1 w3 s p q} ai a ra rb :
+Lemma ldr_no_access{i w1 w3 s q} ai a ra rb :
   decode_instruction w1 = Some (Ldr ra rb) ->
   i ∉ s ->
   {SS{{ ▷ (PC @@ i ->r ai) ∗
@@ -287,11 +287,9 @@ Lemma ldr_no_access{i w1 w3 s p q} ai a ra rb :
         ▷ (rb @@ i ->r a) ∗
         ▷ (ra @@ i ->r w3) ∗
         ▷ ((tpa ai) -@{q}A> [{[i]}]) ∗
-        ▷ ((tpa a) -@{1}A> [s]) ∗
-        ▷ (TX@ i := p)
+        ▷ ((tpa a) -@{1}A> [s]) 
       }}} ExecI @ i
     {{{ RET (false,FailPageFaultI);
-        TX@ i := p ∗
         PC @@ i ->r ai ∗
         ai ->a w1 ∗
         rb @@ i ->r a ∗
@@ -299,7 +297,7 @@ Lemma ldr_no_access{i w1 w3 s p q} ai a ra rb :
         (tpa ai) -@{q}A> [{[i]}] ∗
         ra @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hdecode Hnotin ϕ) "(>Hpc & >Hapc & >Hrb & >Hra & >Hacc_ai & >Hacc_a & >Htx) Hϕ".
+  iIntros (Hdecode Hnotin ϕ) "(>Hpc & >Hapc & >Hrb & >Hra & >Hacc_ai & >Hacc_a) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled  /= /scheduler in Hsche.
@@ -315,7 +313,6 @@ Proof.
   iDestruct ((gen_reg_valid3 i PC ai ra w3 rb a Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   iDestruct ((gen_mem_valid ai w1) with "Hmem Hapc") as "%Hpc".
   iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc_ai") as "%Hai"; first set_solver + .
-  iDestruct (gen_tx_valid i p with "Htx Hmb") as %Htx.
   iDestruct ((access_agree_check_false (tpa a) s Hnotin) with "Haccess Hacc_a") as "%Ha".
   iSplit.
   + iPureIntro.
