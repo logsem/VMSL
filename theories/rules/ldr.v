@@ -279,9 +279,9 @@ Proof.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
 
-Lemma ldr_error {i w1 w3 s p q} ai a ra rb :
+Lemma ldr_no_access{i w1 w3 s p q} ai a ra rb :
   decode_instruction w1 = Some (Ldr ra rb) ->
-  (i ∉ s \/ (tpa a) = p) ->
+  i ∉ s ->
   {SS{{ ▷ (PC @@ i ->r ai) ∗
         ▷ (ai ->a w1) ∗
         ▷ (rb @@ i ->r a) ∗
@@ -299,7 +299,7 @@ Lemma ldr_error {i w1 w3 s p q} ai a ra rb :
         (tpa ai) -@{q}A> [{[i]}] ∗
         ra @@ i ->r w3 }}}.
 Proof.
-  iIntros (Hdecode Hnotin_or_eq ϕ) "(>Hpc & >Hapc & >Hrb & >Hra & >Hacc_ai & >Hacc_a & >Htx) Hϕ".
+  iIntros (Hdecode Hnotin ϕ) "(>Hpc & >Hapc & >Hrb & >Hra & >Hacc_ai & >Hacc_a & >Htx) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled  /= /scheduler in Hsche.
@@ -316,86 +316,124 @@ Proof.
   iDestruct ((gen_mem_valid ai w1) with "Hmem Hapc") as "%Hpc".
   iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc_ai") as "%Hai"; first set_solver + .
   iDestruct (gen_tx_valid i p with "Htx Hmb") as %Htx.
-  destruct Hnotin_or_eq as [Hnotin | Heq].
-  - iDestruct ((access_agree_check_false (tpa a) s Hnotin) with "Haccess Hacc_a") as "%Ha".
-    iSplit.
-    + iPureIntro.
-      rewrite /reducible.
-      exists FailPageFaultI, σ1.
-      simplify_eq.
-      rewrite check_access_page_mem_eq in Hai.
-      apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
-      * rewrite /is_valid_PC HPC /=.
-        rewrite Hai //.
-      * rewrite /get_memory Hai //.
-      * rewrite /exec .
-        destruct ra; try done.
-        destruct rb; try done.
-        rewrite /lang.ldr /= Hrb.
-        destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
-        simpl in *.
-        destruct (decide (to_pid_aligned a = t)); try done.
-        rewrite /get_memory.
-        rewrite check_access_page_mem_eq in Ha.
-        by rewrite Ha.
-    + iModIntro.
-      iIntros (m2 σ2) "HpropA %HstepP".
-      iModIntro.
-      iSplitL "HpropA";first (iFrame;done).
-      eapply (step_ExecI_normal i _ ai w1 ) in HstepP;eauto.
-      remember (exec _ σ1) as c2 eqn:Heqc2.
-      rewrite /exec
-      (ldr_FailPageFaultI_ldr_from_page σ1 ra rb a HneqPCa HneqNZa HneqPCb HneqNZb _ Hrb)
-              /update_incr_PC /update_reg in Heqc2.
-      2: {
-        subst.
-        done.
-      }
-      destruct HstepP;subst m2 σ2; subst c2; simpl.
-      rewrite /gen_vm_interp.
-      iFrame.
-      iSplitL "".
-      rewrite just_scheduled_vms_no_step_empty.
+  iDestruct ((access_agree_check_false (tpa a) s Hnotin) with "Haccess Hacc_a") as "%Ha".
+  iSplit.
+  + iPureIntro.
+    rewrite /reducible.
+    exists FailPageFaultI, σ1.
+    simplify_eq.
+    rewrite check_access_page_mem_eq in Hai.
+    apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
+    * rewrite /is_valid_PC HPC /=.
+      rewrite Hai //.
+    * rewrite /get_memory Hai //.
+    * rewrite /exec .
+      destruct ra; try done.
+      destruct rb; try done.
+      rewrite /lang.ldr /= Hrb.
+      destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
+      simpl in *.
+      destruct (decide (to_pid_aligned a = t)); try done.
+      rewrite /get_memory.
+      rewrite check_access_page_mem_eq in Ha.
+      by rewrite Ha.
+  + iModIntro.
+    iIntros (m2 σ2) "HpropA %HstepP".
+    iModIntro.
+    iSplitL "HpropA";first (iFrame;done).
+    eapply (step_ExecI_normal i _ ai w1 ) in HstepP;eauto.
+    remember (exec _ σ1) as c2 eqn:Heqc2.
+    rewrite /exec
+            (ldr_FailPageFaultI_ldr_from_page σ1 ra rb a HneqPCa HneqNZa HneqPCb HneqNZb _ Hrb)
+            /update_incr_PC /update_reg in Heqc2.
+    2: {
+      subst.
       done.
-      rewrite scheduled_true /=;last done.
-      iApply "Hϕ"; iFrame.
-  - iSplit.
-    + iPureIntro.
-      rewrite /reducible.
-      exists FailPageFaultI, σ1.
-      simplify_eq.
-      rewrite check_access_page_mem_eq in Hai.
-      apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
-      * rewrite /is_valid_PC HPC /= Hai //.
-      * rewrite /get_memory Hai; done.
-      * rewrite /exec /lang.ldr.
-        destruct ra; try done.
-        destruct rb; try done.
-        rewrite Hrb.
-        destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
-        simpl in *.
-        destruct (decide (to_pid_aligned a = t)); done.
-    + iModIntro.
-      iIntros (m2 σ2) "HpropA %HstepP".
-      iModIntro.
-      iSplitL "HpropA";first (iFrame;done).
-      eapply (step_ExecI_normal i _ ai w1 ) in HstepP;eauto.
-      remember (exec _ σ1) as c2 eqn:Heqc2.
-      rewrite /exec
-      (ldr_FailPageFaultI_ldr_from_tx σ1 ra rb a HneqPCa HneqNZa HneqPCb HneqNZb _ Hrb)
-              /update_incr_PC /update_reg in Heqc2.
-      2: {
-        subst.
-        done.
-      }
-      destruct HstepP;subst m2 σ2; subst c2; simpl.
-      rewrite /gen_vm_interp.
-      iFrame.
-      iSplitL "".
-      rewrite just_scheduled_vms_no_step_empty.
-      done.
-      rewrite scheduled_true /=;last done.
-      iApply "Hϕ"; iFrame.
+    }
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.
+    iFrame.
+    iSplitL "".
+    rewrite just_scheduled_vms_no_step_empty.
+    done.
+    rewrite scheduled_true /=;last done.
+    iApply "Hϕ"; iFrame.
 Qed.
+
+
+Lemma ldr_access_tx{i w1 w3 p q} ai a ra rb :
+  decode_instruction w1 = Some (Ldr ra rb) ->
+   (tpa a) = p ->
+  {SS{{ ▷ (PC @@ i ->r ai) ∗
+        ▷ (ai ->a w1) ∗
+        ▷ (rb @@ i ->r a) ∗
+        ▷ (ra @@ i ->r w3) ∗
+        ▷ ((tpa ai) -@{q}A> [{[i]}]) ∗
+        ▷ (TX@ i := p)
+      }}} ExecI @ i
+    {{{ RET (false,FailPageFaultI);
+        TX@ i := p ∗
+        PC @@ i ->r ai ∗
+        ai ->a w1 ∗
+        rb @@ i ->r a ∗
+        (tpa ai) -@{q}A> [{[i]}] ∗
+        ra @@ i ->r w3 }}}.
+Proof.
+  iIntros (Hdecode Heq ϕ) "(>Hpc & >Hapc & >Hrb & >Hra & >Hacc_ai & >Htx) Hϕ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche Hσ".
+  rewrite /scheduled  /= /scheduler in Hsche.
+  apply bool_decide_unpack in Hsche as Hcur.
+  clear Hsche.
+  apply fin_to_nat_inj in Hcur.
+  iModIntro.
+  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hrx & Hown & Hmb & Haccess & Hrest)".
+  pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
+  inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | | |]; subst src dst; clear Hvalidinstr.
+  destruct H3' as [HneqPCa HneqNZa].
+  destruct H4' as [HneqPCb HneqNZb].
+  iDestruct ((gen_reg_valid3 i PC ai ra w3 rb a Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
+  iDestruct ((gen_mem_valid ai w1) with "Hmem Hapc") as "%Hpc".
+  iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc_ai") as "%Hai"; first set_solver + .
+  iDestruct (gen_tx_valid i p with "Htx Hmb") as %Htx.
+  iSplit.
+  + iPureIntro.
+    rewrite /reducible.
+    exists FailPageFaultI, σ1.
+    simplify_eq.
+    rewrite check_access_page_mem_eq in Hai.
+    apply (step_exec_normal σ1 ai w1 (Ldr ra rb) (FailPageFaultI, σ1)); auto.
+    * rewrite /is_valid_PC HPC /= Hai //.
+    * rewrite /get_memory Hai; done.
+    * rewrite /exec /lang.ldr.
+      destruct ra; try done.
+      destruct rb; try done.
+      rewrite Hrb.
+      destruct (get_mail_boxes σ1 !!! get_current_vm σ1) as [t r].
+      simpl in *.
+      destruct (decide (to_pid_aligned a = t)); done.
+  + iModIntro.
+    iIntros (m2 σ2) "HpropA %HstepP".
+    iModIntro.
+    iSplitL "HpropA";first (iFrame;done).
+    eapply (step_ExecI_normal i _ ai w1 ) in HstepP;eauto.
+    remember (exec _ σ1) as c2 eqn:Heqc2.
+    rewrite /exec
+            (ldr_FailPageFaultI_ldr_from_tx σ1 ra rb a HneqPCa HneqNZa HneqPCb HneqNZb _ Hrb)
+            /update_incr_PC /update_reg in Heqc2.
+    2: {
+      subst.
+      done.
+    }
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.
+    iFrame.
+    iSplitL "".
+    rewrite just_scheduled_vms_no_step_empty.
+    done.
+    rewrite scheduled_true /=;last done.
+    iApply "Hϕ"; iFrame.
+Qed.
+
 
 End ldr.

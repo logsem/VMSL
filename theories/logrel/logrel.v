@@ -38,7 +38,7 @@ Section logrel.
                                ((⌜i ∉ sacc⌝ -∗ p -@{1}A> [sacc]) ∗
                               (* shared access, only need the i part *)
                               (* XXX: may need full entry for mem sharing? *)
-                                (⌜∃ (j: VMID), j ≠ i ∧ j ∈ sacc⌝ -∗
+                                (⌜i ∈ sacc ∧ sacc ≠ {[i]} ⌝ -∗
                                   ∃ (q:frac), p -@{q}A> [{[i]}]))
     )%I.
 

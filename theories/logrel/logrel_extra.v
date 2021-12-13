@@ -820,6 +820,20 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd mem a w f Hlookup).
   Qed.
 
+  Lemma mem_big_sepM_split2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}:
+    a1 ≠ a2 ->
+    mem !! a1 = Some w1->
+    mem !! a2 = Some w2->
+    (([∗ map] k↦y ∈ mem, f k y)
+     ⊢  f a1 w1 ∗ f a2 w2 ∗ ((f a1 w1 ∗ f a2 w2) -∗
+                            ( [∗ map] k↦y ∈ mem, f k y)))%I.
+  Proof.
+    rewrite /total_mem_map.
+    iIntros (Hneq Hlookup1 Hlookup2).
+    iApply (ra_big_sepM_split2 mem a1 a2 w1 w2 f);eauto.
+  Qed.
+
+
   (* TODO: For memory chunks *)
 
 End logrel_extra.
