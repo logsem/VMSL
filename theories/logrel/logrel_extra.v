@@ -491,6 +491,18 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd reg r w (λ k v, k @@ i ->r v)%I Hlookup).
   Qed.
 
+  (* we provide lookup, so r and w can be implicit *)
+  Lemma reg_big_sepM_split reg i {r w}:
+    reg !! r = Some w ->
+    (([∗ map] k↦y ∈ reg, k @@ i ->r y)%I
+     ⊢  (r @@ i ->r w) ∗ ( r @@ i ->r w -∗ [∗ map] k↦y ∈ reg, k @@ i ->r y))%I.
+  Proof.
+    rewrite /reg_file /total_reg_map.
+    iIntros (Hlookup).
+    iApply (ra_big_sepM_split reg r w (λ k v, k @@ i ->r v)%I Hlookup).
+  Qed.
+
+
 
   Lemma reg_big_sepM_split_upd2 reg i {r1 w1 r2 w2}:
     r1 ≠ r2 ->

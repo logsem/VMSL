@@ -18,7 +18,7 @@ Section fundamental.
    - [] fix pgt accessor
    - [x] new lemmas for updating VMProp (not necessary)
    - [x] fix nop
-   - [] fix mov
+   - [x] fix mov
    - [] str & ldr *)
 
   (* TODO: separate into helper lemmas *)
@@ -84,7 +84,6 @@ Section fundamental.
             iFrame.
             iFrame "Htotal_regs'".
             iSpecialize ("IH" with "Hnotp").
-            (* iEval (rewrite <-wp_sswp) in "IH". *)
             iApply "IH".
             set Pred := (X in VMProp i X _).
             iExists Pred.
@@ -97,7 +96,7 @@ Section fundamental.
           }
           { (* MOV *)
             destruct src as [imm | srcreg].
-            {
+            { (* mov imm *)
               destruct dst.
               {
                 apply decode_instruction_valid in Heqn.
@@ -115,102 +114,67 @@ Section fundamental.
               }
               {
                 iPoseProof ("Htotal_regs" $! (R n fin)) as (w) "%Hlookup_R".
-                (* getting the R *)
-                iDestruct ((reg_bigM_split2 reg i PC ai (R n fin) w _ Hlookup_PC Hlookup_R)
+                (* getting regs *)
+                iDestruct ((reg_big_sepM_split_upd2 regs i _ Hlookup_PC Hlookup_R)
                             with "[$Htotal_regs $regs]") as "(PC & R & Hacc_regs)".
-                iApply (mov_word (w3 := w) _ imm (R n fin) with "[PC pi instrp R]"); iFrameAutoSolve.
-                set_solver.
-                iSimpl.            
+                (* getting mem *)
+                rewrite /accessible_memory.
+                (* we don't update memory *)
+                iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+                  as "[instrm Hacc_mem]".
+                iDestruct ("instrm" with "[]") as "instrm".
+                { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+                (* getting pgt *)
+                (* we don't update pagetable *)
+                iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                  as "[pi Hacc_pgt]".
+                iDestruct ("pi" with "[]") as "pi";first done.
+                iApply (mov_word (w3 := w) _ imm (R n fin) with "[PC pi instrm R]"); iFrameAutoSolve.
                 iNext.
-                iIntros "(PC & instrp & pi & R) _".
-                iDestruct ("Hacc_regs" with "[PC R]") as (regs') "[Hfull' Hregs]".
-                {
-                  iFrame.
-                }
-                iAssert (total_pgt_map pgt ∗ exclusive_access_pages i pgt)%I
-                  with "[pi_mem instrp excl_pages pi]" as "[Hpt Hexcl]".
-                {              
-                  pose proof (big_opS_insert (fun x => (∃ w, x ->a w)%I) (list_to_set (addr_of_page (tpa ai)) ∖ {[ai]}) ai) as Hrewrite.
-                  cbv beta in Hrewrite.
-                  iAssert (∃ w : Addr, ai ->a w)%I with "[instrp]" as "instrp".
-                  {
-                    by iExists instr.                
-                  }
-                  iCombine "instrp pi_mem" as "instrp".
-                  rewrite <-Hrewrite.
-                  - unfold total_pgt_map.
-                    iSplit.
-                    iIntros (p).
-                    iPureIntro.
-                    specialize (Htotal_pgt p).
-                    by simpl in Htotal_pgt.
-                    unfold exclusive_access_pages.
-                    unfold unknown_mem_page.
-                    pose proof (big_opM_fn_insert (o := bi_sep) (fun k y _ => (⌜{[i]} = y.2⌝ -∗ k -@EA> i ∗ ([∗ list] a ∈ addr_of_page k, ∃ w : Addr, a ->a w))%I) (fun _ => True) (delete (tpa ai) pgt) (tpa ai) (v, sacc)) as Hrewrite'.
-                    specialize (Hrewrite' True).
-                    feed specialize Hrewrite'.
-                    unfold page_table in *.
-                    apply lookup_delete.
-                    cbn in Hrewrite'.
-                    set s := list_to_set (addr_of_page (tpa ai)) : gset Addr.
-                    assert (({[ai]} ∪ s ∖ {[ai]}) = s) as ->.
-                    {
-                      symmetry.
-                      apply union_difference_singleton_L.
-                      subst s.
-                      apply elem_of_list_to_set.
-                      apply tpa_addr_of_page.
-                    }
-                    subst s.
-                    iAssert (⌜{[i]} = sacc⌝ -∗ tpa ai -@EA> i ∗ ([∗ list] a ∈ addr_of_page (tpa ai), ∃ w : Addr, a ->a w))%I with "[pi instrp]" as "H2".
-                    {
-                      iIntros.
-                      iFrame.
-                      rewrite <-big_opS_list_to_set; last exact HNoDup_ai.
-                      iFrame.
-                    }
-                    iCombine "H2 excl_pages" as "excl_pages".
-                    rewrite <-Hrewrite'.
-                    rewrite insert_delete_insert.
-                    assert (<[tpa ai := (v, sacc)]> pgt = pgt) as H1.
-                    {
-                      rewrite insert_id; auto.
-                    }
-                    rewrite H1.
-                    iFrame.
-                  - intros c.
-                    rewrite ->elem_of_difference in c.
-                    destruct c as [_ c].
-                    apply c.
-                    by apply elem_of_singleton_2.
-                }
+                iIntros "(PC & instrm & pi & R) _".
+                iDestruct ("Hacc_regs" with "[$PC $R]") as (regs') "[#Htotal_regs' regs]";iFrame.
+                iDestruct ("Hacc_mem" with "[instrm]") as "mem".
+                { iIntros "_". iFrame "instrm". }
+                iDestruct ("Hacc_pgt" with "[pi]") as "pgt".
+                { iIntros "_". iFrame "pi". }
                 iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
-                iSpecialize ("IH" with "[Hregs Hfull' Hpt VMProp1]").
-                iFrame.
+                iSpecialize ("IH" $! pgt with "[regs Htotal_regs' rx tx VMProp1]").
                 iExists regs'.
                 iFrame.
+                iFrame "#".
                 iSpecialize ("IH" with "Hnotp").
-                iEval (rewrite <-wp_sswp) in "IH".
                 iApply "IH".
                 set Pred := (X in VMProp i X _).
                 iExists Pred.
                 iFrame.
                 iNext.
+                iExists mem.
                 iLeft.
                 iFrame.
+                iFrame "#".
               }
             }
-          admit.
+            { (* mov reg *)
+              admit.
+            }
           }
           all: admit.
         }
         { (*invalid instruction *)
-          iDestruct (reg_bigM_split reg i PC ai Hlookup_PC with "[$Htotal_regs $regs]") as "[PC _]".
-          iApply (not_valid_instr (s := sacc) (q := 1%Qp) _ ai instr with "[PC pi instrp]"); auto.
-          {
-            rewrite Heqs.
-            iFrame.
-          }
+          iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$regs]") as "[PC _]".
+           (* getting pgt *)
+          (* we don't update pagetable *)
+          iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+            as "[pi Hacc_pgt]".
+          iDestruct ("pi" with "[]") as "pi";first done.
+          (* getting mem *)
+          rewrite /accessible_memory.
+          (* we don't update memory *)
+          iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+            as "[instrm Hacc_mem]".
+          iDestruct ("instrm" with "[]") as "instrm".
+          { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+          iApply (not_valid_instr (s := {[i]}) (q := 1%Qp) _ ai instr with "[PC pi instrm]"); iFrameAutoSolve.
           iNext.
           iIntros "? _".
           by iApply wp_terminated.
@@ -227,7 +191,7 @@ Section fundamental.
       iDestruct ("shared_pages") as "[[pi _] shared_pages]".
       simpl.
       iDestruct ("pi" with "[]") as "pi"; first done.
-      iDestruct (reg_bigM_split reg i PC ai Hlookup_PC with "[$Htotal_regs $regs]") as "[PC _]".
+      iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$regs]") as "[PC _]".
       iApply (not_valid_pc with "[PC pi]");
       [exact n|iFrame|].
       iNext;simpl.
