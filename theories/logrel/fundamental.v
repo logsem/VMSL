@@ -22,6 +22,7 @@ Section fundamental.
    - [x] str
    - [x] ldr
    - [x] merging excl and shared pgt
+   - [] fix mem_send_nz.v
    - [] mem share *)
 
   (* TODO: separate into helper lemmas *)

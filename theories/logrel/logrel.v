@@ -23,31 +23,23 @@ Section logrel.
   Defined.
 
   Definition unknown_mem_page (p: PID) :=
-    (∃ mem,
-   [∗ map] a ↦ w ∈ mem,  ⌜a ∈ addr_of_page p⌝ -∗ (a ->a w))%I.
+    (∃ mem, [∗ map] a ↦ w ∈ mem,  ⌜a ∈ addr_of_page p⌝ -∗ (a ->a w))%I.
 
   (** definition **)
   Program Definition interp_execute: E :=
    λne (i: leibnizO VMID), (⌜ fin_to_nat i ≠ 0 ⌝ -∗
         (VMProp_holds i (1/2)%Qp -∗ WP ExecI @ i {{(λ _, True )}}))%I.
 
-  (* XXX/FIXME : Spliting pagetable into two is probably not a good idea.
-     As it introduces one more case when we want to get pagetable resource of one entry.
-     (have to destruct on permission to decide if VM has exclusive access or not)
-     One can imagine it would be impractical to prove mem sharing cases,
-     in which we have to get resource of many page entries.
-   *)
-
   Definition pagetable (i:VMID) (pgt: page_table) : iProp Σ:=
     (
       [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
                               (* no access, the full entry must be provided *)
-                              (⌜i ∉ sacc⌝ -∗ p -@{1}A> [sacc]) ∗
+                              (⌜i ∉ sacc⌝ -∗ p -@A> [sacc]) ∗
                               (* shared access, only need the i part *)
                               (* exclusive access, need full entry *)
                               (* XXX: may need full entry for mem sharing? *)
-                              (⌜i ∈ sacc (* ∧ sacc ≠ {[i]} *) ⌝ -∗
-                                  ∃ (q:frac), p -@{q}A> [{[i]}] ∗ (⌜{[i]} = sacc⌝ -∗ ⌜q= 1%Qp⌝))
+                              (⌜i ∈ sacc⌝ -∗
+                                  ∃ (q:frac), p -@{q}A> i ∗ (⌜{[i]} = sacc⌝ -∗ ⌜q= 1%Qp⌝))
     )%I.
 
   Definition accessible_memory (i:VMID) (pgt: page_table) (mem:mem): iProp Σ :=
@@ -69,7 +61,7 @@ Section logrel.
       (∃ p, RX@i := p) ∗ (∃ p, TX@i := p) ∗
       (* VMProp *)
       VMProp i (
-        ∃ mem (* pgt_act shandle *),
+        ∃ mem (* pgt_act *) shandle,
         (* pagetable is total *)
         total_pgt_map pgt ∗
         (* (* pgt, considering mem sharing *) *)
@@ -79,8 +71,8 @@ Section logrel.
         (* ([∗ map] p ↦ pe ∈ pgt, ⌜i ∈ pe.2⌝ -∗ *)
         (* (∃ (pe_act: (VMID * gset VMID)), ⌜pgt_act !! p = Some pe_act⌝ ∗ ⌜pe.1 = pe_act.1⌝ ∗ (⌜pe_act.2 = pe.2⌝ *)
         (*    ∨ (⌜pe_act.2 = pe.2 ∖ {[i]}⌝ ∗ (∃wh v x y m f, wh->t{1}( v , x , y , m , f ) ∗ ⌜wh ∉ shandle⌝ ∨ True))))) ∗ *)
-        (* (* handle pool *) *)
-        (* hp{1}[shandle] ∗ *)
+        (* handle pool *)
+        hp{1}[shandle] ∗
         (* memory is total *)
         total_mem_map mem ∗
         (* in case of yielding, we need the following to apply yield rule*)

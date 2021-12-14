@@ -142,7 +142,7 @@ Section trans_rules.
     iApply (ghost_map_delete with "Htrans Hh").
   Qed.
 
-  Lemma gen_hpool_update_diff {σ s q} (h: handle):
+  Lemma gen_hpool_update_diff {σ s q} (h: Word):
     h ∈ s ->
     hp{ q }[ s ] -∗
     (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ)))) ==∗
@@ -168,7 +168,7 @@ Section trans_rules.
     apply gset_disj_dealloc_op_local_update.
   Qed.
 
-  Lemma gen_retri_update {σ} b b' (h: handle):
+  Lemma gen_retri_update {σ} b b' (h: Word):
     (get_retri_gmap σ) !! h = Some b ->
     h ->re b -∗
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
@@ -180,7 +180,7 @@ Section trans_rules.
     iDestruct ((ghost_map_update b') with "H Q") as "H"; eauto.
   Qed.
 
-  Lemma gen_retri_update_delete {σ b} (h: handle):
+  Lemma gen_retri_update_delete {σ b} (h: Word):
     h ->re b -∗
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
     ghost_map_auth (gen_retri_name vmG) 1 (delete h (get_retri_gmap σ)).
@@ -190,7 +190,7 @@ Section trans_rules.
     iApply ((ghost_map_delete ) with "H Q").
   Qed.
 
-  Lemma gen_hpool_update_union {σ s q} (h: handle):
+  Lemma gen_hpool_update_union {σ s q} (h: Word):
     h ∉ (get_hpool_gset σ) ->
     hp{ q }[ s ] -∗
     (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ)))) ==∗
@@ -213,7 +213,7 @@ Section trans_rules.
     apply gset_disj_alloc_local_update;by set_solver.
   Qed.
 
-  Lemma gen_retri_update_insert {σ} (h: handle):
+  Lemma gen_retri_update_insert {σ} (h: Word):
     (get_retri_gmap σ) !! h = None ->
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
     ghost_map_auth (gen_retri_name vmG) 1 (<[h:=false]>(get_retri_gmap σ))∗

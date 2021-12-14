@@ -225,11 +225,20 @@ Notation "RX@ i := p " := (owned_mb_mapsto i p Rx)
 Notation "p -@O> v" := (owned_mb_mapsto v p Owned )
                               (at level 20, format "p  -@O>  v"):bi_scope.
 
+Notation "p -@{ q }A> v " := (access_mapsto p q {[v]})
+                              (at level 20, format "p  -@{ q }A>  v"):bi_scope.
+
 Notation "p -@{ q }A> [ s ] " := (access_mapsto p q s)
                               (at level 20, format "p  -@{ q }A>  [ s ]"):bi_scope.
 
-Notation "p -@EA> v" := (access_mapsto p 1%Qp {[v]})
-                              (at level 20, format "p  -@EA>  v"):bi_scope.
+Notation "p -@A> [ s ]" := (access_mapsto p 1%Qp s)
+                              (at level 20, format "p  -@A>  [ s ]"):bi_scope.
+
+Notation "p -@A> v" := (access_mapsto p 1%Qp {[v]})
+                              (at level 20, format "p  -@A>  v"):bi_scope.
+
+Notation "p -@A> -" := (access_mapsto p 1%Qp ∅)
+                              (at level 20, format "p  -@A>  -"):bi_scope.
 
 (* predicates for transactions *)
 Notation "w ->t{ q }( v , x , y , m , f )" := (trans_mapsto w (DfracOwn q) v y x m f)
