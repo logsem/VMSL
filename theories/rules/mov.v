@@ -8,20 +8,19 @@ Section mov.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma mov_word {E i w1 w3 q s} a w2 ra :
+Lemma mov_word {E i w1 w3 q} a w2 ra :
   decode_instruction w1 = Some (Mov ra (inl w2)) ->
-  i ∈ s ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
-        ∗ ▷ ((tpa a) -@{ q }A> [s])
+        ∗ ▷ ((tpa a) -@{ q }A> [{[i]}])
         ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
   {{{ RET (false, ExecI);  (PC @@ i ->r (a ^+ 1)%f)
                            ∗ (a ->a w1)
-                           ∗ ((tpa a) -@{ q }A> [s])
+                           ∗ ((tpa a) -@{ q }A> [{[i]}])
                            ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hdecode ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -40,7 +39,8 @@ Proof.
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)  
   iDestruct (gen_access_valid σ1 with "Haccess Hacc") as %Hacc;eauto.
-  specialize (Hacc i Hin).
+  feed pose proof (Hacc i).
+  set_solver +.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -107,22 +107,21 @@ Proof.
       intros Q; symmetry in Q; inversion Q; contradiction.
     Qed.
 
-Lemma mov_reg {E i w1 w3 q s} a w2 ra rb :
+Lemma mov_reg {E i w1 w3 q} a w2 ra rb :
   decode_instruction w1 = Some (Mov ra (inr rb)) ->
-  i ∈ s ->
   {SS{{  ▷ (PC @@ i ->r a)
          ∗ ▷ (a ->a w1)
-         ∗ ▷ ((tpa a) -@{ q }A> [s])
+         ∗ ▷ ((tpa a) -@{ q }A> [{[i]}])
          ∗ ▷ (ra @@ i ->r w2)
          ∗ ▷ (rb @@ i ->r w3) }}}
     ExecI @ i ;E
   {{{ RET (false, ExecI); PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
-                   ∗ ((tpa a) -@{ q }A> [s])
+                   ∗ ((tpa a) -@{ q }A> [{[i]}])
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
+  iIntros (Hdecode ϕ) "(>Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -142,7 +141,8 @@ Proof.
   iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
   iDestruct (gen_access_valid σ1 with "Haccess Hacc") as %Hacc;eauto.
-  specialize (Hacc i Hin).
+  feed pose proof (Hacc i).
+  set_solver +.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.

@@ -152,20 +152,19 @@ Proof.
       inversion H.
 Qed.
 
-Lemma not_valid_instr {s q} i a wi :
-  i ∈ s ->
+Lemma not_valid_instr {q} i a wi :
   decode_instruction wi = None ->
   {SS{{ ▷ (PC @@ i ->r a)
-        ∗ ▷ (tpa a) -@{q}A> [s]
+        ∗ ▷ (tpa a) -@{q}A> [{[i]}]
         ∗ ▷ a ->a wi}}}
   ExecI @ i
   {{{ RET (false, FailI);
     PC @@ i ->r a
-    ∗ (tpa a) -@{q}A> [s]
+    ∗ (tpa a) -@{q}A> [{[i]}]
     ∗ a ->a wi
   }}}.
 Proof.
-  iIntros (Hin_s Hdecode_none ϕ) "(>Hpc & >Ha & >Hw) Hϕ".
+  iIntros (Hdecode_none ϕ) "(>Hpc & >Ha & >Hw) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ1".
   rewrite /scheduled /= /scheduler /Is_true in Hsche.
@@ -177,7 +176,7 @@ Proof.
   iDestruct "Hσ1" as "( ? & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
   iDestruct (access_agree_check_true (tpa a) i with "Haccess Ha") as "%Hacc".
-  { set_solver + Hin_s. }
+  { set_solver +. }
   iDestruct (gen_mem_valid with "Hmem Hw") as "%Hlookup_w".
   iSplit.
   - iPureIntro.
