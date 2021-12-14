@@ -38,7 +38,7 @@ Section fundamental.
     (* the vm is scheduled *)
     rewrite !later_sep.
     (* we have to do this because VMProp is not(?) timeless *)
-    iDestruct "Hres" as "(>#Htotal_pgt & >#Htotal_mem & >R0z & >R1z & (VMPropz & >excl_pages & >shared_pages & >mem & >rx_status))".
+    iDestruct "Hres" as "(>#Htotal_pgt & >#Htotal_mem & >R0z & >R1z & (VMPropz & >pgt & >mem & >rx_status))".
     (* we don't really need to get the resource of PC, but just the value *)
     iPoseProof ("Htotal_regs" $! PC) as "%Hlookup_PC".
     destruct Hlookup_PC as [ai Hlookup_PC].
@@ -49,9 +49,9 @@ Section fundamental.
     rewrite ->wp_sswp.
     destruct (decide (i ∈ sacc)).
     { (* i has access *)
-      destruct (decide (sacc = {[i]})) as [->Heqs | Heqs].
-      { (* i has exclusive access *)
-        iEval(rewrite /exclusive_access_pages) in "excl_pages".
+      (* destruct (decide (sacc = {[i]})) as [->Heqs | Heqs]. *)
+      (* { (* i has exclusive access *) *)
+        iEval(rewrite /pagetable) in "pgt".
         iPoseProof ("Htotal_mem" $! ai) as "[%instr %Hlookup_instr]".
         destruct (decode_instruction instr) as [instr'|] eqn:Heqn.
         { (* valid instruction *)
@@ -62,24 +62,24 @@ Section fundamental.
               as "[PC Hacc_regs]".
             (* getting pgt *)
             (* we don't update pagetable *)
-            iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
-                       as "[pi Hacc_pgt]".
-            iDestruct ("pi" with "[]") as "pi";first done.
+            iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
+                       as "[[_ pi] Hacc_pgt]".
+            iDestruct ("pi" with "[]") as (q) "[pi p_instr_q]"; first done.
             (* getting mem *)
             rewrite /accessible_memory.
             (* we don't update memory *)
             iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
                       as "[instrm Hacc_mem]".
             iDestruct ("instrm" with "[]") as "instrm".
-            { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
-            iApply (nop ai (w1 := instr) (s := {[i]}) (q := 1%Qp) with "[PC pi instrm]"); iFrameAutoSolve.
+            { iPureIntro. exists (v,sacc).  split;done. }
+            iApply (nop ai (w1 := instr) with "[PC pi instrm]"); iFrameAutoSolve.
             iNext.
             iIntros "(PC & instrm & pi) _".
             iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "PC") as "[#Htotal_regs' regs]".
             iDestruct ("Hacc_mem" with "[instrm]") as "mem".
             { iIntros "_". iFrame "instrm". }
-            iDestruct ("Hacc_pgt" with "[pi]") as "pgt".
-            { iIntros "_". iFrame "pi". }
+            iDestruct ("Hacc_pgt" with "[pi p_instr_q]") as "pgt".
+            { iSplitL "". iIntros "%".  rewrite /= //in H. iIntros "_". iExists q. iFrame "pi p_instr_q". }
             (* NOTE: accessor doesn't work on pagetable, since we could update it. need to extend interp_access *)
             iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
             iSpecialize ("IH" $! pgt with "[regs $rx $tx VMProp1]").
@@ -126,11 +126,12 @@ Section fundamental.
                 iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
                   as "[instrm Hacc_mem]".
                 iDestruct ("instrm" with "[]") as "instrm".
-                { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
+                { iPureIntro. exists (v,sacc).  split;done. }
                 (* getting pgt *)
                 (* we don't update pagetable *)
-                iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                   as "[pi Hacc_pgt]".
+                (* TODO *)
                 iDestruct ("pi" with "[]") as "pi";first done.
                 iApply (mov_word (w3 := w) _ imm (R n fin) with "[PC pi instrm R]"); iFrameAutoSolve.
                 iNext.
@@ -186,7 +187,7 @@ Section fundamental.
                iDestruct ("instrm" with "[]") as "a_instr".
                { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
                (* getting pgt *)
-               iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_src with "[$excl_pages]")
+               iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_src with "[$pgt]")
                  as "(p_instr & p_src & Hacc_excl_pgt)".
                iDestruct ("p_instr" with "[]") as "p_instr";first done.
                iApply (ldr_access_tx ai a_src dst src with "[PC p_instr a_instr r_src r_dst tx]"); iFrameAutoSolve.
@@ -197,7 +198,7 @@ Section fundamental.
               { (* normal case *)
                 destruct (decide ( a_src =ai)).
                 { (* exact same addr *)
-                  iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                  iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                     as "(p_instr  & Hacc_excl_pgt)".
                   iDestruct ("p_instr" with "[]") as "p_instr";first done.
                   iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
@@ -235,7 +236,7 @@ Section fundamental.
                   iPoseProof ("Htotal_mem" $! a_src) as (w_src) "%Hlookup_a_src".
                   destruct (decide ((tpa a_src)=(tpa ai))).
                   { (* in same page *)
-                    iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                    iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                       as "(p_instr & Hacc_excl_pgt)".
                     iDestruct ("p_instr" with "[]") as "p_instr";first done.
                     iDestruct (mem_big_sepM_split2 mem _ Hlookup_instr Hlookup_a_src with "[$mem]")
@@ -278,7 +279,7 @@ Section fundamental.
                     destruct (decide (perm_src.2 = {[i]})).
                     { (* has exclusive access to src *)
                       (* getting pgt *)
-                      iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_src with "[$excl_pages]")
+                      iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_src with "[$pgt]")
                         as "(p_instr & p_src & Hacc_excl_pgt)".
                       iDestruct ("p_instr" with "[]") as "p_instr";first done.
                       iDestruct ("p_src" with "[]") as "p_src";first done.
@@ -321,7 +322,7 @@ Section fundamental.
                     }
                     { (* has shared access to src *)
                       (* getting pgt *)
-                      iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                      iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                         as "(p_instr  & Hacc_excl_pgt)".
                       iDestruct ("p_instr" with "[]") as "p_instr";first done.
                       iDestruct (pgt_big_sepM_split pgt Hlookup_p_src with "[$shared_pages]")
@@ -381,7 +382,7 @@ Section fundamental.
                { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
                (* getting pgt *)
                (* we don't update pagetable *)
-               iDestruct (pgt_big_sepM_split pgt Hlookup_ai  with "[$excl_pages]")
+               iDestruct (pgt_big_sepM_split pgt Hlookup_ai  with "[$pgt]")
                  as "(p_instr & Hacc_excl_pgt)".
                iDestruct ("p_instr" with "[]") as "p_instr";first done.
                iDestruct (pgt_big_sepM_split pgt Hlookup_p_src  with "[$shared_pages]")
@@ -418,7 +419,7 @@ Section fundamental.
                iDestruct ("instrm" with "[]") as "a_instr".
                { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
                (* getting pgt *)
-               iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$excl_pages]")
+               iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$pgt]")
                  as "(p_instr & p_src & Hacc_excl_pgt)".
                iDestruct ("p_instr" with "[]") as "p_instr";first done.
                iApply (str_access_rx ai a_dst src dst with "[PC p_instr a_instr r_src r_dst rx]"); iFrameAutoSolve.
@@ -429,7 +430,7 @@ Section fundamental.
               { (* normal case *)
                 destruct (decide (a_dst =ai)).
                 { (* exact same addr *)
-                  iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                  iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                     as "(p_instr  & Hacc_excl_pgt)".
                   iDestruct ("p_instr" with "[]") as "p_instr";first done.
                   iDestruct (mem_big_sepM_split_upd mem Hlookup_instr with "[$mem $Htotal_mem]")
@@ -467,7 +468,7 @@ Section fundamental.
                   iPoseProof ("Htotal_mem" $! a_dst) as (w_dst) "%Hlookup_a_dst".
                   destruct (decide ((tpa a_dst)=(tpa ai))).
                   { (* in same page *)
-                    iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                    iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                       as "(p_instr & Hacc_excl_pgt)".
                     iDestruct ("p_instr" with "[]") as "p_instr";first done.
                     iDestruct (mem_big_sepM_split_upd2 mem _ Hlookup_instr Hlookup_a_dst with "[$mem $Htotal_mem]")
@@ -510,7 +511,7 @@ Section fundamental.
                     destruct (decide (perm_dst.2 = {[i]})).
                     { (* has exclusive access to src *)
                       (* getting pgt *)
-                      iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$excl_pages]")
+                      iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$pgt]")
                         as "(p_instr & p_src & Hacc_excl_pgt)".
                       iDestruct ("p_instr" with "[]") as "p_instr";first done.
                       iDestruct ("p_src" with "[]") as "p_src";first done.
@@ -553,7 +554,7 @@ Section fundamental.
                     }
                     { (* has shared access to src *)
                       (* getting pgt *)
-                      iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+                      iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                         as "(p_instr  & Hacc_excl_pgt)".
                       iDestruct ("p_instr" with "[]") as "p_instr";first done.
                       iDestruct (pgt_big_sepM_split pgt Hlookup_p_dst with "[$shared_pages]")
@@ -613,7 +614,7 @@ Section fundamental.
                { iPureIntro. exists (v,{[i]}).  split;first done. simpl;set_solver +. }
                (* getting pgt *)
                (* we don't update pagetable *)
-               iDestruct (pgt_big_sepM_split pgt Hlookup_ai  with "[$excl_pages]")
+               iDestruct (pgt_big_sepM_split pgt Hlookup_ai  with "[$pgt]")
                  as "(p_instr & Hacc_excl_pgt)".
                iDestruct ("p_instr" with "[]") as "p_instr";first done.
                iDestruct (pgt_big_sepM_split pgt Hlookup_p_dst with "[$shared_pages]")
@@ -631,7 +632,7 @@ Section fundamental.
           iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$regs]") as "[PC _]".
            (* getting pgt *)
           (* we don't update pagetable *)
-          iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$excl_pages]")
+          iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
             as "[pi Hacc_pgt]".
           iDestruct ("pi" with "[]") as "pi";first done.
           (* getting mem *)

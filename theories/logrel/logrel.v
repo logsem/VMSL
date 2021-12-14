@@ -38,20 +38,17 @@ Section logrel.
      in which we have to get resource of many page entries.
    *)
 
-  Definition shared_or_noaccess_pages (i:VMID) (pgt: page_table) : iProp Σ:=
+  Definition pagetable (i:VMID) (pgt: page_table) : iProp Σ:=
     (
       [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
                               (* no access, the full entry must be provided *)
-                               ((⌜i ∉ sacc⌝ -∗ p -@{1}A> [sacc]) ∗
+                              (⌜i ∉ sacc⌝ -∗ p -@{1}A> [sacc]) ∗
                               (* shared access, only need the i part *)
+                              (* exclusive access, need full entry *)
                               (* XXX: may need full entry for mem sharing? *)
-                                (⌜i ∈ sacc ∧ sacc ≠ {[i]} ⌝ -∗
-                                  ∃ (q:frac), p -@{q}A> [{[i]}]))
+                              (⌜i ∈ sacc (* ∧ sacc ≠ {[i]} *) ⌝ -∗
+                                  ∃ (q:frac), p -@{q}A> [{[i]}] ∗ (⌜{[i]} = sacc⌝ -∗ ⌜q= 1%Qp⌝))
     )%I.
-
-  Definition exclusive_access_pages (i: VMID) (pgt: page_table) : iProp Σ:=
-    [∗ map] p ↦ perm ∈ pgt, let sacc := perm.2 in
-                              ⌜{[i]} = sacc⌝ -∗ p -@EA> i.
 
   Definition accessible_memory (i:VMID) (pgt: page_table) (mem:mem): iProp Σ :=
     [∗ map] a ↦ w ∈ mem, (∃ perm, ⌜pgt !! (tpa a) = Some perm⌝ ∗ ⌜i ∈ perm.2⌝) -∗ a ->a w.
@@ -94,16 +91,12 @@ Section logrel.
         VMProp V0 (
           (* R0 and R1 of pvm *)
           R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
-           (* exclusive access pagetable entries + mem *)
-           (exclusive_access_pages i pgt) ∗
-           (* shared/noaccess pagetable entries + shared mem *)
-           (shared_or_noaccess_pages i pgt)
+           (* pagetable entries *)
+           (pagetable i pgt)
                (* NOTE: if i will be scheduled arbitrary number of times, need recursive definition *)
                ) (1/2)%Qp ∗
-        (* exclusive access pagetable entries *)
-        (exclusive_access_pages i pgt) ∗
-        (* shared/noaccess pagetable entries *)
-        (shared_or_noaccess_pages i pgt) ∗
+        (* pagetable entries *)
+        (pagetable i pgt) ∗
         (* accessible memory *)
         (accessible_memory i pgt mem) ∗
         (* status of RX *)

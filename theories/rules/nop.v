@@ -8,18 +8,17 @@ Section nop.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma nop {E i w1 q s} a :
+Lemma nop {E i w1 q } a :
   decode_instruction w1 = Some Nop ->
-  i ∈ s ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
-        ∗ ▷ ((tpa a) -@{ q }A> [s]) }}}
+        ∗ ▷ ((tpa a) -@{ q }A> [{[i]}]) }}}
     ExecI @ i ; E
   {{{ RET (false, ExecI); (PC @@ i ->r (a ^+ 1)%f)
                   ∗ (a ->a w1)
-                  ∗ ((tpa a) -@{ q }A> [s]) }}}.
+                  ∗ ((tpa a) -@{ q }A> [{[i]}]) }}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hdecode ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -36,13 +35,15 @@ Proof.
   iDestruct ((gen_reg_valid1 PC i a Hcur) with "Hreg Hpc") as "%HPC".
   (* valid pt *)
   iDestruct (gen_access_valid σ1 with "Haccess Hacc") as %Hacc;eauto.
-  specialize (Hacc i Hin).
+  specialize (Hacc i).
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
   - (* reducible *)
     iPureIntro.
     eapply (reducible_normal i _ a w1); eauto.
+    apply Hacc.
+    set_solver +.
   - (* step *)
     iModIntro.
     iIntros (m2 σ2) "[%P PAuth] %HstepP".
@@ -95,6 +96,7 @@ Proof.
         iApply "Hϕ".
         iFrame.
     + solve_reg_lookup.
+    + apply Hacc;set_solver +.
 Qed.
 
 End nop.
