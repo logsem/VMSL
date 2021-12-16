@@ -61,7 +61,7 @@ Section logrel.
       (∃ p, RX@i := p) ∗ (∃ p, TX@i := p) ∗
       (* VMProp *)
       VMProp i (
-        ∃ mem (* pgt_act *) shandle,
+        (∃ mem (* pgt_act *) shandle,
         (* pagetable is total *)
         total_pgt_map pgt ∗
         (* (* pgt, considering mem sharing *) *)
@@ -92,7 +92,7 @@ Section logrel.
         (* accessible memory *)
         (accessible_memory i pgt mem) ∗
         (* status of RX *)
-        (RX@ i :=() ∨ ∃ w s, RX@ i :=(w, s)))
+        (RX@ i :=() ∨ ∃ w s, RX@ i :=(w, s))))
         (* no scheduling, we finish the proof *)
         ∨ False
       ) (1/2)%Qp
