@@ -2,7 +2,7 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base.
-From HypVeri.rules Require Import rules_base nop mov ldr str.
+From HypVeri.rules Require Import rules_base nop mov ldr str halt fail add sub mult cmp.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
@@ -33,13 +33,14 @@ Section fundamental.
     iLöb as "IH".
     iIntros (pgt) "(%regs & (#Htotal_regs & regs) & rx & tx & VMProp) Hnotp VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres VMProp]".
-    iDestruct( later_exist with "Hres") as (mem) "Hres".
-    iDestruct (later_or with "Hres") as "Hres".
+    iEval (rewrite later_or) in "Hres".
     iDestruct "Hres" as "[Hres| >False]";last done.
+    iDestruct( later_exist with "Hres") as (mem) "Hres".
+    iDestruct( later_exist with "Hres") as (shandle) "Hres".
     (* the vm is scheduled *)
     rewrite !later_sep.
     (* we have to do this because VMProp is not(?) timeless *)
-    iDestruct "Hres" as "(>#Htotal_pgt & >#Htotal_mem & >R0z & >R1z & (VMPropz & >pgt & >mem & >rx_status))".
+    iDestruct "Hres" as "(>#Htotal_pgt & >Hhpool & >#Htotal_mem & >R0z & >R1z & (VMPropz & >pgt & >mem & >rx_status))".
     (* we don't really need to get the resource of PC, but just the value *)
     iPoseProof ("Htotal_regs" $! PC) as "%Hlookup_PC".
     destruct Hlookup_PC as [ai Hlookup_PC].
@@ -93,8 +94,8 @@ Section fundamental.
           iExists Pred.
           iFrame.
           iNext.
-          iExists mem.
           iLeft.
+          iExists mem, shandle.
           iFrame.
           iFrame "#".
         }
@@ -152,14 +153,86 @@ Section fundamental.
               iExists Pred.
               iFrame.
               iNext.
-              iExists mem.
               iLeft.
+              iExists mem, shandle.
               iFrame.
               iFrame "#".
             }
           }
           { (* mov reg *)
-            admit.
+            destruct dst.
+            {
+              apply decode_instruction_valid in Heqn.
+              inversion Heqn.
+              unfold reg_valid_cond in *.
+              exfalso.
+              naive_solver.
+            }
+            {
+              apply decode_instruction_valid in Heqn.
+              inversion Heqn.
+              unfold reg_valid_cond in *.
+              exfalso.
+              naive_solver.
+            }
+            destruct srcreg.
+            {
+              apply decode_instruction_valid in Heqn.
+              inversion Heqn.
+              unfold reg_valid_cond in *.
+              exfalso.
+              naive_solver.
+            }
+            {
+              apply decode_instruction_valid in Heqn.
+              inversion Heqn.
+              unfold reg_valid_cond in *.
+              exfalso.
+              naive_solver.
+            }
+            {
+              iPoseProof ("Htotal_regs" $! (R n fin)) as (w) "%Hlookup_R".
+              iPoseProof ("Htotal_regs" $! (R n0 fin0)) as (w') "%Hlookup_R'".
+              (* getting regs *)
+              
+              iDestruct ((reg_big_sepM_split_upd3 regs i _ _ _ Hlookup_PC Hlookup_R Hlookup_R')
+                          with "[$Htotal_regs $regs]") as "(PC & R & R' & Hacc_regs)".
+              (* getting mem *)
+              rewrite /accessible_memory.
+              (* we don't update memory *)
+              iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+                as "[instrm Hacc_mem]".
+              iDestruct ("instrm" with "[]") as "instrm".
+              { iPureIntro. exists (v,sacc).  split;done. }
+              (* getting pgt *)
+              (* we don't update pagetable *)
+              iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
+                as "[[_ pi] Hacc_pgt]".
+              iDestruct ("pi" with "[]") as (q) "[pi p_instr_q]"; first done.
+              iApply (mov_reg (w3 := w') _ _ (R n fin) (R n0 fin0) with "[PC pi instrm R R']"); iFrameAutoSolve.
+              iNext.
+              iIntros "(PC & instrm & pi & R & R') _".
+              iDestruct ("Hacc_regs" with "[$PC $R $R']") as (regs') "[#Htotal_regs' regs]";iFrame.
+              iDestruct ("Hacc_mem" with "[instrm]") as "mem".
+              { iIntros "_". iFrame "instrm". }
+              iDestruct ("Hacc_pgt" with "[pi p_instr_q]") as "pgt".
+              { iSplitL "". iIntros "%".  rewrite /= //in H. iIntros "_". iExists q. iFrame "pi p_instr_q". }
+              iDestruct (VMProp_split with "VMProp") as "[VMProp1 VMProp2]".
+              iSpecialize ("IH" $! pgt with "[regs Htotal_regs' rx tx VMProp1]").
+              iExists regs'.
+              iFrame.
+              iFrame "#".
+              iSpecialize ("IH" with "Hnotp").
+              iApply "IH".
+              set Pred := (X in VMProp i X _).
+              iExists Pred.
+              iFrame.
+              iNext.
+              iLeft.
+              iExists mem, shandle.
+              iFrame.
+              iFrame "#".
+            }
           }
         }
         { (* ldr *)
@@ -227,8 +300,8 @@ Section fundamental.
                 iExists Pred.
                 iFrame.
                 iNext.
-                iExists mem.
                 iLeft.
+                iExists mem, shandle.
                 iFrame.
                 iFrame "#".
               }
@@ -270,8 +343,8 @@ Section fundamental.
                   iExists Pred.
                   iFrame.
                   iNext.
-                  iExists mem.
                   iLeft.
+                  iExists mem, shandle.
                   iFrame.
                   iFrame "#".
                 }
@@ -313,8 +386,8 @@ Section fundamental.
                   iExists Pred.
                   iFrame.
                   iNext.
-                  iExists mem.
                   iLeft.
+                  iExists mem, shandle.
                   iFrame.
                   iFrame "#".
                 }
@@ -353,7 +426,7 @@ Section fundamental.
           iDestruct "rx" as (p_rx) "rx".
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd3 regs i _ _ _ Hlookup_PC Hlookup_src Hlookup_dst)
-                      with "[$Htotal_regs $regs]") as "(PC & r_src & r_dst & Hacc_regs)".
+                       with "[$Htotal_regs $regs]") as "(PC & r_src & r_dst & Hacc_regs)".
           (* case analysis on src  *)
           destruct (decide (i ∈ perm_dst.2)).
           { (* has access to the page, more cases.. *)
@@ -366,8 +439,22 @@ Section fundamental.
               iDestruct ("a_instr" with "[]") as "a_instr".
               { iPureIntro. exists (v,sacc). split;done. }
               (* getting pgt *)
-              iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$pgt]")
-                as "([_ p_instr] & [_ p_src] & Hacc_pgt)".
+              (* destruct (decide (tpa a_dst = tpa ai)). *)
+              (* { *)
+              (*   iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]") *)
+              (*     as "([_ p_instr] & Hacc_pgt)". *)
+              (*   subst ai. *)
+              (*   iDestruct ("p_instr" with "[#]") as "(%q & pinstr & rest)"; first done. *)
+              (*   iApply (str_access_rx (q := q) a_dst a_dst src dst with "[PC pinstr a_instr r_src r_dst rx]"); iFrameAutoSolve. *)
+              (*   iNext. *)
+              (*   iIntros "(rx & PC & a_instr & r_src & r_dst) _". *)
+              (*   by iApply wp_terminated. *)
+              (* } *)
+              (* { *)
+              iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
+                  as "([_ p_instr] & Hacc_pgt)".
+              (* iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$pgt]") *)
+              (*   as "([_ p_instr] & [_ p_src] & Hacc_pgt)". *)
               iDestruct ("p_instr" with "[]") as (q_i) "[p_instr p_instr_q]";first done.
               iApply (str_access_rx ai a_dst src dst with "[PC p_instr a_instr r_src r_dst rx]"); iFrameAutoSolve.
               iNext.
@@ -406,8 +493,8 @@ Section fundamental.
                 iExists Pred.
                 iFrame.
                 iNext.
-                iExists (<[ai:=w_src]>mem).
                 iLeft.
+                iExists (<[ai:=w_src]>mem), shandle.
                 iFrame.
                 iFrame "#".
               }
@@ -449,15 +536,15 @@ Section fundamental.
                   iExists Pred.
                   iFrame.
                   iNext.
-                  iExists mem'.
                   iLeft.
+                  iExists mem', shandle.
                   iFrame.
                   iFrame "#".
                 }
                 { (* in difference pages *)
                   (* getting pgt *)
                   iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$pgt]")
-                  as "([_ p_instr] & [_ p_src] & Hacc_pgt)".
+                    as "([_ p_instr] & [_ p_src] & Hacc_pgt)".
                   iDestruct ("p_instr" with "[]") as (q_i) "[p_instr p_instr_q]";first done.
                   iDestruct ("p_src" with "[]") as (q_s) "[p_src p_src_q]";first done.
                   (* getting mem *)
@@ -493,8 +580,8 @@ Section fundamental.
                   iExists Pred.
                   iFrame.
                   iNext.
-                  iExists mem'.
                   iLeft.
+                  iExists mem', shandle.
                   iFrame.
                   iFrame "#".
                 }
@@ -518,10 +605,58 @@ Section fundamental.
             iApply (str_no_access ai a_dst src dst with "[PC p_instr a_instr r_src r_dst p_dst]"); iFrameAutoSolve.
             iNext.
             iIntros "(PC & a_instr & r_src & p_src & r_dst) _".
-            by iApply wp_terminated.
+            by iApply wp_terminated.            
           }
         }
-        all: admit.
+        { (* cmp: two cases *) admit. }
+        { (* add *) admit. }
+        { (* sub *) admit. }
+        { (* mult *) admit. }
+        { (* bne *) admit. }
+        { (* br *)
+          admit.
+        }
+        { (* halt *)
+          pose proof Heqn as Hdecode.
+          (* getting registers *)
+          iDestruct ((reg_big_sepM_split_upd regs i Hlookup_PC)
+                       with "[$Htotal_regs $regs]") as "(PC & Hacc_regs)".
+          iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
+            as "[[_ p_instr] Hacc_pgt]".
+          rewrite /accessible_memory.
+          (* we don't update memory *)
+          iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+            as "[instrm Hacc_mem]".
+          iDestruct ("instrm" with "[]") as "instrm".
+          { iPureIntro. exists (v,sacc).  split;done. }
+          iDestruct ("p_instr" with "[#]") as "(%q & p_instr & Hq)"; first done.
+          iApply (halt (s := {[i]}) (q := q) with "[PC p_instr instrm]"); iFrameAutoSolve.
+          set_solver.
+          iNext.
+          iIntros "? _".
+          by iApply wp_terminated.
+        }
+        { (* fail *)
+          pose proof Heqn as Hdecode.
+          (* getting registers *)
+          iDestruct ((reg_big_sepM_split_upd regs i Hlookup_PC)
+                       with "[$Htotal_regs $regs]") as "(PC & Hacc_regs)".
+          iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
+            as "[[_ p_instr] Hacc_pgt]".
+          rewrite /accessible_memory.
+          (* we don't update memory *)
+          iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
+            as "[instrm Hacc_mem]".
+          iDestruct ("instrm" with "[]") as "instrm".
+          { iPureIntro. exists (v,sacc).  split;done. }
+          iDestruct ("p_instr" with "[#]") as "(%q & p_instr & Hq)"; first done.
+          iApply (fail (s := {[i]}) (q := q) with "[PC p_instr instrm]"); iFrameAutoSolve.
+          set_solver.
+          iNext.
+          iIntros "? _".
+          by iApply wp_terminated.
+        }
+        { (* hvc *) admit. }
       }
       { (*invalid instruction *)
         iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$regs]") as "[PC _]".
@@ -557,6 +692,31 @@ Section fundamental.
       iIntros "? _".
       by iApply wp_terminated.
     }
+    Unshelve.
+    all: destruct_and ?; try done.
+    {
+      apply decode_instruction_valid in Heqn.
+      inversion Heqn.
+      auto.
+    }
+    {
+      intros c.
+      rewrite c in Hlookup_ai.
+      rewrite Hlookup_ai in Hlookup_p_src.
+      inversion Hlookup_p_src as [H'].
+      rewrite <-H' in n.
+      simpl in n.
+      done.
+    }
+    {
+      intros c.
+      rewrite c in Hlookup_ai.
+      rewrite Hlookup_ai in Hlookup_p_dst.
+      inversion Hlookup_p_dst as [H'].
+      rewrite <-H' in n.
+      simpl in n.
+      done.
+    }    
   Admitted.
 
 End fundamental.
