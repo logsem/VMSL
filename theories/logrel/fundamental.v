@@ -56,7 +56,7 @@ Section fundamental.
       destruct (decode_instruction instr) as [instr'|] eqn:Heqn.
       { (* valid instruction *)
         destruct instr'.
-        { (* NOP *)
+        { (* nop *)
           (* getting the PC *)
           iDestruct (reg_big_sepM_split_upd regs i Hlookup_PC with "[$Htotal_regs $regs]")
             as "[PC Hacc_regs]".
@@ -97,7 +97,7 @@ Section fundamental.
           iFrame.
           iFrame "#".
         }
-        { (* MOV *)
+        { (* mov *)
           destruct src as [imm | srcreg].
           { (* mov imm *)
             destruct dst.
@@ -437,18 +437,6 @@ Section fundamental.
               iDestruct ("a_instr" with "[]") as "a_instr".
               { iPureIntro. exists (v,sacc). split;done. }
               (* getting pgt *)
-              (* destruct (decide (tpa a_dst = tpa ai)). *)
-              (* { *)
-              (*   iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]") *)
-              (*     as "([_ p_instr] & Hacc_pgt)". *)
-              (*   subst ai. *)
-              (*   iDestruct ("p_instr" with "[#]") as "(%q & pinstr & rest)"; first done. *)
-              (*   iApply (str_access_rx (q := q) a_dst a_dst src dst with "[PC pinstr a_instr r_src r_dst rx]"); iFrameAutoSolve. *)
-              (*   iNext. *)
-              (*   iIntros "(rx & PC & a_instr & r_src & r_dst) _". *)
-              (*   by iApply wp_terminated. *)
-              (* } *)
-              (* { *)
               iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
                   as "([_ p_instr] & Hacc_pgt)".
               (* iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$pgt]") *)
@@ -611,9 +599,7 @@ Section fundamental.
         { (* sub *) admit. }
         { (* mult *) admit. }
         { (* bne *) admit. }
-        { (* br *)
-          admit.
-        }
+        { (* br *) admit. }
         { (* halt *)
           pose proof Heqn as Hdecode.
           (* getting registers *)
