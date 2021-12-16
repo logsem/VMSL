@@ -847,8 +847,6 @@ Section logrel_extra.
   Qed.
 
 
-
-
   (* TODO: For memory chunks *)
 
 End logrel_extra.

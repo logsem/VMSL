@@ -50,8 +50,6 @@ Section fundamental.
     rewrite ->wp_sswp.
     destruct (decide (i ∈ sacc)).
     { (* i has access *)
-      (* destruct (decide (sacc = {[i]})) as [->Heqs | Heqs]. *)
-      (* { (* i has exclusive access *) *)
       iEval(rewrite /pagetable) in "pgt".
       iPoseProof ("Htotal_mem" $! ai) as "[%instr %Hlookup_instr]".
       destruct (decode_instruction instr) as [instr'|] eqn:Heqn.
@@ -454,7 +452,7 @@ Section fundamental.
                   iFrame.
                   iFrame "#".
                 }
-                { (* in difference pages *)
+                { (* in different pages *)
                   (* getting pgt *)
                   iDestruct (pgt_big_sepM_split2 pgt _ Hlookup_ai Hlookup_p_dst with "[$pgt]")
                   as "([_ p_instr] & [_ p_src] & Hacc_pgt)".
