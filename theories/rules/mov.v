@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base reg mem pagetable.
+From HypVeri.algebra Require Import base reg mem pagetable base_extra.
 From HypVeri Require Import machine_extra lifting rules.rules_base.
 From HypVeri.lang Require Import lang_extra reg_extra.
 
@@ -38,9 +38,8 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)  
-  iDestruct (gen_access_valid σ1 with "Haccess Hacc") as %Hacc;eauto.
-  feed pose proof (Hacc i).
-  set_solver +.
+  iDestruct (access_agree_check_true _ i with "Haccess Hacc") as %Hacc;eauto.
+  { set_solver +. }
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -56,8 +55,20 @@ Proof.
     destruct HstepP; subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite_reg_pc.
-    rewrite_reg_global.
+    rewrite (preserve_get_mb_gmap _ σ1).
+    rewrite (preserve_get_rx_gmap _ σ1).
+    rewrite (preserve_get_owned_gmap _ σ1).
+    rewrite (preserve_get_access_gmap _ σ1).
+    rewrite (preserve_get_trans_gmap _ σ1).
+    rewrite (preserve_get_hpool_gset _ σ1).
+    rewrite (preserve_get_retri_gmap _ σ1).
+    rewrite (preserve_inv_trans_hpool_consistent _ σ1).
+    rewrite (preserve_inv_trans_pgt_consistent _ σ1).
+    rewrite (preserve_inv_trans_pg_num_ub _ σ1).
+    rewrite p_upd_pc_mem p_upd_reg_mem.
+    all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
+    all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
+    all: try rewrite p_upd_pc_mb p_upd_reg_mb //.
     rewrite Hcur. iFrame.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1); eauto.
@@ -67,7 +78,6 @@ Proof.
       iFrame "Hσ".
       iSplitL "PAuth".
       by iExists P.
-      iSplitL "".
       rewrite /just_scheduled_vms /just_scheduled.
       assert (filter
                 (λ id : vmid,
@@ -76,8 +86,7 @@ Proof.
                 (seq 0 n) = []) as ->.
       {
         rewrite /scheduled /machine.scheduler //= /scheduler Hcur.
-        rewrite update_offset_PC_preserve_current_vm.
-        rewrite update_reg_global_preserve_current_vm.
+        rewrite p_upd_pc_current_vm p_upd_reg_current_vm.
         rewrite Hcur.
         induction n.
         - simpl.
@@ -90,12 +99,11 @@ Proof.
           rewrite andb_negb_l.
           done.
       }
-      by iSimpl.
+      iSplitL "";first done.
       assert ((scheduled (update_offset_PC (update_reg_global σ1 i ra w2) 1) i) = true) as ->.
       {
         rewrite /scheduled /machine.scheduler //= /scheduler.
-        rewrite update_offset_PC_preserve_current_vm.
-        rewrite update_reg_global_preserve_current_vm.
+        rewrite p_upd_pc_current_vm p_upd_reg_current_vm.
         rewrite Hcur.
         by case_bool_decide.
       }
@@ -140,9 +148,8 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
-  iDestruct (gen_access_valid σ1 with "Haccess Hacc") as %Hacc;eauto.
-  feed pose proof (Hacc i).
-  set_solver +.
+  iDestruct (access_agree_check_true _ i with "Haccess Hacc") as %Hacc;eauto.
+  { set_solver +. }
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -157,8 +164,20 @@ Proof.
     rewrite /exec (mov_reg_ExecI σ1 ra rb w3 HneqPCa HneqNZa HneqPCb HneqNZb Hrb)  /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.    (* unchanged part *)
-    rewrite_reg_pc.
-    rewrite_reg_global.
+    rewrite (preserve_get_mb_gmap _ σ1).
+    rewrite (preserve_get_rx_gmap _ σ1).
+    rewrite (preserve_get_owned_gmap _ σ1).
+    rewrite (preserve_get_access_gmap _ σ1).
+    rewrite (preserve_get_trans_gmap _ σ1).
+    rewrite (preserve_get_hpool_gset _ σ1).
+    rewrite (preserve_get_retri_gmap _ σ1).
+    rewrite (preserve_inv_trans_hpool_consistent _ σ1).
+    rewrite (preserve_inv_trans_pgt_consistent _ σ1).
+    rewrite (preserve_inv_trans_pg_num_ub _ σ1).
+    rewrite p_upd_pc_mem p_upd_reg_mem.
+    all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
+    all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
+    all: try rewrite p_upd_pc_mb p_upd_reg_mb //.
     rewrite Hcur.
     iFrame.
     (* updated part *)
@@ -178,8 +197,7 @@ Proof.
                 (seq 0 n) = []) as ->.
       {
         rewrite /scheduled /machine.scheduler //= /scheduler Hcur.
-        rewrite update_offset_PC_preserve_current_vm.
-        rewrite update_reg_global_preserve_current_vm.
+        rewrite p_upd_pc_current_vm p_upd_reg_current_vm.
         rewrite Hcur.
         induction n.
         - simpl.
@@ -196,8 +214,7 @@ Proof.
       assert ((scheduled (update_offset_PC (update_reg_global σ1 i ra w3) 1) i) = true) as ->.
       {
         rewrite /scheduled /machine.scheduler //= /scheduler.
-        rewrite update_offset_PC_preserve_current_vm.
-        rewrite update_reg_global_preserve_current_vm.
+        rewrite p_upd_pc_current_vm p_upd_reg_current_vm.
         rewrite Hcur.
         by case_bool_decide.
       }

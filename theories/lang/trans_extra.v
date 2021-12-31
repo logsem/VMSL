@@ -7,31 +7,24 @@ Context `{HyperConst : HypervisorConstants}.
 Implicit Type σ : state.
 Implicit Type h : Word.
 
-Lemma alloc_transaction_preserve_current_vm σ h trans:
+Lemma p_alloc_trans_current_vm σ h trans:
   get_current_vm (alloc_transaction σ h trans) = get_current_vm σ.
 Proof. f_equal. Qed.
 
-Lemma alloc_transaction_preserve_regs σ h trans:
-  get_reg_gmap (alloc_transaction σ h trans) = get_reg_gmap σ.
+Lemma p_alloc_trans_regs σ h trans:
+  get_reg_files (alloc_transaction σ h trans) = get_reg_files σ.
 Proof. f_equal. Qed.
 
-Lemma alloc_transaction_preserve_mem σ h trans:
+Lemma p_alloc_trans_mem σ h trans:
   get_mem (alloc_transaction σ h trans) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma alloc_transaction_preserve_mb σ h trans:
-  get_mb_gmap (alloc_transaction σ h trans) = get_mb_gmap σ.
+Lemma p_alloc_trans_mb σ h trans:
+  get_mail_boxes (alloc_transaction σ h trans) = get_mail_boxes σ.
 Proof. f_equal. Qed.
 
-Lemma alloc_transaction_preserve_rx σ h trans:
-  get_rx_gmap(alloc_transaction σ h trans) = get_rx_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma alloc_transaction_preserve_owned σ h trans:
-  get_owned_gmap (alloc_transaction σ h trans) = get_owned_gmap σ.
-Proof. f_equal. Qed.
-Lemma alloc_transaction_preserve_access σ h trans:
-  get_access_gmap (alloc_transaction σ h trans) = get_access_gmap σ.
+Lemma p_alloc_trans_pgt σ h trans:
+  get_page_table (alloc_transaction σ h trans) = get_page_table σ.
 Proof. f_equal. Qed.
 
 Lemma insert_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran shp:
@@ -136,9 +129,9 @@ Proof.
   apply insert_transaction_update_transactions.
 Qed.
 
-Lemma update_transaction_preserve_trans {j wf i psd tt} σ wh b b' :
-  (get_transactions σ).1 !! wh = Some (j, wf, b, i, psd, tt) ->
-   (get_trans_gmap (update_transaction σ wh (j, wf, b', i, psd, tt)))
+Lemma update_transaction_preserve_trans {meta} σ wh b b' :
+  (get_transactions σ).1 !! wh = Some (meta, b) ->
+   (get_trans_gmap (update_transaction σ wh (meta, b')))
   = get_trans_gmap σ.
 Proof.
   intros H.
@@ -148,9 +141,9 @@ Proof.
   assert (HlkSome : ∀  m k v,
                m !! k = Some v ->
                ((list_to_map
-    (map (λ p : Word * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
+    (map (λ p : Word * transaction, (p.1, p.2.1))
        (map_to_list m))): gmap _ _) !! k =
-            Some (v.1.1.1.1.1, v.1.1.1.1.2, v.1.1.2, v.1.2, v.2)).
+            Some v.1).
     {
       intros.
     apply elem_of_list_to_map_1'.
@@ -173,8 +166,8 @@ Proof.
       rewrite //=.
     }
   destruct (((list_to_map
-    (map (λ p : Word * transaction, (p.1, (p.2.1.1.1.1.1, p.2.1.1.1.1.2, p.2.1.1.2, p.2.1.2, p.2.2)))
-       (map_to_list (<[wh:= (j, wf, b', i, psd, tt)]> (get_transactions σ).1)))):gmap _ _) !! x) eqn:Heqn.
+    (map (λ p : Word * transaction, (p.1, p.2.1))
+       (map_to_list (<[wh:= (meta, b')]> (get_transactions σ).1)))):gmap _ _) !! x) eqn:Heqn.
   - apply elem_of_list_to_map_2 in Heqn.
     apply elem_of_list_In in Heqn.
     apply in_map_iff in Heqn.
@@ -182,7 +175,7 @@ Proof.
     apply elem_of_list_In in Heqn2.
     apply elem_of_map_to_list' in Heqn2.
     inversion Heqn1; subst; clear Heqn1.
-    rewrite (HlkSome  (<[wh:= (j, wf, b', i, psd, tt)]> (get_transactions σ).1) y.1 y.2);auto.
+    rewrite (HlkSome  (<[wh:= (meta, b')]> (get_transactions σ).1) y.1 y.2);auto.
     symmetry.
     apply elem_of_list_to_map_1'.
     + intros t P.
@@ -212,7 +205,7 @@ Proof.
         rewrite lookup_insert in Heqn2.
         inversion Heqn2; subst; clear Heqn2.
         simpl.
-        exists (y.1, ((j, wf, b, i, psd, tt))).
+        exists (y.1, (meta,b)).
         split; auto.
         apply elem_of_list_In.
         apply elem_of_map_to_list'.
@@ -241,7 +234,7 @@ Proof.
       apply elem_of_list_In in P.
       apply in_map_iff in P.
       destruct P as [t [P1 P2]].
-      exists (t.1, (j, wf, b', i, psd, tt)).
+      exists (t.1, (meta, b')).
       split; auto.
       apply elem_of_list_In.
       apply elem_of_map_to_list'.
@@ -276,22 +269,19 @@ Proof.
       rewrite lookup_insert_ne; auto.
 Qed.
 
-Lemma get_retri_gmap_to_get_transaction σ wh {j wf b i psd tt}:
+Lemma get_retri_gmap_to_get_transaction σ wh {meta b}:
   (<[wh:=b]> (get_retri_gmap σ)) =
   (get_retri_gmap
      (get_reg_files σ, get_mail_boxes σ, get_page_table σ,
       get_current_vm σ, get_mem σ,
-      (<[wh := (j, wf, b, i, psd, tt)]>
-       (get_transactions σ).1, (get_transactions σ).2))).
+      (<[wh := (meta, b)]> (get_transactions σ).1, (get_transactions σ).2))).
 Proof.
   rewrite /get_retri_gmap.
   rewrite /get_transactions_gmap.
   apply map_eq.
   intros x.
   simpl.
-  destruct (list_to_map
-    (map (λ p : Addr * transaction, (p.1, get_page_table (get_transactions p)))
-       (map_to_list (<[wh := (j, wf, b, i, psd, tt)]> (get_transactions σ).1))) !! x)
+  destruct (list_to_map (map (λ p : Addr * transaction, (p.1, p.2.2)) (map_to_list (<[wh:= (meta, b)]> σ.2.1))) !! x)
            eqn:Heqn.
   - apply elem_of_list_to_map_2 in Heqn.
     apply elem_of_list_In in Heqn.
@@ -345,7 +335,7 @@ Proof.
       simpl.
       apply elem_of_list_In.
       apply in_map_iff.
-      exists (x, (j, wf, b, i, psd, tt)).
+      exists (x, (meta, b)).
       split; auto.
       apply elem_of_list_In.
       apply elem_of_map_to_list'.
@@ -363,7 +353,7 @@ Proof.
       inversion H2; subst.
       rewrite elem_of_list_In.
       apply in_map_iff.
-      exists (x''.1, x''.2.1.1.1.2).
+      exists (x''.1, x''.2.2).
       split; auto.
       apply in_map_iff.
       exists (x''.1, x''.2).
@@ -378,23 +368,27 @@ Proof.
       assumption.
 Qed.
 
-Lemma alloc_transaction_update_trans σ h tran:
+Lemma u_alloc_trans_trans σ h tran:
   (get_trans_gmap (alloc_transaction σ h tran))
-  = <[h:= (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2)]>(get_trans_gmap σ).
+  = <[h:= (tran.1)]>(get_trans_gmap σ).
 Proof.
-  apply (alloc_transaction_update_transactions
-           (λ tran, (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2))).
+  unfold get_trans_gmap.
+  apply (alloc_transaction_update_transactions (λ tran, (tran.1))).
 Qed.
 
-Lemma alloc_transaction_update_hpool σ h tran:
-  (get_hpool_gset (alloc_transaction σ h tran)) = ((get_hpool_gset σ) ∖ {[h]}).
-Proof. rewrite /alloc_transaction /get_hpool_gset /= //. Qed.
-
-Lemma alloc_transaction_update_retri σ h tran:
-  (get_retri_gmap (alloc_transaction σ h tran)) = <[h:=tran.1.1.1.2]>(get_retri_gmap σ).
+Lemma u_alloc_trans_hpool σ h tran:
+   ((get_hpool_gset (alloc_transaction σ h tran)) = (get_hpool_gset σ) ∖ {[h]}).
 Proof.
-  apply (alloc_transaction_update_transactions (λ tran, tran.1.1.1.2)).
+  rewrite /alloc_transaction /get_hpool_gset /= //.
 Qed.
+
+Lemma u_alloc_trans_retri σ h tran:
+  (get_retri_gmap (alloc_transaction σ h tran)) = <[h:=tran.2]>(get_retri_gmap σ).
+Proof.
+  apply (alloc_transaction_update_transactions (λ tran, tran.2)).
+Qed.
+
+(* TODO *)
 
 Lemma update_transaction_preserve_current_vm σ h trans:
   get_current_vm (update_transaction σ h trans) = get_current_vm σ.
@@ -436,16 +430,15 @@ Qed.
 
 Lemma update_transaction_update_trans σ h tran:
   (get_trans_gmap (update_transaction σ h tran))
-  = <[h:= (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2)]>(get_trans_gmap σ).
+  = <[h:= tran.1]>(get_trans_gmap σ).
 Proof.
-  apply (update_transaction_update_transactions
-           (λ tran, (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2))).
+  apply (update_transaction_update_transactions (λ tran, tran.1)).
 Qed.
 
 Lemma update_transaction_update_retri σ h tran:
-  (get_retri_gmap (update_transaction σ h tran)) = <[h:=tran.1.1.1.2]>(get_retri_gmap σ).
+  (get_retri_gmap (update_transaction σ h tran)) = <[h:=tran.2]>(get_retri_gmap σ).
 Proof.
-  apply (update_transaction_update_transactions (λ tran, tran.1.1.1.2)).
+  apply (update_transaction_update_transactions (λ tran, tran.2)).
 Qed.
 
 Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
@@ -623,22 +616,23 @@ Lemma remove_transaction_update_trans σ h :
   (get_trans_gmap (remove_transaction σ h ))
   = (delete h (get_trans_gmap σ)).
 Proof.
-  apply (remove_transaction_update_transactions
-           (λ tran, (tran.1.1.1.1.1,tran.1.1.1.1.2,tran.1.1.2,tran.1.2, tran.2))).
+  apply (remove_transaction_update_transactions (λ tran, tran.1)).
 Qed.
 
 Lemma remove_transaction_update_hpool σ h :
-  (get_hpool_gset (remove_transaction σ h )) = ((get_hpool_gset σ) ∪ {[h]}).
-Proof. rewrite /remove_transaction /get_hpool_gset /= //. Qed.
+  get_hpool_gset (remove_transaction σ h ) = (get_hpool_gset σ) ∪ {[h]}.
+Proof.
+  rewrite /remove_transaction /get_hpool_gset /= //.
+Qed.
 
 Lemma remove_transaction_update_retri σ h :
   (get_retri_gmap (remove_transaction σ h )) = (delete h (get_retri_gmap σ)).
 Proof.
-  apply (remove_transaction_update_transactions (λ tran, tran.1.1.1.2)).
+  apply (remove_transaction_update_transactions (λ tran, tran.2)).
 Qed.
 
-Lemma get_retri_gmap_lookup {σ i j wf psd tt} wh b:
-(get_transactions σ).1 !! wh = Some (i, wf, b, j, psd, tt)->
+Lemma get_retri_gmap_lookup {σ meta} wh b:
+(get_transactions σ).1 !! wh = Some (meta,b)->
 get_retri_gmap σ !! wh = Some b.
 Proof.
   intros Hlk.
@@ -656,7 +650,7 @@ Proof.
   reflexivity.
   apply elem_of_list_In.
   apply in_map_iff.
-  exists (wh,(i, wf, b, j, psd, tt)).
+  exists (wh,(meta,b)).
   split.
   reflexivity.
   apply elem_of_list_In.
@@ -666,41 +660,3 @@ Proof.
 Qed.
 
 End trans_extra.
-
-
-Ltac rewrite_trans_alloc :=
-  match goal with
-  | |- _ =>
-    try rewrite -> alloc_transaction_preserve_current_vm;
-    try rewrite -> alloc_transaction_preserve_regs;
-    try rewrite -> alloc_transaction_preserve_mem;
-    try rewrite -> alloc_transaction_preserve_mb;
-    try rewrite -> alloc_transaction_preserve_rx;
-    try rewrite -> alloc_transaction_preserve_owned;
-    try rewrite -> alloc_transaction_preserve_access
-  end.
-
-Ltac rewrite_trans_update :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_transaction_preserve_current_vm;
-    try rewrite -> update_transaction_preserve_regs;
-    try rewrite -> update_transaction_preserve_mem;
-    try rewrite -> update_transaction_preserve_mb;
-    try rewrite -> update_transaction_preserve_rx;
-    try rewrite -> update_transaction_preserve_owned;
-    try rewrite -> update_transaction_preserve_access;
-    try rewrite -> update_transaction_preserve_hpool
-  end.
-
-Ltac rewrite_trans_remove :=
-  match goal with
-  | |- _ =>
-    try rewrite -> remove_transaction_preserve_current_vm;
-    try rewrite -> remove_transaction_preserve_regs;
-    try rewrite -> remove_transaction_preserve_mem;
-    try rewrite -> remove_transaction_preserve_mb;
-    try rewrite -> remove_transaction_preserve_rx;
-    try rewrite -> remove_transaction_preserve_owned;
-    try rewrite -> remove_transaction_preserve_access
-  end.

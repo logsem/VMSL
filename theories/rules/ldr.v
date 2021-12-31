@@ -38,7 +38,7 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hrx & Hown & Hmb & Haccess & Hrest)".
+  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hmb & Hrx & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
@@ -129,7 +129,7 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hrx & Hown & Hmb & Haccess & Hrest)".
+  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hmb & Hrx & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
@@ -218,7 +218,7 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hrx & Hown & Hmb & Haccess & Hrest)".
+  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hmb & Hrx & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].
@@ -384,7 +384,7 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hrx & Hown & Hmb & Haccess & Hrest)".
+  iDestruct "Hσ" as "(Hnum & Hmem & Hreg & Hmb & Hrx & Hown & Haccess & Hrest)".
   pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [| | src dst H3' H4' Hneqrarb | | | | | | | | |]; subst src dst; clear Hvalidinstr.
   destruct H3' as [HneqPCa HneqNZa].

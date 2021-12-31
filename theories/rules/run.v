@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Import lifting rules.rules_base.
-From HypVeri.algebra Require Import base reg mem pagetable.
+From HypVeri.algebra Require Import base reg mem pagetable base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra current_extra.
 Require Import stdpp.fin.
 Require Import stdpp.listset_nodup.
@@ -77,10 +77,23 @@ Proof.
     simplify_eq.
     simpl.
     rewrite /gen_vm_interp /update_incr_PC.
-    rewrite_vmid_all.
-    rewrite_reg_pc.
+    rewrite (preserve_get_mb_gmap _ σ1).
+    rewrite (preserve_get_rx_gmap _ σ1).
+    all: try rewrite update_current_vmid_preserve_mb update_offset_PC_preserve_mb //.
+    rewrite (preserve_get_owned_gmap _ σ1).
+    rewrite (preserve_get_access_gmap _ σ1).
+    rewrite (preserve_get_trans_gmap _ σ1).
+    rewrite (preserve_get_hpool_gset _ σ1).
+    rewrite (preserve_get_retri_gmap _ σ1).
+    rewrite (preserve_inv_trans_hpool_consistent _ σ1).
+    rewrite (preserve_inv_trans_pgt_consistent _ σ1).
+    rewrite (preserve_inv_trans_pg_num_ub _ σ1).
+    all: try rewrite update_current_vmid_preserve_pgt update_offset_PC_preserve_pgt //.
+    all: try rewrite update_current_vmid_preserve_trans update_offset_PC_preserve_trans //.
+    rewrite update_current_vmid_preserve_mem update_offset_PC_preserve_mem.
     iFrame "Hrest Hrx Hmb Hmemown Haccessown Hown".
     iDestruct ((gen_reg_update1_global PC (get_current_vm σ1) ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
+    rewrite (preserve_get_reg_gmap (update_current_vmid _ _) (update_offset_PC σ1 1));last rewrite update_current_vmid_preserve_reg //.
     rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
     + rewrite Hz.
       iDestruct (VMProp_update 0 U P P' with "PAuth HPropz") as "HTemp".

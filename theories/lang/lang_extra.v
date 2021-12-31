@@ -175,9 +175,6 @@ Qed.
     lia.
   Qed.
 
-  Definition transaction_l (v :VMID) (wf: Word) (r:  VMID) (ps: list PID) : transaction_descriptor :=
-    (v,None ,wf,r , ps).
-
   Lemma sequence_a_map_unit{A} (l:list A) :
   @sequence_a list _ _ _ A option _ _ (map (λ e , Some e ) l) = Some l.
     Proof.
@@ -195,9 +192,9 @@ Qed.
     (finz.to_z l) = (Z.of_nat (length psd)) ->
     des = serialized_transaction_descriptor i j wf l psd W0 ->
     seq_in_page (of_pid p) (length des) p ->
-   (∀ (k : nat) (y1 y2 : Addr),
+    (∀ (k : nat) (y1 y2 : Addr),
              finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-   parse_transaction_descriptor σ p = Some (i , None, wf,  j , psd).
+   parse_transaction_descriptor σ p = Some (i , None, wf,  j , list_to_set psd).
   Proof.
     intros.
     rewrite /parse_transaction_descriptor /get_memory_with_offset.
@@ -268,7 +265,7 @@ Qed.
     seq_in_page (of_pid p) (length des) p ->
     (∀ (k : nat) (y1 y2 : Addr),
              finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-    parse_transaction_descriptor_retrieve σ p = Some (j, Some handle, wf, (get_current_vm σ), []).
+    parse_transaction_descriptor_retrieve σ p = Some (j, Some handle, wf, (get_current_vm σ), ∅).
   Proof.
     intros H H0 H1.
     rewrite /parse_transaction_descriptor_retrieve /get_memory_with_offset.

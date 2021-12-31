@@ -6,7 +6,7 @@ Section current_extra.
 Context `{HyperConst : HypervisorConstants}.
 
 Lemma update_current_vmid_preserve_reg σ i :
-  get_reg_gmap (update_current_vmid σ i) = get_reg_gmap σ.
+  get_reg_files (update_current_vmid σ i) = get_reg_files σ.
 Proof. f_equal. Qed.
 
 Lemma update_current_vmid_preserve_mem σ i :
@@ -14,54 +14,54 @@ Lemma update_current_vmid_preserve_mem σ i :
 Proof. f_equal. Qed.
 
 Lemma update_current_vmid_preserve_mb σ i :
-  get_mb_gmap (update_current_vmid σ i) = (get_mb_gmap σ).
+  get_mail_boxes (update_current_vmid σ i) = (get_mail_boxes σ).
 Proof. f_equal. Qed.
 
-Lemma update_current_vmid_preserve_rx σ i :
-  get_rx_gmap (update_current_vmid σ i) = (get_rx_gmap σ).
-Proof. f_equal. Qed.
+(* Lemma update_current_vmid_preserve_rx σ i : *)
+(*   get_rx_gmap (update_current_vmid σ i) = (get_rx_gmap σ). *)
+(* Proof. f_equal. Qed. *)
 
-Lemma update_current_vmid_preserve_pt σ i :
+Lemma update_current_vmid_preserve_pgt σ i :
   get_page_table (update_current_vmid σ i) = get_page_table σ.
 Proof. f_equal. Qed.
 
-Lemma update_current_vmid_preserve_owned σ i :
-  get_owned_gmap (update_current_vmid σ i) = (get_owned_gmap σ).
-Proof. f_equal. Qed.
+(* Lemma update_current_vmid_preserve_owned σ i : *)
+(*   get_owned_gmap (update_current_vmid σ i) = (get_owned_gmap σ). *)
+(* Proof. f_equal. Qed. *)
 
-Lemma update_current_vmid_preserve_access σ i :
-  get_access_gmap (update_current_vmid σ i) = (get_access_gmap σ).
-Proof. f_equal. Qed.
+(* Lemma update_current_vmid_preserve_access σ i : *)
+(*   get_access_gmap (update_current_vmid σ i) = (get_access_gmap σ). *)
+(* Proof. f_equal. Qed. *)
+
+(* Lemma update_current_vmid_preserve_trans σ i : *)
+(*   get_trans_gmap (update_current_vmid σ i) = (get_trans_gmap σ). *)
+(* Proof. f_equal. Qed. *)
 
 Lemma update_current_vmid_preserve_trans σ i :
-  get_trans_gmap (update_current_vmid σ i) = (get_trans_gmap σ).
-Proof. f_equal. Qed.
-
-Lemma update_current_vmid_preserve_trans' σ i :
   get_transactions (update_current_vmid σ i) = (get_transactions σ).
 Proof. f_equal. Qed.
 
-Lemma update_current_vmid_preserve_hpool σ i :
-  get_hpool_gset (update_current_vmid σ i) = (get_hpool_gset σ).
-Proof. f_equal. Qed.
+(* Lemma update_current_vmid_preserve_hpool σ i : *)
+(*   get_hpool_gset (update_current_vmid σ i) = (get_hpool_gset σ). *)
+(* Proof. f_equal. Qed. *)
 
-Lemma update_current_vmid_preserve_retri σ i :
-  get_retri_gmap (update_current_vmid σ i) = (get_retri_gmap σ).
-Proof. f_equal. Qed.
+(* Lemma update_current_vmid_preserve_retri σ i : *)
+(*   get_retri_gmap (update_current_vmid σ i) = (get_retri_gmap σ). *)
+(* Proof. f_equal. Qed. *)
 
 End current_extra.
 
-Ltac rewrite_vmid_all :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_current_vmid_preserve_reg;
-    try rewrite -> update_current_vmid_preserve_mem;
-    try rewrite -> update_current_vmid_preserve_mb;
-    try rewrite -> update_current_vmid_preserve_rx;
-    try rewrite -> update_current_vmid_preserve_owned;
-    try rewrite -> update_current_vmid_preserve_access;
-    try rewrite -> update_current_vmid_preserve_trans;
-    try rewrite -> update_current_vmid_preserve_trans';
-    try rewrite -> update_current_vmid_preserve_hpool;
-    try rewrite -> update_current_vmid_preserve_retri
-  end.
+(* Ltac rewrite_vmid_all := *)
+(*   match goal with *)
+(*   | |- _ => *)
+(*     try rewrite -> update_current_vmid_preserve_reg; *)
+(*     try rewrite -> update_current_vmid_preserve_mem; *)
+(*     try rewrite -> update_current_vmid_preserve_mb; *)
+(*     try rewrite -> update_current_vmid_preserve_rx; *)
+(*     try rewrite -> update_current_vmid_preserve_owned; *)
+(*     try rewrite -> update_current_vmid_preserve_access; *)
+(*     try rewrite -> update_current_vmid_preserve_trans; *)
+(*     try rewrite -> update_current_vmid_preserve_trans'; *)
+(*     try rewrite -> update_current_vmid_preserve_hpool; *)
+(*     try rewrite -> update_current_vmid_preserve_retri *)
+(*   end. *)

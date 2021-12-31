@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Import lifting rules.rules_base.
-From HypVeri.algebra Require Import base reg mem pagetable.
+From HypVeri.algebra Require Import base reg mem pagetable base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section halt.
@@ -49,8 +49,20 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite_reg_pc.
-    rewrite_reg_global.
+    rewrite (preserve_get_mb_gmap _ σ1).
+    rewrite (preserve_get_rx_gmap _ σ1).
+    rewrite (preserve_get_owned_gmap _ σ1).
+    rewrite (preserve_get_access_gmap _ σ1).
+    rewrite (preserve_get_trans_gmap _ σ1).
+    rewrite (preserve_get_hpool_gset _ σ1).
+    rewrite (preserve_get_retri_gmap _ σ1).
+    rewrite (preserve_inv_trans_hpool_consistent _ σ1).
+    rewrite (preserve_inv_trans_pgt_consistent _ σ1).
+    rewrite (preserve_inv_trans_pg_num_ub _ σ1).
+    all: try rewrite update_offset_PC_preserve_pgt //.
+    all: try rewrite update_offset_PC_preserve_trans //.
+    all: try rewrite update_offset_PC_preserve_mb //.
+    rewrite update_offset_PC_preserve_mem.
     iFrame "Hmem Hrx Hown Hmb Haccess Hrest".
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.

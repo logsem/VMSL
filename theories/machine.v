@@ -212,34 +212,34 @@ Proof.
 Qed.
 
 (* if a VM has access to a page. SharedAccess means at least two VMs can access this page. *)
-Inductive access : Type :=
-| NoAccess
-| SharedAccess
-| ExclusiveAccess.
+(* Inductive access : Type := *)
+(* | NoAccess *)
+(* | SharedAccess *)
+(* | ExclusiveAccess. *)
 
-Global Instance eq_decision_access : EqDecision access.
-Proof.
-  solve_decision.
-Qed.
+(* Global Instance eq_decision_access : EqDecision access. *)
+(* Proof. *)
+(*   solve_decision. *)
+(* Qed. *)
 
-Definition is_accessible (p : access) : bool :=
-  match p with
-  | SharedAccess => true
-  | ExclusiveAccess => true
-  | _ => false
-  end.
+(* Definition is_accessible (p : access) : bool := *)
+(*   match p with *)
+(*   | SharedAccess => true *)
+(*   | ExclusiveAccess => true *)
+(*   | _ => false *)
+(*   end. *)
 
-Definition is_exclusive (p : access) : bool :=
-  match p with
-  | ExclusiveAccess => true
-  | _ => false
-  end.
+(* Definition is_exclusive (p : access) : bool := *)
+(*   match p with *)
+(*   | ExclusiveAccess => true *)
+(*   | _ => false *)
+(*   end. *)
 
-Definition is_owned (p : ownership) : bool :=
-  match p with
-  | Owned => true
-  | _ => false
-  end.
+(* Definition is_owned (p : ownership) : bool := *)
+(*   match p with *)
+(*   | Owned => true *)
+(*   | _ => false *)
+(*   end. *)
 
 (* by the FFA specs, a VM has the following three ways to share memory *)
 Inductive transaction_type : Type :=

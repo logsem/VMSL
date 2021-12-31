@@ -27,10 +27,10 @@ Class FramableRXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
 Class FramableWordPool (s: gset Word) := {}.
 #[export] Hint Mode FramableWordPool - : typeclass_instances.
 
-Class FramableTransaction `{HypervisorConstants} (wh : Word) (v r: VMID) (wf: Word) (pgs : (list PID)) (fid : transaction_type)  := {}.
-#[export] Hint Mode FramableTransaction + + - - - - - : typeclass_instances.
+Class FramableTransaction `{HypervisorConstants} (wh : Word) (meta: VMID  * Word  * VMID  * list PID * transaction_type) := {}.
+#[export] Hint Mode FramableTransaction + + - : typeclass_instances.
 
-Class FramableRetrieve  (wh : Word) (b : bool)  := {}.
+Class FramableRetrieve (wh : Word) (b : bool)  := {}.
 #[export] Hint Mode FramableRetrieve + - : typeclass_instances.
 
 Instance FramableRegisterPointsto_default `{HypervisorConstants} r i w :
@@ -61,8 +61,8 @@ Instance FramableWordPool_default `{HypervisorConstants} s :
   FramableWordPool s
 | 100. Qed.
 
-Instance FramableTransaction_default `{HypervisorConstants} wh v r wf pgs fid :
-  FramableTransaction wh v r wf pgs fid
+Instance FramableTransaction_default `{HypervisorConstants} wh meta :
+  FramableTransaction wh meta
 | 100. Qed.
 
 Instance FramableRetrieve_default wh b:
@@ -99,17 +99,17 @@ Instance FramableMachineResource_RX `{gen_VMG Σ} i p :
   FramableMachineResource (RX@i := p).
 Qed.
 
-Instance FramableMachineResource_hp`{gen_VMG Σ} q s :
+Instance FramableMachineResource_hp`{gen_VMG Σ} s :
   FramableWordPool s →
-  FramableMachineResource (hp{q}[s]).
+  FramableMachineResource (hp [s]).
 Qed.
 
-Instance FramableMachineResource_trans`{gen_VMG Σ} q wh v r wf pgs fid :
-  FramableTransaction wh v r wf pgs fid →
-  FramableMachineResource (wh->t{q}(v,wf,r,pgs,fid) ).
+Instance FramableMachineResource_trans`{gen_VMG Σ} wh meta :
+  FramableTransaction wh meta →
+  FramableMachineResource (wh->t meta).
 Qed.
 
 Instance FramableMachineResource_retri `{gen_VMG Σ} wh b:
   FramableRetrieve wh b →
-  FramableMachineResource (wh->re b ).
+  FramableMachineResource (wh->re b).
 Qed.

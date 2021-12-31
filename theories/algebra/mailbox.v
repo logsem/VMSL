@@ -6,16 +6,28 @@ Section mailbox_rules.
   Implicit Type σ : state.
   Implicit Type i : VMID.
 
-  Lemma rx_owned_dupl_false i j w :
+  Lemma rx_dupl_false i j w :
     RX@ i := w -∗ RX@ j := w -∗ False.
   Proof.
-    rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
+    rewrite mb_mapsto_eq /mb_mapsto_def.
     iIntros "Ha1 Ha2".
     iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %Hvalid.
     destruct Hvalid as [Hvalid _].
     apply dfrac_valid_own_r in Hvalid.
     inversion Hvalid.
   Qed.
+
+  Lemma tx_dupl_false i j w :
+    TX@ i := w -∗ TX@ j := w -∗ False.
+  Proof.
+    rewrite mb_mapsto_eq /mb_mapsto_def.
+    iIntros "Ha1 Ha2".
+    iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %Hvalid.
+    destruct Hvalid as [Hvalid _].
+    apply dfrac_valid_own_r in Hvalid.
+    inversion Hvalid.
+  Qed.
+
 
   Lemma rx_state_dupl_false i x x' :
     rx_state_mapsto i x -∗ rx_state_mapsto i x' -∗ False.
@@ -28,23 +40,30 @@ Section mailbox_rules.
     inversion Hvalid.
   Qed.
 
-  Lemma rx_owned_valid {σ} i p :
+  Lemma rx_valid {σ} i p :
     (RX@ i := p) -∗
-    ghost_map_auth (gen_owned_mb_name vmG) 1 (get_owned_gmap σ) -∗
+    ghost_map_auth (gen_mb_name vmG) 1 (get_mb_gmap σ) -∗
     ⌜(get_mail_box σ @ i).2.1 = p⌝.
   Proof.
     iIntros "Hrx Hrxown".
-    rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
+    rewrite mb_mapsto_eq /mb_mapsto_def.
     iDestruct (ghost_map_lookup with "Hrxown Hrx") as "%Hsome".
     iPureIntro.
-    rewrite /get_owned_gmap in Hsome.
-    set l := map_to_list ((λ p : VMID * gset VMID, (p.1, Owned)) <$> get_page_table σ).
-    apply (elem_of_list_to_map_2 l p (i, Rx)) in Hsome.
+
+    rewrite /get_mb_gmap in Hsome.
+    set l := (flat_map _ _) in Hsome.
+    apply (elem_of_list_to_map_2 l p (i, RX)) in Hsome.
     subst l.
-    apply elem_of_map_to_list in Hsome.
-    apply lookup_fmap_Some in Hsome.
-    destruct Hsome as [x [Hsome1 Hsome2]].
-    simplify_eq.
+    apply elem_of_list_In in Hsome.
+    apply in_flat_map in Hsome.
+    destruct Hsome as [v [_ Hin]].
+    apply in_inv in Hin.
+    destruct Hin as [Hin|Hin].
+    inversion Hin.
+    inversion Hin.
+    inversion H.
+    done.
+    inversion H.
   Qed.
 
   Lemma rx_state_valid {σ} i x :
@@ -129,10 +148,10 @@ Section mailbox_rules.
 
 
   Lemma gen_tx_valid {σ} i p:
-   TX@ i := p -∗ ghost_map_auth (gen_owned_mb_name vmG) 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).1 = p ⌝.
+   TX@ i := p -∗ ghost_map_auth (gen_mb_name vmG) 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).1 = p ⌝.
   Proof.
     iIntros "Htx Hσ".
-    rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
+    rewrite mb_mapsto_eq /mb_mapsto_def.
     destruct σ as [[[[[? mb] ?] ?] ?] ?].
     rewrite /get_mb_gmap.
     simpl.
@@ -150,10 +169,10 @@ Section mailbox_rules.
   Qed.
 
   Lemma gen_rx_valid {σ} i p:
-   RX@ i := p -∗ ghost_map_auth (gen_owned_mb_name vmG) 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).2.1 = p ⌝.
+   RX@ i := p -∗ ghost_map_auth (gen_mb_name vmG) 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).2.1 = p ⌝.
   Proof.
     iIntros "Htx Hσ".
-    rewrite owned_mb_mapsto_eq /owned_mb_mapsto_def.
+    rewrite mb_mapsto_eq /mb_mapsto_def.
     destruct σ as [[[[[? mb] ?] ?] ?] ?].
     rewrite /get_mb_gmap.
     simpl.

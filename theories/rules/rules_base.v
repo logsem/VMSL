@@ -50,7 +50,7 @@ Lemma update_offset_PC_preserve_just_scheduled_vms {σ σ' n} o:
 Proof.
   unfold just_scheduled_vms, just_scheduled.
   rewrite /scheduled /machine.scheduler //= /scheduler.
-  rewrite update_offset_PC_preserve_current_vm.
+  rewrite p_upd_pc_current_vm.
   done.
 Qed.
 
@@ -84,7 +84,7 @@ Lemma update_offset_PC_preserve_scheduled {σ} o:
   scheduled (update_offset_PC σ o)  = scheduled σ.
 Proof.
   rewrite /scheduled /machine.scheduler //= /scheduler.
-  rewrite update_offset_PC_preserve_current_vm //.
+  rewrite p_upd_pc_current_vm //.
 Qed.
 
 Lemma update_reg_global_preserve_scheduled {σ} i r w:

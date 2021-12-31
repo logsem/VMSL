@@ -7,20 +7,10 @@ Section trans_rules.
 
 (* rules for transactions *)
 
-(* Lemma trans_split wh q1 q2 i (r:VMID) wf m f: *)
-(*  wh ->t{(q1+q2)%Qp}(i,wf,r,m,f) -∗  wh ->t{q1}(i,wf,r,m,f) ∗ wh ->t{q2}(i,wf,r,m,f). *)
-(* Proof using. *)
-(*   iIntros "HT". *)
-(*   rewrite trans_mapsto_eq /trans_mapsto_def. *)
-(*   rewrite ?ghost_map_elem_eq /ghost_map_elem_def. *)
-(*   rewrite -own_op gmap_view_frag_add. *)
-(*   done. *)
-(* Qed. *)
-
-  Lemma gen_trans_valid {σ q i wf} {r:VMID} {m f} wh :
-    wh ->t{q}(i,wf,r,m,f) -∗
+  Lemma trans_valid {σ} {meta} wh:
+    wh ->t (meta) -∗
     (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))-∗
-    ⌜∃ (b:bool), (get_transactions σ).1 !! wh = Some (i,wf,b,r,m,f)⌝.
+    ⌜∃ (b:bool), (get_transactions σ).1 !! wh = Some (meta,b)⌝.
   Proof.
     iIntros "Htrn Hσ".
     rewrite trans_mapsto_eq /trans_mapsto_def.
@@ -35,13 +25,13 @@ Section trans_rules.
     inversion Heqp; subst; clear Heqp.
     apply elem_of_list_In in Hin.
     apply elem_of_map_to_list' in Hin.
-    exists x.2.1.1.1.2.
+    exists x.2.2.
     rewrite Hin -?surjective_pairing //.
   Qed.
 
-  Lemma gen_retri_valid {σ wh b} :
+  Lemma retri_valid {σ b} wh:
     wh ->re b -∗ ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) -∗
-    ⌜∃ t, (get_transactions σ).1 !! wh = Some t ∧ t.1.1.1.2 = b⌝.
+    ⌜∃ t, (get_transactions σ).1 !! wh = Some (t,b)⌝.
   Proof.
     iIntros "Hretri Hσ".
     rewrite retri_mapsto_eq /retri_mapsto_def.
@@ -56,34 +46,15 @@ Section trans_rules.
     inversion Heqp; subst; clear Heqp.
     apply elem_of_list_In in Hin.
     apply elem_of_map_to_list' in Hin.
-    exists x.2.
+    exists x.2.1.
+    destruct x.2.
     done.
   Qed.
 
-  Lemma gen_hpool_valid_subset {σ q} s :
-    hp{ q }[ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
-    ⌜s ⊆ (get_hpool_gset σ)⌝.
-  Proof.
-    rewrite hpool_mapsto_eq /hpool_mapsto_def.
-    iIntros "H1 H2".
-    iDestruct (own_valid_2 with "H2 H1") as %Hvalid.
-    rewrite /get_hpool_gset in Hvalid.
-    apply frac_auth_included in Hvalid.
-    iPureIntro.
-    apply option_included_total in Hvalid.
-    destruct Hvalid as [|Hvalid];[done|].
-    destruct Hvalid as [? [? [Heq1 [Heq2 Hincl]]]].
-    inversion Heq1;subst x.
-    inversion Heq2;subst x0.
-    apply gset_disj_included in Hincl.
-    assumption.
-  Qed.
-
-  Lemma gen_hpool_valid_eq {σ} s :
-    hp{ 1 }[ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
-    ⌜s = (get_hpool_gset σ)⌝.
+  Lemma hpool_valid {σ} s :
+    hp [ s ] -∗
+    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ)))-∗
+    ⌜s = (get_transactions σ).2⌝.
   Proof.
     rewrite hpool_mapsto_eq /hpool_mapsto_def.
     iIntros "H1 H2".
@@ -95,45 +66,32 @@ Section trans_rules.
     done.
   Qed.
 
-  Lemma gen_hpool_valid_elem_subset {σ q} s :
-    hp{ q }[ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
-    ⌜(elements s) ⊆ get_fresh_handles (get_transactions σ)⌝.
-  Proof.
-    iIntros "H1 H2".
-    iDestruct (gen_hpool_valid_subset with "H1 H2") as %Hvalid.
-    rewrite /get_hpool_gset in Hvalid.
-    rewrite /get_fresh_handles.
-    iPureIntro.
-    set_solver.
-  Qed.
-
-  Lemma gen_hpool_valid_elem {σ} s :
-    hp{ 1 }[ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ))))-∗
+  Lemma hpool_valid_elem {σ} s :
+    hp [ s ] -∗
+    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ)))-∗
     ⌜(elements s) = get_fresh_handles (get_transactions σ)⌝.
   Proof.
     iIntros "H1 H2".
-    iDestruct (gen_hpool_valid_eq with "H1 H2") as %Hvalid.
+    iDestruct (hpool_valid with "H1 H2") as %Hvalid.
     rewrite /get_hpool_gset in Hvalid.
     rewrite /get_fresh_handles.
     iPureIntro.
     set_solver.
   Qed.
 
-  Lemma gen_trans_update_insert {σ} h i wf rc m f:
+  Lemma trans_update_insert {σ} h meta:
     (get_trans_gmap σ) !! h = None ->
     (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))==∗
-    (ghost_map_auth (gen_trans_name vmG) 1 (<[h:= (i,wf,rc,m,f)]>(get_trans_gmap σ))) ∗
-    h ->t{1}(i,wf,rc,m,f).
+    (ghost_map_auth (gen_trans_name vmG) 1 (<[h:= meta]>(get_trans_gmap σ))) ∗
+    h ->t (meta).
   Proof.
     iIntros (HNone) "Htrans".
     rewrite trans_mapsto_eq /trans_mapsto_def.
     iApply (ghost_map_insert with "Htrans");auto.
   Qed.
 
-  Lemma gen_trans_update_delete {σ} h i wf rc m f:
-    h ->t{1}(i,wf,rc,m,f) -∗
+  Lemma trans_update_delete {σ meta} h :
+    h ->t (meta) -∗
     (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))==∗
     (ghost_map_auth (gen_trans_name vmG) 1 ((delete h (get_trans_gmap σ)))).
   Proof.
@@ -142,45 +100,38 @@ Section trans_rules.
     iApply (ghost_map_delete with "Htrans Hh").
   Qed.
 
-  Lemma gen_hpool_update_diff {σ s q} (h: Word):
+  Lemma hpool_update_minus {σ s} h:
     h ∈ s ->
-    hp{ q }[ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ)))) ==∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet ( (get_hpool_gset σ)∖ {[h]}))))∗
-    hp{ q }[ s ∖ {[h]} ].
+    hp [ s ] -∗
+    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ))) ==∗
+    (own (gen_hpool_name vmG) (frac_auth_auth ((get_hpool_gset σ) ∖ {[h]})))∗
+    hp [ s ∖ {[h]} ].
   Proof.
     iIntros (HIn) "Hhp HHp".
-    iDestruct (gen_hpool_valid_subset with "Hhp HHp")as %Hvalid.
+    iDestruct (hpool_valid with "Hhp HHp")as %Hvalid.
     rewrite hpool_mapsto_eq /hpool_mapsto_def.
     rewrite -own_op.
-    iApply ((own_update _ (●F (GSet (get_hpool_gset σ)) ⋅ ◯F{q } (GSet s)) _ ) with "[HHp Hhp]").
+    iApply ((own_update _ (●F (get_hpool_gset σ) ⋅ ◯F s) _ ) with "[HHp Hhp]").
     2: { rewrite own_op. iFrame. }
-    apply frac_auth_update.
-    set (X := (get_hpool_gset σ ∖ {[h]})).
-    set (Y := (s ∖ {[h]})).
-    assert (HX: GSet (get_hpool_gset σ) = GSet {[h]} ⋅ GSet X ).
-    { rewrite gset_disj_union;[|set_solver].  f_equal. rewrite singleton_union_difference_L.
-      rewrite difference_diag_L difference_empty_L. set_solver. }
-    assert (HY: GSet s = GSet {[h]} ⋅ GSet Y ).
-    { rewrite gset_disj_union;[|set_solver].  f_equal. rewrite singleton_union_difference_L.
-      rewrite difference_diag_L difference_empty_L. set_solver. }
-    rewrite HX HY.
-    apply gset_disj_dealloc_op_local_update.
+    assert (get_hpool_gset σ = s) as ->.
+    { rewrite  /get_hpool_gset //. }
+    apply frac_auth_update_1.
+    done.
   Qed.
 
-  Lemma gen_retri_update {σ} b b' (h: Word):
+  Lemma retri_update_flip {σ b} h :
     (get_retri_gmap σ) !! h = Some b ->
     h ->re b -∗
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
-    ghost_map_auth (gen_retri_name vmG) 1 (<[h:=b']>(get_retri_gmap σ)) ∗
-    h ->re b'.
+    ∃ nb, ⌜nb = negb b⌝ ∗ ghost_map_auth (gen_retri_name vmG) 1 (<[h:=nb]>(get_retri_gmap σ)) ∗
+    h ->re nb.
   Proof.
     iIntros (HNone) "Q H".
     rewrite retri_mapsto_eq /retri_mapsto_def.
-    iDestruct ((ghost_map_update b') with "H Q") as "H"; eauto.
+    iDestruct ((ghost_map_update (negb b)) with "H Q") as ">H"; eauto.
   Qed.
 
-  Lemma gen_retri_update_delete {σ b} (h: Word):
+  Lemma retri_update_delete {σ b} (h: Word):
     h ->re b -∗
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
     ghost_map_auth (gen_retri_name vmG) 1 (delete h (get_retri_gmap σ)).
@@ -190,30 +141,26 @@ Section trans_rules.
     iApply ((ghost_map_delete ) with "H Q").
   Qed.
 
-  Lemma gen_hpool_update_union {σ s q} (h: Word):
-    h ∉ (get_hpool_gset σ) ->
-    hp{ q }[ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet (get_hpool_gset σ)))) ==∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (GSet ( (get_hpool_gset σ) ∪ {[h]}))))∗
-    hp{ q }[ s ∪ {[h]} ].
+  Lemma hpool_update_union {σ s} (h: Word):
+    h ∉ s ->
+    hp [ s ] -∗
+    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ))) ==∗
+    (own (gen_hpool_name vmG) (frac_auth_auth ((get_hpool_gset σ) ∪ {[h]})))∗
+    hp [ s ∪ {[h]} ].
   Proof.
-    iIntros (HIn) "Hhp HHp".
-    iDestruct (gen_hpool_valid_subset with "Hhp HHp")as %Hvalid.
+    iIntros (HnIn) "Hhp HHp".
+    iDestruct (hpool_valid with "Hhp HHp")as %Hvalid.
     rewrite hpool_mapsto_eq /hpool_mapsto_def.
     rewrite -own_op.
-    iApply ((own_update _ (●F (GSet (get_hpool_gset σ)) ⋅ ◯F{q} (GSet s)) _ ) with "[HHp Hhp]").
+    iApply ((own_update _ (●F (get_hpool_gset σ) ⋅ ◯F s) _ ) with "[HHp Hhp]").
     2: { rewrite own_op. iFrame. }
-    apply frac_auth_update.
-    set (X := (get_hpool_gset σ ∖ {[h]})).
-    set (Y := (s ∖ {[h]})).
-    rewrite union_comm_L.
-    assert (HY: GSet (s ∪ {[h]}) = GSet ({[h]} ∪ s) ).
-    { rewrite union_comm_L //. }
-    rewrite HY.
-    apply gset_disj_alloc_local_update;by set_solver.
+    assert (get_hpool_gset σ = s) as ->.
+    { rewrite  /get_hpool_gset //. }
+    apply frac_auth_update_1.
+    done.
   Qed.
 
-  Lemma gen_retri_update_insert {σ} (h: Word):
+  Lemma retri_update_insert {σ} (h: Word):
     (get_retri_gmap σ) !! h = None ->
     ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
     ghost_map_auth (gen_retri_name vmG) 1 (<[h:=false]>(get_retri_gmap σ))∗

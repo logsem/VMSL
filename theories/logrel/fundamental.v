@@ -33,8 +33,8 @@ Section fundamental.
     iLöb as "IH".
     iIntros (pgt) "(%regs & (#Htotal_regs & regs) & rx & tx & VMProp) Hnotp VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres VMProp]".
-    iEval (rewrite later_or) in "Hres".
-    iDestruct "Hres" as "[Hres| >False]";last done.
+    (* iEval (rewrite later_or) in "Hres". *)
+    (* iDestruct "Hres" as "[Hres| >False]";last done. *)
     iDestruct( later_exist with "Hres") as (mem) "Hres".
     iDestruct( later_exist with "Hres") as (shandle) "Hres".
     (* the vm is scheduled *)
@@ -92,7 +92,6 @@ Section fundamental.
           iExists Pred.
           iFrame.
           iNext.
-          iLeft.
           iExists mem, shandle.
           iFrame.
           iFrame "#".

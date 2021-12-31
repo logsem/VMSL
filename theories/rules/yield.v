@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Import lifting rules.rules_base.
-From HypVeri Require Import base reg mem pagetable.
+From HypVeri Require Import base reg mem pagetable base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra current_extra.
 Require Import stdpp.fin.
 Require Import stdpp.listset_nodup.
@@ -85,9 +85,20 @@ Proof.
       rewrite <-Hzeq.
       simpl.
       rewrite /gen_vm_interp /update_incr_PC.
-      rewrite_vmid_all.
-      rewrite_reg_pc.
-      rewrite_reg_global.
+      rewrite (preserve_get_mb_gmap _ σ1).
+      rewrite (preserve_get_rx_gmap _ σ1).
+      all: try rewrite update_current_vmid_preserve_mb update_offset_PC_preserve_mb update_reg_global_preserve_mb //.
+      rewrite (preserve_get_owned_gmap _ σ1).
+      rewrite (preserve_get_access_gmap _ σ1).
+      rewrite (preserve_get_trans_gmap _ σ1).
+      rewrite (preserve_get_hpool_gset _ σ1).
+      rewrite (preserve_get_retri_gmap _ σ1).
+      rewrite (preserve_inv_trans_hpool_consistent _ σ1).
+      rewrite (preserve_inv_trans_pgt_consistent _ σ1).
+      rewrite (preserve_inv_trans_pg_num_ub _ σ1).
+      all: try rewrite update_current_vmid_preserve_pgt update_offset_PC_preserve_pgt update_reg_global_preserve_pgt //.
+      all: try rewrite update_current_vmid_preserve_trans update_offset_PC_preserve_trans update_reg_global_preserve_trans //.
+      rewrite update_current_vmid_preserve_mem update_offset_PC_preserve_mem update_reg_global_preserve_mem.
       iFrame "Hrx Hmb Hown Hrest".
       iDestruct (gen_reg_update_Sep
                   {[(R0, z):= a_;
@@ -193,7 +204,11 @@ Proof.
           exfalso.
           by apply (excl x' n).
       }
-        rewrite /update_current_vmid /update_incr_PC /=.
+        (* rewrite /update_current_vmid /update_incr_PC /=. *)
+        set σ1' := (X in (update_current_vmid X z)).
+    rewrite (preserve_get_reg_gmap (update_current_vmid _ _) σ1');
+      last rewrite update_current_vmid_preserve_reg //.
+        rewrite /σ1'.
         rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
         -- iDestruct (VMProp_update σ1.1.1.2 U P P' with "PAuth HPropi") as "HTemp".
            iMod "HTemp".
@@ -227,6 +242,7 @@ Proof.
            iFrame.
            iDestruct (VMProp_split with "HPropi") as "[HPropi1 HPropi2]".
            iSplitR "Hϕ R' HPropi1".
+           simpl.
            iSplit; last done.
            iExists (Q ∗ VMProp σ1.1.1.2 P' (1 / 2))%I.
            iFrame.
