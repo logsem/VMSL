@@ -30,8 +30,11 @@ Definition mem : Type :=
 Definition reg_file : Type :=
   gmap reg_name Word.
 
+Definition permission : Type :=
+  option VMID * bool * gset VMID.
+
 Definition page_table : Type :=
-  gmap PID (VMID * gset VMID).
+  gmap PID permission.
 
 Definition tx_buffer : Type :=
   PID.
@@ -76,7 +79,7 @@ Inductive exec_mode : Type :=
 (* Aux funcs *)
 Definition check_ownership_page (st : state) (v : VMID) (p : PID) : bool :=
   match (get_page_table st !! p)  with
-  | Some (p', _) =>
+  | Some (Some p', _ , _) =>
     match (decide (v = p')) with
     | left _ => true
     | right _ => false
@@ -95,18 +98,14 @@ Definition check_access_page (st : state) (v : VMID) (p : PID) : bool :=
   | _ => false
   end.
 
-Definition check_excl_access_page (st : state) (v : VMID) (p : PID) : bool :=
+Definition check_excl_page (st: state) (v : VMID) (p: PID) : bool :=
   match (get_page_table st !! p)  with
-  | Some (_, s) =>
-    match (decide (v ∈ s)) with
-    | left _ => match (decide (size s = 1)) with
-               | left _ => true
-               | right _ => false
-               end
-    | right _ => false
-    end
+  | Some (_, b, _) => b
   | _ => false
   end.
+
+Definition check_excl_access_page (st : state) (v : VMID) (p : PID) : bool :=
+  check_access_page st v p && check_excl_page st v p.
 
 Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
   check_access_page st v (to_pid_aligned a).
@@ -129,22 +128,28 @@ Definition get_reg_global (st : state) (v : VMID) (r : reg_name) : option Word :
 Definition get_reg (st : state) (r : reg_name) : option Word :=
   get_reg_global st (get_current_vm st) r.
 
-Definition update_ownership (perm:VMID * gset VMID) (v:VMID) : VMID * gset VMID:=
+Definition update_ownership (perm: permission) (v:VMID) : permission:=
   match perm with
-  | (o, s) => (v, s)
+  | (Some o, b, s) => (Some v, b, s)
+  | _ => perm
   end.
 
-Definition grant_access (perm:VMID * gset VMID) (v:VMID)  : VMID * gset VMID :=
+Definition grant_access (perm: permission) (v:VMID) : permission :=
   match perm with
   | (o, s) => (o, {[v]} ∪ s)
   end.
 
-Definition revoke_access (perm:VMID * gset VMID) (v:VMID)  : VMID * gset VMID :=
+Definition revoke_access (perm: permission) (v:VMID)  : permission :=
   match perm with
   | (o, s) => (o, s ∖ {[v]})
   end.
 
-Definition update_page_table_global (upd: VMID * gset VMID -> VMID -> VMID * gset VMID) (st:state) (v:VMID) (ps: gset PID) : state :=
+Definition flip_excl (perm:permission) (v: VMID) : permission :=
+  match perm with
+  | (o, b, s) => (o, negb b, s)
+  end.
+
+Definition update_page_table_global (upd: permission -> VMID -> permission) (st:state) (v:VMID) (ps: gset PID) : state :=
   (get_reg_files st, get_mail_boxes st,
    (set_fold (λ p acc, match (acc !! p) with
                        | Some perm => <[p:= (upd perm v)]>acc
@@ -153,11 +158,13 @@ Definition update_page_table_global (upd: VMID * gset VMID -> VMID -> VMID * gse
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_ownership_global := update_page_table_global update_ownership.
+(* Definition update_ownership_global := update_page_table_global update_ownership. *)
 
-Definition grant_access_global := update_page_table_global grant_access.
+(* Definition grant_access_global := update_page_table_global grant_access. *)
 
-Definition revoke_access_global := update_page_table_global revoke_access.
+(* Definition revoke_access_global := update_page_table_global revoke_access. *)
+
+(* Definition flip_excl_global := update_page_table_global flip_excl. *)
 
 Definition update_memory_global_batch (st : state) (l : list (Addr * Word)) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, (list_to_map l) ∪ (get_mem st), get_transactions st).
@@ -649,11 +656,12 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
            match ty with
            | Sharing =>
              unit(update_reg (update_reg
-                                 st' R0 (encode_hvc_ret_code Succ))
+                                (update_page_table_global flip_excl st' (get_current_vm st) ps)
+                                R0 (encode_hvc_ret_code Succ))
                              R2 hd)
            | _ => 
              unit(update_reg (update_reg
-                                (revoke_access_global st' (get_current_vm st) ps)
+                                (update_page_table_global revoke_access st' (get_current_vm st) ps)
                                 R0 (encode_hvc_ret_code Succ))
                              R2 hd)
            end
@@ -690,10 +698,15 @@ Definition relinquish_transaction (s : state)
            (h : Word) (f : Word) (t : transaction) : hvc_result state :=
   let ps := t.1.1.2 in
   s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
+  let upd := match t.1.2 with
+    | Sharing => (λ perm v, flip_excl (revoke_access perm v) v)
+    | _ => revoke_access
+             end
+  in
   if (f =? W1)%Z then
-    unit (revoke_access_global (update_reg (zero_pages s' (elements ps)) R0 (encode_hvc_ret_code Succ)) (get_current_vm s) ps)
+    unit (update_page_table_global upd (update_reg (zero_pages s' (elements ps)) R0 (encode_hvc_ret_code Succ)) (get_current_vm s) ps)
   else
-  unit (revoke_access_global (update_reg s' R0 (encode_hvc_ret_code Succ)) (get_current_vm s) ps).
+  unit (update_page_table_global upd (update_reg s' R0 (encode_hvc_ret_code Succ)) (get_current_vm s) ps).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (gset PID) :=
   match t with
@@ -721,15 +734,24 @@ Definition retrieve (s : state) : exec_mode * state :=
            match ((get_current_vm s) =? r) , b  with
            | true, false =>
              s' <- (write_retrieve_msg s (get_rx_pid s @ (get_current_vm s)) handle trn) ;;;
+             let upd := match ty with
+               | Sharing => (λ perm v, flip_excl (grant_access perm v) v)
+               | Lending => grant_access
+               | Donation => (λ perm v, update_ownership (grant_access perm v) v)
+               end in
              match ty with
-             | Sharing | Lending =>
-               unit (grant_access_global (update_reg (update_transaction s' handle (vs, w1, r, ps, ty, true))
+             | Sharing =>
+               unit  (update_reg (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true))
+                                                       (get_current_vm s) ps)
                                                      R0 (encode_hvc_ret_code Succ))
-                                         (get_current_vm s) ps)
+             | Lending =>
+               unit  (update_reg (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true))
+                                                      (get_current_vm s) ps)
+                                                     R0 (encode_hvc_ret_code Succ))
              | Donation =>
-               unit (grant_access_global (update_ownership_global (update_reg (remove_transaction s' handle)
-                                                R0 (encode_hvc_ret_code Succ)) (get_current_vm s) ps)
+               unit  (update_reg (update_page_table_global upd (remove_transaction s' handle)
                                         (get_current_vm s) ps)
+                                 R0 (encode_hvc_ret_code Succ))
              end
            | _ , _ => throw Denied
            end
@@ -762,10 +784,18 @@ Definition reclaim (s : state) : exec_mode * state :=
       handle <- lift_option (get_reg s R1) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
       l <- unit ((get_memory_descriptor trn).2 );;;
-      if no_borrowers s handle (get_current_vm s)
+      if trn.2
       then
-        unit (update_reg (grant_access_global
-                             (remove_transaction s handle) (get_current_vm s) l) R0 (encode_hvc_ret_code Succ))
+        match trn.1.2 with
+        | Sharing =>
+            unit (update_reg (update_page_table_global
+                                (λ perm v, flip_excl (grant_access perm v) v)
+                                                       (remove_transaction s handle) (get_current_vm s) l) R0 (encode_hvc_ret_code Succ))
+        | Lending =>
+            unit (update_reg (update_page_table_global grant_access
+                                                       (remove_transaction s handle) (get_current_vm s) l) R0 (encode_hvc_ret_code Succ))
+        | Donation => throw InvParam
+        end
       else throw Denied
   in
   unpack_hvc_result_normal s comp.

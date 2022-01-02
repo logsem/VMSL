@@ -40,7 +40,8 @@ Lemma  mem_send_nz_not_share_update{n i ai r0 r1 r2 ptx sh h fhs spsd} {l:Word} 
 Proof.
   iIntros (Htt Hcur Htx Hsz_psd Hfhs Hhp).
   iIntros "PC Hown Hacc R0 R1 R2 Hhp".
-  iIntros "(Hcur & Hσmem & Hσreg & Hσmb & Hσrxs & Hσown & Hσaccess & Hσtrans & Hσhp & Hσretri & %Inv_trans_hpool & %Inv_psdl & %Inv_trans_pgt)".
+  iIntros "(Hcur & Hσmem & Hσreg & Hσmb & Hσrxs & Hσown & Hσaccess & Hσtrans & Hσhp & Hσretri
+                 & %Inv_trans_hpool & %Inv_trans_wf & %Inv_trans_pgt & %Inv_pgt_mb)".
   (* valid regs *)
   iDestruct ((gen_reg_valid1 R0 i r0 Hcur) with "Hσreg R0") as "%HR0";eauto.
   iDestruct ((gen_reg_valid1 R1 i r1 Hcur) with "Hσreg R1") as "%HR1";eauto.
@@ -48,7 +49,7 @@ Proof.
   iDestruct ((gen_reg_valid1 PC i ai Hcur) with "Hσreg PC") as "%HPC";eauto.
   (* valid pt *)
   iDestruct (access_agree_1_excl_check_true_bigS spsd with "Hσaccess Hacc") as %Hacc.
-  iDestruct (ownership_agree_lookup_bigS spsd with "Hσown Hown") as %Hown_lookup.
+  iDestruct (ownership_agree_Some_lookup_bigS spsd with "Hσown Hown") as %Hown_lookup.
   iDestruct (access_agree_1_lookup_bigS spsd with "Hσaccess Hacc") as %Hacc_lookup.
   rewrite /gen_vm_interp /update_incr_PC /update_reg.
     (* unchanged part *)
@@ -146,8 +147,8 @@ Proof.
   simpl.
   iFrame "Hσretri Hσhp Hσtrans".
   (* invariants  *)
-  rewrite (preserve_inv_trans_pg_num_ub _ (alloc_transaction σ1 h (i, W0, j, spsd, tt, false))).
-  2: rewrite p_upd_pc_trans !p_upd_reg_trans p_rvk_acc_trans //.
+  (* rewrite (preserve_inv_trans_pg_num_ub _ (alloc_transaction σ1 h (i, W0, j, spsd, tt, false))). *)
+  (* 2: rewrite p_upd_pc_trans !p_upd_reg_trans p_rvk_acc_trans //. *)
   rewrite (preserve_inv_trans_hpool_consistent _ (alloc_transaction σ1 h (i, W0, j, spsd, tt, false))).
   2: rewrite p_upd_pc_trans !p_upd_reg_trans p_rvk_acc_trans //.
   rewrite (preserve_inv_trans_pgt_consistent _ (revoke_access_global (alloc_transaction σ1 h (i, W0, j, spsd, tt, false)) i spsd)).
@@ -167,7 +168,7 @@ Proof.
       inversion H0;subst x.
       clear H0.
       simpl.
-      rewrite (update_page_table_lookup_elem_of (perm:= (i, {[i]}))).
+      rewrite (update_page_table_lookup_elem_of (perm:= (Some i, {[i]}))).
       simpl.
       assert ({[i]} ∖ {[i]} = ∅) as ->.
       set_solver +.
@@ -215,14 +216,12 @@ Proof.
       subst x1 x0.
       clear Hlookup_pgt'.
       rewrite Hlookup_pgt /= in Inv_trans_pgt.
-      destruct x.1.2, x.2;eauto;
-        (* try ( inversion Inv_trans_pgt;  *)
-        (*  set_solver). *)
+      destruct x.1.2, x.2;admit.
         (* TODO: to prove this, we have to establish a new invariant that shows either the sender can not also be the receiver in any transactions,
          or one page can not be involved in any two transactions.
          the new invariant can be combined with inv_trans_pg_num_ub to express the wellformedness of transactions.
        *)
-      admit. }
+       }
     destruct x.1.2;
     destruct x.2 eqn:Heq_retri;eauto;
     apply update_page_table_lookup_not_elem_of;eauto.
@@ -236,15 +235,16 @@ Proof.
     set_solver +.
     done.
   }
-  assert (Inv_trans_psdl' :inv_trans_pg_num_ub (alloc_transaction σ1 h (i, W0, j, spsd, tt, false))).
-  { (* TODO : use Hsz_psd and the fact that l is a word *)
-    admit.
-  }
+  (* assert (Inv_trans_psdl' :inv_trans_pg_num_ub (alloc_transaction σ1 h (i, W0, j, spsd, tt, false))). *)
+  (* { (* TODO : use Hsz_psd and the fact that l is a word *) *)
+  (*   admit. *)
+  (* } *)
   (* framing out everything  *)
   iModIntro.
   iSplitL "".
   iPureIntro.
   split;auto.
+  split;admit.
   iFrame.
   iPureIntro.
   done.

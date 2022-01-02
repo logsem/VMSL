@@ -95,7 +95,7 @@ Section pagetable_rules.
     destruct x;done.
   Qed.
 
-  Lemma opsem_ownership_lookup {σ} {i:VMID} (p:PID):
+  Lemma opsem_ownership_lookup {σ} {i:option VMID} (p:PID):
   (get_owned_gmap σ) !! p = Some i ->
   ∃ s, (get_page_table σ) !! p = Some(i, s).
   Proof.
@@ -107,7 +107,6 @@ Section pagetable_rules.
     exists x.2.
     destruct x;done.
   Qed.
-
 
   (** agreement (RA -> opsem) **)
 
@@ -277,10 +276,10 @@ Section pagetable_rules.
     iApply (ghost_map_lookup with "Hσ Hpt").
   Qed.
 
-  Lemma ownership_agree_lookup {σ} p i:
+  Lemma ownership_agree_Some_lookup {σ} p i:
    ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
    (p -@O> i) -∗
-   ⌜∃ s, (get_page_table σ) !! p= Some (i,s)⌝.
+   ⌜∃ s, (get_page_table σ) !! p= Some (Some i,s)⌝.
   Proof.
     iIntros  "Hσ Hown".
     rewrite owned_mapsto_eq /owned_mapsto_def.
@@ -291,13 +290,13 @@ Section pagetable_rules.
     done.
   Qed.
 
-  Lemma ownership_agree_check_true {σ} p i:
+  Lemma ownership_agree_Some_check_true {σ} p i:
    ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
    (p -@O> i) -∗
    ⌜(check_ownership_page σ i p)= true⌝.
   Proof.
     iIntros  "Hσ Hown".
-    iDestruct (ownership_agree_lookup with "Hσ Hown") as %[s Hlookup].
+    iDestruct (ownership_agree_Some_lookup with "Hσ Hown") as %[s Hlookup].
     iPureIntro.
     rewrite /check_ownership_page.
     rewrite Hlookup.
@@ -340,18 +339,18 @@ Section pagetable_rules.
     iApply (access_agree_1_excl_check_true with "Hacc Hpgt").
   Qed.
 
-  Lemma ownership_agree_lookup_bigS {σ i} (s:gset PID):
+  Lemma ownership_agree_Some_lookup_bigS {σ i} (s:gset PID):
    ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
    ([∗ set] p ∈ s, p -@O> i) -∗
-   ⌜set_Forall (λ p, ∃ s,  get_page_table σ !! p = Some (i,s) ) s⌝.
+   ⌜set_Forall (λ p, ∃ s,  get_page_table σ !! p = Some (Some i,s) ) s⌝.
   Proof.
     iIntros "Hown Hpgt".
     iIntros (p Hin_p).
     iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt".
-    iApply (ownership_agree_lookup with "Hown Hpgt").
+    iApply (ownership_agree_Some_lookup with "Hown Hpgt").
   Qed.
 
-  Lemma ownership_agree_check_true_bigS {σ i} (s:gset PID):
+  Lemma ownership_agree_Some_check_true_bigS {σ i} (s:gset PID):
    ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
    ([∗ set] p ∈ s, p -@O> i) -∗
    ⌜set_Forall (λ p, check_ownership_page σ i p = true) s⌝.
@@ -359,9 +358,8 @@ Section pagetable_rules.
     iIntros "Hown Hpgt".
     iIntros (p Hin_p).
     iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt".
-    iApply (ownership_agree_check_true with "Hown Hpgt").
+    iApply (ownership_agree_Some_check_true with "Hown Hpgt").
   Qed.
-
 
   Lemma access_update{gm x s} s':
     own (gen_access_name vmG) (● gm) -∗ x -@A> [s] ==∗ own (gen_access_name vmG) (● <[x := (1%Qp,GSet s')]>gm) ∗ x -@A> [s'].

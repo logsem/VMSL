@@ -35,14 +35,14 @@ Proof.
   rewrite /alloc_transaction /=.
   split.
   {
-    rewrite /inv_trans_hpool_disj'.
-    rewrite /inv_trans_hpool_disj' in Hdisj.
+    rewrite /inv_trans_hpool_disj.
+    rewrite /inv_trans_hpool_disj in Hdisj.
     rewrite dom_insert_L.
     set_solver + Hin Hdisj.
   }
   {
-    rewrite /inv_finite_handles'.
-    rewrite /inv_finite_handles' in Hfinite.
+    rewrite /inv_finite_handles.
+    rewrite /inv_finite_handles in Hfinite.
     rewrite (dom_insert_L σ.2.1 h tran).
     rewrite union_comm_L.
     rewrite union_assoc_L.

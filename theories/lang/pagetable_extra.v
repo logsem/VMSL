@@ -88,7 +88,8 @@ Proof.
     destruct (decide (i0=p)).
     rewrite e.
     rewrite lookup_insert.
-    rewrite lookup_fmap  Hlookup //.
+    rewrite lookup_fmap  Hlookup.
+    destruct o;done.
     rewrite lookup_insert_ne;[done|eauto].
   }
   rewrite IHps //.
@@ -199,7 +200,6 @@ Qed.
 
 (*--- prove having mappings in gmap implies owership/access to pages in opsem ---*)
 
-
 Lemma u_rvk_acc_acc σ ps v :
   get_access_gmap (revoke_access_global σ v ps) = revoke_acc_gmap (get_access_gmap σ) v ps.
 Proof.
@@ -234,7 +234,7 @@ Proof.
   apply upd_is_strong_assoc_comm.
 Qed.
 
-Lemma update_page_table_lookup_not_elem_of {i:VMID} {perm : VMID * gset VMID} pgt  upd (sps: gset PID) (p:PID) :
+Lemma update_page_table_lookup_not_elem_of {i:VMID} {perm : permission} pgt upd (sps: gset PID) (p:PID) :
   p ∉ sps ->
   pgt !! p = Some perm ->
   set_fold (λ (p0 : PID) (acc : page_table), match acc !! p0 with
@@ -267,7 +267,7 @@ Proof.
   set_solver + H.
 Qed.
 
-Lemma update_page_table_lookup_elem_of {σ} {i:VMID} {perm : VMID * gset VMID} upd (sps: gset PID) (p:PID) :
+Lemma update_page_table_lookup_elem_of {σ} {i:VMID} {perm : permission} upd (sps: gset PID) (p:PID) :
   p ∈ sps ->
   (get_page_table σ) !! p = Some perm ->
   set_fold (λ (p0 : PID) (acc : page_table), match acc !! p0 with

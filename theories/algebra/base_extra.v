@@ -6,41 +6,37 @@ Section predicates.
 
   Definition is_total_gmap `{Countable K} {V: Type} (m : gmap K V) : Prop := ∀ (k : K), is_Some (m !! k).
 
-  Definition is_checkb (checkb: VMID * (gset VMID) -> VMID -> Prop) (pgt:page_table) p i :=
-    match pgt !! p with
-    | Some perm => checkb perm i
-    (* assume pgt is total *)
-    | None => False
-    end.
+  (* Definition is_checkb (checkb: permission -> VMID -> Prop) (pgt:page_table) p i := *)
+  (*   match pgt !! p with *)
+  (*   | Some perm => checkb perm i *)
+  (*   (* assume pgt is total *) *)
+  (*   | None => False *)
+  (*   end. *)
 
-  Definition is_accessible pgt p i := is_checkb (λ perm i, i ∈ perm.2) pgt p i.
+  (* Definition is_accessible pgt p i := is_checkb (λ perm i, i ∈ perm.2) pgt p i. *)
 
-  Lemma is_accessible_check_true σ p i:
-    let pgt := (get_page_table σ) in
-    is_total_gmap pgt -> is_accessible pgt p i -> check_access_page σ i p = true.
-  Proof.
-    intros pgt Htotal Hcheckb.
-    rewrite /check_access_page.
-    rewrite /is_accessible /is_checkb in Hcheckb.
-    destruct (pgt !! p) eqn:Heqn.
-    - rewrite Heqn in Hcheckb.
-      rewrite Heqn.
-      destruct p0.
-      case_match;first done.
-      simpl in Heqn.
-      done.
-    - rewrite /is_total_gmap in Htotal.
-      specialize (Htotal p) as [? Hsome].
-      rewrite Heqn in Hsome.
-      done.
-  Qed.
+  (* Lemma is_accessible_check_true σ p i: *)
+  (*   let pgt := (get_page_table σ) in *)
+  (*   is_total_gmap pgt -> is_accessible pgt p i -> check_access_page σ i p = true. *)
+  (* Proof. *)
+  (*   intros pgt Htotal Hcheckb. *)
+  (*   rewrite /check_access_page. *)
+  (*   rewrite /is_accessible /is_checkb in Hcheckb. *)
+  (*   destruct (pgt !! p) eqn:Heqn. *)
+  (*   - rewrite Heqn in Hcheckb. *)
+  (*     rewrite Heqn. *)
+  (*     destruct p0. *)
+  (*     case_match;first done. *)
+  (*     simpl in Heqn. *)
+  (*     done. *)
+  (*   - rewrite /is_total_gmap in Htotal. *)
+  (*     specialize (Htotal p) as [? Hsome]. *)
+  (*     rewrite Heqn in Hsome. *)
+  (*     done. *)
+  (* Qed. *)
 
-  Definition is_owned pgt p i := is_checkb (λ perm i, i = perm.1) pgt p i.
+  (* Definition is_owned pgt p i := is_checkb (λ perm i, Some i = perm.1.1) pgt p i. *)
 
-  (* Class strong_assoc_comm_disj_sets `{FinSet A C} {B} (X Y:C)  (f : A → B → B)  := { *)
-  (*   prop : ∀ x1 x2 (b : B), x1 ∈ X ∪ Y → x2 ∈ X ∪ Y → x1 ≠ x2 → *)
-  (*                           (f x1 (f x2 b)) = (f x2 (f x1 b)); *)
-  (*    }. *)
 End predicates.
 
 Section preservation.
@@ -70,10 +66,10 @@ Section preservation.
   Qed.
 
   Lemma preserve_get_owned_gmap σ σ' :
-    get_page_table σ = get_page_table σ' -> get_owned_gmap σ = get_owned_gmap σ'.
+    get_page_table σ = get_page_table σ' -> get_own_gmap σ = get_own_gmap σ'.
   Proof.
     intro Heq_proj.
-    rewrite /get_owned_gmap Heq_proj //.
+    rewrite /get_own_gmap Heq_proj //.
   Qed.
 
   Lemma preserve_get_access_gmap σ σ' :
@@ -81,6 +77,13 @@ Section preservation.
   Proof.
     intro Heq_proj.
     rewrite /get_access_gmap Heq_proj //.
+  Qed.
+
+  Lemma preserve_get_excl_gmap σ σ' :
+    get_page_table σ = get_page_table σ' -> get_excl_gmap σ = get_excl_gmap σ'.
+  Proof.
+    intro Heq_proj.
+    rewrite /get_excl_gmap Heq_proj //.
   Qed.
 
   Lemma preserve_get_trans_gmap σ σ' :
@@ -115,11 +118,11 @@ Section preservation.
     done.
   Qed.
 
-  Lemma preserve_inv_trans_pg_num_ub σ σ' :
-    (get_transactions σ).1 = (get_transactions σ').1 -> inv_trans_pg_num_ub σ = inv_trans_pg_num_ub σ'.
+  Lemma preserve_inv_trans_wellformed σ σ' :
+    (get_transactions σ).1 = (get_transactions σ').1 -> inv_trans_wellformed σ = inv_trans_wellformed σ'.
   Proof.
     intro Heq_proj.
-    rewrite /inv_trans_pg_num_ub Heq_proj //.
+    rewrite /inv_trans_wellformed Heq_proj //.
   Qed.
 
   Lemma preserve_inv_trans_pgt_consistent σ σ' :
@@ -129,6 +132,15 @@ Section preservation.
   Proof.
     intros Heq_proj_trans Heq_proj_pgt.
     rewrite /inv_trans_pgt_consistent Heq_proj_trans Heq_proj_pgt //.
+  Qed.
+
+  Lemma preserve_inv_pgt_mb_consistent σ σ':
+    (get_page_table σ) = (get_page_table σ') ->
+    (get_mail_boxes σ) = (get_mail_boxes σ') ->
+    inv_pgt_mb_consistent σ = inv_pgt_mb_consistent σ'.
+  Proof.
+    intros Heq_pgt Heq_mb.
+    rewrite /inv_pgt_mb_consistent Heq_pgt Heq_mb //.
   Qed.
 
 End preservation.
@@ -146,8 +158,5 @@ Section helper.
                                 | _ => gm
                                 end
                     ).
-
-  (* Global Instance revoke_acc_assoc_comm_disj_sets : Class strong_assoc_comm_disj_sets := {}. *)
-
 
 End helper.
