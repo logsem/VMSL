@@ -60,6 +60,27 @@ Section pagetable_rules.
     naive_solver.
   Qed.
 
+  Lemma access_split {q} p s s1 s2 :
+    s = s1 ∪ s2 ->
+    s1 ## s2 ->
+    p -@{ q }A> [ s ] -∗
+    p -@{ q/2 }A> [ s1 ] ∗
+    p -@{ q/2 }A> [ s2 ].
+  Proof.
+    iIntros (Heq Hdisj) "H".
+    rewrite Heq.
+    rewrite access_mapsto_eq /access_mapsto_def.
+    rewrite <-gset_disj_union; auto.
+    rewrite <-(Qp_div_2 q).
+    rewrite pair_op.
+    setoid_rewrite <- singleton_op.
+    rewrite auth_frag_op.
+    rewrite own_op.
+    iDestruct "H" as "[? ?]".
+    rewrite (Qp_div_2 q).
+    by iFrame.
+  Qed.
+
   (** relations between get_access_gmap and the opsem **)
   Lemma opsem_access_lookup {σ} {s:gset VMID} (p:PID):
   (get_access_gmap σ) !! p = Some (1%Qp, (GSet s)) ->
@@ -166,41 +187,32 @@ Section pagetable_rules.
     done.
   Qed.
 
-  Lemma access_agree_check_false {σ i} p s:
-   i ∉ s ->
+  Lemma access_agree_1_lookup {σ} p s:
    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
-   (p -@{1}A> [s]) -∗
-   ⌜(check_access_page σ i p)= false⌝.
+   (p -@A> [s]) -∗
+   ⌜∃ v, (get_page_table σ) !! p= Some (v,s)⌝.
   Proof.
-    iIntros (Hnin) "Hσ Hacc".
+    iIntros "Hauth Hfrag".
     rewrite access_mapsto_eq /access_mapsto_def.
-    iDestruct (access_agree_1 with "Hσ Hacc") as %Hvalid.
-    rewrite /check_access_page.
+    iDestruct (access_agree_1 with "Hauth Hfrag") as %Hvalid.
+    iPureIntro.
     apply opsem_access_lookup in Hvalid as [? Hvalid].
-    rewrite Hvalid.
-    destruct (decide (i ∈ s)) as [Hde|?]; last done.
-    contradiction.
+    exists x.
+    done.
   Qed.
 
-  Lemma access_split {q} p s s1 s2 :
-    s = s1 ∪ s2 ->
-    s1 ## s2 ->
-    p -@{ q }A> [ s ] -∗
-    p -@{ q/2 }A> [ s1 ] ∗
-    p -@{ q/2 }A> [ s2 ].
+  Lemma access_agree_1_check_false {σ i} p s:
+   i ∉ s ->
+   own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
+   (p -@A> [s]) -∗
+   ⌜(check_access_page σ i p)= false⌝.
   Proof.
-    iIntros (Heq Hdisj) "H".
-    rewrite Heq.
-    rewrite access_mapsto_eq /access_mapsto_def.
-    rewrite <-gset_disj_union; auto.
-    rewrite <-(Qp_div_2 q).
-    rewrite pair_op.
-    setoid_rewrite <- singleton_op.
-    rewrite auth_frag_op.
-    rewrite own_op.
-    iDestruct "H" as "[? ?]".
-    rewrite (Qp_div_2 q).
-    by iFrame.
+    iIntros (Hnin) "Hauth Hfrag".
+    iDestruct (access_agree_1_lookup with "Hauth Hfrag") as %[v Hlookup].
+    rewrite /check_access_page.
+    rewrite Hlookup.
+    destruct (decide (i ∈ s)) as [Hde|?]; last done.
+    contradiction.
   Qed.
 
   Lemma access_agree_check_true_forall {q} σ p s :
@@ -236,7 +248,7 @@ Section pagetable_rules.
     by apply Hforall.
   Qed.
 
-  Lemma access_agree_excl_check_true {σ} p i:
+  Lemma access_agree_1_excl_check_true {σ} p i:
    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
    (p -@A> i) -∗
    ⌜(check_excl_access_page σ i p)= true⌝.
@@ -294,6 +306,17 @@ Section pagetable_rules.
 
   (* bigS *)
 
+  Lemma access_agree_1_lookup_bigS {σ} (s:gset PID) (sacc: gset VMID):
+   own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
+   ([∗ set] p ∈ s, p -@A> [sacc]) -∗
+   ⌜set_Forall (λ p, ∃ v,  get_page_table σ !! p = Some (v,sacc) ) s⌝.
+  Proof.
+    iIntros "Hauth Hfrags".
+    iIntros (p Hin_p).
+    iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hfrags") as "Hfrags".
+    iApply (access_agree_1_lookup with "Hauth Hfrags").
+  Qed.
+
   Lemma access_agree_check_true_bigS {σ i} (s:gset PID):
    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
    ([∗ set] p ∈ s, ∃ q, p -@{q}A> i) -∗
@@ -306,7 +329,7 @@ Section pagetable_rules.
     by apply elem_of_singleton.
   Qed.
 
-  Lemma access_agree_excl_check_true_bigS {σ i} (s:gset PID):
+  Lemma access_agree_1_excl_check_true_bigS {σ i} (s:gset PID):
    own (gen_access_name vmG) (●(get_access_gmap σ)) -∗
    ([∗ set] p ∈ s, p -@A> i) -∗
    ⌜set_Forall (λ p, check_excl_access_page σ i p = true) s⌝.
@@ -314,7 +337,7 @@ Section pagetable_rules.
     iIntros "Hacc Hpgt".
     iIntros (p Hin_p).
     iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt".
-    iApply (access_agree_excl_check_true with "Hacc Hpgt").
+    iApply (access_agree_1_excl_check_true with "Hacc Hpgt").
   Qed.
 
   Lemma ownership_agree_lookup_bigS {σ i} (s:gset PID):
@@ -327,7 +350,6 @@ Section pagetable_rules.
     iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt".
     iApply (ownership_agree_lookup with "Hown Hpgt").
   Qed.
-  (* TODO access_agree_lookup_bigS *)
 
   Lemma ownership_agree_check_true_bigS {σ i} (s:gset PID):
    ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗

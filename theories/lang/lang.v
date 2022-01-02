@@ -610,9 +610,9 @@ Definition new_transaction_from_descriptor (st : state) (ty : transaction_type)
 (* all pages have the same required permission *)
 Definition check_transition_transaction (s : state) (td : transaction_descriptor) : bool :=
   match td with
-  | (_, _, _, _, m) => forallb (fun v' =>
+  | (_, _, _, _, m) => bool_decide (set_Forall (fun v' =>
                                  (check_excl_access_page s (get_current_vm s) v')
-                                 && check_ownership_page s (get_current_vm s) v') (elements m)
+                                 && check_ownership_page s (get_current_vm s) v' = true) m)
   end.
 
 Definition list_pid_to_addr (ps: list PID):=

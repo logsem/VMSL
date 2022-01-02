@@ -102,9 +102,9 @@ Qed.
 
 Lemma not_valid_pc {s} i a :
   i ∉ s ->
-  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ (tpa a) -@{1}A> [s] }}}
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ (tpa a) -@A> [s] }}}
   ExecI @ i
-  {{{ RET (false, FailI); PC @@ i ->r a ∗ (tpa a) -@{1}A> [s] }}}.
+  {{{ RET (false, FailI); PC @@ i ->r a ∗ (tpa a) -@A> [s] }}}.
 Proof.
   iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -117,7 +117,7 @@ Proof.
   iModIntro.
   iDestruct "Hσ1" as "( ? & ? & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  iDestruct (access_agree_check_false (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
+  iDestruct (access_agree_1_check_false (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.
   - iPureIntro.
     rewrite /reducible.

@@ -27,6 +27,32 @@ Lemma p_alloc_trans_pgt σ h trans:
   get_page_table (alloc_transaction σ h trans) = get_page_table σ.
 Proof. f_equal. Qed.
 
+Lemma p_alloc_trans_inv_trans_hpool σ h tran:
+h ∈ (get_transactions σ).2 -> inv_trans_hpool_consistent σ -> inv_trans_hpool_consistent (alloc_transaction σ h tran).
+Proof.
+  rewrite /inv_trans_hpool_consistent /inv_trans_hpool_consistent'.
+  intros Hin [Hdisj Hfinite].
+  rewrite /alloc_transaction /=.
+  split.
+  {
+    rewrite /inv_trans_hpool_disj'.
+    rewrite /inv_trans_hpool_disj' in Hdisj.
+    rewrite dom_insert_L.
+    set_solver + Hin Hdisj.
+  }
+  {
+    rewrite /inv_finite_handles'.
+    rewrite /inv_finite_handles' in Hfinite.
+    rewrite (dom_insert_L σ.2.1 h tran).
+    rewrite union_comm_L.
+    rewrite union_assoc_L.
+    rewrite (union_comm_L (σ.2.2 ∖ {[h]}) {[h]}).
+    rewrite -(union_difference_singleton_L h);auto.
+    rewrite Hfinite.
+    apply union_comm_L.
+  }
+Qed.
+
 Lemma insert_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran shp:
   (get_transactions_gmap (insert_transaction σ h tran shp) proj)
   = <[h:= (proj tran)]>(get_transactions_gmap σ proj).
