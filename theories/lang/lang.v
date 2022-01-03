@@ -669,44 +669,6 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   in
   unpack_hvc_result_normal s comp.
 
-Definition toggle_transaction_retrieve (s : state) (h : Word) (trn: transaction)
-  : hvc_result state :=
-  let v := (get_current_vm s) in
-  match trn with
-   (vs, w1, r, ps, ty, b) =>
-      match (v =? r) with
-      | false => throw Denied
-      | _ => if b
-             then throw Denied
-             else unit (update_transaction s h (vs, w1, r, ps, ty, true))
-      end
-  end.
-
-Definition toggle_transaction_relinquish (s : state) (h : Word) (v : VMID) : hvc_result state :=
-  match get_transaction s h with
-  | Some (vs, w1, r, ps, ty, b) =>
-    match (v =? r) with
-      | false => throw Denied
-      | _ => if b
-             then unit (update_transaction s h (vs, w1,r, ps, ty, false))
-             else throw Denied
-    end
-  | _ => throw InvParam
-  end.
-
-Definition relinquish_transaction (s : state)
-           (h : Word) (f : Word) (t : transaction) : hvc_result state :=
-  let ps := t.1.1.2 in
-  s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
-  let upd := match t.1.2 with
-    | Sharing => (λ perm v, flip_excl (revoke_access perm v) v)
-    | _ => revoke_access
-             end
-  in
-  if (f =? W1)%Z then
-    unit (update_page_table_global upd (update_reg (zero_pages s' (elements ps)) R0 (encode_hvc_ret_code Succ)) (get_current_vm s) ps)
-  else
-  unit (update_page_table_global upd (update_reg s' R0 (encode_hvc_ret_code Succ)) (get_current_vm s) ps).
 
 Definition get_memory_descriptor (t : transaction) : VMID * (gset PID) :=
   match t with
@@ -729,11 +691,12 @@ Definition retrieve (s : state) : exec_mode * state :=
       match m with
       | (vs, Some handle, _, _, _) =>
         trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-        match get_transaction s handle with
-         | Some (vs, w1, r, ps, ty, b) =>
-           match ((get_current_vm s) =? r) , b  with
+        match trn with
+         | (vs, w1, r, ps, ty, b) =>
+             let v := (get_current_vm s) in
+           match (v =? r) , b with
            | true, false =>
-             s' <- (write_retrieve_msg s (get_rx_pid s @ (get_current_vm s)) handle trn) ;;;
+             s' <- (write_retrieve_msg s (get_rx_pid s @ v) handle trn) ;;;
              let upd := match ty with
                | Sharing => (λ perm v, flip_excl (grant_access perm v) v)
                | Lending => grant_access
@@ -741,21 +704,20 @@ Definition retrieve (s : state) : exec_mode * state :=
                end in
              match ty with
              | Sharing =>
-               unit  (update_reg (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true))
-                                                       (get_current_vm s) ps)
-                                                     R0 (encode_hvc_ret_code Succ))
+                 unit  (update_reg
+                          (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true)) v ps)
+                          R0 (encode_hvc_ret_code Succ))
              | Lending =>
-               unit  (update_reg (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true))
-                                                      (get_current_vm s) ps)
-                                                     R0 (encode_hvc_ret_code Succ))
+                 unit  (update_reg
+                          (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true)) v ps)
+                          R0 (encode_hvc_ret_code Succ))
              | Donation =>
-               unit  (update_reg (update_page_table_global upd (remove_transaction s' handle)
-                                        (get_current_vm s) ps)
-                                 R0 (encode_hvc_ret_code Succ))
+                 unit  (update_reg
+                          (update_page_table_global upd (remove_transaction s' handle) v ps)
+                          R0 (encode_hvc_ret_code Succ))
              end
            | _ , _ => throw Denied
            end
-         | None => throw InvParam
          end
       | _ => throw InvParam
       end
@@ -769,31 +731,43 @@ Definition relinquish (s : state) : exec_mode * state :=
       f <- lift_option (get_memory_with_offset s b 1) ;;;
       trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
       if (f >? W1)%Z then throw InvParam else
-       relinquish_transaction s h f trn
+        let ps := trn.1.1.2 in
+        let v := (get_current_vm s) in
+        s' <- (match trn with
+               | (vs, w1, r, ps, ty, b) =>
+                   if b && (v =? r)
+                   then unit (update_transaction s h (vs, w1,r, ps, ty, false))
+                   else throw Denied
+               end) ;;;
+      let upd := match trn.1.2 with
+                 | Sharing => (λ perm v, flip_excl (revoke_access perm v) v)
+                 | _ => revoke_access
+                 end
+      in
+      if (f =? W1)%Z then
+        unit (update_page_table_global upd (update_reg (zero_pages s' (elements ps)) R0 (encode_hvc_ret_code Succ)) v ps)
+      else
+        unit (update_page_table_global upd (update_reg s' R0 (encode_hvc_ret_code Succ)) v ps)
   in
   unpack_hvc_result_normal s comp.
-
-Definition no_borrowers (s : state) (h : Word) (v : VMID) : bool :=
-  match (get_transaction s h) with
-  | None => false
-  | Some (vs, w1, r, ps, ty, b) => negb b
-  end.
 
 Definition reclaim (s : state) : exec_mode * state :=
   let comp :=
       handle <- lift_option (get_reg s R1) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-      l <- unit ((get_memory_descriptor trn).2 );;;
-      if trn.2
+      ps <- unit ((get_memory_descriptor trn).2);;;
+      v <- unit (get_current_vm s) ;;;
+      if (trn.1.1.1.1.1 =? v) && trn.2
       then
         match trn.1.2 with
         | Sharing =>
-            unit (update_reg (update_page_table_global
-                                (λ perm v, flip_excl (grant_access perm v) v)
-                                                       (remove_transaction s handle) (get_current_vm s) l) R0 (encode_hvc_ret_code Succ))
+            unit (update_reg
+                    (update_page_table_global (λ perm v, flip_excl (grant_access perm v) v) (remove_transaction s handle) v ps)
+                    R0 (encode_hvc_ret_code Succ))
         | Lending =>
-            unit (update_reg (update_page_table_global grant_access
-                                                       (remove_transaction s handle) (get_current_vm s) l) R0 (encode_hvc_ret_code Succ))
+            unit (update_reg
+                    (update_page_table_global grant_access (remove_transaction s handle) v ps)
+                    R0 (encode_hvc_ret_code Succ))
         | Donation => throw InvParam
         end
       else throw Denied

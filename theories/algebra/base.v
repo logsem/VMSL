@@ -8,32 +8,32 @@ Inductive MailBox :=
   RX
 | TX.
 
-Instance mb_eqdec :EqDecision MailBox.
-  Proof.
-    intros x y.
-    destruct x, y.
-    left;done.
-    right;done.
-    right;done.
-    left;done.
+Local Instance mb_eqdec :EqDecision MailBox.
+Proof.
+  intros x y.
+  destruct x, y.
+  left;done.
+  right;done.
+  right;done.
+  left;done.
 Qed.
 
-  Instance mb_countable : Countable MailBox.
-  Proof.
-      refine {| encode r :=  match r with
-                             | RX => encode (Some ())
-                             | TX => encode (None)
-                             end;
-            decode n := match decode n with
-                        | Some (Some ()) => Some RX
-                        | Some (None) => Some TX
-                        | _ => None
-                        end ;
-            decode_encode := _ |}.
-      intro.
-      destruct x;auto.
-      rewrite ->(decode_encode None).
-      done.
+Local Instance mb_countable : Countable MailBox.
+Proof.
+  refine {| encode r :=  match r with
+                         | RX => encode (Some ())
+                         | TX => encode (None)
+                         end;
+           decode n := match decode n with
+                       | Some (Some ()) => Some RX
+                       | Some (None) => Some TX
+                       | _ => None
+                       end ;
+           decode_encode := _ |}.
+  intro.
+  destruct x;auto.
+  rewrite ->(decode_encode None).
+  done.
 Qed.
 
 
@@ -55,12 +55,9 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
 Section gen_vmG.
   Context `{hypconst : !HypervisorConstants}.
 
-
   Class gen_VMG Σ := GenVMG{
                             gen_VM_inG :> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ;
                             gen_invG :> invGS Σ;
-                            (* gen_na_invG :> na_invG Σ; *)
-                            (* gen_nainv_name : na_inv_pool_name; *)
                             gen_saved_propG :> savedPropG Σ;
                             gen_prop_nameG :> inG Σ (authUR (optionUR (frac_agreeR gnameO)));
                             gen_name_mapG :> inG Σ (authUR (gmapUR nat (agreeR gnameO)));
@@ -78,7 +75,6 @@ Section gen_vmG.
                             gen_lower_bound_name: gname
                        }.
 
-  (* Global Arguments gen_nainv_name {Σ} _. *)
   Global Arguments gen_mem_name {Σ} {_}.
   Global Arguments gen_reg_name {Σ} {_}.
   Global Arguments gen_rx_state_name {Σ} {_}.
@@ -210,6 +206,9 @@ Section definitions.
                 |(tx, (rx, _)) => pgt !! tx = Some (None, true, {[i]}) ∧ pgt !! rx = Some (None, true, {[i]})
                 end.
 
+  Definition inv_mb_wellformed σ :=
+    map_Forall (λ k p, map_Forall (λ k' p', k ≠ k' -> p ≠ p' ) (get_mb_gmap σ) ) (get_mb_gmap σ).
+
   Definition inv_pgt_mb_consistent σ := inv_pgt_mb_consistent' (get_page_table σ) (get_mail_boxes σ).
 
   Context `{vmG: !gen_VMG Σ}.
@@ -222,6 +221,7 @@ Section definitions.
       ∗ ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ)
       ∗ ghost_map_auth gen_own_name 1 (get_own_gmap σ)
       ∗ own gen_access_name (● (get_access_gmap σ))
+      ∗ ghost_map_auth gen_excl_name 1 (get_excl_gmap σ)
       ∗ ghost_map_auth gen_trans_name 1 (get_trans_gmap σ)
       ∗ own gen_hpool_name (frac_auth_auth (get_hpool_gset σ))
       ∗ ghost_map_auth gen_retri_name 1 (get_retri_gmap σ)
@@ -229,6 +229,7 @@ Section definitions.
       ∗ ⌜inv_trans_wellformed σ⌝
       ∗ ⌜inv_trans_pgt_consistent σ⌝
       ∗ ⌜inv_pgt_mb_consistent σ⌝
+      ∗ ⌜inv_mb_wellformed σ⌝
   .
 
   Definition mem_mapsto_def (a:Addr) (q : frac) (w:Word) : iProp Σ :=
@@ -303,10 +304,6 @@ Section definitions.
   Definition lower_bound_auth_mapsto_aux : seal (@lower_bound_auth_mapsto_def). Proof. by eexists. Qed.
   Definition lower_bound_auth_mapsto := lower_bound_auth_mapsto_aux.(unseal).
   Definition lower_bound_auth_mapsto_eq : @lower_bound_auth_mapsto = @lower_bound_auth_mapsto_def := lower_bound_auth_mapsto_aux.(seal_eq).
-
-  (* Definition nainv_closed E := na_own (gen_nainv_name vmG) E. *)
-
-  (* Definition nainv γ P := na_inv (gen_nainv_name vmG) γ P. *)
 
 End definitions.
 
@@ -433,7 +430,6 @@ Section alloc_rules.
     set gm := (get_access_gmap σ).
     iMod (own_alloc ((● gm) ⋅ (◯ gm))) as (γ) "Halloc".
     { apply auth_both_valid;split;first done. intro.
-      (* rewrite /gm. *)
       destruct (gm !! i) eqn:Hlookup.
       rewrite Hlookup.
       rewrite /gm /get_access_gmap in Hlookup.
@@ -487,19 +483,10 @@ Section alloc_rules.
     iApply (ghost_map_alloc (get_retri_gmap σ)).
   Qed.
 
-
 End alloc_rules.
 
 Section timeless.
   Context `{vmG : gen_VMG Σ}.
-
-  (* Lemma nainv_alloc γ E P :  ▷ P ={E}=∗ na_inv (gen_nainv_name vmG) γ P. *)
-  (* Proof. *)
-  (*   iIntros "P". *)
-  (*   iMod ((na_inv_alloc (gen_nainv_name vmG) E γ P) with "P") as "H". *)
-  (*   done. *)
-  (* Qed. *)
-
   (* all resources are timeless(▷ P -> P),
     which means we can easily get rid of the later modalities of resources when opening invariants. *)
 

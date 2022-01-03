@@ -33,7 +33,7 @@ Section reg_rules.
 
 
   Lemma gen_reg_valid_global1 {σ} r i w:
-    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
     r @@ i ->r w -∗
     ⌜(get_reg_global σ i r) = Some w⌝.
   Proof.
@@ -58,7 +58,7 @@ Section reg_rules.
 
   Lemma gen_reg_valid1 {σ} r i w:
     (get_current_vm σ) = i ->
-    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
     r @@ i ->r w -∗
     ⌜(get_reg σ r) = Some w⌝.
   Proof.
@@ -69,14 +69,14 @@ Section reg_rules.
 
   Lemma gen_reg_valid_Sep {σ} i (regs: gmap (reg_name * VMID) Word):
    (get_current_vm σ) = i ->
-   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    ([∗ map] r↦w ∈ regs, r.1 @@ r.2 ->r w)-∗
    ([∗ map] r↦w ∈ regs, ⌜r.2 = i -> (get_reg σ r.1) = Some w⌝).
   Proof.
     iIntros (Hcur) "Hσ Hregs".
     rewrite reg_mapsto_eq /reg_mapsto_def.
     iDestruct ((ghost_map_lookup_big regs) with "Hσ [Hregs]") as "%Hincl".
-    iApply (big_sepM_proper (λ k x, (k.1, k.2)↪[gen_reg_name vmG] x)%I);auto.
+    iApply (big_sepM_proper (λ k x, (k.1, k.2)↪[gen_reg_name] x)%I);auto.
     intros k x Hlk.
     cbn.
     f_equiv.
@@ -99,7 +99,7 @@ Section reg_rules.
 
   Lemma gen_reg_valid2 {σ} i r1 w1 r2 w2:
     (get_current_vm σ) = i ->
-    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
     r1 @@ i ->r w1 -∗
     r2 @@ i ->r w2 -∗
     ⌜(get_reg σ r1) = Some w1⌝ ∗ ⌜(get_reg σ r2) = Some w2⌝.
@@ -122,7 +122,7 @@ Section reg_rules.
 
   Lemma gen_reg_valid3 {σ} i r1 w1 r2 w2 r3 w3:
    (get_current_vm σ) = i ->
-   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    r1 @@ i ->r w1 -∗
    r2 @@ i ->r w2 -∗
    r3 @@ i ->r w3 -∗
@@ -156,7 +156,7 @@ Section reg_rules.
 
   Lemma gen_reg_valid4 {σ} i r1 w1 r2 w2 r3 w3 r4 w4:
    (get_current_vm σ) = i ->
-   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    r1 @@ i ->r w1 -∗
    r2 @@ i ->r w2 -∗
    r3 @@ i ->r w3 -∗
@@ -196,9 +196,9 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update1_global {σ} r i w w':
-    ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+    ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
     r @@ i ->r w ==∗
-    ghost_map_auth (gen_reg_name vmG) 1 (<[(r,i):=w']>(get_reg_gmap σ)) ∗
+    ghost_map_auth gen_reg_name 1 (<[(r,i):=w']>(get_reg_gmap σ)) ∗
     r @@ i ->r w'.
   Proof.
     iIntros "Hσ Hr".
@@ -208,9 +208,9 @@ Section reg_rules.
   Qed.
 
   Lemma reg_proper {m: gmap (reg_name * VMID) Word}:
-   ([∗ map] k ↦ x ∈ m, k↪[gen_reg_name vmG] x) ⊣⊢ ([∗ map]k ↦ x ∈ m,  (k.1, k.2)↪[gen_reg_name vmG] x).
+   ([∗ map] k ↦ x ∈ m, k↪[gen_reg_name] x) ⊣⊢ ([∗ map]k ↦ x ∈ m,  (k.1, k.2)↪[gen_reg_name] x).
   Proof.
-    iApply (big_sepM_proper _ (λ k x, (k.1, k.2)↪[gen_reg_name vmG] x)%I).
+    iApply (big_sepM_proper _ (λ k x, (k.1, k.2)↪[gen_reg_name] x)%I).
     intros.
     cbn.
     f_equiv.
@@ -219,9 +219,9 @@ Section reg_rules.
 
   Lemma gen_reg_update_Sep {σ} regs regs':
    dom (gset (reg_name * VMID)) regs = dom (gset (reg_name * VMID )) regs' ->
-   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    ([∗ map] r↦w ∈ regs,  r.1 @@ r.2 ->r w) ==∗
-   ghost_map_auth (gen_reg_name vmG) 1 (regs' ∪ (get_reg_gmap σ)) ∗
+   ghost_map_auth gen_reg_name 1 (regs' ∪ (get_reg_gmap σ)) ∗
    ([∗ map] r↦w ∈ regs',  r.1 @@ r.2 ->r w).
   Proof.
     iIntros (Hdom) "Hσ Hr".
@@ -233,10 +233,10 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update2_global {σ} r1 i1 w1 w1' r2 i2 w2 w2':
-   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    r1 @@ i1 ->r w1 -∗
    r2 @@ i2 ->r w2==∗
-   ghost_map_auth (gen_reg_name vmG) 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']> (get_reg_gmap σ))) ∗
+   ghost_map_auth gen_reg_name 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']> (get_reg_gmap σ))) ∗
    r1 @@ i1 ->r w1' ∗ r2 @@ i2 ->r w2'.
   Proof.
     iIntros "Hreg Hr1 Hr2".
@@ -257,11 +257,11 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update3_global {σ w1 w2 w3} r1 i1 w1' r2 i2 w2' r3 i3 w3':
-   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    r1 @@ i1 ->r w1 -∗
    r2 @@ i2 ->r w2 -∗
    r3 @@ i3 ->r w3==∗
-   ghost_map_auth (gen_reg_name vmG) 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']>
+   ghost_map_auth gen_reg_name 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']>
                                                             (<[(r3,i3):= w3']>(get_reg_gmap σ)))) ∗
    r1 @@ i1 ->r w1'  ∗ r2 @@ i2 ->r w2' ∗ r3 @@ i3 ->r w3'.
   Proof.
@@ -287,12 +287,12 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update4_global {σ w1 w2 w3 w4} r1 i1 w1' r2 i2 w2' r3 i3 w3' r4 i4 w4':
-   ghost_map_auth (gen_reg_name vmG) 1 (get_reg_gmap σ) -∗
+   ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    r1 @@ i1 ->r w1 -∗
    r2 @@ i2 ->r w2 -∗
    r3 @@ i3 ->r w3 -∗
    r4 @@ i4 ->r w4==∗
-   ghost_map_auth (gen_reg_name vmG) 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']>
+   ghost_map_auth gen_reg_name 1 (<[(r1,i1) := w1']> (<[(r2,i2) := w2']>
                                                             (<[(r3,i3):= w3']> (<[(r4,i4):= w4']> (get_reg_gmap σ))))) ∗
    r1 @@ i1 ->r w1'  ∗ r2 @@ i2 ->r w2' ∗ r3 @@ i3 ->r w3' ∗ r4 @@ i4 ->r w4'.
   Proof.

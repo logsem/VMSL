@@ -5,7 +5,6 @@ From HypVeri.algebra Require Import base base_extra.
 From HypVeri.rules Require Import rules_base.
 Import uPred.
 
-
 (**  unary logical relation *)
 Section logrel.
   Context `{hypconst:HypervisorConstants}.
@@ -20,7 +19,6 @@ Section logrel.
   Definition unknown_mem_page (p: PID) :=
     (∃ mem, [∗ map] a ↦ w ∈ mem, ⌜a ∈ addr_of_page p⌝ -∗ (a ->a w))%I.
 
-
   (** definition **)
 
   Context (i : (leibnizO VMID)).
@@ -31,8 +29,7 @@ Section logrel.
 
 
   Definition pagetable_entries (pgt: page_table) : iProp Σ:=
-    (* let pgt' := filter (λ kv, i ∉ kv.2.2) pgt in *)
-      [∗ map] p ↦ perm ∈ pgt, p -@A> [perm.2].
+    [∗ map] p ↦ perm ∈ pgt, p -@A> [perm.2].
 
   Definition transaction_entries (trans: gmap Addr transaction) : iProp Σ:=
     [∗ map] h ↦ tran ∈ trans , h ->t tran.1.

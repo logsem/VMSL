@@ -7,12 +7,12 @@ Section pagetable_rules.
 
   (** properties of the pagetable RA **)
 
-  (* owned *)
-  Lemma owned_ne p1 p2 (v1 v2 : VMID):
+  (* own *)
+  Lemma own_ne p1 p2 (v1 v2 : VMID):
    p1 -@O> v1 ∗ p2 -@O>v2 -∗ ⌜p1 ≠ p2⌝ .
   Proof using.
     iIntros "[HO1 HO2]".
-    rewrite owned_mapsto_eq /owned_mapsto_def.
+    rewrite own_mapsto_eq /own_mapsto_def.
     destruct (decide (p1 = p2)).
     { subst p2.
       iDestruct (ghost_map_elem_valid_2 with "HO1 HO2") as "[%Hvalid _]".
@@ -22,10 +22,10 @@ Section pagetable_rules.
     done.
   Qed.
 
-  Lemma owned_agree {σ q γ} p s:
-   ghost_map_auth γ 1 (get_owned_gmap σ)  -∗
+  Lemma own_agree {σ q γ} p s:
+   ghost_map_auth γ 1 (get_own_gmap σ)  -∗
    ghost_map_elem γ p (DfracOwn q) s -∗
-   ⌜(get_owned_gmap σ) !! p = Some s ⌝.
+   ⌜(get_own_gmap σ) !! p = Some s ⌝.
   Proof.
     iIntros  "Hσ Hpt".
     iApply (ghost_map_lookup with "Hσ Hpt").
@@ -33,79 +33,79 @@ Section pagetable_rules.
 
   (* access *)
 
-  Lemma access_split_set_union {p} q1 q2 (s1 s2 : gset VMID):
-   s1 ## s2 ->
-   p -@{(q1+q2)%Qp}A> [s1 ∪ s2] -∗ p -@{q1}A> [s1] ∗ p -@{q2}A> [s2].
-  Proof using.
-    iIntros (Hdisj) "HO".
-    rewrite access_mapsto_eq /access_mapsto_def.
-    iApply own_op.
-    rewrite -auth_frag_op singleton_op.
-    rewrite -pair_op.
-    rewrite (gset_disj_union _ _ Hdisj).
-    naive_solver.
-  Qed.
+  (* Lemma access_split_set_union {p} q1 q2 (s1 s2 : gset VMID): *)
+  (*  s1 ## s2 -> *)
+  (*  p -@{(q1+q2)%Qp}A> [s1 ∪ s2] -∗ p -@{q1}A> [s1] ∗ p -@{q2}A> [s2]. *)
+  (* Proof using. *)
+  (*   iIntros (Hdisj) "HO". *)
+  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
+  (*   iApply own_op. *)
+  (*   rewrite -auth_frag_op singleton_op. *)
+  (*   rewrite -pair_op. *)
+  (*   rewrite (gset_disj_union _ _ Hdisj). *)
+  (*   naive_solver. *)
+  (* Qed. *)
 
-  Lemma access_split_set_diff {p} q1 q2 (s1 s2 : gset VMID):
-   s2 ⊆ s1 -> p -@{(q1+q2)%Qp}A> [s1] -∗ p -@{q1}A> [s2] ∗ p -@{q2}A> [s1 ∖ s2].
-  Proof using.
-    iIntros (Hsub) "HO".
-    rewrite access_mapsto_eq.
-    iApply own_op.
-    rewrite -auth_frag_op singleton_op.
-    rewrite -pair_op.
-    rewrite (gset_disj_union _ _);
-    last set_solver+ .
-    rewrite -(union_difference_L _ _ Hsub).
-    naive_solver.
-  Qed.
+  (* Lemma access_split_set_diff {p} q1 q2 (s1 s2 : gset VMID): *)
+  (*  s2 ⊆ s1 -> p -@{(q1+q2)%Qp}A> [s1] -∗ p -@{q1}A> [s2] ∗ p -@{q2}A> [s1 ∖ s2]. *)
+  (* Proof using. *)
+  (*   iIntros (Hsub) "HO". *)
+  (*   rewrite access_mapsto_eq. *)
+  (*   iApply own_op. *)
+  (*   rewrite -auth_frag_op singleton_op. *)
+  (*   rewrite -pair_op. *)
+  (*   rewrite (gset_disj_union _ _); *)
+  (*   last set_solver+ . *)
+  (*   rewrite -(union_difference_L _ _ Hsub). *)
+  (*   naive_solver. *)
+  (* Qed. *)
 
-  Lemma access_split {q} p s s1 s2 :
-    s = s1 ∪ s2 ->
-    s1 ## s2 ->
-    p -@{ q }A> [ s ] -∗
-    p -@{ q/2 }A> [ s1 ] ∗
-    p -@{ q/2 }A> [ s2 ].
-  Proof.
-    iIntros (Heq Hdisj) "H".
-    rewrite Heq.
-    rewrite access_mapsto_eq /access_mapsto_def.
-    rewrite <-gset_disj_union; auto.
-    rewrite <-(Qp_div_2 q).
-    rewrite pair_op.
-    setoid_rewrite <- singleton_op.
-    rewrite auth_frag_op.
-    rewrite own_op.
-    iDestruct "H" as "[? ?]".
-    rewrite (Qp_div_2 q).
-    by iFrame.
-  Qed.
+  (* Lemma access_split {q} p s s1 s2 : *)
+  (*   s = s1 ∪ s2 -> *)
+  (*   s1 ## s2 -> *)
+  (*   p -@{ q }A> [ s ] -∗ *)
+  (*   p -@{ q/2 }A> [ s1 ] ∗ *)
+  (*   p -@{ q/2 }A> [ s2 ]. *)
+  (* Proof. *)
+  (*   iIntros (Heq Hdisj) "H". *)
+  (*   rewrite Heq. *)
+  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
+  (*   rewrite <-gset_disj_union; auto. *)
+  (*   rewrite <-(Qp_div_2 q). *)
+  (*   rewrite pair_op. *)
+  (*   setoid_rewrite <- singleton_op. *)
+  (*   rewrite auth_frag_op. *)
+  (*   rewrite own_op. *)
+  (*   iDestruct "H" as "[? ?]". *)
+  (*   rewrite (Qp_div_2 q). *)
+  (*   by iFrame. *)
+  (* Qed. *)
 
   (** relations between get_access_gmap and the opsem **)
-  Lemma opsem_access_lookup {σ} {s:gset VMID} (p:PID):
-  (get_access_gmap σ) !! p = Some (1%Qp, (GSet s)) ->
-  ∃ j, (get_page_table σ) !! p = Some(j, s).
-  Proof.
-    rewrite /get_access_gmap.
-    rewrite lookup_fmap_Some.
-    intros [? [Helem Hlookup]].
-    inversion Helem.
-    subst.
-    exists x.1.
-    destruct x;done.
-  Qed.
+  (* Lemma opsem_access_lookup {σ} {s:gset VMID} (p:PID): *)
+  (* (get_access_gmap σ) !! p = Some (1%Qp, (GSet s)) -> *)
+  (* ∃ j, (get_page_table σ) !! p = Some(j, s). *)
+  (* Proof. *)
+  (*   rewrite /get_access_gmap. *)
+  (*   rewrite lookup_fmap_Some. *)
+  (*   intros [? [Helem Hlookup]]. *)
+  (*   inversion Helem. *)
+  (*   subst. *)
+  (*   exists x.1. *)
+  (*   destruct x;done. *)
+  (* Qed. *)
 
   Lemma opsem_ownership_lookup {σ} {i:option VMID} (p:PID):
-  (get_owned_gmap σ) !! p = Some i ->
-  ∃ s, (get_page_table σ) !! p = Some(i, s).
+  (get_own_gmap σ) !! p = Some i ->
+  ∃ b s, (get_page_table σ) !! p = Some(i, b, s).
   Proof.
-    rewrite /get_owned_gmap.
+    rewrite /get_own_gmap.
     rewrite lookup_fmap_Some.
     intros [? [Helem Hlookup]].
     inversion Helem.
     subst.
-    exists x.2.
-    destruct x;done.
+    exists x.1.2, x.2.
+    destruct x; destruct p0;done.
   Qed.
 
   (** agreement (RA -> opsem) **)
@@ -268,21 +268,21 @@ Section pagetable_rules.
   Qed.
 
   Lemma ownership_agree {σ γ} (p:PID) i:
-   ghost_map_auth γ 1 (get_owned_gmap σ) -∗
+   ghost_map_auth γ 1 (get_own_gmap σ) -∗
    ghost_map_elem γ p (DfracOwn 1%Qp) i -∗
-   ⌜(get_owned_gmap σ) !! p = Some i⌝.
+   ⌜(get_own_gmap σ) !! p = Some i⌝.
   Proof.
     iIntros  "Hσ Hpt".
     iApply (ghost_map_lookup with "Hσ Hpt").
   Qed.
 
   Lemma ownership_agree_Some_lookup {σ} p i:
-   ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
+   ghost_map_auth (gen_own_name vmG) 1 (get_own_gmap σ) -∗
    (p -@O> i) -∗
    ⌜∃ s, (get_page_table σ) !! p= Some (Some i,s)⌝.
   Proof.
     iIntros  "Hσ Hown".
-    rewrite owned_mapsto_eq /owned_mapsto_def.
+    rewrite own_mapsto_eq /own_mapsto_def.
     iDestruct (ownership_agree with "Hσ Hown") as %Hvalid.
     iPureIntro.
     apply opsem_ownership_lookup in Hvalid as [? Hvalid].
@@ -291,7 +291,7 @@ Section pagetable_rules.
   Qed.
 
   Lemma ownership_agree_Some_check_true {σ} p i:
-   ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
+   ghost_map_auth (gen_own_name vmG) 1 (get_own_gmap σ) -∗
    (p -@O> i) -∗
    ⌜(check_ownership_page σ i p)= true⌝.
   Proof.
@@ -340,7 +340,7 @@ Section pagetable_rules.
   Qed.
 
   Lemma ownership_agree_Some_lookup_bigS {σ i} (s:gset PID):
-   ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
+   ghost_map_auth (gen_own_name vmG) 1 (get_own_gmap σ) -∗
    ([∗ set] p ∈ s, p -@O> i) -∗
    ⌜set_Forall (λ p, ∃ s,  get_page_table σ !! p = Some (Some i,s) ) s⌝.
   Proof.
@@ -351,7 +351,7 @@ Section pagetable_rules.
   Qed.
 
   Lemma ownership_agree_Some_check_true_bigS {σ i} (s:gset PID):
-   ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ) -∗
+   ghost_map_auth (gen_own_name vmG) 1 (get_own_gmap σ) -∗
    ([∗ set] p ∈ s, p -@O> i) -∗
    ⌜set_Forall (λ p, check_ownership_page σ i p = true) s⌝.
   Proof.
@@ -452,12 +452,12 @@ Section pagetable_rules.
   (* Lemma gen_own_update_union{σ i sown psd} sps: *)
   (*  sps = (list_to_set psd) -> *)
   (*  O@i:={1}[sown] -∗ *)
-  (*  ghost_map_auth (gen_owned_name vmG) 1 (get_owned_gmap σ)==∗ *)
-  (*  ghost_map_auth (gen_owned_name vmG) 1 (<[i:= (sown ∪ sps)]>(get_owned_gmap σ)) ∗ *)
+  (*  ghost_map_auth (gen_own_name vmG) 1 (get_own_gmap σ)==∗ *)
+  (*  ghost_map_auth (gen_own_name vmG) 1 (<[i:= (sown ∪ sps)]>(get_own_gmap σ)) ∗ *)
   (*  O@i:={1}[sown ∪ sps]. *)
   (* Proof. *)
   (*   iIntros (Hsps) "HO Hown". *)
-  (*   rewrite owned_mapsto_eq /owned_mapsto_def. *)
+  (*   rewrite own_mapsto_eq /own_mapsto_def. *)
   (*   iApply (gen_pagetable_update_union with "HO Hown");eauto. *)
   (* Qed. *)
 

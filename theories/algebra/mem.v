@@ -39,7 +39,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_valid {σ} a w:
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     a ->a w -∗
     ⌜(get_mem σ) !! a = Some w⌝.
   Proof.
@@ -49,7 +49,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_valid_SepM {σ} mem:
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ map] a↦w ∈ mem, a ->a w)-∗
     ([∗ map] a↦w ∈ mem, ⌜(get_mem σ) !! a = Some w⌝).
   Proof.
@@ -64,7 +64,7 @@ Section mem_rules.
 
   Lemma gen_mem_valid_SepL {σ} al ml:
     NoDup al ->
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ list] a;w ∈ al;ml, a ->a w)-∗
     ([∗ list] a;w ∈ al;ml, ⌜(get_mem σ) !! a = Some w⌝).
   Proof.
@@ -81,7 +81,7 @@ Section mem_rules.
 
   Lemma gen_mem_valid_SepL_pure {σ} al ml:
     NoDup al ->
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ list] a;w ∈ al;ml,  a ->a w) -∗
     ⌜∀ (k : nat) (y1 y2 : Addr),
       al !! k = Some y1 → ml !! k = Some y2 → get_mem σ !! y1 = Some y2⌝.
@@ -92,7 +92,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_valid2 {σ} a1 w1 a2 w2:
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     a1 ->a w1 -∗
     a2 ->a w2 -∗
     ⌜(get_mem σ) !! a1 = Some w1⌝ ∗ ⌜(get_mem σ) !! a2 = Some w2⌝.
@@ -110,9 +110,9 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_update1 {σ} a w w':
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     a ->a w ==∗
-    ghost_map_auth (gen_mem_name vmG) 1 (<[a:=w']>(get_mem σ)) ∗
+    ghost_map_auth gen_mem_name 1 (<[a:=w']>(get_mem σ)) ∗
     a ->a w'.
   Proof.
     iIntros "Hσ Ha".
@@ -124,9 +124,9 @@ Section mem_rules.
   Lemma gen_mem_update_SepL2 {σ} (ads : list Addr) (wl wl': list Word):
     NoDup ads ->
     length wl = length wl' ->
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ list] a;w ∈ ads;wl, a ->a w) ==∗
-    ghost_map_auth (gen_mem_name vmG) 1 ((list_to_map (zip ads wl'))  ∪ (get_mem σ)) ∗
+    ghost_map_auth gen_mem_name 1 ((list_to_map (zip ads wl'))  ∪ (get_mem σ)) ∗
     [∗ list] a;w' ∈ ads;wl', a ->a w'.
   Proof.
     iIntros (Hnodup Hlen) "Hσ Hmm".
@@ -137,7 +137,7 @@ Section mem_rules.
     rewrite  mem_mapsto_eq /mem_mapsto_def.
     iDestruct ((ghost_map_update_big _  (list_to_map (zip ads wl'))) with "Hσ Hmm") as ">[Hσ Hmm]".
     { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. lia. lia. }
-    rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name vmG] w)%I) _ ).
+    rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name] w)%I) _ ).
     rewrite map_to_list_to_map.
     2 : { rewrite fst_zip //. lia. }
     rewrite big_sepL2_alt.
@@ -146,9 +146,9 @@ Section mem_rules.
 
   Lemma gen_mem_update_page{σ wl} p (wl': list Word):
     length wl' = (Z.to_nat page_size) ->
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     mem_page wl p ==∗
-    ghost_map_auth (gen_mem_name vmG) 1
+    ghost_map_auth gen_mem_name 1
     (list_to_map (zip (finz.seq p (Z.to_nat page_size)) wl') ∪ get_mem σ) ∗
     mem_page wl' p.
   Proof.
@@ -300,9 +300,9 @@ Section mem_rules.
   Lemma gen_mem_update_pages{wss σ} (ps: list PID) (wss': list (list Word)):
     (forall ws', ws' ∈ wss' -> length ws' = (Z.to_nat page_size)) ->
     length ps = length wss' ->
-    ghost_map_auth (gen_mem_name vmG) 1 (get_mem σ) -∗
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ==∗
-    ghost_map_auth (gen_mem_name vmG) 1 ((list_to_map
+    ghost_map_auth gen_mem_name 1 ((list_to_map
                               (zip (list_pid_to_addr ps) (flat_list_list_word wss'))) ∪ (get_mem σ)) ∗
     [∗ list] p;ws'∈ ps;wss',mem_page ws' p.
   Proof.
