@@ -8,7 +8,7 @@ Inductive MailBox :=
   RX
 | TX.
 
-Local Instance mb_eqdec :EqDecision MailBox.
+Global Instance mb_eqdec :EqDecision MailBox.
 Proof.
   intros x y.
   destruct x, y.
@@ -18,7 +18,7 @@ Proof.
   left;done.
 Qed.
 
-Local Instance mb_countable : Countable MailBox.
+Global Instance mb_countable : Countable MailBox.
 Proof.
   refine {| encode r :=  match r with
                          | RX => encode (Some ())
@@ -35,7 +35,6 @@ Proof.
   rewrite ->(decode_encode None).
   done.
 Qed.
-
 
 Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P, Countable (V * MailBox)} := {

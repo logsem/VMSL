@@ -12,12 +12,12 @@ Lemma mov_word {E i w1 w3 q} a w2 ra :
   decode_instruction w1 = Some (Mov ra (inl w2)) ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
-        ∗ ▷ ((tpa a) -@{ q }A> [{[i]}])
+        ∗ ▷ (i -@{ q }A> (tpa a))
         ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
   {{{ RET (false, ExecI);  (PC @@ i ->r (a ^+ 1)%f)
                            ∗ (a ->a w1)
-                           ∗ ((tpa a) -@{ q }A> [{[i]}])
+                           ∗ (i -@{ q }A> (tpa a))
                            ∗ ra @@ i ->r w2 }}}.
 Proof.
   iIntros (Hdecode ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
@@ -39,7 +39,7 @@ Proof.
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)  
   iDestruct (access_agree_check_true _ i with "Haccess Hacc") as %Hacc;eauto.
-  { set_solver +. }
+  { apply elem_of_singleton. reflexivity. }
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -55,17 +55,19 @@ Proof.
     destruct HstepP; subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite (preserve_get_mb_gmap _ σ1).
-    rewrite (preserve_get_rx_gmap _ σ1).
-    rewrite (preserve_get_owned_gmap _ σ1).
-    rewrite (preserve_get_access_gmap _ σ1).
-    rewrite (preserve_get_trans_gmap _ σ1).
-    rewrite (preserve_get_hpool_gset _ σ1).
-    rewrite (preserve_get_retri_gmap _ σ1).
-    rewrite (preserve_inv_trans_hpool_consistent _ σ1).
-    rewrite (preserve_inv_trans_pgt_consistent _ σ1).
-    rewrite (preserve_inv_trans_wellformed _ σ1).
-    rewrite (preserve_inv_pgt_mb_consistent _ σ1).
+    rewrite (preserve_get_mb_gmap σ1).
+    rewrite (preserve_get_rx_gmap σ1).
+    rewrite (preserve_get_owned_gmap σ1).
+    rewrite (preserve_get_access_gmap σ1).
+    rewrite (preserve_get_excl_gmap σ1).
+    rewrite (preserve_get_trans_gmap σ1).
+    rewrite (preserve_get_hpool_gset σ1).
+    rewrite (preserve_get_retri_gmap σ1).
+    rewrite (preserve_inv_trans_hpool_consistent σ1).
+    rewrite (preserve_inv_trans_pgt_consistent σ1).
+    rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_pgt_mb_consistent σ1).
+    rewrite (preserve_inv_mb_wellformed σ1).
     rewrite p_upd_pc_mem p_upd_reg_mem.
     all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
@@ -120,13 +122,13 @@ Lemma mov_reg {E i w1 w3 q} a w2 ra rb :
   decode_instruction w1 = Some (Mov ra (inr rb)) ->
   {SS{{  ▷ (PC @@ i ->r a)
          ∗ ▷ (a ->a w1)
-         ∗ ▷ ((tpa a) -@{ q }A> [{[i]}])
+         ∗ ▷ (i -@{ q }A> (tpa a))
          ∗ ▷ (ra @@ i ->r w2)
          ∗ ▷ (rb @@ i ->r w3) }}}
     ExecI @ i ;E
   {{{ RET (false, ExecI); PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
-                   ∗ ((tpa a) -@{ q }A> [{[i]}])
+                   ∗ (i -@{ q }A> (tpa a))
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.
@@ -150,7 +152,7 @@ Proof.
   iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
   iDestruct (access_agree_check_true _ i with "Haccess Hacc") as %Hacc;eauto.
-  { set_solver +. }
+  { apply elem_of_singleton. reflexivity. }
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -165,23 +167,24 @@ Proof.
     rewrite /exec (mov_reg_ExecI σ1 ra rb w3 HneqPCa HneqNZa HneqPCb HneqNZb Hrb)  /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.    (* unchanged part *)
-    rewrite (preserve_get_mb_gmap _ σ1).
-    rewrite (preserve_get_rx_gmap _ σ1).
-    rewrite (preserve_get_owned_gmap _ σ1).
-    rewrite (preserve_get_access_gmap _ σ1).
-    rewrite (preserve_get_trans_gmap _ σ1).
-    rewrite (preserve_get_hpool_gset _ σ1).
-    rewrite (preserve_get_retri_gmap _ σ1).
-    rewrite (preserve_inv_trans_hpool_consistent _ σ1).
-    rewrite (preserve_inv_trans_pgt_consistent _ σ1).
-    rewrite (preserve_inv_trans_wellformed _ σ1).
-    rewrite (preserve_inv_pgt_mb_consistent _ σ1).
+    rewrite (preserve_get_mb_gmap σ1).
+    rewrite (preserve_get_rx_gmap σ1).
+    rewrite (preserve_get_owned_gmap σ1).
+    rewrite (preserve_get_access_gmap σ1).
+    rewrite (preserve_get_excl_gmap σ1).
+    rewrite (preserve_get_trans_gmap σ1).
+    rewrite (preserve_get_hpool_gset σ1).
+    rewrite (preserve_get_retri_gmap σ1).
+    rewrite (preserve_inv_trans_hpool_consistent σ1).
+    rewrite (preserve_inv_trans_pgt_consistent σ1).
+    rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_pgt_mb_consistent σ1).
+    rewrite (preserve_inv_mb_wellformed σ1).
     rewrite p_upd_pc_mem p_upd_reg_mem.
     all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
     all: try rewrite p_upd_pc_mb p_upd_reg_mb //.
-    rewrite Hcur.
-    iFrame.
+    rewrite Hcur. iFrame.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].

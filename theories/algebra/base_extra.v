@@ -44,70 +44,70 @@ Section preservation.
 
   Implicit Type σ: state.
 
-  Lemma preserve_get_reg_gmap σ σ' :
+  Lemma preserve_get_reg_gmap σ' σ :
     get_reg_files σ = get_reg_files σ' -> get_reg_gmap σ = get_reg_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_reg_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_mb_gmap σ σ' :
+  Lemma preserve_get_mb_gmap σ' σ :
     get_mail_boxes σ = get_mail_boxes σ' -> get_mb_gmap σ = get_mb_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_mb_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_rx_gmap σ σ' :
+  Lemma preserve_get_rx_gmap σ' σ :
     get_mail_boxes σ = get_mail_boxes σ' -> get_rx_gmap σ = get_rx_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_rx_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_owned_gmap σ σ' :
+  Lemma preserve_get_owned_gmap σ' σ :
     get_page_table σ = get_page_table σ' -> get_own_gmap σ = get_own_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_own_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_access_gmap σ σ' :
+  Lemma preserve_get_access_gmap σ' σ :
     get_page_table σ = get_page_table σ' -> get_access_gmap σ = get_access_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_access_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_excl_gmap σ σ' :
+  Lemma preserve_get_excl_gmap σ' σ :
     get_page_table σ = get_page_table σ' -> get_excl_gmap σ = get_excl_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_excl_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_trans_gmap σ σ' :
+  Lemma preserve_get_trans_gmap σ' σ :
     (get_transactions σ).1 = (get_transactions σ').1 -> get_trans_gmap σ = get_trans_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_trans_gmap /get_transactions_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_hpool_gset σ σ' :
+  Lemma preserve_get_hpool_gset σ' σ :
     (get_transactions σ).2 = (get_transactions σ').2 -> get_hpool_gset σ = get_hpool_gset σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_hpool_gset /get_transactions_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_retri_gmap σ σ' :
+  Lemma preserve_get_retri_gmap σ' σ :
     (get_transactions σ).1 = (get_transactions σ').1 -> get_retri_gmap σ = get_retri_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_retri_gmap /get_transactions_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_inv_trans_hpool_consistent σ σ' :
+  Lemma preserve_inv_trans_hpool_consistent σ' σ :
     (get_transactions σ) = (get_transactions σ') -> inv_trans_hpool_consistent σ = inv_trans_hpool_consistent σ'.
   Proof.
     intro Heq_proj.
@@ -118,14 +118,14 @@ Section preservation.
     done.
   Qed.
 
-  Lemma preserve_inv_trans_wellformed σ σ' :
+  Lemma preserve_inv_trans_wellformed σ' σ :
     (get_transactions σ).1 = (get_transactions σ').1 -> inv_trans_wellformed σ = inv_trans_wellformed σ'.
   Proof.
     intro Heq_proj.
     rewrite /inv_trans_wellformed Heq_proj //.
   Qed.
 
-  Lemma preserve_inv_trans_pgt_consistent σ σ' :
+  Lemma preserve_inv_trans_pgt_consistent σ' σ :
     (get_transactions σ).1 = (get_transactions σ').1 ->
     (get_page_table σ) = (get_page_table σ') ->
     inv_trans_pgt_consistent σ = inv_trans_pgt_consistent σ'.
@@ -134,13 +134,21 @@ Section preservation.
     rewrite /inv_trans_pgt_consistent Heq_proj_trans Heq_proj_pgt //.
   Qed.
 
-  Lemma preserve_inv_pgt_mb_consistent σ σ':
+  Lemma preserve_inv_pgt_mb_consistent σ' σ:
     (get_page_table σ) = (get_page_table σ') ->
     (get_mail_boxes σ) = (get_mail_boxes σ') ->
     inv_pgt_mb_consistent σ = inv_pgt_mb_consistent σ'.
   Proof.
     intros Heq_pgt Heq_mb.
     rewrite /inv_pgt_mb_consistent Heq_pgt Heq_mb //.
+  Qed.
+
+  Lemma preserve_inv_mb_wellformed σ' σ:
+    (get_mail_boxes σ) = (get_mail_boxes σ') ->
+    inv_mb_wellformed σ = inv_mb_wellformed σ'.
+  Proof.
+    intros Heq_mb.
+    rewrite /inv_mb_wellformed (preserve_get_mb_gmap σ' σ) //.
   Qed.
 
 End preservation.

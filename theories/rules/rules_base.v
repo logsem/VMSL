@@ -16,7 +16,6 @@ Implicit Type w: Word.
 Implicit Type q : Qp.
 Implicit Type σ : state.
 
-(* why cannot coq figure out hyp_machine itself? *)
 Lemma just_scheduled_no_step_false σ (i:nat) : just_scheduled σ σ i = false.
 Proof.
   rewrite /just_scheduled /scheduled /= /scheduler.

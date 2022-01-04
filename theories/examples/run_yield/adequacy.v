@@ -2,9 +2,9 @@ From machine_program_logic.program_logic Require Import machine weakestpre adequ
 From iris.bi Require Import big_op.
 From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable.
-From HypVeri.examples Require Import instr run_yield.
-Require Import Setoid.
-Require Import Coq.Program.Equality.
+From HypVeri.examples Require Import instr run_yield.proof.
+(* Require Import Setoid. *)
+(* Require Import Coq.Program.Equality. *)
 
 Section Adequacy.
     
