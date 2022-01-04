@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From iris.algebra Require Import gset.
+(* From iris.algebra Require Import gset. *)
 From HypVeri Require Import lifting rules.rules_base machine_extra.
 From HypVeri.algebra Require Import base mem reg pagetable mailbox trans base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra mem_extra pagetable_extra trans_extra.

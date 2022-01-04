@@ -1,19 +1,7 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base reg pagetable mem.
-From HypVeri Require Import lifting.
 From HypVeri.lang Require Import lang_extra reg_extra.
 Require Import stdpp.fin.
-
-Global Instance hyp_irisG `{HypervisorParameters} `{!gen_VMG Σ} :
-  irisG hyp_machine Σ:=
-  {
-  iris_invG := gen_invG;
-  irisG_saved_prop := gen_saved_propG;
-  irisG_prop_name := gen_prop_nameG;
-  irisG_name_map := gen_name_mapG;
-  irisG_name_map_name := gen_name_map_name;
-  state_interp :=gen_vm_interp
-  }.
 
 Section rules_base.
 
@@ -101,10 +89,10 @@ Qed.
 
 
 Lemma not_valid_pc {s} i a :
-  i ∉ s ->
-  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ (tpa a) -@A> [s] }}}
+  (tpa a) ∉ s ->
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ i -@A> [s] }}}
   ExecI @ i
-  {{{ RET (false, FailI); PC @@ i ->r a ∗ (tpa a) -@A> [s] }}}.
+  {{{ RET (false, FailI); PC @@ i ->r a ∗ i -@A> [s] }}}.
 Proof.
   iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].

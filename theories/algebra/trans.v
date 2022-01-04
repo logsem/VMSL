@@ -9,7 +9,7 @@ Section trans_rules.
 
   Lemma trans_valid {σ} {meta} wh:
     wh ->t (meta) -∗
-    (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))-∗
+    (ghost_map_auth gen_trans_name 1 (get_trans_gmap σ))-∗
     ⌜∃ (b:bool), (get_transactions σ).1 !! wh = Some (meta,b)⌝.
   Proof.
     iIntros "Htrn Hσ".
@@ -30,7 +30,7 @@ Section trans_rules.
   Qed.
 
   Lemma retri_valid {σ b} wh:
-    wh ->re b -∗ ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) -∗
+    wh ->re b -∗ ghost_map_auth gen_retri_name 1 (get_retri_gmap σ) -∗
     ⌜∃ t, (get_transactions σ).1 !! wh = Some (t,b)⌝.
   Proof.
     iIntros "Hretri Hσ".
@@ -53,7 +53,7 @@ Section trans_rules.
 
   Lemma hpool_valid {σ} s :
     hp [ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ)))-∗
+    (own gen_hpool_name (frac_auth_auth (get_hpool_gset σ)))-∗
     ⌜s = (get_transactions σ).2⌝.
   Proof.
     rewrite hpool_mapsto_eq /hpool_mapsto_def.
@@ -68,7 +68,7 @@ Section trans_rules.
 
   Lemma hpool_valid_elem {σ} s :
     hp [ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ)))-∗
+    (own gen_hpool_name (frac_auth_auth (get_hpool_gset σ)))-∗
     ⌜(elements s) = get_fresh_handles (get_transactions σ)⌝.
   Proof.
     iIntros "H1 H2".
@@ -81,8 +81,8 @@ Section trans_rules.
 
   Lemma trans_update_insert {σ} h meta:
     (get_trans_gmap σ) !! h = None ->
-    (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))==∗
-    (ghost_map_auth (gen_trans_name vmG) 1 (<[h:= meta]>(get_trans_gmap σ))) ∗
+    (ghost_map_auth gen_trans_name 1 (get_trans_gmap σ))==∗
+    (ghost_map_auth gen_trans_name 1 (<[h:= meta]>(get_trans_gmap σ))) ∗
     h ->t (meta).
   Proof.
     iIntros (HNone) "Htrans".
@@ -92,8 +92,8 @@ Section trans_rules.
 
   Lemma trans_update_delete {σ meta} h :
     h ->t (meta) -∗
-    (ghost_map_auth (gen_trans_name vmG) 1 (get_trans_gmap σ))==∗
-    (ghost_map_auth (gen_trans_name vmG) 1 ((delete h (get_trans_gmap σ)))).
+    (ghost_map_auth gen_trans_name 1 (get_trans_gmap σ))==∗
+    (ghost_map_auth gen_trans_name 1 ((delete h (get_trans_gmap σ)))).
   Proof.
     iIntros "Hh Htrans".
     rewrite trans_mapsto_eq /trans_mapsto_def.
@@ -103,8 +103,8 @@ Section trans_rules.
   Lemma hpool_update_minus {σ s} h:
     h ∈ s ->
     hp [ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ))) ==∗
-    (own (gen_hpool_name vmG) (frac_auth_auth ((get_hpool_gset σ) ∖ {[h]})))∗
+    (own gen_hpool_name (frac_auth_auth (get_hpool_gset σ))) ==∗
+    (own gen_hpool_name (frac_auth_auth ((get_hpool_gset σ) ∖ {[h]})))∗
     hp [ s ∖ {[h]} ].
   Proof.
     iIntros (HIn) "Hhp HHp".
@@ -122,8 +122,8 @@ Section trans_rules.
   Lemma retri_update_flip {σ b} h :
     (get_retri_gmap σ) !! h = Some b ->
     h ->re b -∗
-    ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
-    ∃ nb, ⌜nb = negb b⌝ ∗ ghost_map_auth (gen_retri_name vmG) 1 (<[h:=nb]>(get_retri_gmap σ)) ∗
+    ghost_map_auth gen_retri_name 1 (get_retri_gmap σ) ==∗
+    ∃ nb, ⌜nb = negb b⌝ ∗ ghost_map_auth gen_retri_name 1 (<[h:=nb]>(get_retri_gmap σ)) ∗
     h ->re nb.
   Proof.
     iIntros (HNone) "Q H".
@@ -133,8 +133,8 @@ Section trans_rules.
 
   Lemma retri_update_delete {σ b} (h: Word):
     h ->re b -∗
-    ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
-    ghost_map_auth (gen_retri_name vmG) 1 (delete h (get_retri_gmap σ)).
+    ghost_map_auth gen_retri_name 1 (get_retri_gmap σ) ==∗
+    ghost_map_auth gen_retri_name 1 (delete h (get_retri_gmap σ)).
   Proof.
     iIntros "Q H".
     rewrite retri_mapsto_eq /retri_mapsto_def.
@@ -144,8 +144,8 @@ Section trans_rules.
   Lemma hpool_update_union {σ s} (h: Word):
     h ∉ s ->
     hp [ s ] -∗
-    (own (gen_hpool_name vmG) (frac_auth_auth (get_hpool_gset σ))) ==∗
-    (own (gen_hpool_name vmG) (frac_auth_auth ((get_hpool_gset σ) ∪ {[h]})))∗
+    (own gen_hpool_name (frac_auth_auth (get_hpool_gset σ))) ==∗
+    (own gen_hpool_name (frac_auth_auth ((get_hpool_gset σ) ∪ {[h]})))∗
     hp [ s ∪ {[h]} ].
   Proof.
     iIntros (HnIn) "Hhp HHp".
@@ -162,8 +162,8 @@ Section trans_rules.
 
   Lemma retri_update_insert {σ} (h: Word):
     (get_retri_gmap σ) !! h = None ->
-    ghost_map_auth (gen_retri_name vmG) 1 (get_retri_gmap σ) ==∗
-    ghost_map_auth (gen_retri_name vmG) 1 (<[h:=false]>(get_retri_gmap σ))∗
+    ghost_map_auth gen_retri_name 1 (get_retri_gmap σ) ==∗
+    ghost_map_auth gen_retri_name 1 (<[h:=false]>(get_retri_gmap σ))∗
     h ->re false.
   Proof.
     iIntros (HNone) "H".

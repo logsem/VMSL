@@ -648,27 +648,7 @@ Proof using.
 Qed.
 
 
-Lemma finz_seq_in_inv{b} (f f' : finz.finz b) n:
-   (f' <= f )%f ->
-   (f <= f' ^+ ((Z.of_nat n)-1))%f ->
-   f ∈ finz.seq f' n.
-Proof.
-  revert f f'. induction n; cbn.
-  admit.
-  Admitted.
-  (* { intros.  solve_finz. lia. done. inversion H. } *)
-  (* { intros. apply  elem_of_cons in H. *)
-  (*   destruct H. *)
-  (*   solve_finz. *)
-  (*   eapply IHn in H. solve_finz. } *)
-(* Qed. *)
-
-
 Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
-
-Lemma tpa_addr_of_page (a:Addr) : a ∈ (addr_of_page (tpa a)).
-Proof.
-  Admitted.
 
 Lemma of_pid_tpa_addr_of_page (a : Addr) : of_pid (tpa a) ∈ addr_of_page (tpa a).
 Proof.

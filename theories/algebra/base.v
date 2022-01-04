@@ -536,3 +536,18 @@ Section timeless.
   Proof. rewrite lower_bound_auth_mapsto_eq /lower_bound_auth_mapsto_def. apply _. Qed.
 
 End timeless.
+
+
+From machine_program_logic.program_logic Require Import weakestpre.
+From HypVeri Require Import lifting.
+
+Global Instance hyp_irisG `{HypervisorParameters} `{!gen_VMG Σ} :
+  irisG hyp_machine Σ:=
+  {
+  iris_invG := gen_invG;
+  irisG_saved_prop := gen_saved_propG;
+  irisG_prop_name := gen_prop_nameG;
+  irisG_name_map := gen_name_mapG;
+  irisG_name_map_name := gen_name_map_name;
+  state_interp :=gen_vm_interp
+  }.
