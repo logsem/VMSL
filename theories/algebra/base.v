@@ -142,7 +142,7 @@ Section definitions.
   Definition get_access_gmap σ : gmap VMID (frac * (gset_disj PID)):=
     let pt := (get_page_table σ) in
     list_to_map (map (λ i, (i,(1%Qp, GSet (dom (gset PID) (map_filter
-                                          (λ (kv: PID * permission), i ∈ kv.2.2) _ pt))))) (list_of_vmids)).
+                                          (λ (kv: PID * gset VMID), i ∈ kv.2) _ ((λ (p: ( _ * gset VMID)), p.2) <$> pt)))))) (list_of_vmids)).
 
   Definition get_excl_gmap σ : gmap PID bool:=
     let pt := (get_page_table σ) in
@@ -539,7 +539,7 @@ End timeless.
 
 
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri Require Import lifting.
+From HypVeri Require Export lifting.
 
 Global Instance hyp_irisG `{HypervisorParameters} `{!gen_VMG Σ} :
   irisG hyp_machine Σ:=

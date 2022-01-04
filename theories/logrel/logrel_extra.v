@@ -1,7 +1,7 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
-From HypVeri.algebra Require Import base.
+From HypVeri.algebra Require Import base base_extra.
 From HypVeri.logrel Require Import logrel.
 From HypVeri Require Import proofmode.
 From stdpp Require fin_map_dom.
@@ -418,7 +418,7 @@ Section logrel_extra.
     (([∗ map] k↦y ∈ reg, k @@ i ->r y)%I
      ⊢  (r @@ i ->r w) ∗ ( r @@ i ->r w -∗ [∗ map] k↦y ∈ reg, k @@ i ->r y))%I.
   Proof.
-    rewrite /reg_file /total_gmap.
+    rewrite /reg_file.
     iIntros (Hlookup).
     iApply (ra_big_sepM_split reg r w (λ k v, k @@ i ->r v)%I Hlookup).
   Qed.
@@ -426,10 +426,10 @@ Section logrel_extra.
 
   Lemma reg_big_sepM_split_upd reg i {r w}:
     reg !! r = Some w ->
-    ((⌜total_gmap (reg: gmap reg_name Addr)⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
-     ⊢  (r @@ i ->r w) ∗ (∀ w', r @@ i ->r w' -∗ ⌜total_gmap (<[r := w']>reg)⌝ ∗ [∗ map] k↦y ∈  <[r := w']>reg, k @@ i ->r y))%I.
+    ((⌜is_total_gmap (reg: gmap reg_name Addr)⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
+     ⊢  (r @@ i ->r w) ∗ (∀ w', r @@ i ->r w' -∗ ⌜is_total_gmap (<[r := w']>reg)⌝ ∗ [∗ map] k↦y ∈  <[r := w']>reg, k @@ i ->r y))%I.
   Proof.
-    rewrite /reg_file /total_gmap.
+    rewrite /reg_file /is_total_gmap.
     iIntros (Hlookup).
     iApply (ra_big_sepM_split_upd reg r w (λ k v, k @@ i ->r v)%I Hlookup).
   Qed.
@@ -439,9 +439,9 @@ Section logrel_extra.
     r1 ≠ r2 ->
     reg !! r1 = Some w1 ->
     reg !! r2 = Some w2 ->
-    ((⌜total_gmap reg⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
+    ((⌜is_total_gmap reg⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
      ⊢  (r1 @@ i ->r w1) ∗ (r2 @@ i ->r w2) ∗
-          (∀ w1' w2', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2'-∗ ∃ reg', (⌜total_gmap reg'⌝ ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
+          (∀ w1' w2', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2'-∗ ∃ reg', (⌜is_total_gmap reg'⌝ ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
   Proof.
     iIntros (Hneq Hlookup1 Hlookup2) "[%Hfull Hregs]".
     iApply (ra_big_sepM_split_upd2 reg r1 r2 w1 w2 (λ k v, k @@ i ->r v)%I);eauto.
@@ -454,9 +454,9 @@ Section logrel_extra.
     reg !! r1 = Some w1 ->
     reg !! r2 = Some w2 ->
     reg !! r3 = Some w3 ->
-    ((⌜total_gmap reg⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
+    ((⌜is_total_gmap reg⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
      ⊢  (r1 @@ i ->r w1) ∗ (r2 @@ i ->r w2) ∗ (r3 @@ i ->r w3) ∗
-          (∀ w1' w2' w3', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2' ∗ r3 @@ i ->r w3' -∗ ∃ reg', (⌜total_gmap reg'⌝ ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
+          (∀ w1' w2' w3', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2' ∗ r3 @@ i ->r w3' -∗ ∃ reg', (⌜is_total_gmap reg'⌝ ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
   Proof.
     iIntros (Hneq1 Hneq2 Hneq3 Hlookup1 Hlookup2 Hlookup3) "[%Hfull Hregs]".
     iApply (ra_big_sepM_split_upd3 reg r1 r2 r3 w1 w2 w3 (λ k v, k @@ i ->r v)%I);eauto.
@@ -464,91 +464,91 @@ Section logrel_extra.
 
 
 (** pagetable **)
- Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}:
-    pgt !! p = Some pe->
-    (( [∗ map] k↦y ∈ pgt, f k y)%I
-     ⊢  (f p pe) ∗ (f p pe -∗ [∗ map] k↦y ∈ pgt, f k y))%I.
-  Proof.
-    rewrite /total_gmap.
-    iIntros (Hlookup).
-    iApply (ra_big_sepM_split pgt p pe f Hlookup).
-  Qed.
+ (* Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}: *)
+ (*    pgt !! p = Some pe-> *)
+ (*    (( [∗ map] k↦y ∈ pgt, f k y)%I *)
+ (*     ⊢  (f p pe) ∗ (f p pe -∗ [∗ map] k↦y ∈ pgt, f k y))%I. *)
+ (*  Proof. *)
+ (*    rewrite /total_gmap. *)
+ (*    iIntros (Hlookup). *)
+ (*    iApply (ra_big_sepM_split pgt p pe f Hlookup). *)
+ (*  Qed. *)
 
 
- Lemma pgt_big_sepM_split2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}:
-    p1 ≠ p2 ->
-    pgt !! p1 = Some pe1 ->
-    pgt !! p2 = Some pe2->
-    (( [∗ map] k↦y ∈ pgt, f k y)%I
-     ⊢  (f p1 pe1) ∗ (f p2 pe2) ∗ ((f p1 pe1 ∗ f p2 pe2 ) -∗ [∗ map] k↦y ∈ pgt, f k y))%I.
-  Proof.
-    rewrite /total_gmap.
-    iIntros (Hneq Hlookup1 Hlookup2).
-    iApply (ra_big_sepM_split2 pgt p1 p2 pe1 pe2 f);eauto.
-  Qed.
+ (* Lemma pgt_big_sepM_split2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}: *)
+ (*    p1 ≠ p2 -> *)
+ (*    pgt !! p1 = Some pe1 -> *)
+ (*    pgt !! p2 = Some pe2-> *)
+ (*    (( [∗ map] k↦y ∈ pgt, f k y)%I *)
+ (*     ⊢  (f p1 pe1) ∗ (f p2 pe2) ∗ ((f p1 pe1 ∗ f p2 pe2 ) -∗ [∗ map] k↦y ∈ pgt, f k y))%I. *)
+ (*  Proof. *)
+ (*    rewrite /total_gmap. *)
+ (*    iIntros (Hneq Hlookup1 Hlookup2). *)
+ (*    iApply (ra_big_sepM_split2 pgt p1 p2 pe1 pe2 f);eauto. *)
+ (*  Qed. *)
 
-  (* f is also implicit because coq can infer it from big_sepM *)
-  Lemma pgt_big_sepM_split_upd2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}:
-    p1 ≠ p2 ->
-    pgt !! p1 = Some pe1->
-    pgt !! p2 = Some pe2->
-    ((⌜total_gmap pgt⌝ ∗ [∗ map] k↦y ∈ pgt, f k y)%I
-     ⊢  (f p1 pe1) ∗ (f p2 pe2)∗ (∀ (pe1' pe2' : VMID * gset VMID) , (f p1 pe1' ∗ f p2 pe2') -∗
-                          ∃ (pgt': gmap PID (VMID * gset VMID) ), (⌜total_gmap pgt'⌝ ∗ [∗ map] k↦y ∈ pgt', f k y)))%I.
-  Proof.
-    iIntros (Hneq Hlookup1 Hlookup2) "[%Htotal pgt]".
-    iApply (ra_big_sepM_split_upd2 pgt p1 p2 pe1 pe2 f);eauto.
-    Qed.
+ (*  (* f is also implicit because coq can infer it from big_sepM *) *)
+ (*  Lemma pgt_big_sepM_split_upd2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}: *)
+ (*    p1 ≠ p2 -> *)
+ (*    pgt !! p1 = Some pe1-> *)
+ (*    pgt !! p2 = Some pe2-> *)
+ (*    ((⌜total_gmap pgt⌝ ∗ [∗ map] k↦y ∈ pgt, f k y)%I *)
+ (*     ⊢  (f p1 pe1) ∗ (f p2 pe2)∗ (∀ (pe1' pe2' : VMID * gset VMID) , (f p1 pe1' ∗ f p2 pe2') -∗ *)
+ (*                          ∃ (pgt': gmap PID (VMID * gset VMID) ), (⌜total_gmap pgt'⌝ ∗ [∗ map] k↦y ∈ pgt', f k y)))%I. *)
+ (*  Proof. *)
+ (*    iIntros (Hneq Hlookup1 Hlookup2) "[%Htotal pgt]". *)
+ (*    iApply (ra_big_sepM_split_upd2 pgt p1 p2 pe1 pe2 f);eauto. *)
+ (*    Qed. *)
 
-  (** memory **)
+ (*  (** memory **) *)
 
- Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
-    mem !! a = Some w->
-    (([∗ map] k↦y ∈ mem, f k y)
-     ⊢  (f a w) ∗ (f a w -∗
-                          ( [∗ map] k↦y ∈ mem, f k y)))%I.
-  Proof.
-    rewrite /total_gmap.
-    iIntros (Hlookup).
-    iApply (ra_big_sepM_split mem a w f Hlookup).
-  Qed.
+ (* Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}: *)
+ (*    mem !! a = Some w-> *)
+ (*    (([∗ map] k↦y ∈ mem, f k y) *)
+ (*     ⊢  (f a w) ∗ (f a w -∗ *)
+ (*                          ( [∗ map] k↦y ∈ mem, f k y)))%I. *)
+ (*  Proof. *)
+ (*    rewrite /total_gmap. *)
+ (*    iIntros (Hlookup). *)
+ (*    iApply (ra_big_sepM_split mem a w f Hlookup). *)
+ (*  Qed. *)
 
-  Lemma mem_big_sepM_split_upd (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
-    mem !! a = Some w->
-    ((⌜total_gmap mem⌝ ∗ [∗ map] k↦y ∈ mem, f k y)%I
-     ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗
-                          (⌜total_gmap (<[a := w']>mem)⌝ ∗ [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
-  Proof.
-    rewrite /total_gmap.
-    iIntros (Hlookup).
-    iApply (ra_big_sepM_split_upd mem a w f Hlookup).
-  Qed.
+ (*  Lemma mem_big_sepM_split_upd (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}: *)
+ (*    mem !! a = Some w-> *)
+ (*    ((⌜total_gmap mem⌝ ∗ [∗ map] k↦y ∈ mem, f k y)%I *)
+ (*     ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗ *)
+ (*                          (⌜total_gmap (<[a := w']>mem)⌝ ∗ [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I. *)
+ (*  Proof. *)
+ (*    rewrite /total_gmap. *)
+ (*    iIntros (Hlookup). *)
+ (*    iApply (ra_big_sepM_split_upd mem a w f Hlookup). *)
+ (*  Qed. *)
 
-  Lemma mem_big_sepM_split2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}:
-    a1 ≠ a2 ->
-    mem !! a1 = Some w1->
-    mem !! a2 = Some w2->
-    (([∗ map] k↦y ∈ mem, f k y)
-     ⊢  f a1 w1 ∗ f a2 w2 ∗ ((f a1 w1 ∗ f a2 w2) -∗
-                            ( [∗ map] k↦y ∈ mem, f k y)))%I.
-  Proof.
-    rewrite /total_gmap.
-    iIntros (Hneq Hlookup1 Hlookup2).
-    iApply (ra_big_sepM_split2 mem a1 a2 w1 w2 f);eauto.
-  Qed.
+ (*  Lemma mem_big_sepM_split2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}: *)
+ (*    a1 ≠ a2 -> *)
+ (*    mem !! a1 = Some w1-> *)
+ (*    mem !! a2 = Some w2-> *)
+ (*    (([∗ map] k↦y ∈ mem, f k y) *)
+ (*     ⊢  f a1 w1 ∗ f a2 w2 ∗ ((f a1 w1 ∗ f a2 w2) -∗ *)
+ (*                            ( [∗ map] k↦y ∈ mem, f k y)))%I. *)
+ (*  Proof. *)
+ (*    rewrite /total_gmap. *)
+ (*    iIntros (Hneq Hlookup1 Hlookup2). *)
+ (*    iApply (ra_big_sepM_split2 mem a1 a2 w1 w2 f);eauto. *)
+ (*  Qed. *)
 
-  Lemma mem_big_sepM_split_upd2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}:
-    a1 ≠ a2 ->
-    mem !! a1 = Some w1->
-    mem !! a2 = Some w2->
-    ((⌜total_gmap mem⌝ ∗ [∗ map] k↦y ∈ mem, f k y)%I
-     ⊢  f a1 w1 ∗ f a2 w2 ∗ (∀ (w1' w2' : Word) , (f a1 w1' ∗ f a2 w2') -∗
-                          ∃ mem', (⌜total_gmap mem'⌝ ∗ [∗ map] k↦y ∈ mem', f k y)))%I.
-  Proof.
-    rewrite /total_gmap.
-    iIntros (Hneq Hlookup1 Hlookup2).
-    iApply (ra_big_sepM_split_upd2 mem a1 a2 w1 w2 f);eauto.
-  Qed.
+ (*  Lemma mem_big_sepM_split_upd2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}: *)
+ (*    a1 ≠ a2 -> *)
+ (*    mem !! a1 = Some w1-> *)
+ (*    mem !! a2 = Some w2-> *)
+ (*    ((⌜total_gmap mem⌝ ∗ [∗ map] k↦y ∈ mem, f k y)%I *)
+ (*     ⊢  f a1 w1 ∗ f a2 w2 ∗ (∀ (w1' w2' : Word) , (f a1 w1' ∗ f a2 w2') -∗ *)
+ (*                          ∃ mem', (⌜total_gmap mem'⌝ ∗ [∗ map] k↦y ∈ mem', f k y)))%I. *)
+ (*  Proof. *)
+ (*    rewrite /total_gmap. *)
+ (*    iIntros (Hneq Hlookup1 Hlookup2). *)
+ (*    iApply (ra_big_sepM_split_upd2 mem a1 a2 w1 w2 f);eauto. *)
+ (*  Qed. *)
 
 
   (* TODO: For memory chunks *)

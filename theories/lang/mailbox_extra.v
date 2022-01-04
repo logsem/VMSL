@@ -81,7 +81,7 @@ Proof.
 Qed.
 
 Lemma empty_rx_global_preserve_owned σ i :
-  get_owned_gmap (empty_rx_global σ i) = (get_owned_gmap σ).
+  get_own_gmap (empty_rx_global σ i) = (get_own_gmap σ).
 Proof.
   rewrite /empty_rx_global.
   rewrite (surjective_pairing (get_mail_box σ @ i)).

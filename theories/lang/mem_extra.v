@@ -23,7 +23,7 @@ Lemma update_memory_unsafe_preserve_rx σ a w :
 Proof. f_equal. Qed.
 
 Lemma update_memory_unsafe_preserve_owned σ a w :
-  get_owned_gmap (update_memory_unsafe σ a w) = (get_owned_gmap σ).
+  get_own_gmap (update_memory_unsafe σ a w) = (get_own_gmap σ).
 Proof. f_equal. Qed.
 
 Lemma update_memory_unsafe_preserve_access σ a w :
@@ -122,7 +122,7 @@ Proof.
 Qed.
 
 Lemma zero_pages_preserve_owned σ ps :
-  get_owned_gmap (zero_pages σ ps) = (get_owned_gmap σ).
+  get_own_gmap (zero_pages σ ps) = (get_own_gmap σ).
 Proof.
   rewrite /zero_pages.
   cbn.
@@ -248,7 +248,7 @@ Lemma copy_page_segment_unsafe_preserve_rx σ src dst l:
 Proof. f_equal. Qed.
 
 Lemma copy_page_segment_unsafe_preserve_owned σ src dst l:
-  get_owned_gmap (copy_page_segment_unsafe σ src dst l) = get_owned_gmap σ.
+  get_own_gmap (copy_page_segment_unsafe σ src dst l) = get_own_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma copy_page_segment_unsafe_preserve_access σ src dst l:
@@ -285,7 +285,7 @@ Lemma write_mem_segment_unsafe_preserve_rx σ dst ws:
 Proof. f_equal. Qed.
 
 Lemma write_mem_segment_unsafe_preserve_owned σ dst ws:
-  get_owned_gmap (write_mem_segment_unsafe σ dst ws) = get_owned_gmap σ.
+  get_own_gmap (write_mem_segment_unsafe σ dst ws) = get_own_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma write_mem_segment_unsafe_preserve_access σ dst ws:
@@ -344,7 +344,7 @@ Proof.
 (* Qed. *)
 
 Lemma fill_rx_unsafe_preserve_owned σ l v r tx rx :
-  get_owned_gmap (fill_rx_unsafe σ l v r tx rx) = get_owned_gmap σ.
+  get_own_gmap (fill_rx_unsafe σ l v r tx rx) = get_own_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma fill_rx_unsafe_preserve_access σ l v r tx rx :

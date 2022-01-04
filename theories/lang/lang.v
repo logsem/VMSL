@@ -98,14 +98,14 @@ Definition check_access_page (st : state) (v : VMID) (p : PID) : bool :=
   | _ => false
   end.
 
-Definition check_excl_page (st: state) (v : VMID) (p: PID) : bool :=
+Definition check_excl_page (st: state) (p: PID) : bool :=
   match (get_page_table st !! p)  with
   | Some (_, b, _) => b
   | _ => false
   end.
 
 Definition check_excl_access_page (st : state) (v : VMID) (p : PID) : bool :=
-  check_access_page st v p && check_excl_page st v p.
+  check_access_page st v p && check_excl_page st p.
 
 Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
   check_access_page st v (to_pid_aligned a).

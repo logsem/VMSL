@@ -15,7 +15,7 @@ Class FramableMemoryPointsto (a: Addr) (w: Addr) := {}.
 Class FramableOwnershipPointsto `{HypervisorConstants} (p : PID) (v: VMID) := {}.
 #[export] Hint Mode FramableOwnershipPointsto + - - : typeclass_instances.
 
-Class FramableAccessPointsto `{HypervisorConstants} (p : PID) (q: frac) (s: gset VMID) := {}.
+Class FramableAccessPointsto `{HypervisorConstants} (v : VMID) (q:frac) (s: gset PID) := {}.
 #[export] Hint Mode FramableAccessPointsto + - - - : typeclass_instances.
 
 Class FramableTXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
@@ -27,7 +27,7 @@ Class FramableRXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
 Class FramableWordPool (s: gset Word) := {}.
 #[export] Hint Mode FramableWordPool - : typeclass_instances.
 
-Class FramableTransaction `{HypervisorConstants} (wh : Word) (meta: VMID  * Word  * VMID  * list PID * transaction_type) := {}.
+Class FramableTransaction `{HypervisorConstants} (wh : Word) (meta: VMID  * Word  * VMID  * gset PID * transaction_type) := {}.
 #[export] Hint Mode FramableTransaction + + - : typeclass_instances.
 
 Class FramableRetrieve (wh : Word) (b : bool)  := {}.

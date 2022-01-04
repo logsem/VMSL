@@ -14,16 +14,16 @@ Implicit Type i : VMID.
 Implicit Type ra rb : reg_name.
 Implicit Type w: Word.
 Implicit Type q : Qp.
-
+Implicit Type σ : state.
 
 (* why cannot coq figure out hyp_machine itself? *)
-Lemma just_scheduled_no_step_false{M} σ (i:nat) : @just_scheduled M σ σ i = false.
+Lemma just_scheduled_no_step_false σ (i:nat) : just_scheduled σ σ i = false.
 Proof.
   rewrite /just_scheduled /scheduled /= /scheduler.
   apply andb_negb_l.
 Qed.
 
-Lemma just_scheduled_vms_no_step_empty{M} σ n: @just_scheduled_vms M n σ σ = [].
+Lemma just_scheduled_vms_no_step_empty σ n: just_scheduled_vms n σ σ = [].
 Proof.
   unfold just_scheduled_vms.
   induction (seq 0 n);[done|].
@@ -31,7 +31,6 @@ Proof.
   apply IHl.
   rewrite just_scheduled_no_step_false //.
 Qed.
-
 
 Lemma update_offset_PC_preserve_just_scheduled_vms {σ σ' n} o:
   just_scheduled_vms n σ (update_offset_PC σ' o) = just_scheduled_vms n σ σ'.
@@ -69,14 +68,14 @@ Proof.
 Qed.
 
 Lemma update_offset_PC_preserve_scheduled {σ} o:
-  scheduled (update_offset_PC σ o)  = scheduled σ.
+  scheduled (update_offset_PC σ o) = scheduled σ.
 Proof.
   rewrite /scheduled /machine.scheduler //= /scheduler.
   rewrite p_upd_pc_current_vm //.
 Qed.
 
 Lemma update_reg_global_preserve_scheduled {σ} i r w:
-  scheduled (update_reg_global σ i r w)  = scheduled σ.
+  scheduled (update_reg_global σ i r w) = scheduled σ.
 Proof.
   rewrite /scheduled /machine.scheduler //= /scheduler.
 Qed.
@@ -143,12 +142,12 @@ Qed.
 Lemma not_valid_instr {q} i a wi :
   decode_instruction wi = None ->
   {SS{{ ▷ (PC @@ i ->r a)
-        ∗ ▷ (tpa a) -@{q}A> [{[i]}]
+        ∗ ▷ i -@{q}A> (tpa a)
         ∗ ▷ a ->a wi}}}
   ExecI @ i
   {{{ RET (false, FailI);
     PC @@ i ->r a
-    ∗ (tpa a) -@{q}A> [{[i]}]
+    ∗ i -@{q}A> (tpa a)
     ∗ a ->a wi
   }}}.
 Proof.

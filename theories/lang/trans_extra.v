@@ -433,12 +433,13 @@ Lemma update_transaction_preserve_mb σ h trans:
 Proof. f_equal. Qed.
 
 Lemma update_transaction_preserve_rx σ h trans:
-  get_rx_gmap(update_transaction σ h trans) = get_rx_gmap σ.
+  get_rx_gmap (update_transaction σ h trans) = get_rx_gmap σ.
 Proof. f_equal. Qed.
 
 Lemma update_transaction_preserve_owned σ h trans:
-  get_owned_gmap (update_transaction σ h trans) = get_owned_gmap σ.
+  get_own_gmap (update_transaction σ h trans) = get_own_gmap σ.
 Proof. f_equal. Qed.
+
 Lemma update_transaction_preserve_access σ h trans:
   get_access_gmap (update_transaction σ h trans) = get_access_gmap σ.
 Proof. f_equal. Qed.
@@ -543,7 +544,7 @@ Lemma remove_transaction_preserve_rx σ h :
 Proof. f_equal. Qed.
 
 Lemma remove_transaction_preserve_owned σ h :
-  get_owned_gmap (remove_transaction σ h ) = get_owned_gmap σ.
+  get_own_gmap (remove_transaction σ h ) = get_own_gmap σ.
 Proof. f_equal. Qed.
 Lemma remove_transaction_preserve_access σ h :
   get_access_gmap (remove_transaction σ h ) = get_access_gmap σ.
