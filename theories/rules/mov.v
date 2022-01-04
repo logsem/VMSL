@@ -57,7 +57,7 @@ Proof.
     (* unchanged part *)
     rewrite (preserve_get_mb_gmap σ1).
     rewrite (preserve_get_rx_gmap σ1).
-    rewrite (preserve_get_owned_gmap σ1).
+    rewrite (preserve_get_own_gmap σ1).
     rewrite (preserve_get_access_gmap σ1).
     rewrite (preserve_get_excl_gmap σ1).
     rewrite (preserve_get_trans_gmap σ1).
@@ -169,7 +169,7 @@ Proof.
     rewrite /gen_vm_interp.    (* unchanged part *)
     rewrite (preserve_get_mb_gmap σ1).
     rewrite (preserve_get_rx_gmap σ1).
-    rewrite (preserve_get_owned_gmap σ1).
+    rewrite (preserve_get_own_gmap σ1).
     rewrite (preserve_get_access_gmap σ1).
     rewrite (preserve_get_excl_gmap σ1).
     rewrite (preserve_get_trans_gmap σ1).

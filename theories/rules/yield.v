@@ -10,23 +10,22 @@ Section yield.
 Context `{hypparams:HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma yield {E z i w1 w2 a_ b_ q s R R' Q P P' i'} ai :
+Lemma yield {E z i w1 w2 a_ b_ q R R' Q P P' i'} ai :
   let T := (▷ (PC @@ i ->r ai)
               ∗ ▷ (ai ->a w1)
-              ∗ ▷ ((tpa ai) -@{q}A> [s])
+              ∗ ▷ (i -@{q}A> (tpa ai))
               ∗ ▷ (R0 @@ i ->r w2)
               ∗ ▷ (R0 @@ z ->r a_)
               ∗ ▷ (R1 @@ z ->r b_))%I
   in
   let T' := ((PC @@ i ->r (ai ^+ 1)%f)
                ∗ (ai ->a w1)
-               ∗ ((tpa ai) -@{q}A> [s])
+               ∗ (i -@{q}A> (tpa ai))
                ∗ (R0 @@ i ->r w2)
                ∗ (R0 @@ z ->r (encode_hvc_func Yield))
                ∗ (R1 @@ z ->r (encode_vmid i)))%I
   in
   decode_instruction w1 = Some Hvc ->
-  i ∈ s ->
   fin_to_nat z = 0 ->
   fin_to_nat i = i' ->
   i' ≠ 0 ->
@@ -39,7 +38,7 @@ Lemma yield {E z i w1 w2 a_ b_ q s R R' Q P P' i'} ai :
     {{{ RET (true, ExecI); R' ∗ VMProp i P' (1/2)%Qp }}}.
 Proof.
   simpl.
-  iIntros (Hdecode Hin Hz Hi Hiz Hhvc ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr0' & >Hr1) (HPropz & HPropi & Himpl & HR)] Hϕ".
+  iIntros (Hdecode Hz Hi Hiz Hhvc ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr0' & >Hr1) (HPropz & HPropi & Himpl & HR)] Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -56,7 +55,7 @@ Proof.
   iDestruct (gen_reg_valid_global1 R0 z a_ with "Hregown Hr0'") as "%Hr0'".
   iDestruct (gen_reg_valid_global1 R1 z b_ with "Hregown Hr1") as "%Hr1".
   (* valid pt *)
-  iDestruct (access_agree_check_true with "Haccessown Hacc") as %Hacc;eauto.
+  iDestruct (access_agree_check_true with "Haccessown Hacc") as %Hacc; first (apply elem_of_singleton;reflexivity).
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.
@@ -69,7 +68,7 @@ Proof.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc in Heqc2; eauto.
     rewrite  Hr0 Hhvc /yield in Heqc2.
-    rewrite /is_primary /update_reg update_reg_global_preserve_current_vm Hcur in Heqc2.
+    rewrite /is_primary /update_reg p_upd_reg_current_vm Hcur in Heqc2.
     destruct (i =? 0) eqn:Hi0.
     + rewrite <-(reflect_iff (fin_to_nat i = 0) (i =? 0) (Nat.eqb_spec (fin_to_nat i) 0)) in Hi0.
       exfalso.
@@ -85,20 +84,23 @@ Proof.
       rewrite <-Hzeq.
       simpl.
       rewrite /gen_vm_interp /update_incr_PC.
-      rewrite (preserve_get_mb_gmap _ σ1).
-      rewrite (preserve_get_rx_gmap _ σ1).
-      all: try rewrite update_current_vmid_preserve_mb update_offset_PC_preserve_mb update_reg_global_preserve_mb //.
-      rewrite (preserve_get_owned_gmap _ σ1).
-      rewrite (preserve_get_access_gmap _ σ1).
-      rewrite (preserve_get_trans_gmap _ σ1).
-      rewrite (preserve_get_hpool_gset _ σ1).
-      rewrite (preserve_get_retri_gmap _ σ1).
-      rewrite (preserve_inv_trans_hpool_consistent _ σ1).
-      rewrite (preserve_inv_trans_pgt_consistent _ σ1).
-      rewrite (preserve_inv_trans_pg_num_ub _ σ1).
-      all: try rewrite update_current_vmid_preserve_pgt update_offset_PC_preserve_pgt update_reg_global_preserve_pgt //.
-      all: try rewrite update_current_vmid_preserve_trans update_offset_PC_preserve_trans update_reg_global_preserve_trans //.
-      rewrite update_current_vmid_preserve_mem update_offset_PC_preserve_mem update_reg_global_preserve_mem.
+      rewrite (preserve_get_mb_gmap σ1).
+      rewrite (preserve_get_rx_gmap σ1).
+      rewrite (preserve_get_own_gmap σ1).
+      rewrite (preserve_get_access_gmap σ1).
+      rewrite (preserve_get_excl_gmap σ1).
+      rewrite (preserve_get_trans_gmap σ1).
+      rewrite (preserve_get_hpool_gset σ1).
+      rewrite (preserve_get_retri_gmap σ1).
+      rewrite (preserve_inv_trans_hpool_consistent σ1).
+      rewrite (preserve_inv_trans_pgt_consistent σ1).
+      rewrite (preserve_inv_trans_wellformed σ1).
+      rewrite (preserve_inv_pgt_mb_consistent σ1).
+      rewrite (preserve_inv_mb_wellformed σ1).
+      all: try rewrite p_upd_id_mb p_upd_pc_mb //.
+      all: try rewrite p_upd_id_pgt p_upd_pc_pgt //.
+      all: try rewrite p_upd_id_trans p_upd_pc_trans //.
+      rewrite p_upd_id_mem p_upd_pc_mem.
       iFrame "Hrx Hmb Hown Hrest".
       iDestruct (gen_reg_update_Sep
                   {[(R0, z):= a_;
@@ -204,10 +206,8 @@ Proof.
           exfalso.
           by apply (excl x' n).
       }
-        (* rewrite /update_current_vmid /update_incr_PC /=. *)
         set σ1' := (X in (update_current_vmid X z)).
-    rewrite (preserve_get_reg_gmap (update_current_vmid _ _) σ1');
-      last rewrite update_current_vmid_preserve_reg //.
+        rewrite (preserve_get_reg_gmap σ1' (update_current_vmid _ _)); last rewrite p_upd_id_reg //.
         rewrite /σ1'.
         rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
         -- iDestruct (VMProp_update σ1.1.1.2 U P P' with "PAuth HPropi") as "HTemp".
@@ -250,19 +250,19 @@ Proof.
            iFrame.
         -- apply get_reg_gmap_get_reg_Some; auto.
            apply get_reg_global_update_reg_global_ne_vmid.
-           rewrite update_reg_global_preserve_current_vm; auto.
-           rewrite update_reg_global_preserve_current_vm; auto.
+           rewrite p_upd_reg_current_vm; auto.
+           rewrite p_upd_reg_current_vm; auto.
            intros c.
            apply Hiz.
            rewrite <-c.
            by rewrite Hz.
            apply get_reg_global_update_reg_global_ne_vmid.           
-           rewrite 2!update_reg_global_preserve_current_vm; auto.
+           rewrite 2!p_upd_reg_current_vm; auto.
            intros c.
            apply Hiz.
            rewrite <-c.
            by rewrite Hz.
-           rewrite update_reg_global_preserve_current_vm; auto.
+           rewrite p_upd_reg_current_vm; auto.
         -- apply lookup_insert_None; split; eauto; intros P; by inversion P.
         -- apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
 Qed.

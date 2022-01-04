@@ -65,7 +65,7 @@ Section preservation.
     rewrite /get_rx_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_owned_gmap σ' σ :
+  Lemma preserve_get_own_gmap σ' σ :
     get_page_table σ = get_page_table σ' -> get_own_gmap σ = get_own_gmap σ'.
   Proof.
     intro Heq_proj.

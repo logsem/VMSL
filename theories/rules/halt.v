@@ -8,18 +8,17 @@ Section halt.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma halt {E i w1 q s} ai :
+Lemma halt {E i w1 q} ai :
   decode_instruction w1 = Some(Halt) ->
-  i ∈ s ->
   {SS{{▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
-          ∗ ▷ ((tpa ai) -@{q}A> [s])}}}
+          ∗ ▷ (i -@{q}A> (tpa ai))}}}
     ExecI @ i ;E
  {{{ RET (false, HaltI);  PC @@ i ->r (ai ^+ 1)%f
                   ∗ ai ->a w1
-                  ∗ (tpa ai) -@{q}A> [s] }}}.
+                  ∗ i -@{q}A> (tpa ai) }}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hdecode ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -33,7 +32,7 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
-  iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc") as %Hacc;first set_solver + Hin.
+  iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc") as %Hacc;first set_solver +.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
   iSplit.
@@ -49,20 +48,23 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite (preserve_get_mb_gmap _ σ1).
-    rewrite (preserve_get_rx_gmap _ σ1).
-    rewrite (preserve_get_owned_gmap _ σ1).
-    rewrite (preserve_get_access_gmap _ σ1).
-    rewrite (preserve_get_trans_gmap _ σ1).
-    rewrite (preserve_get_hpool_gset _ σ1).
-    rewrite (preserve_get_retri_gmap _ σ1).
-    rewrite (preserve_inv_trans_hpool_consistent _ σ1).
-    rewrite (preserve_inv_trans_pgt_consistent _ σ1).
-    rewrite (preserve_inv_trans_pg_num_ub _ σ1).
-    all: try rewrite update_offset_PC_preserve_pgt //.
-    all: try rewrite update_offset_PC_preserve_trans //.
-    all: try rewrite update_offset_PC_preserve_mb //.
-    rewrite update_offset_PC_preserve_mem.
+    rewrite (preserve_get_mb_gmap σ1).
+    rewrite (preserve_get_rx_gmap σ1).
+    rewrite (preserve_get_own_gmap σ1).
+    rewrite (preserve_get_access_gmap σ1).
+    rewrite (preserve_get_excl_gmap σ1).
+    rewrite (preserve_get_trans_gmap σ1).
+    rewrite (preserve_get_hpool_gset σ1).
+    rewrite (preserve_get_retri_gmap σ1).
+    rewrite (preserve_inv_trans_hpool_consistent σ1).
+    rewrite (preserve_inv_trans_pgt_consistent σ1).
+    rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_pgt_mb_consistent σ1).
+    rewrite (preserve_inv_mb_wellformed σ1).
+    all: try rewrite p_upd_pc_pgt //.
+    all: try rewrite p_upd_pc_trans //.
+    all: try rewrite p_upd_pc_mb //.
+    rewrite p_upd_pc_mem.
     iFrame "Hmem Hrx Hown Hmb Haccess Hrest".
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
@@ -81,7 +83,7 @@ Proof.
               (seq 0 n) = []) as ->.
     {
       rewrite /scheduled /machine.scheduler //= /scheduler Hcur.
-      rewrite update_offset_PC_preserve_current_vm.
+      rewrite p_upd_pc_current_vm.
       rewrite Hcur.
       induction n.
       - simpl.
@@ -100,7 +102,7 @@ Proof.
     rewrite /scheduled.
     simpl.
     rewrite /scheduler.
-    rewrite update_offset_PC_preserve_current_vm.
+    rewrite p_upd_pc_current_vm.
     rewrite Hcur.
     rewrite bool_decide_eq_true.
     reflexivity.
