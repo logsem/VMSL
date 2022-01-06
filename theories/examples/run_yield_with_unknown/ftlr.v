@@ -12,27 +12,24 @@ Section rywu_logrel.
   Context `{hypparams:HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Notation V := ((leibnizO VMID) -n> iPropO Σ).
-
-  Program Definition rywu_interp_access: V :=
-    λne (i:leibnizO VMID),
-    (∃ regs ps_acc,
+  Program Definition rywu_interp_access i ps_acc: iProp Σ :=
+    (∃ regs ,
       (* registers *)
       (⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ i ->r w) ∗
       (* mailbox *)
       (∃ p, RX@i := p) ∗ (∃ p, TX@i := p) ∗
-      (RX@ i :=() ∨ ∃ w s, RX@ i :=(w, s)) ∗
-      i -@A> [ps_acc] ∗
+      RX@ i :=() ∗
+      i -@A> [ ps_acc ] ∗
+      pgt_entries_own_excl ps_acc i true ∗
       (* VMProp *)
       VMProp i
       ( (∃ mem ps_na trans hpool,
             let ps_trans := ps_trans (trans) in
-            let ps_oea := ps_acc ∖ ps_trans in
+        (* ⌜ps_oea = ps_acc ∖ ps_trans⌝ ∗ *)
         (* lower bound *)
         LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc⌝ ∗
         (* resources *)
-        hp [hpool] ∗ tran_entries trans ∗
-        pgt_entries_own_excl ps_oea i true ∗
+        hp [] ∗ tran_entries trans ∗
         tran_carried_pgt_entries i trans ∗
         accessible_memory_cells ps_acc mem ∗
         R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i)) ∗
@@ -40,12 +37,11 @@ Section rywu_logrel.
         VMProp V0 (
           ∃ mem ps_na trans hpool,
             let ps_trans := ps_trans (trans) in
-            let ps_oea := ps_acc ∖ ps_trans in
+            (* let ps_oea := ps_acc ∖ ps_trans in *)
           (* lower bound *)
           LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc⌝ ∗
           (* resources *)
           hp [hpool] ∗ tran_entries trans ∗
-          pgt_entries_own_excl ps_oea i true ∗
           tran_carried_pgt_entries i trans ∗
           accessible_memory_cells ps_acc mem ∗
           (* R0 and R1 of pvm *)
@@ -65,7 +61,7 @@ Section rywu_ftlr.
   (* TODO *)
 
   Lemma rywu_ftlr (i:VMID)  :
-   rywu_interp_access i ⊢ interp_execute i.
+   rywu_interp_access i ps_acc ⊢ interp_execute i.
   Proof.
   Admitted.
 

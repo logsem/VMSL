@@ -647,8 +647,53 @@ Proof using.
       solve_finz. } }
 Qed.
 
+Lemma finz_seq_in_inv{b} (f f' : finz.finz b) n:
+    (f' <= f )%f -> (f <= f' ^+ (Z.of_nat n))%f ->
+    f ∈ finz.seq f' (n+1).
+ Proof.
+   revert f f'. induction n; cbn.
+   { intros.
+     assert (f = f')%f as ->.
+     {
+       solve_finz.
+     }
+     set_solver +.
+   }
+   {
+     intros.
+     destruct (decide (f = f')).
+     {
+       rewrite e.
+       apply elem_of_list_here.
+     }
+     apply elem_of_list_further.
+     apply IHn.
+     solve_finz.
+     solve_finz.
+   }
+ Qed.
 
-Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
+
+ Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
+
+ Lemma tpa_addr_of_page (a:Addr) : a ∈ (addr_of_page (tpa a)).
+ Proof.
+   rewrite /addr_of_page.
+   pose proof (in_page_to_pid_aligned a) as [H1 H2].
+   assert ((Z.to_nat 1000) = (Z.to_nat 999) + 1) as ->.
+   { done. }
+   apply finz_seq_in_inv.
+   {
+     rewrite /Is_true in H1.
+     case_match;last done.
+     solve_finz.
+   }
+   {
+     rewrite /Is_true in H2.
+     case_match;last done.
+     solve_finz.
+   }
+ Qed.
 
 Lemma of_pid_tpa_addr_of_page (a : Addr) : of_pid (tpa a) ∈ addr_of_page (tpa a).
 Proof.
@@ -657,6 +702,8 @@ Proof.
   rewrite finz_seq_cons; first lia.
   apply elem_of_list_here.            
 Qed.
+
+
 
 Lemma addr_of_page_NoDup (p:PID) : NoDup (addr_of_page p).
 Proof.

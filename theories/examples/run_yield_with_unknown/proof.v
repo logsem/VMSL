@@ -37,23 +37,19 @@ Section proof.
 
   Context `{!gen_VMG Σ}.
 
-
-  Lemma rywu_machine0 {prog1page prog2page} pgt R :
+  (* TODO *)
+  Lemma rywu_machine0 {prog1page} R :
       let Q := ((* R0 & R1 of pvm *)
-        (R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(V2) ∗
-                                                        ⌜total_gmap pgt⌝ ∗
-        (pagetable_entries pgt)))%I in
+        (R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(V2)))%I in
       seq_in_page (of_pid prog1page) (length rywu_program1) prog1page ->
       R ∗
-      ((R ∗ prog1page -@A> V0 ∗ prog2page -@A> V1) ∗-∗ ⌜total_gmap pgt⌝ ∗ (pagetable_entries pgt)) ∗
       (program (rywu_program1) (of_pid prog1page)) ∗ (VMProp V0 True%I 1) ∗
-      (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ prog2page -@A> V1) ∗
-                    VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ prog2page -@A> V1) ∗
+      (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ) ∗
+                    VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ) ∗
                                  VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp) ∗
       (VMProp V2 (Q ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V2 ∗
-                                  (R ∗ (prog1page -@A> V0))) ∨ False) (1/2)%Qp) (1/2%Qp)) ∗
-      (prog1page -@A> V0) ∗
-      (prog2page -@A> V1) ∗
+                                  (R )) ∨ False) (1/2)%Qp) (1/2%Qp)) ∗
+      (V0 -@A> [{[prog1page]}]) ∗
       (PC @@ V0 ->r (of_pid prog1page)) ∗
       (∃ r0, R0 @@ V0 ->r r0) ∗
       (∃ r1, R1 @@ V0 ->r r1)
@@ -61,7 +57,7 @@ Section proof.
             {{ (λ m,
                  ⌜m = HaltI⌝ ∗
                  program rywu_program1 (of_pid prog1page) ∗
-                 prog1page -@A> V0 ∗
+                 (V0 -@A> [{[prog1page]}]) ∗
                  PC @@ V0 ->r ((of_pid prog1page) ^+ (length rywu_program1))%f∗
                  R0 @@ V0 ->r yield_I ∗
                  R1 @@ V0 ->r encode_vmid V2 ∗

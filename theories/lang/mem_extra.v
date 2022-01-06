@@ -34,7 +34,7 @@ Lemma update_memory_unsafe_preserve_trans σ a w :
   get_trans_gmap (update_memory_unsafe σ a w) = (get_trans_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_trans' σ a w :
+Lemma update_memory_unsafe_preserve_trans' σ a w:
   get_transactions (update_memory_unsafe σ a w) = (get_transactions σ).
 Proof. f_equal. Qed.
 

@@ -26,8 +26,9 @@ Section Adequacy.
     ∃ r0 ,{[PC := (of_pid p2); R0 := r0]} ⊆ (get_reg_files σ) !!! V1 .
 
   Definition mem_inv (σ : state) (p1 : PID) :=
-    (∃ a, a.1= V0 ∧ (get_page_table σ) !! p1 = Some a).
+    (∃ (a:permission), a.1.1 = Some V0 ∧ (get_page_table σ) !! p1 = Some a).
 
+  (* TODO: update adequacy *)
   Definition transactions (σ: state):=
     (dom (gset Word) (get_transactions σ).1) ## ((get_transactions σ).2) ∧
     (get_transactions σ).2 ≠ ∅ ∧

@@ -45,13 +45,15 @@ Definition rx_buffer : Type :=
 Definition mail_box : Type :=
   (tx_buffer * rx_buffer).
 
-Definition transaction : Type :=
-  VMID (* sender *)
+Definition meta_info : Type :=
+   VMID (* sender *)
   * Word (*flag *)
   * VMID (* receiver *)
   * gset PID (* PIDs *)
-  * transaction_type
-  * bool (* if retrieved *).
+  * transaction_type.
+
+Definition transaction : Type :=
+   meta_info * bool (* if retrieved *).
 
 Definition hpool := gset Word.
 

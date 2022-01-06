@@ -463,6 +463,108 @@ Section logrel_extra.
   Qed.
 
 
+Lemma memory_cells_disj s1 s2 : memory_cells s1 ∗ memory_cells s2 ⊢ ⌜s1 ## s2⌝.
+Proof.
+Admitted.
+
+
+Lemma disj'' (p: PID) (s1 : gset PID) (s2: gset Addr) : p ∉ s1 ->
+        (list_to_set (addr_of_page p)) ## s2 ->
+       (list_to_set (addr_of_page p))  ## (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s2 s1).
+Proof.
+  revert s1 s2.
+  induction s1 using set_ind_L.
+  {
+    intros.
+
+    rewrite set_fold_empty.
+    done.
+  }
+{
+  intros.
+   rewrite (set_fold_disj_union_strong _ _ s2 {[x]} X).
+    {
+      rewrite set_fold_singleton.
+      apply IHs1.
+      set_solver + H0.
+      apply disjoint_union_r.
+      split;last done.
+      assert ( p ≠ x ).
+      { intro. subst p. set_solver + H0. }
+     admit.
+    }
+    {
+      admit.
+    }
+    set_solver + H.
+
+}
+Admitted.
+
+Lemma disj' (s1 s2 : gset PID) (s3 : gset Addr): s1 ## s2 ->
+       s3 ## set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ s2 ->
+      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s3 s1) ##
+      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ s2).
+Proof.
+  revert s1 s2 s3.
+  induction s1 using set_ind_L.
+  {
+    intros.
+    rewrite set_fold_empty.
+    done.
+  }
+  {
+    intros ? ? Hdisj Hdisj'.
+    rewrite (set_fold_disj_union_strong _ _ s3 {[x]} X).
+    {
+      rewrite set_fold_singleton.
+      apply IHs1.
+      set_solver + Hdisj.
+      apply disjoint_union_l.
+      split;last done.
+      apply disj''.
+      set_solver + Hdisj.
+      apply disjoint_empty_r.
+    }
+    {
+      admit.
+    }
+    set_solver + H.
+  }
+Admitted.
+
+Lemma addr_of_page_disj (s1 s2 : gset PID) : s1 ## s2 ->
+      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) (∅: gset _) s1) ##
+      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ s2).
+Proof.
+  intros.
+  apply disj';first done.
+  apply disjoint_empty_l.
+Qed.
+
+Lemma memory_cell'_split (ps1 ps2 :gset PID) :
+  ps1 ## ps2 ->
+  memory_cell' ps1 ∗ memory_cell' ps2 ⊢ memory_cell' (ps1 ∪ ps2).
+Proof.
+  iIntros (Hdisj) "[[%m1 [%Hdom1 mem1]] [%m2 [%Hdom2 mem2]]]".
+  iExists (m1 ∪ m2).
+  iSplitL "".
+  iPureIntro.
+  rewrite dom_union_L.
+  rewrite Hdom1 Hdom2.
+  rewrite set_fold_disj_union_strong .
+ admit.
+admit.
+done.
+rewrite big_sepM_union.
+  iFrame.
+  apply map_disjoint_dom.
+  rewrite Hdom1 Hdom2.
+  apply addr_of_page_disj.
+  done.
+Admitted.
+
+
 (** pagetable **)
  (* Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}: *)
  (*    pgt !! p = Some pe-> *)
@@ -500,29 +602,28 @@ Section logrel_extra.
  (*    iApply (ra_big_sepM_split_upd2 pgt p1 p2 pe1 pe2 f);eauto. *)
  (*    Qed. *)
 
- (*  (** memory **) *)
+  (** memory **)
 
- (* Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}: *)
- (*    mem !! a = Some w-> *)
- (*    (([∗ map] k↦y ∈ mem, f k y) *)
- (*     ⊢  (f a w) ∗ (f a w -∗ *)
- (*                          ( [∗ map] k↦y ∈ mem, f k y)))%I. *)
- (*  Proof. *)
- (*    rewrite /total_gmap. *)
- (*    iIntros (Hlookup). *)
- (*    iApply (ra_big_sepM_split mem a w f Hlookup). *)
- (*  Qed. *)
+ Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+    mem !! a = Some w->
+    (([∗ map] k↦y ∈ mem, f k y)
+     ⊢  (f a w) ∗ (f a w -∗
+                          ( [∗ map] k↦y ∈ mem, f k y)))%I.
+  Proof.
+    iIntros (Hlookup).
+    iApply (ra_big_sepM_split mem a w f Hlookup).
+  Qed.
 
- (*  Lemma mem_big_sepM_split_upd (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}: *)
- (*    mem !! a = Some w-> *)
- (*    ((⌜total_gmap mem⌝ ∗ [∗ map] k↦y ∈ mem, f k y)%I *)
- (*     ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗ *)
- (*                          (⌜total_gmap (<[a := w']>mem)⌝ ∗ [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I. *)
- (*  Proof. *)
- (*    rewrite /total_gmap. *)
- (*    iIntros (Hlookup). *)
- (*    iApply (ra_big_sepM_split_upd mem a w f Hlookup). *)
- (*  Qed. *)
+  Lemma mem_big_sepM_split_upd (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+    mem !! a = Some w->
+    (([∗ map] k↦y ∈ mem, f k y)%I
+     ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗
+                          ( [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
+  Proof.
+    iIntros (Hlookup).
+    admit.
+    (* iApply (ra_big_sepM_split_upd mem a w f Hlookup). *)
+Admitted.
 
  (*  Lemma mem_big_sepM_split2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}: *)
  (*    a1 ≠ a2 -> *)

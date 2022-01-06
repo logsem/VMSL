@@ -175,8 +175,10 @@ Section definitions.
 
   Definition inv_trans_wellformed σ := inv_trans_wellformed' (get_transactions σ).1.
 
+  Definition hs_all : gset Word := list_to_set (finz.seq W0 100).
+
   Definition inv_finite_handles (trans: gmap Word transaction) (hpool: gset _) :=
-    list_to_set (finz.seq W0 100) = dom (gset Word) trans ∪ hpool.
+   hs_all = dom (gset Word) trans ∪ hpool.
 
   Definition inv_trans_hpool_consistent' (trans: gmap Word transaction) (hpool: gset _) :=
     (inv_trans_hpool_disj trans hpool) ∧ (inv_finite_handles trans hpool).
@@ -307,13 +309,13 @@ Section definitions.
 End definitions.
 
 (* point-to predicates for registers and memory *)
-Notation "r @@ i ->r{ q } w" := (reg_mapsto r i q w)
-  (at level 22, q at level 50, format "r @@ i ->r{ q } w") : bi_scope.
+Notation "r @@ i -{ q }>r w" := (reg_mapsto r i q w)
+  (at level 22, q at level 50, format "r @@ i -{ q }>r w") : bi_scope.
 Notation "r @@ i ->r w" :=
   (reg_mapsto r i 1 w) (at level 21, w at level 50) : bi_scope.
 
-Notation "a ->a{ q } w" := (mem_mapsto a q w)
-  (at level 20, q at level 50, format "a ->a{ q } w") : bi_scope.
+(* Notation "a -{ q }>a w" := (mem_mapsto a q w) *)
+(*   (at level 20, q at level 50, format "a -{ q }>a w") : bi_scope. *)
 Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 
 (* predicates for TX and RX *)
@@ -346,6 +348,8 @@ Notation "p -@E> b" := (excl_mapsto p b)
                               (at level 20, format "p  -@E>  b"):bi_scope.
 
 (* predicates for transactions *)
+Notation "w -{ q }>t t" := (trans_mapsto w (DfracOwn q) t)
+                                                   (at level 20, format "w  -{ q }>t  t"):bi_scope.
 Notation "w ->t t" := (trans_mapsto w (DfracOwn 1) t)
                                                    (at level 20, format "w  ->t  t"):bi_scope.
 Notation "w ->re b" := (retri_mapsto w b) (at level 20, format "w  ->re  b"):bi_scope.
@@ -489,7 +493,7 @@ Section timeless.
   (* all resources are timeless(▷ P -> P),
     which means we can easily get rid of the later modalities of resources when opening invariants. *)
 
-  Global Instance mem_mapsto_timeless a q w : Timeless ((a ->a{q} w)).
+  Global Instance mem_mapsto_timeless a w : Timeless ((a ->a w)).
   Proof. rewrite mem_mapsto_eq /mem_mapsto_def. apply _. Qed.
 
   Global Instance reg_mapsto_timeless r i a : Timeless ((r @@ i ->r a)).
@@ -519,7 +523,7 @@ Section timeless.
   Global Instance rx_mapsto_timeless2 i : Timeless (RX@ i :=()).
   Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
-  Global Instance trans_mapsto_timeless w me : Timeless (w ->t me).
+  Global Instance trans_mapsto_timeless w q me : Timeless (w -{q}>t me).
   Proof. rewrite trans_mapsto_eq /trans_mapsto_def. apply _. Qed.
 
   Global Instance hpool_mapsto_timeless sh : Timeless (hp [sh]).
