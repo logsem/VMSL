@@ -467,102 +467,175 @@ Lemma memory_cells_disj s1 s2 : memory_cells s1 ∗ memory_cells s2 ⊢ ⌜s1 ##
 Proof.
 Admitted.
 
+  Lemma fold_union_addr_of_page_strong_assoc_comm (X : gset PID):
+    ∀ (x1 x2 : PID) (b' : gset Addr),
+    x1 ∈ X
+    → x2 ∈ X
+    → x1 ≠ x2
+    → list_to_set (addr_of_page x1) ∪ (list_to_set (addr_of_page x2) ∪ b') =
+        list_to_set (addr_of_page x2) ∪ (list_to_set (addr_of_page x1) ∪ b').
+  Proof.
+    intros ? ? b Hin1 Hin2 Hneq.
+    rewrite assoc_L.
+    rewrite assoc_L.
+    f_equal.
+    rewrite comm_L //.
+  Qed.
 
-Lemma disj'' (p: PID) (s1 : gset PID) (s2: gset Addr) : p ∉ s1 ->
-        (list_to_set (addr_of_page p)) ## s2 ->
-       (list_to_set (addr_of_page p))  ## (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s2 s1).
-Proof.
-  revert s1 s2.
-  induction s1 using set_ind_L.
-  {
-    intros.
 
-    rewrite set_fold_empty.
-    done.
-  }
-{
-  intros.
-   rewrite (set_fold_disj_union_strong _ _ s2 {[x]} X).
+  Lemma fold_union_addr_of_page_comm (s1 : gset PID) (s2 s3: gset Addr) :
+    (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) (s3 ∪ s2) s1)
+    = s3 ∪ (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s2 s1).
+  Proof.
+    revert s1 s2 s3.
+    induction s1 using set_ind_L.
     {
-      rewrite set_fold_singleton.
-      apply IHs1.
-      set_solver + H0.
-      apply disjoint_union_r.
-      split;last done.
-      assert ( p ≠ x ).
-      { intro. subst p. set_solver + H0. }
-     admit.
+      intros.
+      rewrite !set_fold_empty.
+      done.
     }
     {
-      admit.
+      intros.
+      rewrite (set_fold_disj_union_strong _ _  (s3 ∪ s2) {[x]} X).
+      {
+        rewrite set_fold_singleton.
+        assert ((list_to_set (addr_of_page x) ∪ (s3 ∪ s2)) = (s3 ∪ (list_to_set (addr_of_page x) ∪  s2))) as ->.
+        {
+
+          rewrite (union_assoc_L _ s3 s2).
+          rewrite (union_comm_L _ s3).
+          rewrite union_assoc_L //.
+        }
+        rewrite IHs1.
+        rewrite (set_fold_disj_union_strong _ _ s2 {[x]} X).
+        rewrite set_fold_singleton //.
+        apply fold_union_addr_of_page_strong_assoc_comm.
+        set_solver + H.
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      set_solver + H.
     }
-    set_solver + H.
+  Qed.
 
-}
-Admitted.
-
-Lemma disj' (s1 s2 : gset PID) (s3 : gset Addr): s1 ## s2 ->
-       s3 ## set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ s2 ->
-      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s3 s1) ##
-      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ s2).
-Proof.
-  revert s1 s2 s3.
-  induction s1 using set_ind_L.
-  {
-    intros.
-    rewrite set_fold_empty.
-    done.
-  }
-  {
-    intros ? ? Hdisj Hdisj'.
-    rewrite (set_fold_disj_union_strong _ _ s3 {[x]} X).
+  Lemma fold_union_addr_of_page_disj_aux (p: PID) (s1 : gset PID) (s2: gset Addr) : p ∉ s1 ->
+    (list_to_set (addr_of_page p)) ## s2 ->
+    (list_to_set (addr_of_page p)) ## (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s2 s1).
+  Proof.
+    revert s1 s2.
+    induction s1 using set_ind_L.
     {
-      rewrite set_fold_singleton.
-      apply IHs1.
-      set_solver + Hdisj.
-      apply disjoint_union_l.
-      split;last done.
-      apply disj''.
-      set_solver + Hdisj.
-      apply disjoint_empty_r.
+      intros.
+      rewrite set_fold_empty.
+      done.
     }
     {
-      admit.
+      intros.
+      rewrite (set_fold_disj_union_strong _ _ s2 {[x]} X).
+      {
+        rewrite set_fold_singleton.
+        rewrite fold_union_addr_of_page_comm.
+        apply disjoint_union_r.
+        split.
+        { apply addr_of_page_disj. set_solver + H0. }
+        apply IHs1.
+        set_solver + H0.
+        done.
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      set_solver + H.
     }
-    set_solver + H.
-  }
-Admitted.
+  Qed.
 
-Lemma addr_of_page_disj (s1 s2 : gset PID) : s1 ## s2 ->
-      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) (∅: gset _) s1) ##
-      (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ s2).
-Proof.
-  intros.
-  apply disj';first done.
-  apply disjoint_empty_l.
-Qed.
+  Lemma fold_union_addr_of_page_disj (s1 s2 : gset PID) : s1 ## s2 ->
+    (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) (∅ : gset _) s1) ##
+    (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ s2).
+  Proof.
+    revert s1 s2.
+    induction s1 using set_ind_L.
+    {
+      intros.
+      rewrite set_fold_empty.
+      done.
+    }
+    {
+      intros ? Hdisj.
+      rewrite (set_fold_disj_union_strong _ _ _ {[x]} X).
+      {
+        rewrite set_fold_singleton.
+        rewrite fold_union_addr_of_page_comm.
+        apply disjoint_union_l.
+        split.
+        { apply fold_union_addr_of_page_disj_aux.
+          set_solver + Hdisj.
+          apply disjoint_empty_r.
+        }
+        { apply IHs1.
+          set_solver + Hdisj. }
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      set_solver + H.
+    }
+  Qed.
+
+  Lemma fold_union_addr_of_page_union (s1 s2 : gset PID):
+    s1 ## s2 ->
+    set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ (s1 ∪ s2) =
+      (set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ s1) ∪
+      (set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ s2).
+  Proof.
+    intro Hdisj.
+    rewrite (set_fold_disj_union_strong _ _ _ s1 s2).
+    {
+      rewrite -fold_union_addr_of_page_comm.
+      rewrite union_empty_r_L //.
+    }
+    apply fold_union_addr_of_page_strong_assoc_comm.
+    exact Hdisj.
+  Qed.
+
 
 Lemma memory_cell'_split (ps1 ps2 :gset PID) :
   ps1 ## ps2 ->
-  memory_cell' ps1 ∗ memory_cell' ps2 ⊢ memory_cell' (ps1 ∪ ps2).
+  memory_cell' ps1 ∗ memory_cell' ps2 ⊣⊢ memory_cell' (ps1 ∪ ps2).
 Proof.
-  iIntros (Hdisj) "[[%m1 [%Hdom1 mem1]] [%m2 [%Hdom2 mem2]]]".
-  iExists (m1 ∪ m2).
-  iSplitL "".
-  iPureIntro.
-  rewrite dom_union_L.
-  rewrite Hdom1 Hdom2.
-  rewrite set_fold_disj_union_strong .
- admit.
-admit.
-done.
-rewrite big_sepM_union.
-  iFrame.
-  apply map_disjoint_dom.
-  rewrite Hdom1 Hdom2.
-  apply addr_of_page_disj.
-  done.
-Admitted.
+  intro Hdisj.
+  iSplit.
+  {
+    iIntros "[[%m1 [%Hdom1 mem1]] [%m2 [%Hdom2 mem2]]]".
+    iExists (m1 ∪ m2).
+    iSplitL "".
+    iPureIntro.
+    rewrite dom_union_L.
+    rewrite Hdom1 Hdom2.
+    rewrite set_fold_disj_union_strong.
+    {
+      rewrite -fold_union_addr_of_page_comm.
+      rewrite union_empty_r_L //.
+    }
+    apply fold_union_addr_of_page_strong_assoc_comm.
+    exact Hdisj.
+    rewrite big_sepM_union.
+    iFrame.
+    apply map_disjoint_dom.
+    rewrite Hdom1 Hdom2.
+    apply fold_union_addr_of_page_disj.
+    done.
+  }
+  {
+    iIntros "[%m [%Hdom mem]]".
+    rewrite fold_union_addr_of_page_union in Hdom;last done.
+    pose proof (dom_union_inv_L m _ _ (fold_union_addr_of_page_disj _ _ Hdisj) Hdom) as Hsplit.
+    destruct Hsplit as (m1 & m2 & Heq & Hdisj_m & Hdom1 & Hdom2).
+    rewrite Heq.
+    rewrite big_sepM_union;last done.
+    iDestruct "mem" as "[mem1 mem2]".
+    iSplitL "mem1".
+    iExists m1.
+    iSplitL "";done.
+    iExists m2.
+    iSplitL "";done.
+  }
+Qed.
 
 
 (** pagetable **)
