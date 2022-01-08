@@ -722,6 +722,23 @@ Proof.
   apply elem_of_addr_of_page_tpa.
 Qed.
 
+Lemma addr_of_page_not_empty_exists (p : PID) : ∃a, a ∈ addr_of_page p.
+Proof.
+  exists (of_pid p).
+  apply elem_of_addr_of_page_iff.
+  rewrite to_pid_aligned_eq //.
+Qed.
+
+Lemma addr_of_page_not_empty_set (p : PID) : list_to_set (addr_of_page p) ≠ (∅: gset _) .
+Proof.
+  pose proof (addr_of_page_not_empty_exists p) as H.
+  destruct H as [a H].
+  intro Heq.
+  rewrite -(elem_of_list_to_set (C:= gset Addr) a (addr_of_page p)) in H.
+  rewrite Heq in H.
+  set_solver + H.
+Qed.
+
 Lemma addr_of_page_NoDup (p:PID) : NoDup (addr_of_page p).
 Proof.
   rewrite /addr_of_page.

@@ -462,11 +462,7 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd3 reg r1 r2 r3 w1 w2 w3 (λ k v, k @@ i ->r v)%I);eauto.
   Qed.
 
-
-Lemma memory_cells_disj s1 s2 : memory_cells s1 ∗ memory_cells s2 ⊢ ⌜s1 ## s2⌝.
-Proof.
-Admitted.
-
+  (* lemmas about [memory_cells] *)
   Lemma fold_union_addr_of_page_strong_assoc_comm (X : gset PID):
     ∀ (x1 x2 : PID) (b' : gset Addr),
     x1 ∈ X
@@ -594,48 +590,132 @@ Admitted.
   Qed.
 
 
-Lemma memory_cell'_split (ps1 ps2 :gset PID) :
-  ps1 ## ps2 ->
-  memory_cell' ps1 ∗ memory_cell' ps2 ⊣⊢ memory_cell' (ps1 ∪ ps2).
-Proof.
-  intro Hdisj.
-  iSplit.
-  {
-    iIntros "[[%m1 [%Hdom1 mem1]] [%m2 [%Hdom2 mem2]]]".
-    iExists (m1 ∪ m2).
-    iSplitL "".
-    iPureIntro.
-    rewrite dom_union_L.
-    rewrite Hdom1 Hdom2.
-    rewrite set_fold_disj_union_strong.
+  Lemma memory_cell'_split_union (ps1 ps2 :gset PID) :
+    ps1 ## ps2 ->
+    memory_cell' (ps1 ∪ ps2) ⊣⊢ memory_cell' ps1 ∗ memory_cell' ps2  .
+  Proof.
+    intro Hdisj.
+    iSplit.
     {
-      rewrite -fold_union_addr_of_page_comm.
-      rewrite union_empty_r_L //.
+      iIntros "[%m [%Hdom mem]]".
+      rewrite fold_union_addr_of_page_union in Hdom;last done.
+      pose proof (dom_union_inv_L m _ _ (fold_union_addr_of_page_disj _ _ Hdisj) Hdom) as Hsplit.
+      destruct Hsplit as (m1 & m2 & Heq & Hdisj_m & Hdom1 & Hdom2).
+      rewrite Heq.
+      rewrite big_sepM_union;last done.
+      iDestruct "mem" as "[mem1 mem2]".
+      iSplitL "mem1".
+      iExists m1.
+      iSplitL "";done.
+      iExists m2.
+      iSplitL "";done.
     }
-    apply fold_union_addr_of_page_strong_assoc_comm.
-    exact Hdisj.
-    rewrite big_sepM_union.
-    iFrame.
-    apply map_disjoint_dom.
-    rewrite Hdom1 Hdom2.
-    apply fold_union_addr_of_page_disj.
+    {
+      iIntros "[[%m1 [%Hdom1 mem1]] [%m2 [%Hdom2 mem2]]]".
+      iExists (m1 ∪ m2).
+      iSplitL "".
+      iPureIntro.
+      rewrite dom_union_L.
+      rewrite Hdom1 Hdom2.
+      rewrite set_fold_disj_union_strong.
+      {
+        rewrite -fold_union_addr_of_page_comm.
+        rewrite union_empty_r_L //.
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      exact Hdisj.
+      rewrite big_sepM_union.
+      iFrame.
+      apply map_disjoint_dom.
+      rewrite Hdom1 Hdom2.
+      apply fold_union_addr_of_page_disj.
+      done.
+    }
+  Qed.
+
+  Lemma memory_cells'_split_diff s s' :
+    s' ⊆ s ->
+    memory_cell' s  ⊣⊢  memory_cell' (s ∖ s') ∗ memory_cell' s'.
+  Proof.
+    intro Hsub.
+    rewrite -memory_cell'_split_union;last set_solver +.
+    assert (s ∖ s' ∪ s' = s) as ->.
+    {
+      rewrite difference_union_L.
+      set_solver + Hsub.
+    }
     done.
-  }
-  {
-    iIntros "[%m [%Hdom mem]]".
-    rewrite fold_union_addr_of_page_union in Hdom;last done.
-    pose proof (dom_union_inv_L m _ _ (fold_union_addr_of_page_disj _ _ Hdisj) Hdom) as Hsplit.
-    destruct Hsplit as (m1 & m2 & Heq & Hdisj_m & Hdom1 & Hdom2).
-    rewrite Heq.
-    rewrite big_sepM_union;last done.
-    iDestruct "mem" as "[mem1 mem2]".
-    iSplitL "mem1".
-    iExists m1.
-    iSplitL "";done.
-    iExists m2.
-    iSplitL "";done.
-  }
-Qed.
+  Qed.
+
+  Lemma memory_cells'_split_singleton s p :
+    p ∈ s ->
+    memory_cell' s  ⊣⊢ memory_cell' (s ∖ {[p]}) ∗ memory_cell' {[p]} .
+  Proof.
+    intro Hin.
+    apply memory_cells'_split_diff.
+    set_solver + Hin.
+  Qed.
+
+
+  Lemma big_sepM_not_disj`{Countable K} {V :Type} (m1 m2: gmap K V) (Φ: K -> V -> iProp Σ) :
+    ¬ (m1 ##ₘ m2) ->
+    (∀ k v1 v2, Φ k v1 ∗ Φ k v2 -∗ False) ⊢
+    ([∗ map] k↦v ∈ m1, Φ k v) ∗ ([∗ map] k↦v ∈ m2, Φ k v) -∗ False.
+  Proof.
+    iIntros (Hnot_disj) "Hexcl [m1 m2]".
+    assert (∃ k, is_Some(m1 !! k) ∧ is_Some(m2 !! k)) as Hexists.
+    {
+      rewrite map_disjoint_dom elem_of_disjoint in Hnot_disj.
+      apply  not_set_Forall_Exists in Hnot_disj;last eapply _.
+      destruct Hnot_disj as [k [Hin H']].
+      exists k.
+      split.
+      rewrite elem_of_dom // in Hin.
+      simpl in H'.
+      apply dec_stable in H'.
+      rewrite elem_of_dom // in H'.
+    }
+    destruct Hexists as [k [Hin1 Hin2]].
+    destruct Hin1 as [v1 Hlookup1].
+    destruct Hin2 as [v2 Hlookup2].
+    iDestruct (big_sepM_lookup with "m1") as "m1";first exact Hlookup1.
+    iDestruct (big_sepM_lookup with "m2") as "m2";first exact Hlookup2.
+    iApply ("Hexcl" $! k).
+    iFrame.
+  Qed.
+  
+  Lemma memory_cells'_disj_singleton p : memory_cell' {[p]} ∗ memory_cell' {[p]} ⊢ False.
+  Proof.
+    iIntros " [[%m1 [%Hdom1 mem1]] [%m2 [%Hdom2 mem2]]] ".
+    rewrite set_fold_singleton in Hdom1 Hdom2.
+    rewrite union_empty_r_L in Hdom1 Hdom2.
+    iApply (big_sepM_not_disj with "[] [$mem1 $mem2]").
+    rewrite map_disjoint_dom.
+    rewrite Hdom1 Hdom2.
+    rewrite disjoint_intersection_L.
+    pose proof (addr_of_page_not_empty_set p) as Hne.
+    rewrite intersection_idemp_L.
+    done.
+    iIntros (k v1 v2) "[Hp1 Hp2]".
+    rewrite mem_mapsto_eq /mem_mapsto_def.
+    iDestruct (ghost_map_elem_valid_2 with "Hp1 Hp2") as "%Hvalid".
+    destruct Hvalid as [Hvalid _].
+    rewrite dfrac_op_own in Hvalid.
+    rewrite -> dfrac_valid_own in Hvalid.
+    exfalso.
+    eauto using Qp_not_add_le_r.
+  Qed.
+
+  Lemma memory_cells'_disj s1 s2 : memory_cell' s1 ∗ memory_cell' s2 ⊢ ⌜s1 ## s2⌝.
+  Proof.
+    iIntros "[mem1 mem2]".
+    rewrite elem_of_disjoint.
+    iIntros (p Hin1 Hin2).
+    iDestruct (memory_cells'_split_singleton s1 p Hin1 with "mem1") as "[mem1' mem1_p]".
+    iDestruct (memory_cells'_split_singleton s2 p Hin2 with "mem2") as "[mem2' mem2_p]".
+    iApply (memory_cells'_disj_singleton with "[$mem1_p $mem2_p]").
+  Qed.
+
 
 
 (** pagetable **)
