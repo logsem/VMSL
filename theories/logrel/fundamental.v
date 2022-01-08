@@ -24,10 +24,11 @@ Section fundamental.
   Proof.
     rewrite /interp_access /=.
     (* iLöb as "IH". *)
-    iIntros (ps_acc p_tx p_rx trans) "((%regs & #Htotal_regs & regs) & tx & pgt_acc & pgt_owned & trans_owned & #Hps_incl & mem_owned & VMProp) Hnotp VMProp_holds".
+    iIntros (ps_acc p_tx p_rx trans) "((%regs & #Htotal_regs & regs) & tx & pgt_acc & pgt_owned & trans_owned & #Hps_incl
+                              & mem_owned & VMProp) Hnotp VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres _]".
     iEval (rewrite later_sep) in "Hres".
-    iDestruct "Hres" as "[>Hres1 Hres]".
+    iDestruct "Hres" as "[>(Hres1 & R0z & R1z) Hres]".
     iLöb as "IH" forall (regs ps_acc trans) "Htotal_regs Hps_incl".
     (* we don't really need to get the resource of PC, but just the value *)
     iDestruct "Hres1" as (ps_na trans' hpool) "(%Heq_acc_trans & LB & %Hdisj_ps & %Hinv_trans & hp & trans_transferred &

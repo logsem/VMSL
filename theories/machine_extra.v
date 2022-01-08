@@ -4,6 +4,16 @@ From HypVeri Require Import machine monad stdpp_extra.
 From stdpp Require Import fin_maps list countable fin vector gmap.
 
 (* these definitions are frequently used *)
+
+Section VMID0.
+  Context `{hypconst:HypervisorConstants}.
+
+  Program Definition V0 : VMID := (@nat_to_fin 0 _ _).
+  Next Obligation.
+  destruct hypconst. simpl. lia.
+  Defined.
+End VMID0.
+
 Program Definition W0 : Word := (finz.FinZ 0 _ _).
 Solve Obligations with lia.
 

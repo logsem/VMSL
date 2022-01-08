@@ -130,8 +130,45 @@ Section logrel_extra.
       iFrame.
   Qed.
 
+ Lemma ra_big_sepM_split_upd `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
+         (f: K -> V -> iProp Σ) :
+    map !! k = Some v ->
+    (([∗ map] k↦y ∈ map, f k y)%I
+     ⊢  (f k v) ∗ (∀ v', (f k v') -∗ [∗ map] k↦y ∈ <[k := v']>map , f k y))%I.
+  Proof.
+    iIntros (Hlookup) "bigM".
+    iDestruct (big_sepM_union_acc map {[k := v]} f with "bigM") as "[single Hrestore]".
+    {
+      apply insert_subseteq_l ;first done.
+      apply map_empty_subseteq.
+    }
+    iSplitL "single".
+    {
+      rewrite big_opM_singleton.
+      iFrame.
+    }
+    iIntros (v') "Hsingle_upd".
+    assert (<[k:= v']> map = {[k := v']} ∪ map) as ->.
+    {
+      rewrite map_eq_iff.
+      intro.
+      destruct (decide (k = i)).
+       - subst i.
+         simplify_map_eq /=.
+         done.
+       - simplify_map_eq /=.
+         rewrite lookup_union_r.
+         done.
+         apply lookup_singleton_None.
+         done.
+    }
+      iApply "Hrestore".
+      iPureIntro. set_solver +.
+      rewrite big_opM_singleton.
+      iFrame.
+  Qed.
 
-  Lemma ra_big_sepM_split_upd `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
+  Lemma ra_big_sepM_split_upd_with_total `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
         (total:= (λ m, (∀ k,  is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ)
     :
     map !! k = Some v ->
@@ -181,7 +218,6 @@ Section logrel_extra.
       rewrite big_opM_singleton.
       iFrame.
   Qed.
-
 
   Lemma ra_big_sepM_split2 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 : K) (v1 v2:V)
          (f: K -> V -> iProp Σ)
@@ -431,7 +467,7 @@ Section logrel_extra.
   Proof.
     rewrite /reg_file /is_total_gmap.
     iIntros (Hlookup).
-    iApply (ra_big_sepM_split_upd reg r w (λ k v, k @@ i ->r v)%I Hlookup).
+    iApply (ra_big_sepM_split_upd_with_total reg r w (λ k v, k @@ i ->r v)%I Hlookup).
   Qed.
 
 
@@ -717,7 +753,6 @@ Section logrel_extra.
   Qed.
 
 
-
 (** pagetable **)
  (* Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}: *)
  (*    pgt !! p = Some pe-> *)
@@ -774,9 +809,8 @@ Section logrel_extra.
                           ( [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
   Proof.
     iIntros (Hlookup).
-    admit.
-    (* iApply (ra_big_sepM_split_upd mem a w f Hlookup). *)
-Admitted.
+    iApply (ra_big_sepM_split_upd mem a w f Hlookup).
+  Qed.
 
  (*  Lemma mem_big_sepM_split2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}: *)
  (*    a1 ≠ a2 -> *)
