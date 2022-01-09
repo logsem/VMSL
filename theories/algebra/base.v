@@ -1,5 +1,6 @@
 From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_map saved_prop.
-From iris.algebra Require Export auth agree frac excl gmap gset frac_agree frac_auth gset_bij.
+From iris.algebra Require Export auth agree frac excl gmap gset.
+From iris.algebra.lib Require Export dfrac_agree frac_auth.
 From iris.proofmode Require Export tactics.
 From HypVeri Require Import monad machine machine_extra.
 From HypVeri Require Export lang.
@@ -43,7 +44,7 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   gen_rx_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
   gen_mb_preG_inG :> gen_heapGpreS (V * MailBox) P Σ;
   gen_own_preG_inG :> gen_heapGpreS P (option V) Σ;
-  gen_access_preG_inG :> inG Σ (authR (gmapUR V (prodR fracR (gset_disjR (leibnizO P)))));
+  gen_access_preG_inG :> inG Σ (authR (gmapUR V (dfrac_agreeR (gsetO P))));
   gen_excl_preG_inG :> gen_heapGpreS P boolO Σ;
   gen_trans_preG_inG :> gen_heapGpreS W (V * W * V * (gset P) * F) Σ;
   gen_hpool_preG_inG :> inG Σ (frac_authR (gsetR (leibnizO W)));
@@ -58,7 +59,7 @@ Section gen_vmG.
                             gen_VM_inG :> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ;
                             gen_invG :> invGS Σ;
                             gen_saved_propG :> savedPropG Σ;
-                            gen_prop_nameG :> inG Σ (authUR (optionUR (frac_agreeR gnameO)));
+                            gen_prop_nameG :> inG Σ (authUR (optionUR (dfrac_agreeR gnameO)));
                             gen_name_mapG :> inG Σ (authUR (gmapUR nat (agreeR gnameO)));
                             gen_name_map_name: gname;
                             gen_mem_name : gname;
@@ -97,7 +98,7 @@ Section gen_vmG.
            gen_heapΣ VMID (option (Word*VMID));
            gen_heapΣ PID (option VMID);
            gen_heapΣ (VMID* MailBox) PID;
-           GFunctor (authUR (gmapUR VMID (prodR fracR (gset_disjR (leibnizO PID)))));
+           GFunctor (authUR (gmapUR VMID (dfrac_agreeR (gsetO PID))));
            gen_heapΣ PID boolO;
            gen_heapΣ Word (VMID * Word *  VMID * (gset PID) * transaction_type);
            GFunctor (frac_authR (gsetR (leibnizO Word)));
@@ -125,7 +126,7 @@ Section definitions.
   Definition get_rx_gmap σ : gmap VMID (option (Word*VMID)) :=
             ((list_to_map (map (λ v, let mb := (get_mail_box σ @ v) in
                                     match mb.2.2 with
-                                      | Some (l, j) => (v, (Some ( l, j)))
+                                      | Some (l, j) => (v, (Some (l, j)))
                                       | None => (v,None)
                                     end) (list_of_vmids)))).
 
@@ -138,9 +139,9 @@ Section definitions.
     let pt := (get_page_table σ) in
     ((λ (p: (option VMID * _ * _)), p.1.1) <$> pt).
 
-  Definition get_access_gmap σ : gmap VMID (frac * (gset_disj PID)):=
+  Definition get_access_gmap σ : gmap VMID (dfrac_agreeR (gsetO PID)):=
     let pt := (get_page_table σ) in
-    list_to_map (map (λ i, (i,(1%Qp, GSet (dom (gset PID) (map_filter
+    list_to_map (map (λ i, (i,(to_frac_agree 1 (dom (gset PID) (map_filter
                                           (λ (kv: PID * gset VMID), i ∈ kv.2) _ ((λ (p: ( _ * gset VMID)), p.2) <$> pt)))))) (list_of_vmids)).
 
   Definition get_excl_gmap σ : gmap PID bool:=
@@ -265,7 +266,7 @@ Section definitions.
   Definition own_mapsto_eq : @own_mapsto = @own_mapsto_def := own_mapsto_aux.(seal_eq).
 
   Definition access_mapsto_def (v: VMID) (dq:frac) (s: gset PID) : iProp Σ :=
-    own gen_access_name (◯ {[v:=(dq,(GSet s))]}).
+    own gen_access_name (◯ {[v:=(to_frac_agree dq s)]}).
   Definition access_mapsto_aux : seal (@access_mapsto_def). Proof. by eexists. Qed.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
@@ -434,7 +435,6 @@ Section alloc_rules.
     iMod (own_alloc ((● gm) ⋅ (◯ gm))) as (γ) "Halloc".
     { apply auth_both_valid;split;first done. intro.
       destruct (gm !! i) eqn:Hlookup.
-      rewrite Hlookup.
       rewrite /gm /get_access_gmap in Hlookup.
       apply elem_of_list_to_map_2 in Hlookup.
       rewrite elem_of_list_In in Hlookup.
@@ -443,7 +443,6 @@ Section alloc_rules.
       inversion_clear Hin.
       apply Some_valid.
       apply pair_valid;split;done.
-      rewrite Hlookup.
       done.
     }
     rewrite own_op.

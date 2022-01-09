@@ -103,7 +103,7 @@ Proof.
   iModIntro.
   iDestruct "Hσ1" as "( ? & ? & Hreg & ? & ? & ? & Haccess & ?)".
   iDestruct (gen_reg_valid1 PC i a Hcur with "Hreg Hpc") as "%Hpc".
-  iDestruct (access_agree_1_check_false (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
+  iDestruct (access_agree_check_false (to_pid_aligned a) s Hmm with "Haccess Ha") as "%Hnacc".
   iSplit.
   - iPureIntro.
     rewrite /reducible.
