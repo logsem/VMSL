@@ -90,6 +90,7 @@ Section logrel.
                                       probably relate it to trans'(currently impossible because of the form of yield rule) *)
                              let ps_trans'' := ps_trans (accessible_trans trans'') in
                              (* lower bound *)
+                             (* TODO: can rhis lb actually bound ps_acc'???  *)
                              LB@ i := [ps_na'] ∗ ⌜ps_na' ## ps_acc'⌝ ∗
                                         (* resources *)
                                         hp [hpool'] ∗ transferred_tran_entries trans'' ∗

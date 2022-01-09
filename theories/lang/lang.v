@@ -777,7 +777,7 @@ Definition reclaim (s : state) : exec_mode * state :=
   unpack_hvc_result_normal s comp.
 
 Definition is_primary (st : state) : bool :=
-  (get_current_vm st) =? 0.
+  bool_decide ((get_current_vm st) = V0).
 
 Definition is_secondary (st : state) : bool :=
   negb (is_primary st).
@@ -796,33 +796,30 @@ Definition run (s : state) : exec_mode * state :=
 
 Program Definition yield (s : state) : exec_mode * state :=
   let comp :=
-      let s' := (update_reg_global s (@nat_to_fin 0 vm_count vm_count_pos) R0
+      let s' := (update_reg_global s V0 R0
                                    (encode_hvc_func Yield))
       in
       if is_primary s'
       then
-        unit (s', (@nat_to_fin 0 vm_count vm_count_pos))
+        unit (s', V0)
       else
-        unit ((update_reg_global s'
-                      (@nat_to_fin 0 vm_count vm_count_pos) R1
-                      (encode_vmid (get_current_vm s'))),
-              (@nat_to_fin 0 vm_count vm_count_pos))
+        unit ((update_reg_global s' V0 R1
+                      (encode_vmid (get_current_vm s'))), V0)
   in
   unpack_hvc_result_yield s comp.
 
 Definition send (s : state) : exec_mode * state :=
   let comp :=
-      let prim := @nat_to_fin 0 vm_count vm_count_pos in
       receiver <- lift_option (get_reg s R1) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
       l <- lift_option (get_reg s R2) ;;;
       st <- transfer_msg s l receiver' ;;;
       if is_primary st
       then
-        unit (st, prim)
+        unit (st, V0)
       else    
-        unit (update_reg_global (update_reg_global (update_reg_global st prim R0 (encode_hvc_func Send))
-                                                   prim R1 receiver) prim R2 l, prim)
+        unit (update_reg_global (update_reg_global (update_reg_global st V0 R0 (encode_hvc_func Send))
+                                                   V0 R1 receiver) V0 R2 l, V0)
   in
   unpack_hvc_result_yield s comp.
 
@@ -830,9 +827,8 @@ Definition wait (s : state) : exec_mode * state :=
   let comp :=
       if is_rx_ready s
       then unit (s, get_current_vm s)
-      else unit ((update_reg_global s
-                      (@nat_to_fin 0 vm_count vm_count_pos) R1
-                      (encode_vmid (get_current_vm s))), (@nat_to_fin 0 _ vm_count_pos))
+      else unit ((update_reg_global s V0 R1
+                      (encode_vmid (get_current_vm s))), V0)
   in
   unpack_hvc_result_yield s comp.
 

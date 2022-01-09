@@ -83,10 +83,10 @@ Section proof.
     (* hvc_I *)
     rewrite wp_sswp.
     set (T := (PC @@ V0 ->r (((prog1page ^+ 1) ^+ 1) ^+ 1)%f ∗ ((prog1page ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> [{[prog1page]}])%I).
-    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True) (R' := T) (i' := 1))
+    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True) (R' := T))
              with "[PCz p_3 acc R0z R1z prop0 prop1]"); try rewrite HIn //;iFrameAutoSolve.
-    { solve_finz. }
-    { solve_finz. }
+    { set_solver +. }
+    { set_solver +. }
     { apply decode_encode_hvc_func. }
     { apply decode_encode_vmid. }
     {
@@ -97,10 +97,9 @@ Section proof.
         iFrame "prop0".
         iSplitR "";last done.
         iNext.
-        iIntros "[(PCz & p_4 & acc & R0z & R1z) _]".
+        iIntros "((PCz & p_4 & acc & R0z & R1z) & _ & prop)".
         iFrame.
     }
-    { set_solver. }
     iModIntro.
     iIntros "[(PC & p_3 & acc) prop0] Hholds".
     iDestruct (VMProp_holds_agree with "[Hholds prop0]") as "[P' prop0]".
@@ -124,9 +123,9 @@ Section proof.
     iApply ((run (((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f V2 (R := True%I)
                 (R' := PC @@ V0 ->r ((((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f
                                  ∗(((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> [{[prog1page]}] )
-                (i' := 2)) with "[PCz p_6 acc R0z R1z prop0 prop2 LB2 hp R2]"); try rewrite HIn //;iFrameAutoSolve.
-    { solve_finz. }
-    { solve_finz. }
+                ) with "[PCz p_6 acc R0z R1z prop0 prop2 LB2 hp R2]"); try rewrite HIn //;iFrameAutoSolve.
+    { set_solver +. }
+    { set_solver +. }
     { apply decode_encode_hvc_func. }
     { apply decode_encode_vmid. }
     { iSplitL "prop2".
@@ -135,8 +134,8 @@ Section proof.
       done.
       iSplitR "";last done.
       iNext.
-      iIntros "((PC & addr & acc & R0 & R1) & _)".
-      iFrame "PC addr R0 R1 acc".
+      iIntros "((PC & addr & acc & R0 & R1) & _ & prop)".
+      iFrame "PC addr R0 R1 acc prop".
       iExists {[prog1page]}, ∅, hs_all.
       iFrame.
       iSplitL "";first done.
@@ -174,7 +173,6 @@ Section proof.
       iDestruct "R2" as "(rx_s & rx & rx_mem)".
       iFrame.
     }
-    { set_solver +. }
     iNext.
     iIntros "((PC & p_6 & acc) & Hprop0) Hholds0".
     iDestruct (VMProp_holds_agree with "[Hholds0 Hprop0]") as "[P' Hprop0]".
@@ -239,11 +237,11 @@ Section proof.
     iIntros "_".
     (* hvc_I *)
     rewrite wp_sswp.
-    iApply ((yield ((of_pid prog2page) ^+ 1)%f (z := V0) (Q := (R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1)%I)
-                   (P' := False%I) (R := True%I) (i' := 1)
+    iApply ((yield ((of_pid prog2page) ^+ 1)%f (P' := False%I) (R := True%I)
                    (R' := (PC @@ V1 ->r ((prog2page ^+ 1) ^+ 1)%f ∗ (prog2page ^+ 1)%f ->a hvc_I ∗ R0 @@ V1 ->r yield_I)%I))
          with "[PC1 p_2 acc R01 R0z R1z prop0 prop1]"); try rewrite HIn //;iFrameAutoSolve.
-    { solve_finz. }
+    { set_solver +. }
+    { set_solver +. }
     { apply decode_encode_hvc_func. }
     { iSplitL "prop0".
       iFrame.
@@ -251,10 +249,9 @@ Section proof.
       iFrame.
       iSplitL "";last done.
       iNext.
-      iIntros "[(? & ? & ? & ? & ? & ?) ?]".
+      iIntros "((? & ? & ? & ? & ? & ?) & _ & ?)".
       iFrame.
     }
-    { set_solver +. }
     iModIntro.
     iIntros "[? prop1] Hholds".
     simpl.
@@ -263,6 +260,5 @@ Section proof.
     iMod "P".
     by iExFalso.
   Qed.
-  
-  
+
 End proof.

@@ -12,6 +12,13 @@ Section VMID0.
   Next Obligation.
   destruct hypconst. simpl. lia.
   Defined.
+
+  Lemma V0eq : (fin_to_nat V0) = 0.
+  Proof.
+    rewrite /V0.
+    apply fin_to_nat_to_fin.
+  Qed.
+
 End VMID0.
 
 Program Definition W0 : Word := (finz.FinZ 0 _ _).
