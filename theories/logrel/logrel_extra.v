@@ -115,14 +115,14 @@ Section logrel_extra.
       rewrite map_eq_iff.
       intro.
       destruct (decide (k = i)).
-       - subst i.
-         simplify_map_eq /=.
-         done.
-       - simplify_map_eq /=.
-         rewrite lookup_union_r.
-         done.
-         apply lookup_singleton_None.
-         done.
+      - subst i.
+        simplify_map_eq /=.
+        done.
+      - simplify_map_eq /=.
+        rewrite lookup_union_r.
+        done.
+        apply lookup_singleton_None.
+        done.
     }
     iApply "Hacc".
       iPureIntro. set_solver +.
@@ -130,8 +130,8 @@ Section logrel_extra.
       iFrame.
   Qed.
 
- Lemma ra_big_sepM_split_upd `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
-         (f: K -> V -> iProp Σ) :
+  Lemma ra_big_sepM_split_upd `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
+        (f: K -> V -> iProp Σ) :
     map !! k = Some v ->
     (([∗ map] k↦y ∈ map, f k y)%I
      ⊢  (f k v) ∗ (∀ v', (f k v') -∗ [∗ map] k↦y ∈ <[k := v']>map , f k y))%I.
@@ -153,19 +153,19 @@ Section logrel_extra.
       rewrite map_eq_iff.
       intro.
       destruct (decide (k = i)).
-       - subst i.
-         simplify_map_eq /=.
-         done.
-       - simplify_map_eq /=.
-         rewrite lookup_union_r.
-         done.
-         apply lookup_singleton_None.
-         done.
+      - subst i.
+        simplify_map_eq /=.
+        done.
+      - simplify_map_eq /=.
+        rewrite lookup_union_r.
+        done.
+        apply lookup_singleton_None.
+        done.
     }
-      iApply "Hrestore".
-      iPureIntro. set_solver +.
-      rewrite big_opM_singleton.
-      iFrame.
+    iApply "Hrestore".
+    iPureIntro. set_solver +.
+    rewrite big_opM_singleton.
+    iFrame.
   Qed.
 
   Lemma ra_big_sepM_split_upd_with_total `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
@@ -204,14 +204,14 @@ Section logrel_extra.
       rewrite map_eq_iff.
       intro.
       destruct (decide (k = i)).
-       - subst i.
-         simplify_map_eq /=.
-         done.
-       - simplify_map_eq /=.
-         rewrite lookup_union_r.
-         done.
-         apply lookup_singleton_None.
-         done.
+      - subst i.
+        simplify_map_eq /=.
+        done.
+      - simplify_map_eq /=.
+        rewrite lookup_union_r.
+        done.
+        apply lookup_singleton_None.
+        done.
     }
       iApply "Hrestore".
       iPureIntro. set_solver +.
@@ -498,7 +498,10 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd3 reg r1 r2 r3 w1 w2 w3 (λ k v, k @@ i ->r v)%I);eauto.
   Qed.
 
-  (* lemmas about [memory_cells] *)
+  (* lemmas about [memory_pages] *)
+  Notation fold_union_addr_of_page b ps :=
+    (set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) b ps).
+
   Lemma fold_union_addr_of_page_strong_assoc_comm (X : gset PID):
     ∀ (x1 x2 : PID) (b' : gset Addr),
     x1 ∈ X
@@ -514,10 +517,8 @@ Section logrel_extra.
     rewrite comm_L //.
   Qed.
 
-
   Lemma fold_union_addr_of_page_comm (s1 : gset PID) (s2 s3: gset Addr) :
-    (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) (s3 ∪ s2) s1)
-    = s3 ∪ (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s2 s1).
+    fold_union_addr_of_page (s3 ∪ s2) s1 = s3 ∪ fold_union_addr_of_page s2 s1.
   Proof.
     revert s1 s2 s3.
     induction s1 using set_ind_L.
@@ -533,7 +534,6 @@ Section logrel_extra.
         rewrite set_fold_singleton.
         assert ((list_to_set (addr_of_page x) ∪ (s3 ∪ s2)) = (s3 ∪ (list_to_set (addr_of_page x) ∪  s2))) as ->.
         {
-
           rewrite (union_assoc_L _ s3 s2).
           rewrite (union_comm_L _ s3).
           rewrite union_assoc_L //.
@@ -551,7 +551,7 @@ Section logrel_extra.
 
   Lemma fold_union_addr_of_page_disj_aux (p: PID) (s1 : gset PID) (s2: gset Addr) : p ∉ s1 ->
     (list_to_set (addr_of_page p)) ## s2 ->
-    (list_to_set (addr_of_page p)) ## (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) s2 s1).
+    (list_to_set (addr_of_page p)) ## (fold_union_addr_of_page s2 s1).
   Proof.
     revert s1 s2.
     induction s1 using set_ind_L.
@@ -578,11 +578,12 @@ Section logrel_extra.
     }
   Qed.
 
-  Lemma fold_union_addr_of_page_disj (s1 s2 : gset PID) : s1 ## s2 ->
-    (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) (∅ : gset _) s1) ##
-    (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ s2).
+  Lemma set_of_addr_disj (s1 s2 : gset PID) :
+    s1 ## s2 ->
+    (set_of_addr s1) ## (set_of_addr s2).
   Proof.
     revert s1 s2.
+    rewrite /set_of_addr.
     induction s1 using set_ind_L.
     {
       intros.
@@ -609,13 +610,13 @@ Section logrel_extra.
     }
   Qed.
 
-  Lemma fold_union_addr_of_page_union (s1 s2 : gset PID):
+  Lemma set_of_addr_union (s1 s2 : gset PID):
     s1 ## s2 ->
-    set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ (s1 ∪ s2) =
-      (set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ s1) ∪
-      (set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ s2).
+    set_of_addr (s1 ∪ s2) =
+      (set_of_addr s1) ∪ (set_of_addr s2).
   Proof.
     intro Hdisj.
+    rewrite /set_of_addr.
     rewrite (set_fold_disj_union_strong _ _ _ s1 s2).
     {
       rewrite -fold_union_addr_of_page_comm.
@@ -625,17 +626,73 @@ Section logrel_extra.
     exact Hdisj.
   Qed.
 
+  Lemma elem_of_set_of_addr a p ps:
+    a ∈ addr_of_page p ->
+    p ∈ ps ->
+    a ∈ set_of_addr ps.
+  Proof.
+    revert ps.
+    induction ps using set_ind_L.
+    {
+      intros.
+      inversion H0.
+    }
+    intros Hin_a Hin_p.
+    destruct (decide (p = x)).
+    {
+      subst x.
+      rewrite set_of_addr_union.
+      {
+        apply elem_of_union_l.
+        rewrite /set_of_addr.
+        rewrite set_fold_singleton union_empty_r.
+        rewrite elem_of_list_to_set //.
+      }
+      rewrite disjoint_singleton_l //.
+    }
+    {
+      rewrite set_of_addr_union.
+      {
+       apply elem_of_union_r.
+       apply IHps.
+       done.
+       apply elem_of_union in Hin_p.
+       destruct Hin_p.
+       rewrite elem_of_singleton // in H0.
+       done.
+      }
+      rewrite disjoint_singleton_l //.
+    }
+    Qed.
 
-  Lemma memory_cell'_split_union (ps1 ps2 :gset PID) :
+  Lemma elem_of_set_of_addr_tpa a ps:
+    (tpa a) ∈ ps -> a ∈ set_of_addr ps.
+  Proof.
+    apply elem_of_set_of_addr.
+    apply elem_of_addr_of_page_tpa.
+  Qed.
+
+  Lemma elem_of_memory_pages_lookup (m: gmap Addr Word) a ps:
+    (tpa a) ∈ ps ->
+    dom (gset Addr) m = set_of_addr ps ->
+    is_Some (m !! a).
+  Proof.
+    intros Hin Heq_dom.
+    apply elem_of_set_of_addr_tpa in Hin.
+    rewrite -Heq_dom in Hin.
+    by apply elem_of_dom.
+  Qed.
+
+  Lemma memory_pages_split_union (ps1 ps2 :gset PID) :
     ps1 ## ps2 ->
-    memory_cell' (ps1 ∪ ps2) ⊣⊢ memory_cell' ps1 ∗ memory_cell' ps2  .
+    memory_pages (ps1 ∪ ps2) ⊣⊢ memory_pages ps1 ∗ memory_pages ps2  .
   Proof.
     intro Hdisj.
     iSplit.
     {
       iIntros "[%m [%Hdom mem]]".
-      rewrite fold_union_addr_of_page_union in Hdom;last done.
-      pose proof (dom_union_inv_L m _ _ (fold_union_addr_of_page_disj _ _ Hdisj) Hdom) as Hsplit.
+      rewrite set_of_addr_union in Hdom;last done.
+      pose proof (dom_union_inv_L m _ _ (set_of_addr_disj _ _ Hdisj) Hdom) as Hsplit.
       destruct Hsplit as (m1 & m2 & Heq & Hdisj_m & Hdom1 & Hdom2).
       rewrite Heq.
       rewrite big_sepM_union;last done.
@@ -653,7 +710,7 @@ Section logrel_extra.
       iPureIntro.
       rewrite dom_union_L.
       rewrite Hdom1 Hdom2.
-      rewrite set_fold_disj_union_strong.
+      rewrite /set_of_addr set_fold_disj_union_strong.
       {
         rewrite -fold_union_addr_of_page_comm.
         rewrite union_empty_r_L //.
@@ -664,17 +721,17 @@ Section logrel_extra.
       iFrame.
       apply map_disjoint_dom.
       rewrite Hdom1 Hdom2.
-      apply fold_union_addr_of_page_disj.
+      apply set_of_addr_disj.
       done.
     }
   Qed.
 
-  Lemma memory_cells'_split_diff s s' :
+  Lemma memory_pages_split_diff s s' :
     s' ⊆ s ->
-    memory_cell' s  ⊣⊢  memory_cell' (s ∖ s') ∗ memory_cell' s'.
+    memory_pages s ⊣⊢ memory_pages (s ∖ s') ∗ memory_pages s'.
   Proof.
     intro Hsub.
-    rewrite -memory_cell'_split_union;last set_solver +.
+    rewrite -memory_pages_split_union;last set_solver +.
     assert (s ∖ s' ∪ s' = s) as ->.
     {
       rewrite difference_union_L.
@@ -683,15 +740,14 @@ Section logrel_extra.
     done.
   Qed.
 
-  Lemma memory_cells'_split_singleton s p :
+  Lemma memory_pages_split_singleton s p :
     p ∈ s ->
-    memory_cell' s  ⊣⊢ memory_cell' (s ∖ {[p]}) ∗ memory_cell' {[p]} .
+    memory_pages s ⊣⊢ memory_pages (s ∖ {[p]}) ∗ memory_pages {[p]} .
   Proof.
     intro Hin.
-    apply memory_cells'_split_diff.
+    apply memory_pages_split_diff.
     set_solver + Hin.
   Qed.
-
 
   Lemma big_sepM_not_disj`{Countable K} {V :Type} (m1 m2: gmap K V) (Φ: K -> V -> iProp Σ) :
     ¬ (m1 ##ₘ m2) ->
@@ -720,10 +776,10 @@ Section logrel_extra.
     iFrame.
   Qed.
   
-  Lemma memory_cells'_disj_singleton p : memory_cell' {[p]} ∗ memory_cell' {[p]} ⊢ False.
+  Lemma memory_pages_disj_singleton p : memory_pages {[p]} ∗ memory_pages {[p]} ⊢ False.
   Proof.
     iIntros " [[%m1 [%Hdom1 mem1]] [%m2 [%Hdom2 mem2]]] ".
-    rewrite set_fold_singleton in Hdom1 Hdom2.
+    rewrite /set_of_addr set_fold_singleton in Hdom1 Hdom2.
     rewrite union_empty_r_L in Hdom1 Hdom2.
     iApply (big_sepM_not_disj with "[] [$mem1 $mem2]").
     rewrite map_disjoint_dom.
@@ -742,14 +798,14 @@ Section logrel_extra.
     eauto using Qp_not_add_le_r.
   Qed.
 
-  Lemma memory_cells'_disj s1 s2 : memory_cell' s1 ∗ memory_cell' s2 ⊢ ⌜s1 ## s2⌝.
+  Lemma memory_pages_disj s1 s2 : memory_pages s1 ∗ memory_pages s2 ⊢ ⌜s1 ## s2⌝.
   Proof.
     iIntros "[mem1 mem2]".
     rewrite elem_of_disjoint.
     iIntros (p Hin1 Hin2).
-    iDestruct (memory_cells'_split_singleton s1 p Hin1 with "mem1") as "[mem1' mem1_p]".
-    iDestruct (memory_cells'_split_singleton s2 p Hin2 with "mem2") as "[mem2' mem2_p]".
-    iApply (memory_cells'_disj_singleton with "[$mem1_p $mem2_p]").
+    iDestruct (memory_pages_split_singleton s1 p Hin1 with "mem1") as "[mem1' mem1_p]".
+    iDestruct (memory_pages_split_singleton s2 p Hin2 with "mem2") as "[mem2' mem2_p]".
+    iApply (memory_pages_disj_singleton with "[$mem1_p $mem2_p]").
   Qed.
 
 
@@ -792,11 +848,11 @@ Section logrel_extra.
 
   (** memory **)
 
- Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+  Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
     mem !! a = Some w->
     (([∗ map] k↦y ∈ mem, f k y)
      ⊢  (f a w) ∗ (f a w -∗
-                          ( [∗ map] k↦y ∈ mem, f k y)))%I.
+                   ( [∗ map] k↦y ∈ mem, f k y)))%I.
   Proof.
     iIntros (Hlookup).
     iApply (ra_big_sepM_split mem a w f Hlookup).
@@ -806,7 +862,7 @@ Section logrel_extra.
     mem !! a = Some w->
     (([∗ map] k↦y ∈ mem, f k y)%I
      ⊢  (f a w) ∗ (∀ (w' : Word) , f a w' -∗
-                          ( [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
+                                   ( [∗ map] k↦y ∈ <[a := w']>mem, f k y)))%I.
   Proof.
     iIntros (Hlookup).
     iApply (ra_big_sepM_split_upd mem a w f Hlookup).
@@ -837,7 +893,6 @@ Section logrel_extra.
  (*    iIntros (Hneq Hlookup1 Hlookup2). *)
  (*    iApply (ra_big_sepM_split_upd2 mem a1 a2 w1 w2 f);eauto. *)
  (*  Qed. *)
-
 
   (* TODO: For memory chunks *)
 

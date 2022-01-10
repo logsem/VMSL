@@ -51,8 +51,10 @@ Section logrel.
            pgt_entries_own_excl tran.1.1.2 tran.1.1.1.1.1 tran.2.
 
   (* TODO: alternative definition, many lemmas in [logrel_extra.v] need to be proved to use it *)
-  Definition memory_cells (ps :gset PID): iProp Σ:=
-    ∃ mem, (⌜dom (gset Addr) mem = (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ ps)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
+
+  Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
+  Definition memory_pages (ps :gset PID): iProp Σ:=
+    ∃ mem, (⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
 
   Definition accessible_trans (trans : gmap Word transaction) :=
    filter (λ kv, (kv.2.1.1.1.1.1 = i ∧ kv.2.1.2 = Sharing) ∨ (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans.
@@ -74,11 +76,11 @@ Section logrel.
                     (* page table entries *)
                     transferred_pgt_entries trans' ∗
                     (* mem *)
-                    memory_cells ps_trans' ∗
+                    memory_pages ps_trans' ∗
                     (* status of RX *)
                     (RX@ i :=() ∨ ∃l s, RX@i :=(l,s)) ∗
                     (* RX *)
-                    (RX@i := p_rx ∗ memory_cells {[p_rx]}) ∗
+                    (RX@i := p_rx ∗ memory_pages {[p_rx]}) ∗
                   R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                   (* if i yielding, we give following resources back to pvm *)
                   VMProp V0 (
@@ -92,7 +94,7 @@ Section logrel.
                                         i -@{1/2}A> [ps_acc'] ∗
                                         hp [hpool'] ∗ transferred_tran_entries trans'' ∗
                                         transferred_pgt_entries trans'' ∗
-                                        memory_cells ps_trans'' ∗
+                                        memory_pages ps_trans'' ∗
                                         (* R0 and R1 of pvm *)
                                         R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i))
                                       (* no scheduling, we finish the proof *)
@@ -116,7 +118,7 @@ Section logrel.
       owned_tran_entries trans ∗
       ⌜ ps_nea ⊆ ps_acc ⌝ ∗
       (* mem *)
-      memory_cells ps_ea ∗
+      memory_pages ps_ea ∗
       (* VMProp *)
       VMProp_unknown ps_acc p_rx trans)%I.
 

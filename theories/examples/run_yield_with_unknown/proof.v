@@ -39,7 +39,7 @@ Section proof.
   Notation VMProp2 ps p:= (VMProp_unknown V2 ps p ∅) (only parsing).
 
   Lemma rywu_machine0 {prog1page prog3page} p_rx2 :
-      let R2 := (RX@V2 :=() ∗ RX@ V2 := p_rx2 ∗ memory_cells {[p_rx2]})%I in
+      let R2 := (RX@V2 :=() ∗ RX@ V2 := p_rx2 ∗ memory_pages {[p_rx2]})%I in
       prog1page ≠ prog3page ->
       seq_in_page (of_pid prog1page) (length rywu_program1) prog1page ->
       (program (rywu_program1) (of_pid prog1page)) ∗
@@ -168,13 +168,12 @@ Section proof.
         rewrite /accessible_trans.
         rewrite map_filter_empty.
         rewrite /ps_trans map_fold_empty.
-        rewrite /memory_cells.
-
+        rewrite /memory_pages.
         iExists ∅.
         iSplitL "".
-                                 iPureIntro.
-                                 rewrite set_fold_empty.
-                                 set_solver +.
+        iPureIntro.
+        rewrite set_fold_empty.
+        set_solver +.
         by iApply big_sepM_empty.
       }
       iDestruct "R2" as "(rx_s & rx & rx_mem)".
@@ -204,16 +203,15 @@ Section proof.
     iApply wp_terminated'; eauto.
     assert (Hlen: (((((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = ((of_pid prog1page) ^+ length rywu_program1)%f).
     {
-    assert (Hlen4 : (Z.of_nat (length rywu_program1)) = 7%Z). by compute.
-    rewrite Hlen4;clear Hlen4.
-    solve_finz.
+      assert (Hlen4 : (Z.of_nat (length rywu_program1)) = 7%Z). by compute.
+      rewrite Hlen4;clear Hlen4.
+      solve_finz.
     }
     rewrite Hlen.
     iFrame.
     iSplitR; first done.
     done.
   Qed.
-
 
 
   Lemma rywu_machine1 {prog2page} :

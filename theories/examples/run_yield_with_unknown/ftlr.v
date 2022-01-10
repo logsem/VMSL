@@ -5,63 +5,17 @@ From HypVeri.algebra Require Import base base_extra.
 (* From HypVeri.rules Require Import rules_base (* nop mov ldr str halt fail add sub mult cmp *). *)
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
-(* From HypVeri.examples Require Import run_yield_with_unknown.proof. *)
+From HypVeri.examples Require Import run_yield_with_unknown.proof.
 Import uPred.
 
-Section rywu_logrel.
-  Context `{hypparams:HypervisorParameters}.
-  Context `{vmG: !gen_VMG Σ}.
-
-  Program Definition rywu_interp_access i ps_acc: iProp Σ :=
-    (∃ regs ,
-      (* registers *)
-      (⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ i ->r w) ∗
-      (* mailbox *)
-      (∃ p, RX@i := p) ∗ (∃ p, TX@i := p) ∗
-      RX@ i :=() ∗
-      i -@A> [ ps_acc ] ∗
-      pgt_entries_own_excl ps_acc i true ∗
-      (* VMProp *)
-      VMProp i
-      ( (∃ mem ps_na trans hpool,
-            let ps_trans := ps_trans (trans) in
-        (* ⌜ps_oea = ps_acc ∖ ps_trans⌝ ∗ *)
-        (* lower bound *)
-        LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc⌝ ∗
-        (* resources *)
-        hp [] ∗ tran_entries trans ∗
-        tran_carried_pgt_entries i trans ∗
-        accessible_memory_cells ps_acc mem ∗
-        R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i)) ∗
-        (* if i yielding, we give following resources back to pvm *)
-        VMProp V0 (
-          ∃ mem ps_na trans hpool,
-            let ps_trans := ps_trans (trans) in
-            (* let ps_oea := ps_acc ∖ ps_trans in *)
-          (* lower bound *)
-          LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc⌝ ∗
-          (* resources *)
-          hp [hpool] ∗ tran_entries trans ∗
-          tran_carried_pgt_entries i trans ∗
-          accessible_memory_cells ps_acc mem ∗
-          (* R0 and R1 of pvm *)
-          (R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i))
-          (* no scheduling, we finish the proof *)
-          ∨ False) (1/2)%Qp
-        )
-      (1/2)%Qp
-    )%I.
-
-End rywu_logrel.
-
 Section rywu_ftlr.
-
-  Context `{hypparams:HypervisorParameters}.
+  Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
-  (* TODO *)
 
-  Lemma rywu_ftlr (i:VMID)  :
-   rywu_interp_access i ps_acc ⊢ interp_execute i.
+  Definition rywu_interp_access (p_prog3 p_tx p_rx :PID):= interp_access V2 {[p_prog3]} p_tx p_rx ∅.
+
+  Lemma rywu_ftlr (p_prog3 p_tx p_rx :PID):
+   rywu_interp_access p_prog3 p_tx p_rx ⊢ interp_execute V2.
   Proof.
   Admitted.
 
