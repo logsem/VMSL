@@ -683,6 +683,11 @@ Section logrel_extra.
     by apply elem_of_dom.
   Qed.
 
+  Lemma set_of_addr_empty : set_of_addr ∅ = ∅.
+  Proof.
+    rewrite /set_of_addr set_fold_empty //.
+  Qed.
+
   Lemma memory_pages_split_union (ps1 ps2 :gset PID) :
     ps1 ## ps2 ->
     memory_pages (ps1 ∪ ps2) ⊣⊢ memory_pages ps1 ∗ memory_pages ps2  .

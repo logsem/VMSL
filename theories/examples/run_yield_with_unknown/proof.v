@@ -2,7 +2,7 @@ From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base lower_bound.
 From HypVeri.rules Require Import rules_base mov halt run yield.
 From HypVeri.examples Require Import instr.
-From HypVeri.logrel Require Import logrel.
+From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode machine_extra.
 Require Import Setoid.
 
@@ -35,7 +35,7 @@ Section proof.
     ].
 
   Context `{!gen_VMG Σ}.
-
+ (*TODO change ps*)
   Notation VMProp2 ps p:= (VMProp_unknown V2 ps p ∅) (only parsing).
 
   Lemma rywu_machine0 {prog1page prog3page} p_rx2 :
@@ -172,7 +172,7 @@ Section proof.
         iExists ∅.
         iSplitL "".
         iPureIntro.
-        rewrite set_fold_empty.
+        rewrite set_of_addr_empty.
         set_solver +.
         by iApply big_sepM_empty.
       }

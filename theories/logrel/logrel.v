@@ -50,8 +50,6 @@ Section logrel.
        ⌜(tran.1.1.1.1.1 = i ∧ tran.2 = true) ∨ (tran.1.1.1.2 = i ∧ tran.1.2 = Donation)⌝ -∗
            pgt_entries_own_excl tran.1.1.2 tran.1.1.1.1.1 tran.2.
 
-  (* TODO: alternative definition, many lemmas in [logrel_extra.v] need to be proved to use it *)
-
   Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
   Definition memory_pages (ps :gset PID): iProp Σ:=
     ∃ mem, (⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
@@ -62,29 +60,28 @@ Section logrel.
   Definition ps_trans (trans: gmap Word transaction) : gset PID :=
     map_fold (λ (k:Addr) v acc, v.1.1.2 ∪ acc) (∅: gset PID) trans.
 
-  Definition VMProp_unknown ps_acc p_rx trans :=
-    VMProp i (∃ ps_na (trans' : gmap Word transaction) hpool,
-                    let ps_trans' := ps_trans (accessible_trans trans') in
-                    ⌜accessible_trans trans = accessible_trans trans'⌝ ∗
+  Definition VMProp_unknown p_rx Transferred:=
+    VMProp i (∃ (trans : gmap Word transaction) hpool,
+                    (* let ps_trans' := ps_trans (accessible_trans trans) in *)
+                    (* ⌜accessible_trans trans = accessible_trans trans'⌝ ∗ *)
                     (* lower bound *)
-                    LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc⌝ ∗
-                    i -@{1/2}A> [ps_acc] ∗
                     (* we need this to ensure all transaction entries are transferred *)
-                    ⌜inv_trans_hpool_consistent' trans' hpool⌝ ∗
+                    ⌜inv_trans_hpool_consistent' trans hpool⌝ ∗
                     (* transaction entries *)
-                    hp [hpool] ∗ transferred_tran_entries trans' ∗
+                    hp [hpool] ∗ transferred_tran_entries trans ∗
                     (* page table entries *)
-                    transferred_pgt_entries trans' ∗
+                    transferred_pgt_entries trans ∗
                     (* mem *)
-                    memory_pages ps_trans' ∗
+                    (* memory_pages ps_trans' ∗ *)
+                    Transferred ∗
                     (* status of RX *)
                     (RX@ i :=() ∨ ∃l s, RX@i :=(l,s)) ∗
                     (* RX *)
                     (RX@i := p_rx ∗ memory_pages {[p_rx]}) ∗
-                  R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
+                    R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                   (* if i yielding, we give following resources back to pvm *)
                   VMProp V0 (
-                           (∃ ps_acc' trans'' hpool',
+                           (∃ ps_na ps_acc' trans'' hpool',
                              (* TODO: we may need more constraints for trans'',
                                       probably relate it to trans' *)
                              let ps_trans'' := ps_trans (accessible_trans trans'') in
@@ -95,17 +92,18 @@ Section logrel.
                                         hp [hpool'] ∗ transferred_tran_entries trans'' ∗
                                         transferred_pgt_entries trans'' ∗
                                         memory_pages ps_trans'' ∗
-                                        (* R0 and R1 of pvm *)
+                                        (RX@ i :=() ∨ ∃l s, RX@i :=(l,s)) ∗
+                                        (RX@i := p_rx ∗ memory_pages {[p_rx]}) ∗
                                         R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i))
                                       (* no scheduling, we finish the proof *)
                                       (* NOTE: if i will be scheduled arbitrary number of times, need recursive definition *)
                                       ∨ False) (1/2)%Qp)
                (1/2)%Qp.
 
-  Program Definition interp_access ps_acc p_tx p_rx (trans : gmap Word transaction) : iPropO Σ:=
+  Program Definition interp_access ps_acc p_tx p_rx Owned Transferred : iPropO Σ:=
     (
-      let ps_nea := ps_trans (accessible_trans trans) ∪ {[p_rx]} in
-      let ps_ea := ps_acc ∖ ps_nea in
+      (* let ps_nea := ps_trans (accessible_trans trans) ∪ {[p_rx]} in *)
+      (* let ps_ea := ps_acc ∖ ps_nea in *)
       (* registers *)
       (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ i ->r w) ∗
       (* mailbox *)
@@ -113,14 +111,24 @@ Section logrel.
       (* access *)
       i -@{1/2}A> [ps_acc] ∗
       (* own & excl *)
-      pgt_entries_own_excl ps_ea i true ∗
-      (* transaction *)
-      owned_tran_entries trans ∗
-      ⌜ ps_nea ⊆ ps_acc ⌝ ∗
-      (* mem *)
-      memory_pages ps_ea ∗
+      (* pgt_entries_own_excl ps_ea i true ∗ *)
+      (* (* transaction *) *)
+      (* ⌜ ps_nea ⊆ ps_acc ⌝ ∗ *)
+      (* (* mem *) *)
+      (* memory_pages ps_ea ∗ *)
+      Owned ∗
       (* VMProp *)
-      VMProp_unknown ps_acc p_rx trans)%I.
+      VMProp_unknown p_rx Transferred ∗
+      (Owned ∗ ▷ Transferred -∗
+       (∃ ps_na trans,
+           let ps_nea := ps_trans (accessible_trans trans) ∪ {[p_rx]} in
+           let ps_ea := ps_acc ∖ ps_nea in
+           pgt_entries_own_excl ps_ea i true ∗
+           owned_tran_entries trans ∗
+           memory_pages ps_acc ∗
+           LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc⌝ ∗
+           i -@{1/2}A> [ps_acc]
+    )))%I.
 
 End logrel.
 

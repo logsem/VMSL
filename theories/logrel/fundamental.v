@@ -2,7 +2,7 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base pagetable.
-From HypVeri.rules Require Import rules_base nop mov (* ldr str halt fail add sub mult cmp *).
+From HypVeri.rules Require Import rules_base nop mov yield (* ldr str halt fail add sub mult cmp *).
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
@@ -20,18 +20,34 @@ Section fundamental.
 
   (* TODO: separate into helper lemmas *)
   Lemma ftlr (i:VMID)  :
-  ∀ ps_acc p_tx p_rx trans, interp_access i ps_acc p_tx p_rx trans ⊢ interp_execute i.
+  ∀ ps_acc p_tx p_rx Owned Transferred, interp_access i ps_acc p_tx p_rx Owned Transferred ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
-    (* iLöb as "IH". *)
+    iIntros (ps_acc p_tx p_rx Owned Transferred) "((%regs & #Htotal_regs & regs) & tx & pgt_acc & Owned & VMProp & Himpl) %Hneq_p VMProp_holds".
+    iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
+    iEval (rewrite later_exist) in "Hres".
+    iDestruct "Hres" as (trans) "Hres".
+    iEval (rewrite later_exist) in "Hres".
+    iDestruct "Hres" as (hpool) "Hres".
+    iEval (rewrite !later_sep) in "Hres".
+    iDestruct "Hres" as "( >%Hinv_trans & >hp & >trans_transferred &
+                         >pgt_transferred & Transferred & >rx_state & (>rx & >mem_rx) & >R0z & >R1z & prop0)".
+    iDestruct ("Himpl" with "[$Owned $Transferred]") as "Hres".
+
+    iLöb as "IH" forall (regs ps_acc) "Htotal_regs".
+    (* TODO *)
+
+
     iIntros (ps_acc p_tx p_rx trans) "((%regs & #Htotal_regs & regs) & tx & pgt_acc & pgt_owned & trans_owned & #Hps_incl
-                              & mem_owned & VMProp) Hnotp VMProp_holds".
-    iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres _]".
+                              & mem_owned & VMProp) %Hneq_p VMProp_holds".
+    iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
 
     iLöb as "IH" forall (regs ps_acc trans) "Htotal_regs Hps_incl".
 
     iEval (rewrite later_exist) in "Hres".
     iDestruct "Hres" as (ps_na) "Hres".
+    iEval (rewrite later_exist) in "Hres".
+    iDestruct "Hres" as (ps_acc') "Hres".
     iEval (rewrite later_exist) in "Hres".
     iDestruct "Hres" as (trans') "Hres".
     iEval (rewrite later_exist) in "Hres".
@@ -89,10 +105,10 @@ Section fundamental.
           rewrite -Heq_acc_trans //.
           iDestruct (memory_pages_split_union with "mem_transferred") as "[mem_transferred mem_rx]";eauto.
           iEval (rewrite -Heq_acc_trans) in "mem_owned".
-          (* split pgt_acc *)
-          iSpecialize ("IH" $! _ with "regs tx pgt_acc pgt_owned trans_owned mem_owned Hnotp
-                             [LB hp pgt_acc' trans_transferred pgt_transferred mem_transferred $rx_state $rx $mem_rx $R0z $R1z prop0]").
-          { iNext. iExists ps_na, trans', hpool. iFrame.
+          iSpecialize ("IH" $! _ with "regs tx pgt_acc pgt_owned trans_owned mem_owned
+                             [LB hp pgt_acc' trans_transferred pgt_transferred mem_transferred $rx_state $rx $mem_rx $R0z $R1z prop0]
+                             propi ").
+          { iNext. iExists ps_na, ps_acc', trans', hpool. iFrame.
             iSplitL "";first done.
             iSplitL "";first done.
             done.
@@ -649,69 +665,76 @@ Section fundamental.
           (* iIntros "? _". *)
           (* by iApply wp_terminated. *)
         }
-        { (* hvc *)admit.
-          (*TODO*)
+        { (* hvc *)
+          pose proof (Htotal_regs R0) as [r0 Hlookup_reg_R0].
+          destruct (decode_hvc_func r0) as [hvc_f |] eqn:Hdecode_hvc .
+          {
+            destruct (hvc_f).
+            { (*RUN TODO: proof rule*) admit. }
+            { (*Yield: TODO*)
+              iDestruct (reg_big_sepM_split_upd2 regs i _ Hlookup_PC Hlookup_reg_R0 with "[$regs]")
+              as "(PC & R0 & Hacc_regs)";first done.
+              (* getting mem *)
+              (* if ai is in ps_ea *)
+              iDestruct (mem_big_sepM_split mem Hlookup_mem_ai with "mem")
+                as "[mem_instr Hacc_mem]".
+              iApply (yield ai (R:=  LB@ i := [ps_na] ∗
+         i -@{1 / 2}A> [ps_acc] ∗ hp [hpool] ∗ transferred_tran_entries i trans' ∗ transferred_pgt_entries i trans')
+with "[PC R0 R0z R1z pgt_acc mem_instr prop0 propi LB pgt_acc' hp trans_transferred pgt_transferred
+                            ]"); iFrameAutoSolve.
+             {
+               iSplitL "prop0".
+               iFrame.
+               iSplitL "propi".
+               iFrame.
+               iSplitR "LB trans_transferred pgt_transferred".
+               2:{ iFrame. }
+               iNext.
+
+
+
+               iFrame.
+                           }
+
+              admit. }
+            { (*Share: TODO*) admit. }
+            { (*Lend*) admit. }
+            { (*Donate*) admit. }
+            { (*Retrieve*) admit. }
+            { (*Relinquish*) admit. }
+            { (*Reclaim*) admit. }
+            { (*Send*) admit. }
+            { (*Wait*) admit. }
+            { (*Poll*) admit. }
+          }
+          { (* decode_hvc_func r0 = None *) admit. }
         }
       }
       { (*invalid instruction *)
         iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$regs]") as "[PC _]".
-        (* getting pgt *)
         (* we don't update pagetable *)
-        iDestruct (pgt_big_sepM_split pgt Hlookup_ai with "[$pgt]")
-          as "[[_ p_instr] Hacc_pgt]".
-        iDestruct ("p_instr" with "[]") as (q_i) "[p_instr _]";first done.
         (* getting mem *)
-        rewrite /accessible_memory.
-        (* we don't update memory *)
-        iDestruct (mem_big_sepM_split mem Hlookup_instr with "[$mem]")
-          as "[instrm Hacc_mem]".
-        iDestruct ("instrm" with "[]") as "instrm".
-        { iPureIntro. exists (v,sacc).  split;done. }
-        iApply (not_valid_instr _ ai instr with "[PC p_instr instrm]"); iFrameAutoSolve.
+        iDestruct (mem_big_sepM_split mem Hlookup_mem_ai with "mem")
+          as "[mem_instr Hacc_mem]".
+        iApply (not_valid_instr _ ai instr with "[PC pgt_acc mem_instr]"); iFrameAutoSolve.
         iNext.
         iIntros "? _".
         by iApply wp_terminated.
       }
     }
     { (* i doesn't have access *)
-      iClear "VMProp VMPropz".
-      rewrite /pagetable.
-      iEval (rewrite (big_opM_delete _ _ (to_pid_aligned ai) _ Hlookup_ai)) in "pgt".
-      iDestruct ("pgt") as "[[pi _] pgt]".
-      simpl.
-      iDestruct ("pi" with "[]") as "pi"; first done.
       iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$regs]") as "[PC _]".
-      iApply (not_valid_pc with "[PC pi]");
+      iApply (not_valid_pc with "[PC pgt_acc pgt_acc']");
       [exact n|iFrame|].
+      {
+        iNext.
+        rewrite (access_split (q:=1)).
+        iFrame.
+      }
       iNext;simpl.
       iIntros "? _".
       by iApply wp_terminated.
     }
-    Unshelve.
-    all: destruct_and ?; try done.
-    {
-      apply decode_instruction_valid in Heqn.
-      inversion Heqn.
-      auto.
-    }
-    {
-      intros c.
-      rewrite c in Hlookup_ai.
-      rewrite Hlookup_ai in Hlookup_p_src.
-      inversion Hlookup_p_src as [H'].
-      rewrite <-H' in n.
-      simpl in n.
-      done.
-    }
-    {
-      intros c.
-      rewrite c in Hlookup_ai.
-      rewrite Hlookup_ai in Hlookup_p_dst.
-      inversion Hlookup_p_dst as [H'].
-      rewrite <-H' in n.
-      simpl in n.
-      done.
-    }    
-  Admitted.
+    Admitted.
 
 End fundamental.
