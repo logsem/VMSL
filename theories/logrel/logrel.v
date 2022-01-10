@@ -50,13 +50,9 @@ Section logrel.
        ⌜(tran.1.1.1.1.1 = i ∧ tran.2 = true) ∨ (tran.1.1.1.2 = i ∧ tran.1.2 = Donation)⌝ -∗
            pgt_entries_own_excl tran.1.1.2 tran.1.1.1.1.1 tran.2.
 
-  Definition memory_cells (ps : gset PID) : iProp Σ :=
-    [∗ set] p ∈ ps, unknown_mem_page p.
-
   (* TODO: alternative definition, many lemmas in [logrel_extra.v] need to be proved to use it *)
-  Definition memory_cell' (ps :gset PID): iProp Σ:=
+  Definition memory_cells (ps :gset PID): iProp Σ:=
     ∃ mem, (⌜dom (gset Addr) mem = (set_fold (λ p acc, list_to_set (addr_of_page p) ∪ acc) ∅ ps)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
-
 
   Definition accessible_trans (trans : gmap Word transaction) :=
    filter (λ kv, (kv.2.1.1.1.1.1 = i ∧ kv.2.1.2 = Sharing) ∨ (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans.
@@ -65,11 +61,12 @@ Section logrel.
     map_fold (λ (k:Addr) v acc, v.1.1.2 ∪ acc) (∅: gset PID) trans.
 
   Definition VMProp_unknown ps_acc p_rx trans :=
-    VMProp i (((∃ ps_na (trans' : gmap Word transaction) hpool,
+    VMProp i (∃ ps_na (trans' : gmap Word transaction) hpool,
                     let ps_trans' := ps_trans (accessible_trans trans') in
                     ⌜accessible_trans trans = accessible_trans trans'⌝ ∗
                     (* lower bound *)
                     LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc⌝ ∗
+                    i -@{1/2}A> [ps_acc] ∗
                     (* we need this to ensure all transaction entries are transferred *)
                     ⌜inv_trans_hpool_consistent' trans' hpool⌝ ∗
                     (* transaction entries *)
@@ -81,18 +78,18 @@ Section logrel.
                     (* status of RX *)
                     (RX@ i :=() ∨ ∃l s, RX@i :=(l,s)) ∗
                     (* RX *)
-                    (RX@i := p_rx ∗ memory_cells {[p_rx]})) ∗
-                  R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i)) ∗
+                    (RX@i := p_rx ∗ memory_cells {[p_rx]}) ∗
+                  R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                   (* if i yielding, we give following resources back to pvm *)
                   VMProp V0 (
-                           (∃ ps_na' ps_acc' trans'' hpool',
+                           (∃ ps_acc' trans'' hpool',
                              (* TODO: we may need more constraints for trans'',
-                                      probably relate it to trans'(currently impossible because of the form of yield rule) *)
+                                      probably relate it to trans' *)
                              let ps_trans'' := ps_trans (accessible_trans trans'') in
                              (* lower bound *)
-                             (* TODO: can rhis lb actually bound ps_acc'???  *)
-                             LB@ i := [ps_na'] ∗ ⌜ps_na' ## ps_acc'⌝ ∗
+                             LB@ i := [ps_na] ∗ ⌜ps_na ## ps_acc'⌝ ∗
                                         (* resources *)
+                                        i -@{1/2}A> [ps_acc'] ∗
                                         hp [hpool'] ∗ transferred_tran_entries trans'' ∗
                                         transferred_pgt_entries trans'' ∗
                                         memory_cells ps_trans'' ∗
@@ -112,7 +109,7 @@ Section logrel.
       (* mailbox *)
       (TX@i := p_tx) ∗
       (* access *)
-      i -@A> [ps_acc] ∗
+      i -@{1/2}A> [ps_acc] ∗
       (* own & excl *)
       pgt_entries_own_excl ps_ea i true ∗
       (* transaction *)

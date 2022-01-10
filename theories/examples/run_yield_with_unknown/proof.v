@@ -52,6 +52,7 @@ Section proof.
                     VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗
                                  VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp) ∗
       (VMProp2 {[prog3page]} p_rx2) ∗
+      V2 -@{1/2}A> prog3page ∗
       LB_auth ∅ ∗
       hp [hs_all] ∗
       R2
@@ -67,7 +68,7 @@ Section proof.
   Proof.
     rewrite /VMProp_unknown.
     iIntros (Hneq_p HIn) "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 & _) & acc & PCz & (%r0 & R0z) & (%r1 & R1z)
-                            & prop0 & prop1 & prop2 & LB_auth & hp & R2)".
+                            & prop0 & prop1 & prop2 & acc2 & LB_auth & hp & R2)".
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     clear HIn; rename Hforall into HIn.
     (* mov_word_I R0 run_I *)
@@ -123,7 +124,7 @@ Section proof.
     iApply ((run (((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f V2 (R := True%I)
                 (R' := PC @@ V0 ->r ((((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f
                                  ∗(((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> [{[prog1page]}] )
-                ) with "[PCz p_6 acc R0z R1z prop0 prop2 LB2 hp R2]"); try rewrite HIn //;iFrameAutoSolve.
+                ) with "[PCz p_6 acc R0z R1z prop0 prop2 acc2 LB2 hp R2]"); try rewrite HIn //;iFrameAutoSolve.
     { set_solver +. }
     { set_solver +. }
     { apply decode_encode_hvc_func. }
@@ -135,7 +136,7 @@ Section proof.
       iSplitR "";last done.
       iNext.
       iIntros "((PC & addr & acc & R0 & R1) & _ & prop)".
-      iFrame "PC addr R0 R1 acc prop".
+      iFrame "PC addr R0 R1 acc".
       iExists {[prog1page]}, ∅, hs_all.
       iFrame.
       iSplitL "";first done.
@@ -168,7 +169,13 @@ Section proof.
         rewrite map_filter_empty.
         rewrite /ps_trans map_fold_empty.
         rewrite /memory_cells.
-        by iApply big_sepS_empty.
+
+        iExists ∅.
+        iSplitL "".
+                                 iPureIntro.
+                                 rewrite set_fold_empty.
+                                 set_solver +.
+        by iApply big_sepM_empty.
       }
       iDestruct "R2" as "(rx_s & rx & rx_mem)".
       iFrame.
@@ -182,7 +189,7 @@ Section proof.
     iSimpl in "Hholds0".
     done.
     (* getting back resources *)
-    iDestruct "P'" as ">[(% & % & % & % & ? & ? & ? & ? & ? & ? & R0z & R1z)|False]".
+    iDestruct "P'" as ">[(% & % & % & ? & ? & ? & ? & ? & ? & ? & R0z & R1z)|False]".
     2: { (* V2 does not yield *)
     iExFalso.
     iExact "False".
@@ -206,6 +213,8 @@ Section proof.
     iSplitR; first done.
     done.
   Qed.
+
+
 
   Lemma rywu_machine1 {prog2page} :
       seq_in_page (of_pid prog2page) (length rywu_program2) prog2page ->
