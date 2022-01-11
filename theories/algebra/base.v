@@ -322,10 +322,8 @@ Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 (* predicates for TX and RX *)
 Notation "TX@ i := p" := (mb_mapsto i TX 1%Qp p)
                               (at level 20, format "TX@ i := p"): bi_scope.
-Notation "RX@ i :=( n , r )" := ((rx_state_mapsto i (Some (n,r))))%I
-                                        (at level 20, format "RX@ i :=( n , r )"):bi_scope.
-Notation "RX@ i :=()" := ((rx_state_mapsto i None))%I
-                                        (at level 20, format "RX@ i :=()"):bi_scope.
+Notation "RX_state@ i := o" := ((rx_state_mapsto i (o)))%I
+                                        (at level 20, format "RX_state@ i :=  o"):bi_scope.
 Notation "RX@ i := p " := (mb_mapsto i RX 1%Qp p)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
@@ -516,10 +514,7 @@ Section timeless.
   Global Instance rx_mapsto_timeless i p : Timeless (RX@ i := p).
   Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
 
-  Global Instance rx_mapsto_timeless1 i n (r:VMID) : Timeless (RX@ i :=( n , r )).
-  Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
-
-  Global Instance rx_mapsto_timeless2 i : Timeless (RX@ i :=()).
+  Global Instance rx_state_mapsto_timeless i o : Timeless (RX_state@ i := o).
   Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
   Global Instance trans_mapsto_timeless w q me : Timeless (w -{q}>t me).

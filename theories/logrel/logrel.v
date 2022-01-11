@@ -66,9 +66,9 @@ Section logrel.
   Definition pages_in_trans (trans: gmap Word transaction) : gset PID :=
     map_fold (λ (k:Addr) v acc, v.1.1.2 ∪ acc) (∅: gset PID) trans.
 
-  Definition VMProp_unknown p_tx p_rx trans Owned Transferred:=
+  Definition VMProp_unknown p_tx p_rx trans :=
     VMProp i
-           (∃ ps_na' ps_acc' (trans' : gmap Word transaction) hpool',
+           (∃ ps_na' ps_acc' (trans' : gmap Word transaction) hpool' rx_state ,
                let ps_mem_in_trans := pages_in_trans (trans_memory_in_trans trans) in
                let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_mem_in_trans in
                let ps_mem_in_trans' := pages_in_trans (trans_memory_in_trans trans') in
@@ -97,14 +97,12 @@ Section logrel.
                (memory_pages ps_oea ∗
                 memory_pages ps_mem_in_trans' -∗
                 memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_mem_in_trans')) ∗
-               Transferred p_rx ∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
-               ▷ ((Owned p_rx) ∗ (Transferred p_rx) -∗
-                  (* status of RX *)
-                  (RX@ i :=() ∨ ∃l s, RX@i :=(l,s)) ∗
+               (* status of RX *)
+               RX_state@ i := rx_state ∗
                   (* RX *)
                   (RX@i := p_rx ∗ p_tx -@O> - ∗ p_tx -@E> true) ∗
-                  memory_pages {[p_rx]}) ∗
+                  memory_pages {[p_rx]} ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0
                       ((∃ ps_na'' ps_acc'' trans'' hpool'',
@@ -129,7 +127,10 @@ Section logrel.
                            memory_pages ps_mem_in_trans'' ∗
                            R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                            (* status of RX *)
-                           (RX@ i :=() ∨ ∃l s, RX@i :=(l,s)) ∗
+                           (match rx_state with
+                              | None => RX_state@ i := None
+                              | Some _ => RX_state@ i := None ∨ RX_state@i := rx_state
+                            end) ∗
                            (* RX *)
                            (RX@i := p_rx ∗ p_tx -@O> - ∗ p_tx -@E> true) ∗
                            memory_pages {[p_rx]})
@@ -137,7 +138,7 @@ Section logrel.
                            ∨ False) (1/2)%Qp
              ) (1/2)%Qp.
 
-  Program Definition interp_access ps_acc trans p_tx p_rx Owned Transferred : iPropO Σ:=
+  Program Definition interp_access ps_acc trans p_tx p_rx : iPropO Σ:=
     (
       let ps_mem_in_trans := pages_in_trans (trans_memory_in_trans trans) in
       let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_mem_in_trans in
@@ -155,9 +156,8 @@ Section logrel.
       tran_half (trans_tran_owned trans) ∗
       (* (* mem *) *)
       memory_pages ps_oea ∗
-      Owned p_rx ∗
       (* VMProp *)
-      VMProp_unknown p_tx p_rx trans Owned Transferred
+      VMProp_unknown p_tx p_rx trans
       )%I.
 
 End logrel.
