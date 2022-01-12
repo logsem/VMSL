@@ -54,6 +54,25 @@ Proof.
   apply insert_transaction_update_transactions.
 Qed.
 
+Lemma insert_transaction_update_hpool {σ} h tran:
+   (get_hpool_gset (insert_transaction σ h tran))
+   = (get_hpool_gset σ) ∖ {[h]}.
+Proof.
+  rewrite /get_hpool_gset.
+  rewrite /get_fresh_handles /insert_transaction /=.
+  rewrite map_filter_insert_False.
+  rewrite map_filter_delete.
+  rewrite dom_delete_L //.
+  done.
+Qed.
+
+Lemma update_transaction_update_hpool {σ} h tran:
+   (get_hpool_gset (update_transaction σ h tran))
+   = (get_hpool_gset σ) ∖ {[h]}.
+Proof.
+  apply insert_transaction_update_hpool.
+Qed.
+
 Lemma update_transaction_preserve_trans {meta} σ wh b b' :
   (get_transactions σ) !! wh = Some (Some (meta, b)) ->
    (get_trans_gmap (update_transaction σ wh (meta, b')))
@@ -206,6 +225,16 @@ Proof.
   apply map_eq.
   intro.
   rewrite fmap_insert //.
+Qed.
+
+Lemma remove_transaction_update_hpool {σ} h :
+  (get_hpool_gset (remove_transaction σ h))
+  = ({[h]} ∪ (get_hpool_gset σ) ).
+Proof.
+  rewrite /get_hpool_gset /=.
+  rewrite /get_fresh_handles.
+  rewrite map_filter_insert_True;last done.
+  rewrite dom_insert_L //.
 Qed.
 
 Lemma remove_transaction_update_trans σ h :

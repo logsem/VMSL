@@ -47,6 +47,7 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   gen_access_preG_inG :> inG Σ (authR (gmapUR V (dfrac_agreeR (gsetO P))));
   gen_excl_preG_inG :> gen_heapGpreS P boolO Σ;
   gen_trans_preG_inG :> gen_heapGpreS W (option (V * W * V * (gset P) * F)) Σ;
+  gen_hpool_preG_inG :> inG Σ (frac_authR (agreeR (gsetR W)));
   gen_retri_preG_inG :> gen_heapGpreS W (option bool) Σ;
   gen_lower_bound_preG_inG :> inG Σ (authR (gmapUR V (exclR (gsetR (leibnizO P)))))
   }.
@@ -69,6 +70,7 @@ Section gen_vmG.
                             gen_access_name : gname;
                             gen_excl_name : gname;
                             gen_trans_name : gname;
+                            gen_hpool_name : gname;
                             gen_retri_name : gname;
                             gen_lower_bound_name: gname
                        }.
@@ -81,6 +83,7 @@ Section gen_vmG.
   Global Arguments gen_access_name {Σ} {_}.
   Global Arguments gen_excl_name {Σ} {_}.
   Global Arguments gen_trans_name {Σ} {_}.
+  Global Arguments gen_hpool_name {Σ} {_}.
   Global Arguments gen_retri_name {Σ} {_}.
   Global Arguments gen_name_map_name {Σ} {_}.
   Global Arguments gen_lower_bound_name {Σ} {_}.
@@ -98,10 +101,10 @@ Section gen_vmG.
            GFunctor (authUR (gmapUR VMID (dfrac_agreeR (gsetO PID))));
            gen_heapΣ PID boolO;
            gen_heapΣ Word (option (VMID * Word * VMID * (gset PID) * transaction_type));
+           GFunctor (frac_authR (agreeR (gsetR Word)));
            gen_heapΣ Word (option bool);
            GFunctor (authR (gmapUR VMID (exclR (gsetR (leibnizO PID)))))
       ].
-
 
   Global Instance subG_gen_VMPreG {Σ}:
    subG gen_VMΣ Σ -> gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ.
@@ -155,6 +158,8 @@ Section definitions.
 
   Definition get_trans_gmap σ := get_transactions_gmap σ (λ tran, tran.1).
 
+  Definition get_hpool_gset σ := (get_fresh_handles (get_transactions σ)).
+
   Definition get_retri_gmap σ := get_transactions_gmap σ (λ tran, tran.2).
 
   Definition inv_trans_pg_num_ub (trans: gmap Word (option transaction)) :=
@@ -183,15 +188,15 @@ Section definitions.
                            |None => True
                            end) trans.
 
-  Definition inv_trans_wellformed' (trans : gmap Word (option transaction)) :=
-    inv_trans_pgs_disj trans ∧ inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans.
-
-  Definition inv_trans_wellformed σ := inv_trans_wellformed' (get_transactions σ).
-
   Definition hs_all : gset Word := list_to_set (finz.seq W0 100).
 
-  Definition inv_finite_handles (trans: gmap Word transaction) :=
-   hs_all = dom (gset Word) trans.
+  Definition inv_finite_handles (trans: gmap Word (option transaction)) :=
+   hs_all = dom (gset Word) (filter (λ kv, is_Some(kv.2)) trans).
+
+  Definition inv_trans_wellformed' (trans : gmap Word (option transaction)) :=
+    inv_trans_pgs_disj trans ∧ inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans ∧ inv_finite_handles trans.
+
+  Definition inv_trans_wellformed σ := inv_trans_wellformed' (get_transactions σ).
 
   Definition inv_trans_pgt_consistent' (trans: gmap Word (option transaction)) (pgt: gmap PID permission) :=
     map_Forall
@@ -214,15 +219,8 @@ Section definitions.
 
   Definition inv_trans_pgt_consistent σ := inv_trans_pgt_consistent' (get_transactions σ) (get_page_table σ).
 
-  Definition inv_pgt_mb_consistent' (pgt : gmap PID permission) (mb : vec mail_box vm_count) :=
-    ∀ (i:VMID), match mb !!! i with
-                |(tx, (rx, _)) => pgt !! tx = Some (None, true, {[i]}) ∧ pgt !! rx = Some (None, true, {[i]})
-                end.
-
   Definition inv_mb_wellformed σ :=
     map_Forall (λ k p, map_Forall (λ k' p', k ≠ k' -> p ≠ p' ) (get_mb_gmap σ) ) (get_mb_gmap σ).
-
-  Definition inv_pgt_mb_consistent σ := inv_pgt_mb_consistent' (get_page_table σ) (get_mail_boxes σ).
 
   Context `{vmG: !gen_VMG Σ}.
 
@@ -236,12 +234,10 @@ Section definitions.
       ∗ own gen_access_name (● (get_access_gmap σ))
       ∗ ghost_map_auth gen_excl_name 1 (get_excl_gmap σ)
       ∗ ghost_map_auth gen_trans_name 1 (get_trans_gmap σ)
-      (* ∗ own gen_hpool_name (frac_auth_auth (get_hpool_gset σ)) *)
+      ∗ own gen_hpool_name (frac_auth_auth (to_agree (get_hpool_gset σ)))
       ∗ ghost_map_auth gen_retri_name 1 (get_retri_gmap σ)
-      (* ∗ ⌜inv_trans_hpool_consistent σ⌝ *)
       ∗ ⌜inv_trans_wellformed σ⌝
       ∗ ⌜inv_trans_pgt_consistent σ⌝
-      ∗ ⌜inv_pgt_mb_consistent σ⌝
       ∗ ⌜inv_mb_wellformed σ⌝
   .
 
@@ -270,8 +266,8 @@ Section definitions.
   Definition rx_state_mapsto_eq : @rx_state_mapsto = @rx_state_mapsto_def :=
     rx_state_mapsto_aux.(seal_eq).
 
-  Definition own_mapsto_def (p: PID) (i:option VMID) : iProp Σ :=
-    ghost_map_elem gen_own_name p (DfracOwn 1) i.
+  Definition own_mapsto_def (p: PID) q (i:option VMID) : iProp Σ :=
+    ghost_map_elem gen_own_name p (DfracOwn q) i.
   Definition own_mapsto_aux : seal (@own_mapsto_def). Proof. by eexists. Qed.
   Definition own_mapsto := own_mapsto_aux.(unseal).
   Definition own_mapsto_eq : @own_mapsto = @own_mapsto_def := own_mapsto_aux.(seal_eq).
@@ -282,8 +278,8 @@ Section definitions.
   Definition access_mapsto := access_mapsto_aux.(unseal).
   Definition access_mapsto_eq : @access_mapsto = @access_mapsto_def := access_mapsto_aux.(seal_eq).
 
-  Definition excl_mapsto_def  (p: PID) (b:bool) : iProp Σ :=
-    ghost_map_elem gen_excl_name p (DfracOwn 1) b.
+  Definition excl_mapsto_def  (p: PID) q (b:bool) : iProp Σ :=
+    ghost_map_elem gen_excl_name p (DfracOwn q) b.
   Definition excl_mapsto_aux : seal (@excl_mapsto_def). Proof. by eexists. Qed.
   Definition excl_mapsto := excl_mapsto_aux.(unseal).
   Definition excl_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
@@ -293,6 +289,12 @@ Section definitions.
   Definition trans_mapsto_aux : seal (@trans_mapsto_def). Proof. by eexists. Qed.
   Definition trans_mapsto := trans_mapsto_aux.(unseal).
   Definition trans_mapsto_eq : @trans_mapsto = @trans_mapsto_def := trans_mapsto_aux.(seal_eq).
+
+  Definition hpool_mapsto_def q (s: gset Word) : iProp Σ :=
+     own gen_hpool_name (frac_auth_frag q (to_agree s)).
+  Definition hpool_mapsto_aux : seal (@hpool_mapsto_def). Proof. by eexists. Qed.
+  Definition hpool_mapsto := hpool_mapsto_aux.(unseal).
+  Definition hpool_mapsto_eq : @hpool_mapsto = @hpool_mapsto_def := hpool_mapsto_aux.(seal_eq).
 
   Definition retri_mapsto_def (w:Word) dq (b: option bool) : iProp Σ :=
     w ↪[ gen_retri_name ]{dq} b.
@@ -320,8 +322,6 @@ Notation "r @@ i -{ q }>r w" := (reg_mapsto r i q w)
 Notation "r @@ i ->r w" :=
   (reg_mapsto r i 1 w) (at level 21, w at level 50) : bi_scope.
 
-(* Notation "a -{ q }>a w" := (mem_mapsto a q w) *)
-(*   (at level 20, q at level 50, format "a -{ q }>a w") : bi_scope. *)
 Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 
 (* predicates for TX and RX *)
@@ -333,14 +333,16 @@ Notation "RX@ i := p " := (mb_mapsto i RX 1%Qp p)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)
-Notation "p -@O> v" := (own_mapsto p (Some v)) (at level 20, format "p  -@O>  v"):bi_scope.
-Notation "p -@O> -" := (own_mapsto p None) (at level 20, format "p  -@O>  -"):bi_scope.
+Notation "p -@{ q }O> v" := (own_mapsto p q (Some v)) (at level 20, format "p  -@{ q }O>  v"):bi_scope.
+Notation "p -@O> v" := (p -@{ 1 }O> v)%I (at level 20, format "p  -@O>  v"):bi_scope.
+Notation "p -@O> -" := (own_mapsto p 1 None) (at level 20, format "p  -@O>  -"):bi_scope.
 
 Notation "v -@{ q }A> p " := (access_mapsto v q {[p]}) (at level 20, format "v  -@{ q }A>  p"):bi_scope.
 Notation "v -@{ q }A> [ s ]" := (access_mapsto v q s) (at level 20, format "v  -@{ q }A>  [ s ]"):bi_scope.
 Notation "v -@A> [ s ]" := (v -@{ 1 }A> [ s ])%I (at level 20, format "v  -@A>  [ s ]"):bi_scope.
 
-Notation "p -@E> b" := (excl_mapsto p b) (at level 20, format "p  -@E>  b"):bi_scope.
+Notation "p -@{ q }E> b" := (excl_mapsto p q b) (at level 20, format "p  -@{ q }E>  b"):bi_scope.
+Notation "p -@E> b" := (p -@{ 1 }E> b)%I (at level 20, format "p  -@E>  b"):bi_scope.
 
 (* predicates for transactions *)
 Notation "w -{ q }>t t" := (trans_mapsto w (DfracOwn q) (Some t)) (at level 20, format "w  -{ q }>t  t"):bi_scope.
@@ -355,10 +357,10 @@ Notation "w ->re -" := (w -{ 1 }>re -)%I (at level 20, format "w  ->re  -"):bi_s
 
 (* predicates for hpool *)
 
-Notation "'hp' { q }[ s ]" := ([∗ set] h ∈ s, h -{q}>t - ∗ h -{q}>re -)%I (at level 20, format "hp  { q }[ s ]"):bi_scope.
+Notation "'hp' { q }[ s ]" := (hpool_mapsto q s)  (at level 20, format "hp  { q }[ s ]"):bi_scope.
 Notation "'hp' [ s ]" := ( hp {1}[s] )%I (at level 20, format "hp  [ s ]"):bi_scope.
 
-
+(* predicates for lower_bound *)
 Notation "'LB_auth' m" := (lower_bound_auth_mapsto m) (at level 20, format "'LB_auth' m"):bi_scope.
 Notation "LB@ i := [ s ]" := (lower_bound_frag_mapsto i s) (at level 20, format "LB@  i  :=  [ s ]"):bi_scope.
 
@@ -466,6 +468,19 @@ Section alloc_rules.
     iApply (ghost_map_alloc (get_trans_gmap σ)).
   Qed.
 
+  Lemma gen_hpool_alloc:
+    ⊢ |==> ∃ γ, own γ (frac_auth_auth (to_agree (get_hpool_gset σ))) ∗ own γ (frac_auth_frag 1 (to_agree (get_hpool_gset σ))).
+  Proof.
+    iIntros.
+    set gs := (get_hpool_gset σ).
+    iDestruct (own_alloc ((●F (to_agree gs)) ⋅ (◯F (to_agree gs)))) as ">Halloc".
+    { apply frac_auth_valid. done. }
+    iModIntro.
+    iDestruct "Halloc" as (γ) "Halloc".
+    iExists γ.
+    rewrite own_op //.
+  Qed.
+
   Lemma gen_retri_alloc:
    ⊢ |==> ∃ γ, ghost_map_auth γ 1 (get_retri_gmap σ)∗ [∗ map] k ↦ v ∈ (get_retri_gmap σ), ghost_map_elem γ k (DfracOwn 1) v.
   Proof.
@@ -488,7 +503,7 @@ Section timeless.
   Global Instance access_mapsto_timeless p q v : Timeless (p -@{ q }A> [ v ]).
   Proof. rewrite access_mapsto_eq /access_mapsto_def. apply _. Qed.
 
-  Global Instance own_mapsto_timeless p v : Timeless (p -@O> v).
+  Global Instance own_mapsto_timeless p q v : Timeless (p -@{q}O> v).
   Proof. rewrite own_mapsto_eq /own_mapsto_def. apply _. Qed.
 
   Global Instance own_mapsto_timeless' p : Timeless (p -@O> -).
@@ -509,7 +524,10 @@ Section timeless.
   Global Instance trans_mapsto_timeless w q me : Timeless (w -{q}>t me).
   Proof. rewrite trans_mapsto_eq /trans_mapsto_def. apply _. Qed.
 
-  Global Instance retri_mapsto_timeless w (b:bool) : Timeless (w ->re b).
+  Global Instance hpool_mapsto_timeless q sh : Timeless (hp {q}[sh]).
+  Proof. rewrite hpool_mapsto_eq /hpool_mapsto_def. apply _. Qed.
+
+  Global Instance retri_mapsto_timeless w q (b:bool) : Timeless (w -{q}>re b).
   Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
 
   Global Instance lower_bound_frag_mapsto_timeless (i:VMID) (s:gset PID) : Timeless (LB@ i := [s]).
@@ -519,7 +537,6 @@ Section timeless.
   Proof. rewrite lower_bound_auth_mapsto_eq /lower_bound_auth_mapsto_def. apply _. Qed.
 
 End timeless.
-
 
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Export lifting.

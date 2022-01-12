@@ -141,5 +141,7 @@ Section mailbox_rules.
     set_solver + H3.
   Qed.
 
+  Definition rx_page i p_rx := (RX@i := p_rx ∗ p_rx -@O> - ∗ p_rx -@E> true)%I.
+  Definition tx_page i p_tx := (TX@i := p_tx ∗ p_tx -@O> - ∗ p_tx -@E> true)%I.
 
 End mailbox_rules.

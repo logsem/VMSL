@@ -474,11 +474,11 @@ Definition transfer_msg_unsafe (st : state) (l : Word) (v : VMID) (r : VMID) : h
 Definition transfer_msg (st : state) (l : Word) (r : VMID) : hvc_result state :=
   transfer_msg_unsafe st l (get_current_vm st) r.
 
-Definition get_fresh_handles (trans: transactions): list Word:=
-  elements (dom (gset _) (map_filter (λ kv, kv.2 = None) _ trans)).
+Definition get_fresh_handles (trans: transactions): gset Word:=
+  (dom (gset _) (filter (λ kv, kv.2 = None) trans)).
 
 Definition fresh_handle (trans : transactions) : hvc_result Word:=
-    let hds := (get_fresh_handles trans) in
+    let hds := elements (get_fresh_handles trans) in
     match hds with
     | [] => throw NoMem
     | hd :: hds' => unit hd
