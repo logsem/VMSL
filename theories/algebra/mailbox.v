@@ -47,7 +47,7 @@ Section mailbox_rules.
   Qed.
 
   Lemma rx_state_valid_None {σ} i :
-    (RX@i :=()) -∗
+    (RX_state@i := None) -∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
     ⌜(get_mail_box σ @ i).2.2 = None⌝.
   Proof.
@@ -56,7 +56,7 @@ Section mailbox_rules.
   Qed.
 
   Lemma rx_state_valid_Some {σ} i a b :
-    (RX@i :=(a, b)) -∗
+    (RX_state@i := Some (a, b)) -∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
     ⌜(get_mail_box σ @ i).2.2 = Some (a, b)⌝.
   Proof.
@@ -79,9 +79,9 @@ Section mailbox_rules.
   
   Lemma rx_state_fill {σ} i l x:
      ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
-     RX@i:=() ==∗
+     RX_state@i := None ==∗
      ghost_map_auth gen_rx_state_name 1 (<[i:=Some (l, x)]>(get_rx_gmap σ)) ∗
-     RX@i:=(l,x).
+     RX_state@i:= Some(l,x).
   Proof.
     iIntros "Hσ Hrx".
     by iApply (rx_state_update with "Hσ Hrx").
@@ -89,9 +89,9 @@ Section mailbox_rules.
 
   Lemma rx_state_empty {_l _a σ} i:
      ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
-     RX@i:=(_l,_a) ==∗
+     RX_state@i:= Some(_l,_a) ==∗
      ghost_map_auth gen_rx_state_name 1 (<[i:=None]>(get_rx_gmap σ)) ∗
-     RX@i:=().
+     RX_state@i:= None.
   Proof.
     iIntros "Hσ Hrx".
     by iApply (rx_state_update with "Hσ Hrx").

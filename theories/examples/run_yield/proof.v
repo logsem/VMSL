@@ -72,7 +72,7 @@ Section run_yield.
     (* hvc_I *)
     rewrite wp_sswp.
     set (T := (PC @@ V0 ->r (((prog1page ^+ 1) ^+ 1) ^+ 1)%f ∗ ((prog1page ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@{q1}A> prog1page)%I).
-    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True%I) (R' := T) (i' := 1)) with "[PCz p_3 Hacc R0z R1z Hprop0 Hprop1]"); try rewrite HIn //;iFrameAutoSolve.
+    iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True%I) (R' := T)) with "[PCz p_3 Hacc R0z R1z Hprop0 Hprop1]"); try rewrite HIn //;iFrameAutoSolve.
     { set_solver +. }
     { solve_finz. }
     { apply decode_encode_hvc_func. }

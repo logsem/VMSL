@@ -47,7 +47,6 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   gen_access_preG_inG :> inG Σ (authR (gmapUR V (dfrac_agreeR (gsetO P))));
   gen_excl_preG_inG :> gen_heapGpreS P boolO Σ;
   gen_trans_preG_inG :> gen_heapGpreS W (option (V * W * V * (gset P) * F)) Σ;
-  (* gen_hpool_preG_inG :> inG Σ (frac_authR (gsetR (leibnizO W))); *)
   gen_retri_preG_inG :> gen_heapGpreS W (option bool) Σ;
   gen_lower_bound_preG_inG :> inG Σ (authR (gmapUR V (exclR (gsetR (leibnizO P)))))
   }.
@@ -70,7 +69,6 @@ Section gen_vmG.
                             gen_access_name : gname;
                             gen_excl_name : gname;
                             gen_trans_name : gname;
-                            (* gen_hpool_name : gname; *)
                             gen_retri_name : gname;
                             gen_lower_bound_name: gname
                        }.
@@ -83,7 +81,6 @@ Section gen_vmG.
   Global Arguments gen_access_name {Σ} {_}.
   Global Arguments gen_excl_name {Σ} {_}.
   Global Arguments gen_trans_name {Σ} {_}.
-  (* Global Arguments gen_hpool_name {Σ} {_}. *)
   Global Arguments gen_retri_name {Σ} {_}.
   Global Arguments gen_name_map_name {Σ} {_}.
   Global Arguments gen_lower_bound_name {Σ} {_}.
@@ -101,7 +98,6 @@ Section gen_vmG.
            GFunctor (authUR (gmapUR VMID (dfrac_agreeR (gsetO PID))));
            gen_heapΣ PID boolO;
            gen_heapΣ Word (option (VMID * Word * VMID * (gset PID) * transaction_type));
-           (* GFunctor (frac_authR (gsetR (leibnizO Word))); *)
            gen_heapΣ Word (option bool);
            GFunctor (authR (gmapUR VMID (exclR (gsetR (leibnizO PID)))))
       ].
@@ -303,12 +299,6 @@ Section definitions.
   Definition retri_mapsto_aux : seal (@retri_mapsto_def). Proof. by eexists. Qed.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
   Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
-
-  (* Definition hpool_mapsto_def q (s: gset Word) : iProp Σ := *)
-  (*   own gen_hpool_name (frac_auth_frag q s). *)
-  (* Definition hpool_mapsto_aux : seal (@hpool_mapsto_def). Proof. by eexists. Qed. *)
-  (* Definition hpool_mapsto := hpool_mapsto_aux.(unseal). *)
-  (* Definition hpool_mapsto_eq : @hpool_mapsto = @hpool_mapsto_def := hpool_mapsto_aux.(seal_eq). *)
 
   Definition lower_bound_frag_mapsto_def (i:VMID) (s: gset PID) : iProp Σ :=
     own (gen_lower_bound_name) (◯ {[i:= Excl s]}).
