@@ -112,14 +112,6 @@ Proof.
   by rewrite (surjective_pairing (get_mail_box σ @ i).2).
 Qed.
 
-Lemma empty_rx_global_preserve_hpool σ i :
-  get_hpool_gset (empty_rx_global σ i) = (get_hpool_gset σ).
-Proof.
-  rewrite /empty_rx_global.
-  rewrite (surjective_pairing (get_mail_box σ @ i)).
-  by rewrite (surjective_pairing (get_mail_box σ @ i).2).
-Qed.
-
 Lemma empty_rx_global_preserve_retri σ i :
   get_retri_gmap (empty_rx_global σ i) = (get_retri_gmap σ).
 Proof.
@@ -286,6 +278,5 @@ Ltac rewrite_empty_rx_global :=
     try rewrite -> empty_rx_global_preserve_access;
     try rewrite -> empty_rx_global_preserve_trans;
     try rewrite -> empty_rx_global_preserve_trans';
-    try rewrite -> empty_rx_global_preserve_hpool;
     try rewrite -> empty_rx_global_preserve_retri
   end.

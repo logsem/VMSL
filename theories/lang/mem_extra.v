@@ -38,14 +38,9 @@ Lemma update_memory_unsafe_preserve_trans' σ a w:
   get_transactions (update_memory_unsafe σ a w) = (get_transactions σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_hpool σ a w :
-  get_hpool_gset (update_memory_unsafe σ a w) = (get_hpool_gset σ).
-Proof. f_equal. Qed.
-
 Lemma update_memory_unsafe_preserve_retri σ a w :
   get_retri_gmap (update_memory_unsafe σ a w) = (get_retri_gmap σ).
 Proof. f_equal. Qed.
-
 
 Lemma update_memory_unsafe_update_mem σ a w :
   is_Some((get_mem σ) !! a) ->
@@ -189,23 +184,6 @@ Proof.
   apply IHl.
 Qed.
 
-Lemma zero_pages_preserve_hpool σ ps :
-  get_hpool_gset (zero_pages σ ps) = (get_hpool_gset σ).
-Proof.
-  rewrite /zero_pages.
-  cbn.
-  generalize σ.
-  induction ps.
-  done.
-  intro.
-  cbn.
-  induction (finz.seq a (Z.to_nat page_size)).
-  cbn.
-  apply IHps.
-  cbn.
-  apply IHl.
-Qed.
-
 Lemma zero_pages_preserve_retri σ ps :
   get_retri_gmap (zero_pages σ ps) = (get_retri_gmap σ).
 Proof.
@@ -260,10 +238,6 @@ Lemma copy_page_segment_unsafe_preserve_trans σ src dst l:
   = get_trans_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_hpool σ src dst l:
-  get_hpool_gset (copy_page_segment_unsafe σ src dst l) = get_hpool_gset σ.
-Proof. f_equal. Qed.
-
 Lemma copy_page_segment_unsafe_preserve_receivers σ src dst l:
   get_retri_gmap (copy_page_segment_unsafe σ src dst l) = get_retri_gmap σ.
 Proof. f_equal. Qed.
@@ -295,10 +269,6 @@ Proof. f_equal. Qed.
 Lemma write_mem_segment_unsafe_preserve_trans σ dst ws:
   (get_trans_gmap (write_mem_segment_unsafe σ dst ws))
   = get_trans_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_hpool σ dst ws:
-  get_hpool_gset (write_mem_segment_unsafe σ dst ws) = get_hpool_gset σ.
 Proof. f_equal. Qed.
 
 Lemma write_mem_segment_unsafe_preserve_receivers σ dst ws:
@@ -354,10 +324,6 @@ Proof. f_equal. Qed.
 Lemma fill_rx_unsafe_preserve_trans σ l v r tx rx :
   (get_trans_gmap (fill_rx_unsafe σ l v r tx rx))
   = get_trans_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_hpool σ l v r tx rx :
-  get_hpool_gset (fill_rx_unsafe σ l v r tx rx) = get_hpool_gset σ.
 Proof. f_equal. Qed.
 
 Lemma fill_rx_unsafe_preserve_receivers σ l v r tx rx :
@@ -513,7 +479,6 @@ Ltac rewrite_mem_unsafe :=
     try rewrite -> update_memory_unsafe_preserve_access;
     try rewrite -> update_memory_unsafe_preserve_trans;
     try rewrite -> update_memory_unsafe_preserve_trans';
-    try rewrite -> update_memory_unsafe_preserve_hpool;
     try rewrite -> update_memory_unsafe_preserve_retri
   end.
 
@@ -528,6 +493,5 @@ Ltac rewrite_mem_zero :=
     try rewrite -> zero_pages_preserve_access;
     try rewrite -> zero_pages_preserve_trans;
     try rewrite -> zero_pages_preserve_trans';
-    try rewrite -> zero_pages_preserve_hpool;
     try rewrite -> zero_pages_preserve_retri
   end.

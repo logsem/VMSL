@@ -87,46 +87,28 @@ Section preservation.
   Qed.
 
   Lemma preserve_get_trans_gmap σ' σ :
-    (get_transactions σ).1 = (get_transactions σ').1 -> get_trans_gmap σ = get_trans_gmap σ'.
+    (get_transactions σ) = (get_transactions σ') -> get_trans_gmap σ = get_trans_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_trans_gmap /get_transactions_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_get_hpool_gset σ' σ :
-    (get_transactions σ).2 = (get_transactions σ').2 -> get_hpool_gset σ = get_hpool_gset σ'.
-  Proof.
-    intro Heq_proj.
-    rewrite /get_hpool_gset /get_transactions_gmap Heq_proj //.
-  Qed.
-
   Lemma preserve_get_retri_gmap σ' σ :
-    (get_transactions σ).1 = (get_transactions σ').1 -> get_retri_gmap σ = get_retri_gmap σ'.
+    (get_transactions σ) = (get_transactions σ') -> get_retri_gmap σ = get_retri_gmap σ'.
   Proof.
     intro Heq_proj.
     rewrite /get_retri_gmap /get_transactions_gmap Heq_proj //.
   Qed.
 
-  Lemma preserve_inv_trans_hpool_consistent σ' σ :
-    (get_transactions σ) = (get_transactions σ') -> inv_trans_hpool_consistent σ = inv_trans_hpool_consistent σ'.
-  Proof.
-    intro Heq_proj.
-    rewrite /inv_trans_hpool_consistent.
-    rewrite /inv_trans_hpool_disj /inv_finite_handles.
-    destruct (get_transactions σ), (get_transactions σ').
-    inversion Heq_proj;subst.
-    done.
-  Qed.
-
   Lemma preserve_inv_trans_wellformed σ' σ :
-    (get_transactions σ).1 = (get_transactions σ').1 -> inv_trans_wellformed σ = inv_trans_wellformed σ'.
+    (get_transactions σ) = (get_transactions σ') -> inv_trans_wellformed σ = inv_trans_wellformed σ'.
   Proof.
     intro Heq_proj.
     rewrite /inv_trans_wellformed Heq_proj //.
   Qed.
 
   Lemma preserve_inv_trans_pgt_consistent σ' σ :
-    (get_transactions σ).1 = (get_transactions σ').1 ->
+    (get_transactions σ) = (get_transactions σ') ->
     (get_page_table σ) = (get_page_table σ') ->
     inv_trans_pgt_consistent σ = inv_trans_pgt_consistent σ'.
   Proof.
@@ -157,7 +139,7 @@ Section helper.
 
   Context `{hypconst : !HypervisorConstants}.
 
-  Definition  update_acc_gmap upd  (gm:gmap PID (frac * (gset_disj VMID)))  (v: VMID) (sps: gset PID):=
+  Definition  update_acc_gmap upd (gm:gmap PID (frac * (gset_disj VMID)))  (v: VMID) (sps: gset PID):=
     (set_fold (λ p acc, upd acc v p) gm sps).
 
   Definition revoke_acc_gmap :=
