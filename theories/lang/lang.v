@@ -55,10 +55,8 @@ Definition meta_info : Type :=
 Definition transaction : Type :=
    meta_info * bool (* if retrieved *).
 
-Definition hpool := gset Word.
-
 Definition transactions : Type :=
-  gmap Word transaction * hpool.
+  gmap Word (option transaction).
 
 Definition state : Type :=
   vec reg_file vm_count
@@ -159,14 +157,6 @@ Definition update_page_table_global (upd: permission -> VMID -> permission) (st:
                        end) (get_page_table st) ps),
    get_current_vm st,
    get_mem st, get_transactions st).
-
-(* Definition update_ownership_global := update_page_table_global update_ownership. *)
-
-(* Definition grant_access_global := update_page_table_global grant_access. *)
-
-(* Definition revoke_access_global := update_page_table_global revoke_access. *)
-
-(* Definition flip_excl_global := update_page_table_global flip_excl. *)
 
 Definition update_memory_global_batch (st : state) (l : list (Addr * Word)) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, (list_to_map l) ∪ (get_mem st), get_transactions st).
@@ -485,7 +475,7 @@ Definition transfer_msg (st : state) (l : Word) (r : VMID) : hvc_result state :=
   transfer_msg_unsafe st l (get_current_vm st) r.
 
 Definition get_fresh_handles (trans: transactions): list Word:=
-  (elements trans.2).
+  elements (dom (gset _) (map_filter (λ kv, kv.2 = None) _ trans)).
 
 Definition fresh_handle (trans : transactions) : hvc_result Word:=
     let hds := (get_fresh_handles trans) in
@@ -587,27 +577,27 @@ Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transa
     unit tt
   end.
 
-Definition insert_transaction (st : state) (h : Word) (t : transaction) (shp: gset Word):=
+Definition insert_transaction (st : state) (h : Word) (t : transaction):=
   (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, get_mem st,
-   (<[h:=t]>(get_transactions st).1 ,shp)).
+   <[h:= Some t]>(get_transactions st)).
 
-Definition alloc_transaction (st : state) (h : Word) (t : transaction) : state :=
-  (insert_transaction st h t ((get_transactions st).2 ∖ {[h]})).
-
-Definition update_transaction (st : state) (h : Word) (t : transaction) : state :=
-  (insert_transaction st h t (get_transactions st).2).
+Definition alloc_transaction := insert_transaction.
+Definition update_transaction := insert_transaction.
 
 Definition new_transaction (st : state) (v r : VMID)
            (tt : transaction_type) (flag : Word) (ps:(gset PID))  : hvc_result (state * Word) :=
   h <- fresh_handle (get_transactions st) ;;;
   unit (alloc_transaction st h (v, flag, r, ps, tt, false), h).
 
-Definition get_transaction (st : state) (h : Word) : option transaction :=
-  ((get_transactions st).1) !! h.
+Definition get_transaction (st : state) (h : Word) : option transaction:=
+  match (get_transactions st) !! h with
+    |Some o => o
+    |None => None
+  end.
 
 Definition remove_transaction (s : state) (h : Word) : state :=
   (get_reg_files s, get_mail_boxes s, get_page_table s, get_current_vm s, get_mem s,
-    (delete h (get_transactions s).1, union (get_transactions s).2 {[h]})).
+    <[h := None]>(get_transactions s)).
 
 Definition new_transaction_from_descriptor (st : state) (ty : transaction_type)
            (td : transaction_descriptor) : hvc_result (state * Word) :=
