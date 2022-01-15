@@ -11,8 +11,12 @@ Section logrel.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Definition unknown_mem_page (p: PID) :=
-    (∃ mem, ⌜∀ (a:Addr), a ∈ (addr_of_page p) -> is_Some (mem !! a)⌝ ∗ [∗ map] a ↦ w ∈ mem, (a ->a w))%I.
+  (* TODO: we need some lemmas about it:
+     e.g. p ∈ pages_in_trans trans -> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2 *)
+  Definition pages_in_trans (trans: gmap Word transaction) : gset PID :=
+    map_fold (λ (k:Addr) v acc, v.1.1.2 ∪ acc) (∅: gset PID) trans.
+
+  Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
 
   (** definitions **)
 
@@ -22,6 +26,9 @@ Section logrel.
    (⌜i ≠ V0⌝ -∗
         (VMProp_holds i (1/2)%Qp -∗ WP ExecI @ i {{(λ _, True )}}))%I.
 
+  (* TODO *)
+  Definition memory_pages (ps :gset PID): iProp Σ:=
+    ∃ mem, (⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
   Definition pgt (ps: gset PID) q (vo: VMID) (be: bool) : iProp Σ :=
     [∗ set] p ∈ ps, p -@{q}O> vo ∗ p -@{q}E> be.
 
@@ -66,28 +73,17 @@ Section logrel.
   Definition retrieval_entries (trans: gmap Addr transaction) : iProp Σ:=
     [∗ map] h ↦ tran ∈ (trans_retri trans), h ->re tran.2.
 
-
-  (* TODO *)
+  (* [memory_transferred]: some memory points-to predicates are transferred by VMProp.
+     the memory is the memory of pages associated with a transaction and i has or may have access to. *)
   Definition trans_memory_in_trans (trans : gmap Word transaction) :=
     filter (λ kv, (kv.2.1.1.1.1.1 = i ∧ ¬(kv.2.2 = true ∧ kv.2.1.2 = Lending)) ∨ kv.2.1.1.1.2 = i) trans.
-
-
-  (* TODO: we need some lemmas about it:
-     e.g. p ∈ pages_in_trans trans -> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2 *)
-  Definition pages_in_trans (trans: gmap Word transaction) : gset PID :=
-    map_fold (λ (k:Addr) v acc, v.1.1.2 ∪ acc) (∅: gset PID) trans.
-
-
-  (* TODO *)
-  Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
-  Definition memory_pages (ps :gset PID): iProp Σ:=
-    ∃ mem, (⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
+  Definition memory_transferred (trans : gmap Word transaction) :=
+    memory_pages (pages_in_trans (trans_memory_in_trans trans)).
 
   Definition VMProp_unknown p_tx p_rx trans :=
     VMProp i
            (∃ ps_na' ps_acc' (trans' : gmap Word transaction) hpool' rx_state ,
-               let ps_mem_in_trans := pages_in_trans (trans_memory_in_trans trans) in
-               let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_mem_in_trans in
+               let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ pages_in_trans (trans_memory_in_trans trans) in
                let ps_mem_in_trans' := pages_in_trans (trans_memory_in_trans trans') in
                let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_mem_in_trans' in
                (* lower bound *)
@@ -101,17 +97,25 @@ Section logrel.
                transaction_pagetable_entries_transferred trans' ∗
                retrieval_entries trans' ∗
                (* memory *)
-               memory_pages ps_mem_in_trans' ∗
+               memory_transferred trans' ∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                (* status of RX *)
                RX_state@ i := rx_state ∗
                (* RX *)
                (rx_page i p_rx) ∗
                memory_pages {[p_rx]} ∗
-               (* implication: TODO  *)
+               (* Implications: these implications relate [trans], the transactions at the beginning of the proof, and
+                [trans'], those at the point of switching to i. These assumptions are (I believe) necessary to prove FTLR.
+                Moreover, they are provable because of that fact that i as the invoker is the only vm can manipulate
+                the state of some transactions, and since, i is not scheduled during the time between starting pvm
+                and switching to i, states of those transactions are immutable.
+                There are other ways of expressing the relation, we choosed this as (I assume) it should be easier to prove it
+                in a concrete example(as we give a concrete [trans] at the first and can reason about what should be the
+                [trans'] that satisfies the relation as we know the behaviors of VMs) than in a general case. So we leave
+                the proofs to the users of LR. *)
                (transaction_pagetable_entries_owned trans -∗ transaction_pagetable_entries_owned trans') ∗
-               (* TODO : (pgt_own ps_oea i ∗ pgt_excl ps_oea true -∗ pgt_own ps_oea' i ∗ pgt_excl ps_oea' true) ∗ *)
-               (memory_pages ps_oea ∗ memory_pages ps_mem_in_trans' -∗
+               (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗
+               (memory_pages ps_oea ∗ memory_transferred trans' -∗
                 memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_mem_in_trans')) ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0
@@ -127,7 +131,7 @@ Section logrel.
                            retrieval_entries trans'' ∗
                            (* memory *)
                            memory_pages ps_mem_in_trans'' ∗
-                           R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
+                           R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                            (* status of RX *)
                            (match rx_state with
                               | None => RX_state@ i := None
@@ -139,7 +143,7 @@ Section logrel.
                            ∨ False) (1/2)%Qp
              ) (1/2)%Qp.
 
-  Program Definition interp_access ps_acc trans p_tx p_rx : iPropO Σ:=
+  Program Definition interp_access p_tx p_rx ps_acc trans : iPropO Σ:=
     (
       let ps_mem_in_trans := pages_in_trans (trans_memory_in_trans trans) in
       (* exclusively owned pages are pages i has access to, but ain't in any transactions related to i. *)
@@ -154,6 +158,6 @@ Section logrel.
       transaction_pagetable_entries_owned trans ∗
       memory_pages ps_oea ∗
       VMProp_unknown p_tx p_rx trans
-      )%I.
+    )%I.
 
 End logrel.

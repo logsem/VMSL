@@ -61,11 +61,10 @@ Proof.
     rewrite (preserve_get_access_gmap σ1).
     rewrite (preserve_get_excl_gmap σ1).
     rewrite (preserve_get_trans_gmap σ1).
+    rewrite (preserve_get_hpool_gset σ1).
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
-    rewrite (preserve_inv_pgt_mb_consistent σ1).
-    rewrite (preserve_inv_mb_wellformed σ1).
     rewrite p_upd_pc_mem p_upd_reg_mem.
     all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
@@ -164,18 +163,18 @@ Proof.
     remember (exec _ σ1) as c2 eqn:Heqc2.
     rewrite /exec (mov_reg_ExecI σ1 ra rb w3 HneqPCa HneqNZa HneqPCb HneqNZb Hrb)  /update_incr_PC /update_reg  in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
-    rewrite /gen_vm_interp.    (* unchanged part *)
+    rewrite /gen_vm_interp.
+    (* unchanged part *)
     rewrite (preserve_get_mb_gmap σ1).
     rewrite (preserve_get_rx_gmap σ1).
     rewrite (preserve_get_own_gmap σ1).
     rewrite (preserve_get_access_gmap σ1).
     rewrite (preserve_get_excl_gmap σ1).
     rewrite (preserve_get_trans_gmap σ1).
+    rewrite (preserve_get_hpool_gset σ1).
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
-    rewrite (preserve_inv_pgt_mb_consistent σ1).
-    rewrite (preserve_inv_mb_wellformed σ1).
     rewrite p_upd_pc_mem p_upd_reg_mem.
     all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     all: try rewrite p_upd_pc_trans p_upd_reg_trans //.

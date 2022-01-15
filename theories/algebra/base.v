@@ -170,18 +170,6 @@ Section definitions.
                  |None => True
                end) trans.
 
-  Definition inv_trans_pgs_disj (trans: gmap Word (option transaction)) :=
-    map_Forall (λ h otran,
-                 match otran with
-                 | Some tran  => map_Forall( λ h' otran', h' ≠ h ->
-                                                          match otran' with
-                                                          | Some tran'  => tran.1.1.2 ## tran'.1.1.2
-                                                          | None => True
-                                                          end) trans
-                 | None => True
-                 end )
-               trans.
-
   Definition inv_trans_sndr_rcvr_neq (trans: gmap Word (option transaction)) :=
     map_Forall (λ h otran, match otran with
                            |Some tran => tran.1.1.1.1.1 ≠ tran.1.1.1.2
@@ -194,7 +182,7 @@ Section definitions.
    hs_all = dom (gset Word) (filter (λ kv, is_Some(kv.2)) trans).
 
   Definition inv_trans_wellformed' (trans : gmap Word (option transaction)) :=
-    inv_trans_pgs_disj trans ∧ inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans ∧ inv_finite_handles trans.
+    inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans ∧ inv_finite_handles trans.
 
   Definition inv_trans_wellformed σ := inv_trans_wellformed' (get_transactions σ).
 
@@ -219,9 +207,6 @@ Section definitions.
 
   Definition inv_trans_pgt_consistent σ := inv_trans_pgt_consistent' (get_transactions σ) (get_page_table σ).
 
-  Definition inv_mb_wellformed σ :=
-    map_Forall (λ k p, map_Forall (λ k' p', k ≠ k' -> p ≠ p' ) (get_mb_gmap σ) ) (get_mb_gmap σ).
-
   Context `{vmG: !gen_VMG Σ}.
 
   Definition gen_vm_interp n σ: iProp Σ :=
@@ -238,7 +223,6 @@ Section definitions.
       ∗ ghost_map_auth gen_retri_name 1 (get_retri_gmap σ)
       ∗ ⌜inv_trans_wellformed σ⌝
       ∗ ⌜inv_trans_pgt_consistent σ⌝
-      ∗ ⌜inv_mb_wellformed σ⌝
   .
 
   Definition mem_mapsto_def (a:Addr) (q : frac) (w:Word) : iProp Σ :=

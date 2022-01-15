@@ -123,14 +123,6 @@ Section preservation.
     rewrite /inv_trans_pgt_consistent Heq_proj_trans Heq_proj_pgt //.
   Qed.
 
-  Lemma preserve_inv_mb_wellformed σ' σ:
-    (get_mail_boxes σ) = (get_mail_boxes σ') ->
-    inv_mb_wellformed σ = inv_mb_wellformed σ'.
-  Proof.
-    intros Heq_mb.
-    rewrite /inv_mb_wellformed (preserve_get_mb_gmap σ' σ) //.
-  Qed.
-
 End preservation.
 
 Section helper.

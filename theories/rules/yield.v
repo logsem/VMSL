@@ -85,11 +85,10 @@ Proof.
       rewrite (preserve_get_access_gmap σ1).
       rewrite (preserve_get_excl_gmap σ1).
       rewrite (preserve_get_trans_gmap σ1).
+      rewrite (preserve_get_hpool_gset σ1).
       rewrite (preserve_get_retri_gmap σ1).
       rewrite (preserve_inv_trans_pgt_consistent σ1).
       rewrite (preserve_inv_trans_wellformed σ1).
-      rewrite (preserve_inv_pgt_mb_consistent σ1).
-      rewrite (preserve_inv_mb_wellformed σ1).
       all: try rewrite p_upd_id_mb p_upd_pc_mb //.
       all: try rewrite p_upd_id_pgt p_upd_pc_pgt //.
       all: try rewrite p_upd_id_trans p_upd_pc_trans //.

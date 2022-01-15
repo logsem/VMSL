@@ -96,6 +96,23 @@ Section pagetable_rules.
     iSplit;eauto.
   Qed.
 
+  Lemma access_agree_eq {q1 q2} v (s1 s2 : gset PID) :
+    v -@{ q1 }A> [ s1 ] ∗ v -@{ q2 }A> [ s2 ] ⊢ ⌜s1 = s2⌝.
+  Proof.
+    rewrite access_mapsto_eq /access_mapsto_def.
+    rewrite -own_op.
+    rewrite -auth_frag_op.
+    setoid_rewrite singleton_op.
+    iIntros "acc".
+    iDestruct (own_valid with "acc") as "%valid".
+    rewrite auth_frag_valid in valid.
+    rewrite singleton_valid in valid.
+    rewrite dfrac_agree_op_valid in valid.
+    destruct valid.
+    fold_leibniz.
+    done.
+  Qed.
+
   (** relations between get_access_gmap and the opsem **)
   Lemma access_pgt_lookup {σ} {s:gset PID} (v:VMID):
   (get_access_gmap σ) !! v = Some (to_frac_agree 1 s) ->

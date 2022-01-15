@@ -13,58 +13,54 @@ Section fundamental.
   Context `{vmG: !gen_VMG Σ}.
 
   (* TODO:
-   - [] new lemmas for updating VMProp (not necessary)
    - [] str
    - [] fix mem_send_nz.v
-   - [] mem share *)
+  *)
 
   (* TODO: separate into helper lemmas *)
   Lemma ftlr (i:VMID)  :
-  ∀ ps_acc p_tx p_rx Owned Transferred, interp_access i ps_acc p_tx p_rx Owned Transferred ⊢ interp_execute i.
+  ∀  p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
-    iIntros (ps_acc p_tx p_rx Owned Transferred) "((%regs & #Htotal_regs & regs) & tx & pgt_acc & Owned & VMProp & Himpl) %Hneq_p VMProp_holds".
+    iIntros (????) "((%regs & #Htotal_regs & regs) & (tx & mem_tx) & pgt_acc & pgt_owned & tran_pgt_owned & mem_owned & VMProp)
+                             %Hneq_p VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
     iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (trans) "Hres".
-    iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (hpool) "Hres".
-    iEval (rewrite !later_sep) in "Hres".
-    iDestruct "Hres" as "( >%Hinv_trans & >hp & >trans_transferred &
-                         >pgt_transferred & Transferred & >rx_state & (>rx & >mem_rx) & >R0z & >R1z & prop0)".
-    iDestruct ("Himpl" with "[$Owned $Transferred]") as "Hres".
-
-    iLöb as "IH" forall (regs ps_acc) "Htotal_regs".
-    (* TODO *)
-
-
-    iIntros (ps_acc p_tx p_rx trans) "((%regs & #Htotal_regs & regs) & tx & pgt_acc & pgt_owned & trans_owned & #Hps_incl
-                              & mem_owned & VMProp) %Hneq_p VMProp_holds".
-    iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
-
-    iLöb as "IH" forall (regs ps_acc trans) "Htotal_regs Hps_incl".
-
-    iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (ps_na) "Hres".
+    iDestruct "Hres" as (ps_na') "Hres".
     iEval (rewrite later_exist) in "Hres".
     iDestruct "Hres" as (ps_acc') "Hres".
     iEval (rewrite later_exist) in "Hres".
     iDestruct "Hres" as (trans') "Hres".
     iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (hpool) "Hres".
+    iDestruct "Hres" as (hpool') "Hres".
+    iEval (rewrite later_exist) in "Hres".
+    iDestruct "Hres" as (rx_state') "Hres".
     iEval (rewrite !later_sep) in "Hres".
-    iDestruct "Hres" as "(>%Heq_acc_trans & >LB & >%Hdisj_ps & >pgt_acc' & >%Hinv_trans & >hp & >trans_transferred &
-                         >pgt_transferred & >mem_transferred & >rx_state & (>rx & >mem_rx) & >R0z & >R1z & prop0)".
-    iDestruct "Hps_incl" as %Hps_incl.
-    iDestruct (memory_pages_disj with "[$mem_transferred $mem_rx]") as %Hdisj_ps_rx.
-    iAssert (memory_pages ps_acc)%I with "[mem_owned mem_transferred mem_rx]" as "mem".
+    iDestruct "Hres" as "( >pgt_acc' & >LB & >%Hdisj_na & trans_hpool_global & >tran_pgt_transferred &
+                         >retri & >mem_transferred &  >R0z & >R1z & >rx_state & rx & >mem_rx &
+                          Himp_tran_pgt & Himp_pgt & Himp_mem & prop0)".
+    iDestruct (access_agree_eq with "[$pgt_acc $pgt_acc']") as %->.
+
+    iDestruct (later_wand with "Himp_tran_pgt") as "Himp_tran_pgt".
+    iDestruct ("Himp_tran_pgt" with "tran_pgt_owned") as "tran_pgt_owned".
+    iDestruct (later_wand with "Himp_pgt") as "Himp_pgt".
+    iDestruct ("Himp_pgt" with "pgt_owned") as ">pgt_owned".
+    iDestruct (later_wand with "Himp_mem") as "Himp_mem".
+    iDestruct ("Himp_mem" with "[$mem_owned $mem_transferred]") as ">mem".
+
+    iLöb as "IH" forall (regs ps_acc' trans' Hdisj_na) "Htotal_regs".
+
+    (* iDestruct (memory_pages_disj with "[$mem $mem_rx]") as %Hdisj_ps_rx. *)
+    iAssert (memory_pages (ps_acc' ∪ pages_in_trans (trans_memory_in_trans i trans')))%I
+      with "[mem mem_rx mem_tx]" as "mem".
     {
-      iApply (memory_pages_split_diff with "[-]").
-      {exact Hps_incl. }
-      iFrame "mem_owned".
-      rewrite Heq_acc_trans.
-      rewrite memory_pages_split_union;last done.
-      iFrame.
+      admit.
+      (* iApply (memory_pages_split_diff with "[-]"). *)
+      (* {exact Hps_incl. } *)
+      (* iFrame "mem_owned". *)
+      (* rewrite Heq_acc_trans. *)
+      (* rewrite memory_pages_split_union;last done. *)
+      (* iFrame. *)
     }
 
     (* we don't really need to get the resource of PC, but just the value *)
@@ -73,7 +69,7 @@ Section fundamental.
     destruct Hlookup_PC as [ai Hlookup_PC].
     (* sswp *)
     rewrite ->wp_sswp.
-    destruct (decide ((tpa ai) ∈ ps_acc)).
+    destruct (decide ((tpa ai) ∈ ps_acc')).
     { (* i has access *)
       (* TODO: (tpa ai) ≠ tx *)
       iEval (rewrite /memory_pages ) in "mem".
