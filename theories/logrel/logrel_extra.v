@@ -901,4 +901,46 @@ Section logrel_extra.
 
   (* TODO: For memory chunks *)
 
+  (* lemmas about sets... *)
+  Lemma union_split_difference_intersection_L `{Countable T} (A B: gset T):
+    A = (A ∖ B) ∪ (A ∩ B) ∧ (A ∖ B) ## (A ∩ B).
+  Proof.
+    split.
+    {
+      rewrite union_intersection_l_L.
+      rewrite difference_union_L.
+      set_solver.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma union_split_difference_1_L `{Countable T} (A B: gset T):
+    A ∪ B = A ∪ (B ∖ A) ∧ A ## (B ∖ A).
+  Proof.
+    split.
+    {
+      rewrite union_comm_L (union_comm_L _ (B ∖ A)).
+      rewrite difference_union_L //.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma union_split_difference_2_L `{Countable T} (A B: gset T):
+    A ∪ B = B ∪ (A ∖ B) ∧ B ## (A ∖ B).
+  Proof.
+    split.
+    {
+      rewrite  (union_comm_L _ (A ∖ B)).
+      rewrite difference_union_L //.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+
 End logrel_extra.

@@ -5,7 +5,7 @@ From HypVeri Require Import machine_extra.
 From HypVeri.algebra Require Import base base_extra mem mailbox trans.
 Import uPred.
 
-(**  unary logical relation *)
+(**  unary logical relation **)
 Section logrel.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
@@ -18,6 +18,12 @@ Section logrel.
 
   Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
 
+  (* TODO *)
+  Definition memory_pages (ps :gset PID): iProp Σ:=
+    ∃ mem, (⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
+  Definition pgt (ps: gset PID) q (vo: VMID) (be: bool) : iProp Σ :=
+    [∗ set] p ∈ ps, p -@{q}O> vo ∗ p -@{q}E> be.
+
   (** definitions **)
 
   Context (i : (leibnizO VMID)).
@@ -26,11 +32,6 @@ Section logrel.
    (⌜i ≠ V0⌝ -∗
         (VMProp_holds i (1/2)%Qp -∗ WP ExecI @ i {{(λ _, True )}}))%I.
 
-  (* TODO *)
-  Definition memory_pages (ps :gset PID): iProp Σ:=
-    ∃ mem, (⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v)%I.
-  Definition pgt (ps: gset PID) q (vo: VMID) (be: bool) : iProp Σ :=
-    [∗ set] p ∈ ps, p -@{q}O> vo ∗ p -@{q}E> be.
 
   (* [pagetable_entries_excl_owned]: For pages that are exclusively accessible and owned by i, i keeps the entries. *)
   Definition pagetable_entries_excl_owned (i:VMID) (ps: gset PID) := pgt ps 1 i true.
@@ -38,7 +39,7 @@ Section logrel.
   (* [transaction_hpool_global_transferred]: All of half of transactions, as we don't know which one would be used by i. *)
   (* We need the pure proposition to ensure all transaction entries are transferred.
      Only half is needed so that the invokers can remember transactions by keeping the other half.
-     Having half of pagetable entries gives us some entra properties... [TODO] *)
+     Having half of pagetable entries gives us some extra properties... [TODO] *)
   Definition transaction_hpool_global_transferred (hpool: gset Word) (trans: gmap Addr transaction) : iProp Σ:=
     ⌜hpool ∪ dom (gset _ ) trans = hs_all⌝ ∗ fresh_handles 1 hpool ∗
     [∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1 ∗ pgt tran.1.1.2 (1/2)%Qp tran.1.1.1.1.1 (bool_decide (tran.1.2 ≠ Sharing)).
@@ -64,14 +65,18 @@ Section logrel.
   Definition transaction_pagetable_entries_transferred (trans: gmap Addr transaction) : iProp Σ:=
     [∗ map] h ↦ tran ∈ trans_transferred trans, h -{1/2}>t tran.1 ∗ pgt tran.1.1.2 1 tran.1.1.1.1.1 false.
 
-  (* [retrieval entries]: all retrieval entries of i-related transactions are required.
+  (* [retrieval entries]: half of all retrieval entries of i-related transactions are required.
      For transactions where i is the sender, we need the corresponding retrieval entries to check if it is allowed for i to reclaim,
      for the cases when i is the receiver, they are required so that i can retrieve or relinquish *)
+  (* There are also some cases when we need the second half, as in those cases we may update/remove the retrival state *)
   (* XXX: How to relate retrieval and transaction entries? Using option(frac_agree transaction,option bool)? or is it unnecessary? *)
-  Definition trans_retri (trans: gmap Word transaction) :=
+  Definition trans_related (trans: gmap Word transaction) :=
     filter (λ kv, (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1.1 = i)) trans.
-  Definition retrieval_entries (trans: gmap Addr transaction) : iProp Σ:=
-    [∗ map] h ↦ tran ∈ (trans_retri trans), h ->re tran.2.
+  Definition trans_mutable_retri(trans: gmap Word transaction) :=
+    filter (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = false ∨ kv.2.1.1.1.1.1 = i)) trans.
+  Definition retrieval_entries(trans: gmap Addr transaction) : iProp Σ:=
+     [∗ map] h ↦ tran ∈ (trans_related trans), (h -{1/2}>re tran.2) ∗
+     [∗ map] h ↦ tran ∈ (trans_mutable_retri trans),(h -{1/2}>re tran.2) .
 
   (* [memory_transferred]: some memory points-to predicates are transferred by VMProp.
      the memory is the memory of pages associated with a transaction and i has or may have access to. *)
@@ -90,7 +95,7 @@ Section logrel.
                i -@{1/2}A> [ps_acc'] ∗
                LB@ i := [ps_na'] ∗
                ⌜ps_na' ## ps_acc'⌝ ∗
-               (* TODO: we can dervie this from rx_page/tx_page ∗ transaction_hpool_global_transferred
+               (* TODO: we can derive this from rx_page/tx_page ∗ transaction_hpool_global_transferred
                   ⌜{[p_rx;p_tx]} ## ps_mem_in_trans''⌝ ∗ *)
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred hpool' trans' ∗
@@ -160,4 +165,11 @@ Section logrel.
       VMProp_unknown p_tx p_rx trans
     )%I.
 
+  (* Things we haven't really considerred:
+   - [] the zero flag (it seems unnecessary,
+                       unless we want to reason about examples in which zeroing memory is important.
+                       I assume such examples would be about confidentiality? )
+   - [] message passing (seems we need RXs of all VMs?)
+   - [] if we need more pure propositions to relate trans'' and other stuff
+   *)
 End logrel.

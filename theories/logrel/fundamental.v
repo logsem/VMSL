@@ -74,6 +74,10 @@ Section fundamental.
       (* TODO: (tpa ai) ≠ tx *)
       iEval (rewrite /memory_pages ) in "mem".
       iDestruct "mem" as (mem) "[%Hdom_mem mem]".
+
+
+
+
       pose proof (elem_of_memory_pages_lookup _ _ _ e Hdom_mem) as [instr Hlookup_mem_ai].
       destruct (decode_instruction instr) as [instr'|] eqn:Heqn.
       { (* valid instruction *)

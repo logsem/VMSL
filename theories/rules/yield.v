@@ -29,7 +29,7 @@ Lemma yield {E w1 w2 a_ b_ q s R R' Q P P' i} ai :
   i ≠ V0 ->
   decode_instruction w1 = Some Hvc ->
   decode_hvc_func w2 = Some Yield ->
-  {SS{{ T ∗ ▷ (VMProp V0 (Q ) (1/2)%Qp)
+  {SS{{ T ∗ ▷ (VMProp V0 Q (1/2)%Qp)
           ∗ ▷ (VMProp i P 1%Qp)
           ∗ ▷ (T' ∗ R ∗ VMProp i P' (1/2)%Qp -∗ (Q ∗ R'))
           ∗ ▷ R }}}
