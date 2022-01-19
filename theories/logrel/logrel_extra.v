@@ -925,6 +925,20 @@ Section logrel_extra.
     }
   Qed.
 
+  Lemma union_split_difference_intersection_subseteq_L `{Countable T} (A B: gset T):
+    B ⊆ A ->
+    A = (A ∖ B) ∪ B ∧ (A ∖ B) ## B.
+  Proof.
+    intro H0.
+    pose proof (union_split_difference_intersection_L A B) as H1.
+    assert (A∩ B = B).
+    {
+      set_solver + H0.
+    }
+    rewrite H2 in H1.
+    done.
+  Qed.
+
   Lemma union_split_difference_1_L `{Countable T} (A B: gset T):
     A ∪ B = A ∪ (B ∖ A) ∧ A ## (B ∖ A).
   Proof.

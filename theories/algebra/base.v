@@ -120,17 +120,17 @@ Section definitions.
   Implicit Type σ: state.
 
   Definition get_reg_gmap σ: gmap (reg_name * VMID) Word :=
-     (list_to_map (flat_map (λ v, (map (λ p, ((p.1,v),p.2)) (map_to_list (get_reg_file σ @ v)))) (list_of_vmids))).
+     (list_to_map (flat_map (λ (v:VMID), (map (λ p, ((p.1,v),p.2)) (map_to_list (get_reg_file σ @ v)))) (list_of_vmids))).
 
   Definition get_rx_gmap σ : gmap VMID (option (Word*VMID)) :=
-            ((list_to_map (map (λ v, let mb := (get_mail_box σ @ v) in
+            ((list_to_map (map (λ (v:VMID), let mb := (get_mail_box σ @ v) in
                                     match mb.2.2 with
                                       | Some (l, j) => (v, (Some (l, j)))
                                       | None => (v,None)
                                     end) (list_of_vmids)))).
 
   Definition get_mb_gmap σ : gmap (VMID * MailBox) PID :=
-    list_to_map (flat_map (λ v, let mb := (get_mail_box σ @ v) in
+    list_to_map (flat_map (λ (v:VMID), let mb := (get_mail_box σ @ v) in
                             [((v,TX), mb.1);((v,RX), mb.2.1)]
                           ) (list_of_vmids)).
 
@@ -179,7 +179,7 @@ Section definitions.
   Definition hs_all : gset Word := list_to_set (finz.seq W0 100).
 
   Definition inv_finite_handles (trans: gmap Word (option transaction)) :=
-   hs_all = dom (gset Word) (filter (λ kv, is_Some(kv.2)) trans).
+   hs_all = dom (gset Word) trans.
 
   Definition inv_trans_wellformed' (trans : gmap Word (option transaction)) :=
     inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans ∧ inv_finite_handles trans.

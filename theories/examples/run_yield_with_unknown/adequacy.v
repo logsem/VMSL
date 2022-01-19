@@ -16,84 +16,80 @@ Section rywu_adequacy.
   Definition mk_region (p:PID) (ws: list Word) : gmap Addr Word:=
     (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
 
-  Definition pgt_layout (σ : state) (p1 p2 : PID) :=
+  Definition pgt_layout (σ : state) (p_prog1 p_prog2 p_prog3 p_tx3 p_rx3 : PID) :=
     (* pvm has exclusive access to prog pg 1 *)
-    (∃ (e:VMID * gset VMID), (get_page_table σ) !! p1 = Some e ∧ {[V0]} = e.2) ∧
+    ((get_page_table σ) !! p_prog1 = Some (Some V0,true, {[V0]})) ∧
     (* VM1 has exclusive access to prog pg 2 *)
-    (∃ (e:VMID * gset VMID), (get_page_table σ) !! p2 = Some e ∧ {[V1]} = e.2) ∧
-    (* pgt is total *)
+    ((get_page_table σ) !! p_prog2 = Some (Some V1,true, {[V1]})) ∧
+    ((get_page_table σ) !! p_prog3 = Some (Some V2, true, {[V2]})) ∧
+    ((get_page_table σ) !! p_tx3 = Some (None, true, {[V2]})) ∧
+    ((get_page_table σ) !! p_rx3 = Some (None, true, {[V2]}))
     (* Have no other assumptions on the pagetable.
        Namely, other irrelavant pages can be owned/accessible by anyone *)
-    (∀ p, is_Some ((get_page_table σ) !! p)).
+    .
 
-  Definition mem_layout (σ : state) (p1 p2 : PID) :=
+
+  Definition mem_layout (σ : state) (p_prog1 p_prog2 p_prog3 p_tx3 p_rx3 : PID) :=
     let mem := ((get_mem σ): gmap Addr Word)  in
     (* prog 1 is in prog pg 1 *)
-    (∀ (a w: Word), (a,w) ∈ (zip (finz.seq (of_pid p1) (length rywu_program1)) rywu_program1) -> (mem !! a) = Some w) ∧
+    (∀ (a w: Word), (a,w) ∈ (zip (finz.seq (of_pid p_prog1) (length rywu_program1)) rywu_program1) -> (mem !! a) = Some w) ∧
     (* prog 2 is in prog pg 2 *)
-    (∀ (a w: Word), (a,w) ∈ (zip (finz.seq (of_pid p2) (length rywu_program2)) rywu_program2) -> (mem !! a) = Some w) ∧
-    (* is total *)
-    (∀ (a: Addr), is_Some (mem !! a)).
+    (∀ (a w: Word), (a,w) ∈ (zip (finz.seq (of_pid p_prog2) (length rywu_program2)) rywu_program2) -> (mem !! a) = Some w) ∧
+    ((set_of_addr {[p_prog1;p_prog2;p_prog3;p_tx3;p_rx3]}) ⊆ dom (gset _) mem).
 
-  Definition reg_layout (σ : state) (p1 p2 : PID):=
-    (get_reg_files σ)!!!V0 !! PC = Some (of_pid p1) ∧
-    (get_reg_files σ)!!!V1 !! PC = Some (of_pid p2) ∧
+  Definition reg_layout (σ : state) (p_prog1 p_prog2 : PID):=
+    (get_reg_files σ)!!!V0 !! PC = Some (of_pid p_prog1) ∧
+    (get_reg_files σ)!!!V1 !! PC = Some (of_pid p_prog2) ∧
     (* is total *)
     ∀ i rn, is_Some (((get_reg_files σ) !!! i) !! rn).
 
-  (* Definition mem_inv (σ : state) (p1 : PID) := (∃ a, is_owned a = true ∧ (get_vm_page_table σ V0).1 !! p1 = Some a). *)
+  Definition mailbox (σ: state) (p_tx3 p_rx3 : PID):=
+    (get_mail_box σ @ V2) = (p_tx3, (p_rx3, None)).
 
   Definition transactions (σ: state):=
     (* no transactions! *)
-    (get_transactions σ).1 = ∅ ∧
-    (∀ h, h ∈ (get_transactions σ).2).
+    dom (gset _ ) (get_transactions σ) = hs_all ∧
+    map_Forall (λ k v, v = None) (get_transactions σ).
 
   Definition initial_config (σ: state) (ms: list exec_mode) (φs : list (exec_mode -> Prop )):=
                   (get_current_vm σ) = V0 ∧
                   (* post conditions *)
                   φs = [(λ m , m = HaltI); (λ _, False); (λ _, True)] ∧
                   ms = [ExecI;ExecI;ExecI] ∧
-                  (∃ (p1 p2: PID),
-                      p1 ≠ p2 ∧
-                      (pgt_layout σ p1 p2) ∧
-                      (mem_layout σ p1 p2) ∧
-                      (reg_layout σ p1 p2)) ∧
-                  transactions σ ∧
-                  inv_trans_hpool_consistent σ ∧
-                  inv_trans_pgt_consistent σ ∧
-                  inv_trans_pg_num_ub σ.
-  
-  Definition irisΣ :=
-    #[gen_VMΣ; invΣ; na_invΣ; savedPropΣ; GFunctor (authUR (optionUR (frac_agreeR gnameO)));
-     GFunctor (authUR (gmapUR nat (agreeR gnameO)))].
+                  (∃ (p_prog1 p_prog2 p_prog3 p_tx3 p_rx3: PID),
+                      NoDup [p_prog1;p_prog2;p_prog3;p_tx3;p_rx3 ] ∧
+                      (pgt_layout σ p_prog1 p_prog2 p_prog3 p_tx3 p_rx3) ∧
+                      (mem_layout σ p_prog1 p_prog2 p_prog3 p_tx3 p_rx3) ∧
+                      (reg_layout σ p_prog1 p_prog2) ∧
+                        (mailbox σ  p_tx3 p_rx3)
+                  ) ∧
+                  transactions σ.
 
-  Local Instance iris_subG Σ : subG irisΣ Σ → irisPreGS Σ.
-  Proof. solve_inG. Qed.
+  (* Definition irisΣ := *)
+  (*   #[gen_VMΣ; invΣ; savedPropΣ; GFunctor (authUR (optionUR (dfrac_agreeR gnameO))); *)
+  (*    GFunctor (authUR (gmapUR nat (agreeR gnameO)))]. *)
 
-  Local Instance na_inv_subG Σ : subG irisΣ Σ → na_invG Σ.
-  Proof. solve_inG. Qed.
-  
+  (* Local Instance iris_subG Σ : subG irisΣ Σ → irisPreGS Σ. *)
+  (* Proof. solve_inG. Qed. *)
+
   Context {vm_preG: gen_VMPreG Addr VMID Word reg_name PID transaction_type irisΣ}.
 
   Definition get_reg_gmap_vm (σ:state) (v:VMID) : gmap (reg_name * VMID) Word :=
-    (list_to_map (map (λ p, ((p.1,v),p.2)) (map_to_list ((get_reg_files σ !!! v):reg_file)))).
+    (list_to_map (map (λ p, ((p.1,v),p.2)) (map_to_list ((get_reg_files σ !!! v))))).
+
+  (* Definition get_mem_gmap_vm (σ:state) (pgt: page_table) (v:VMID) : gmap Addr Word := *)
+  (*   (filter (λ (m: Addr * Word),  (match pgt !! (tpa m.1) with *)
+  (*                                  | Some perm => v ∈ perm.2 *)
+  (*                                  | None => True *)
+  (*                                  end)) σ.1.2). *)
 
 
-  Definition get_mem_gmap_vm (σ:state) (pgt: page_table) (v:VMID) : gmap Addr Word :=
-    (filter (λ (m: Addr * Word),  (match pgt !! (tpa m.1) with
-                                   | Some perm => v ∈ perm.2
-                                   | None => True
-                                   end)) σ.1.2).
+  (* Lemma get_mem_gmap_vm_noaccess_disj (σ:state) (pgt: page_table) (p: PID) (v:VMID): *)
+  (*   (∃ perm, pgt !! p = Some perm ∧ v ∉ perm.2) -> get_mem_gmap_page σ p ##ₘ get_mem_gmap_vm σ pgt v. *)
+  (* Proof. *)
+  (*   intros. *)
+  (*   Admitted. *)
 
-  Definition get_mem_gmap_page (σ:state) (p : PID) : gmap Addr Word:=
-    filter (λ (m:Addr * Word), tpa m.1 = p) σ.1.2.
-
-  Lemma get_mem_gmap_vm_noaccess_disj (σ:state) (pgt: page_table) (p: PID) (v:VMID):
-    (∃ perm, pgt !! p = Some perm ∧ v ∉ perm.2) -> get_mem_gmap_page σ p ##ₘ get_mem_gmap_vm σ pgt v.
-  Proof.
-    intros.
-    Admitted.
-    
   Lemma get_reg_gmap_vm_lookup_eq σ i i' r:
     is_Some ((get_reg_gmap_vm σ i) !! (r,i')) -> i = i'.
   Proof.
@@ -108,7 +104,7 @@ Section rywu_adequacy.
     done.
   Qed.
 
-  Lemma get_reg_gmap_vm_lookup_Some σ i r w :
+  Lemma get_reg_gmap_vm_lookup_Some σ (i:VMID) r w :
     (get_reg_gmap_vm σ i) !! (r,i) = Some w <-> get_reg_file σ @ i !! r = Some w.
   Proof.
     split.
@@ -144,24 +140,23 @@ Section rywu_adequacy.
   Qed.
 
   Lemma get_reg_gmap_split σ γ:
-    ([∗ map] p↦w ∈ get_reg_gmap σ, p ↪[γ] w)%I ⊢ [∗ list] i ∈ (list_of_vmids), [∗ map] p↦w ∈ get_reg_gmap_vm σ i, p ↪[γ] w.
+    ([∗ map] p↦w ∈ (get_reg_gmap σ) , p ↪[γ] w)%I ⊢ [∗ list] i ∈ ((list_of_vmids): list VMID), [∗ map] p↦w ∈ get_reg_gmap_vm σ i, p ↪[γ] w.
   Proof.
     iIntros "Hmap".
     rewrite /get_reg_gmap.
+    pose proof (NoDup_list_of_vmids) as Hnodup.
     iInduction (list_of_vmids) as [ | i l] "IH".
     done.
-    simpl.
     rewrite list_to_map_app.
     rewrite big_sepM_union.
     iDestruct "Hmap" as "[Hsub Hmap]".
     iSplitL "Hsub".
     {
       rewrite /get_reg_gmap_vm.
-      admit.
-      (* couldn't iFrame, because of using different hypervisiorconstants *)
-      (* iFrame "Hsub". *)
+      iFrame "Hsub".
     }
     iApply "IH".
+    { iPureIntro. apply NoDup_cons in Hnodup. destruct Hnodup;auto. }
     iFrame "Hmap".
     apply  map_disjoint_list_to_map_l.
     apply Forall_forall.
@@ -174,6 +169,7 @@ Section rywu_adequacy.
       destruct H0 as [? [Heq Hin]].
       destruct x0.
       destruct p.
+      simpl.
       simplify_eq /=.
       done.
     }
@@ -188,7 +184,6 @@ Section rywu_adequacy.
     destruct H as [p].
     destruct H as [Heqn H1].
     apply in_flat_map in H1.
-    (* inversion Heqn;subst;clear Heqn. *)
     destruct H1 as [i'].
     destruct H as [HIn H].
     apply elem_of_list_In in H.
@@ -196,8 +191,18 @@ Section rywu_adequacy.
     rewrite Heqn in H.
     simpl in H.
     subst i'.
-    (* get a contradiction using HIn as list_of_vmids is NoDup (seems necessary to perform induction on vmcount) *)
-  Admitted.
+    apply NoDup_cons in Hnodup as [Hnotin ?].
+    rewrite -elem_of_list_In in HIn.
+    contradiction.
+  Qed.
+
+
+  (* Definition irisΣ := *)
+  (*   #[gen_VMΣ; invΣ; savedPropΣ; GFunctor (authUR (optionUR (dfrac_agreeR gnameO))); *)
+  (*    GFunctor (authUR (gmapUR nat (agreeR gnameO)))]. *)
+
+  (* Local Instance iris_subG Σ : subG irisΣ Σ → irisPreGS Σ. *)
+  (* Proof. solve_inG. Qed. *)
 
   (* exec_mode of all VMs *)
   Lemma adequacy (σ : state) (ms : list exec_mode) φs:
@@ -223,69 +228,105 @@ Section rywu_adequacy.
     iMod (gen_reg_alloc σ) as (reg_gname) "[Hσreg Hreg]".
     iMod (gen_mb_alloc σ) as (mb_gname) "[Hσmb Hmb]".
     iMod (gen_rx_state_alloc σ) as (rx_state_gname) "[Hσrxs Hrxs]".
-    iMod (gen_owned_alloc σ) as (own_gname) "[Hσown Hown]".
+    iMod (gen_own_alloc σ) as (own_gname) "[Hσown Hown]".
     iMod (gen_access_alloc σ) as (access_gname) "[Hσaccess Haccess]".
+    iMod (gen_excl_alloc σ) as (excl_gname) "[Hσexcl Hexcl]".
     iMod (gen_trans_alloc σ) as (trans_gname) "[Hσtrans _]".
     iMod (gen_hpool_alloc σ) as (hpool_gname) "[Hσhpool Hhpool]".
     iMod (gen_retri_alloc σ) as (retri_gname) "[Hσretri _]".
     iMod (gen_lower_bound_alloc ∅) as (lb_gname) "[HLB_auth _]".
-    (* iMod (na_alloc) as (nainv_gname) "Hna". *)
-    
+
     iModIntro.
     iIntros (name_map_name).
     pose ((GenVMG irisΣ vm_preG Hinv _ (* nainv_gname *) _ _ (* _ *) name_map_name mem_gname reg_gname mb_gname rx_state_gname
-                  own_gname access_gname trans_gname hpool_gname retri_gname lb_gname)) as VMG.
+                  own_gname access_gname excl_gname trans_gname hpool_gname retri_gname lb_gname)) as VMG.
     iExists (gen_vm_interp (Σ := irisΣ)).
     
-    destruct Hinit as (-> & -> & (p1 & p2 & Hpne & Hpgt & Hmem & Hreg) & Htrans & Hinv_trans_hpool & Hinv_trans_pgt & Hinv_trans_pg_num_ub).
+    destruct Hinit as (-> & -> & (p_prog1 & p_prog2 & p_prog3 & p_tx3 & p_rx3 & Hnodup_p & Hpgt & Hmem & Hreg & Hmb) & Htrans).
+    (* FIXME: the two rewriting above are slow *)
     destruct Hreg as (Hlookup_reg0_pc & Hlookup_reg1_pc & Htotal_reg).
-    destruct Htrans as (Heq_trans & Hin_hpool).
 
     iModIntro.
 
     (* allocate VMProps *)
     set pgt := (get_page_table σ).
     iExists [True%I;
-      ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ p2 -@A> V1) ∗
-         VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ p2 -@A> V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I;
-      ((R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(V2) ∗
-        VMProp V0 (
-          (R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(V2) ∗
-           (pagetable_entries pgt)) ∨ False) (1/2)%Qp ∗ (pagetable_entries pgt)))%I].
+      ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ V1 -@A> {[p_prog2]}) ∗
+         VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ V1 -@A> {[p_prog2]}) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I;
+      (VMProp_unknown V2 p_tx3 p_rx3 ∅)%I].
     iSimpl.
     iSplit; first done.
 
     (* frame state_interp *)
-    iSplitR "Hmem Hreg Haccess Hown Hrxs Hmb Hhpool".
+    iSplitR "Hmem Hreg Haccess Hown Hexcl Hrxs Hmb Hhpool".
     iFrame.
+    rewrite /inv_trans_wellformed /inv_trans_wellformed'.
+    rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent'.
+    destruct Htrans as [Hdom_trans Hempty_trans].
     repeat iSplit.
     done.
-    rewrite Heq_trans.
-    iPureIntro.
-    set_solver +.
-    admit.
-    iPureIntro.
-    rewrite /inv_trans_pg_num_ub.
-    rewrite Heq_trans.
-    apply map_Forall_empty.
-    admit.
+    {
+      rewrite /inv_trans_pg_num_ub.
+      iPureIntro.
+      eapply (map_Forall_impl (K:=Word) (M:= gmap Word)).
+      apply Hempty_trans.
+      intros h tran Hnone.
+      simpl in Hnone.
+      subst tran.
+      done.
+    }
+    {
+      rewrite /inv_trans_sndr_rcvr_neq.
+      iPureIntro.
+      eapply (map_Forall_impl (K:=Word) (M:= gmap Word)).
+      apply Hempty_trans.
+      intros h tran Hnone.
+      simpl in Hnone.
+      subst tran.
+      done.
+    }
+    {
+      rewrite /inv_finite_handles.
+      iPureIntro.
+      rewrite -Hdom_trans //.
+    }
+    {
+      iPureIntro.
+      eapply (map_Forall_impl (K:=Word) (M:= gmap Word)).
+      apply Hempty_trans.
+      intros h tran Hnone.
+      simpl in Hnone.
+      subst tran.
+      done.
+    }
 
     iIntros "(VMProp0 & VMProp1 & VMProp2)".
     rewrite /scheduled /machine.scheduler //= /scheduler Hcur //=.
     
     (* use assumptions to extract resources *)
 
-    (* extract regs  *)
+    (** extract regs  **)
     iDestruct (get_reg_gmap_split with "Hreg") as "(Hreg0 & Hreg1 & Hreg2 & _)".
     (* extrac regs of VM0 *)
     pose proof (Htotal_reg V0 R0) as [r0_ Hlookup_reg0_r0].
     pose proof (Htotal_reg V0 R1) as [r1_ Hlookup_reg0_r1].
-    iDestruct (big_sepM_subseteq _ (get_reg_gmap_vm σ V0) {[(PC, V0):= (of_pid p1); (R0, V0) := r0_;
+    iDestruct (big_sepM_subseteq _ (get_reg_gmap_vm σ V0) {[(PC, V0):= (of_pid p_prog1); (R0, V0) := r0_;
                                  (R1,V0):= r1_]} with "Hreg0") as "Hreg0";eauto.
     {
-      rewrite /get_reg_gmap.
       apply map_subseteq_spec.
-      intros i x H.
+      intros [r i] w Hlookup.
+      assert (i = V0) as ->.
+      {
+        destruct (decide (i = V0));auto.
+        apply elem_of_dom_2 in Hlookup.
+        set_solver.
+      }
+      rewrite get_reg_gmap_vm_lookup_Some.
+      simpl in Hlookup.
+      destruct r;
+      simplify_map_eq.
+      (* stuff about Rn = (R n fin_n) *)
+      admit.
       admit.
     }
     iDestruct (big_sepM_insert with "Hreg0") as "(PCz & Hreg0)".
@@ -297,33 +338,54 @@ Section rywu_adequacy.
     { rewrite lookup_empty; eauto. }
 
 
-    (* extrac regs of VM1 *)
+    (* extract regs of VM1 *)
     pose proof (Htotal_reg V1 R0) as [r0__ Hlookup_reg1_r0].
-    iDestruct (big_sepM_subseteq _ (get_reg_gmap_vm σ V1) {[(PC, V1):= (of_pid p1); (R0, V1) := r0__]} with "Hreg1") as "Hreg1";eauto.
+    iDestruct (big_sepM_subseteq _ (get_reg_gmap_vm σ V1) {[(PC, V1):= (of_pid p_prog2); (R0, V1) := r0__]} with "Hreg1") as "Hreg1";eauto.
     {
-      rewrite /get_reg_gmap.
       apply map_subseteq_spec.
-      intros i x H.
+      intros [r i] w Hlookup.
+      assert (i = V1) as ->.
+      {
+        destruct (decide (i = V1));auto.
+        apply elem_of_dom_2 in Hlookup.
+        set_solver.
+      }
+      rewrite get_reg_gmap_vm_lookup_Some.
+      simpl in Hlookup.
+      destruct r;
+      simplify_map_eq.
+      (* stuff about Rn = (R n fin_n) *)
+      admit.
       admit.
     }
-
     iDestruct (big_sepM_insert with "Hreg1") as "(PC1 & Hreg1)".
     { rewrite !lookup_insert_None; split;eauto. }
     iDestruct (big_sepM_insert with "Hreg1") as "(R01 & _)".
     { rewrite lookup_empty; eauto. }
 
-    (* TODO, regs of VM2 in logrel are in another notation *)
+    (* TODO: regs of VM2 in logrel are in another notation *)
 
-    destruct Hmem as ( ? & ? & Htotal_mem).
-    destruct Hpgt as ( Hlookup_pgt_p1 & Hlookup_pgt_p2 & Htotal_pgt).
+    (** extract mem **)
 
-    iDestruct (big_sepM_subseteq _ (get_mem σ) (get_mem_gmap_page σ p1 ∪ get_mem_gmap_page σ p2 ∪ get_mem_gmap_vm σ pgt V2)
-                 with "Hmem") as "Hmem"; eauto.
-    admit.
+    destruct Hmem as ( ? & ? & Hdom_mem).
+    destruct Hpgt as ( Hlookup_pgt_p1 & Hlookup_pgt_p2 & Hlookup_pgt_p3 & Hlookup_pgt_tx3 & Hlookup_pgt_rx3).
+    pose proof (logrel_extra.union_split_difference_intersection_subseteq_L _ _ Hdom_mem) as [Hdom_mem_union Hdom_mem_disj].
+    pose proof (dom_union_inv_L _ _ _ Hdom_mem_disj Hdom_mem_union) as (mem1 & mem2 & Hunion_mem & Hdisj_mem & _ & Hdom_mem2).
+
+    iDestruct (big_sepM_subseteq _ (get_mem σ) mem2 with "Hmem") as "Hmem"; eauto.
+    {
+      rewrite Hunion_mem.
+      apply map_union_subseteq_r.
+      done.
+    }
+
+    clear Hunion_mem Hdisj_mem mem1.
+
+    (* TODO: WIP *)
 
     iDestruct ((big_sepM_union _ _) with "Hmem") as "(Hprog12 & Hmem2)".
     {
-      apply  map_disjoint_union_l.
+      apply map_disjoint_union_l.
       split.
       apply get_mem_gmap_vm_noaccess_disj.
       destruct Hlookup_pgt_p1 as [perm [Hlookup_pgt_p1 Hin_p1]].

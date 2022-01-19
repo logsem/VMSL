@@ -35,7 +35,7 @@ Section proof.
     ].
 
   Context `{!gen_VMG Σ}.
-  Notation VMProp2 p_tx p_rx:= (VMProp_unknown V2 p_tx p_rx ∅) (only parsing).
+  Notation VMProp_2 p_tx p_rx:= (VMProp_unknown V2 p_tx p_rx ∅) (only parsing).
 
   Lemma rywu_machine0 {prog1page prog3page} {p_tx2 p_rx2} :
       let R2 := (RX_state@V2 := None ∗ mailbox.rx_page V2 p_rx2 ∗ memory_pages {[p_rx2]})%I in
@@ -50,7 +50,7 @@ Section proof.
       (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗
                     VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗
                                  VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp) ∗
-      (VMProp2 p_tx2 p_rx2) ∗
+      (VMProp V2 (VMProp_2 p_tx2 p_rx2) (1/2)%Qp) ∗
       V2 -@{1/2}A> {[prog3page;p_tx2;p_rx2]} ∗
       LB_auth ∅ ∗
       trans.fresh_handles 1 hs_all ∗

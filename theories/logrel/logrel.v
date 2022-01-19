@@ -85,9 +85,8 @@ Section logrel.
   Definition memory_transferred (trans : gmap Word transaction) :=
     memory_pages (pages_in_trans (trans_memory_in_trans trans)).
 
-  Definition VMProp_unknown p_tx p_rx trans :=
-    VMProp i
-           (∃ ps_na' ps_acc' (trans' : gmap Word transaction) hpool' rx_state ,
+  Definition VMProp_unknown p_tx p_rx trans : iProp Σ:=
+    ∃ ps_na' ps_acc' (trans' : gmap Word transaction) hpool' rx_state ,
                let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ pages_in_trans (trans_memory_in_trans trans) in
                let ps_mem_in_trans' := pages_in_trans (trans_memory_in_trans trans') in
                let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_mem_in_trans' in
@@ -146,7 +145,7 @@ Section logrel.
                            rx_page i p_rx ∗ memory_pages {[p_rx]})
                            (* no scheduling, we finish the proof *)
                            ∨ False) (1/2)%Qp
-             ) (1/2)%Qp.
+             .
 
   Program Definition interp_access p_tx p_rx ps_acc trans : iPropO Σ:=
     (
@@ -162,7 +161,7 @@ Section logrel.
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned trans ∗
       memory_pages ps_oea ∗
-      VMProp_unknown p_tx p_rx trans
+       VMProp i (VMProp_unknown p_tx p_rx trans) (1/2)%Qp
     )%I.
 
   (* Things we haven't really considerred:
