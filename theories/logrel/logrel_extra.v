@@ -813,6 +813,15 @@ Section logrel_extra.
     iApply (memory_pages_disj_singleton with "[$mem1_p $mem2_p]").
   Qed.
 
+  Lemma memory_pages_empty : ⊢ memory_pages ∅.
+  Proof.
+    iIntros.
+    rewrite /memory_pages.
+    iExists ∅.
+    iSplit.
+    rewrite dom_empty_L set_of_addr_empty //.
+    rewrite big_sepM_empty //.
+  Qed.
 
 (** pagetable **)
  (* Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}: *)
@@ -941,6 +950,5 @@ Section logrel_extra.
       set_solver.
     }
   Qed.
-
 
 End logrel_extra.

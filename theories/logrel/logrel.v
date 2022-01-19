@@ -92,7 +92,7 @@ Section logrel.
                let ps_mem_in_trans' := pages_in_trans (trans_memory_in_trans trans') in
                let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_mem_in_trans' in
                (* lower bound *)
-               i -@{1/2}A> [ps_acc'] ∗
+               i -@{1/2}A> ps_acc' ∗
                LB@ i := [ps_na'] ∗
                ⌜ps_na' ## ps_acc'⌝ ∗
                (* TODO: we can derive this from rx_page/tx_page ∗ transaction_hpool_global_transferred
@@ -127,7 +127,7 @@ Section logrel.
                       ((∃ ps_na'' ps_acc'' trans'' hpool'',
                            let ps_mem_in_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
                            (* lower bound *)
-                           i -@{1/2}A> [ps_acc''] ∗
+                           i -@{1/2}A> ps_acc'' ∗
                            LB@ i := [ps_na''] ∗
                            ⌜ps_na' ## ps_acc''⌝ ∗
                            (* transaction and pagetable entries *)
@@ -158,7 +158,7 @@ Section logrel.
       (* TX page and its memory *)
       (tx_page i p_tx ∗ memory_pages {[p_tx]}) ∗
       (* access *)
-      i -@{1/2}A> [ps_acc] ∗
+      i -@{1/2}A> ps_acc ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned trans ∗
       memory_pages ps_oea ∗

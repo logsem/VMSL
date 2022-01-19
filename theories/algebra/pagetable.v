@@ -84,8 +84,8 @@ Section pagetable_rules.
   (* Qed. *)
 
   Lemma access_split {q} v (s : gset PID) :
-    v -@{ q }A> [ s ] ⊣⊢
-    v -@{ q/2 }A> [ s ] ∗ v -@{ q/2 }A> [ s ].
+    v -@{ q }A> s ⊣⊢
+    v -@{ q/2 }A> s ∗ v -@{ q/2 }A> s.
   Proof.
     rewrite access_mapsto_eq /access_mapsto_def.
     rewrite -own_op.
@@ -97,7 +97,7 @@ Section pagetable_rules.
   Qed.
 
   Lemma access_agree_eq {q1 q2} v (s1 s2 : gset PID) :
-    v -@{ q1 }A> [ s1 ] ∗ v -@{ q2 }A> [ s2 ] ⊢ ⌜s1 = s2⌝.
+    v -@{ q1 }A> s1 ∗ v -@{ q2 }A> s2 ⊢ ⌜s1 = s2⌝.
   Proof.
     rewrite access_mapsto_eq /access_mapsto_def.
     rewrite -own_op.
@@ -224,8 +224,8 @@ Section pagetable_rules.
 
   Lemma access_agree_lookup {σ} v s:
    own gen_access_name (●(get_access_gmap σ)) -∗
-   (v -@A> [s]) -∗
-   ⌜set_Forall (λ p, ∃ o b s, (get_page_table σ) !! p= Some (o,b,s) ∧ v ∈ s ) s⌝.
+   (v -@A> s) -∗
+   ⌜set_Forall (λ p, ∃ o b s, (get_page_table σ) !! p = Some (o,b,s) ∧ v ∈ s) s⌝.
   Proof.
     iIntros "Hauth Hfrag".
     rewrite access_mapsto_eq /access_mapsto_def.
@@ -238,7 +238,7 @@ Section pagetable_rules.
   Lemma access_agree_check_false {σ v} p s:
    p ∉ s ->
    own gen_access_name (●(get_access_gmap σ)) -∗
-   (v -@A> [s]) -∗
+   (v -@A> s) -∗
    ⌜(check_access_page σ v p)= false⌝.
   Proof.
     iIntros (Hnin) "Hauth Hfrag".
@@ -268,7 +268,7 @@ Section pagetable_rules.
 
   Lemma access_agree_check_true_forall {q} σ v s :
     own gen_access_name (●(get_access_gmap σ)) -∗
-    v -@{ q }A> [ s ] -∗
+    v -@{ q }A> s -∗
     ⌜∀ p, p ∈ s -> check_access_page σ v p = true⌝.
   Proof.
     iIntros "Hσ Hacc".
@@ -286,7 +286,7 @@ Section pagetable_rules.
   Lemma access_agree_check_true {σ q} p i s:
    p ∈ s ->
    own gen_access_name (●(get_access_gmap σ)) -∗
-   (i -@{q}A> [s]) -∗
+   (i -@{q}A> s) -∗
    ⌜(check_access_page σ i p)= true⌝.
   Proof.
     iIntros (Hin) "Hσ Hacc".

@@ -11,7 +11,7 @@ Section rywu_ftlr.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Definition rywu_interp_access (p_prog3 p_tx p_rx :PID):= interp_access V2 {[p_prog3;p_tx;p_rx]} p_tx p_rx ∅.
+  Definition rywu_interp_access (p_prog3 p_tx p_rx :PID):= interp_access V2 p_tx p_rx {[p_prog3; p_tx; p_rx]} ∅.
 
   Lemma rywu_ftlr (p_prog3 p_tx p_rx :PID):
    rywu_interp_access p_prog3 p_tx p_rx ⊢ interp_execute V2.

@@ -13,11 +13,11 @@ Lemma nop {E i w1 q s} a :
   (tpa a) ∈ s ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
-        ∗ ▷ (i -@{ q }A> [s]) }}}
+        ∗ ▷ (i -@{ q }A> s) }}}
     ExecI @ i ; E
   {{{ RET (false, ExecI); (PC @@ i ->r (a ^+ 1)%f)
                   ∗ (a ->a w1)
-                  ∗ (i -@{ q }A> [s])}}}.
+                  ∗ (i -@{ q }A> s)}}}.
 Proof.
   iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].

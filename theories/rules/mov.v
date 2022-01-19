@@ -13,12 +13,12 @@ Lemma mov_word {E i w1 w3 q s} a w2 ra :
   (tpa a) ∈ s ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
-        ∗ ▷ (i -@{ q }A> [s])
+        ∗ ▷ (i -@{ q }A> s)
         ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
   {{{ RET (false, ExecI);  (PC @@ i ->r (a ^+ 1)%f)
                            ∗ (a ->a w1)
-                           ∗ (i -@{ q }A> [s])
+                           ∗ (i -@{ q }A> s)
                            ∗ ra @@ i ->r w2 }}}.
 Proof.
   iIntros (Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
@@ -120,13 +120,13 @@ Lemma mov_reg {E i w1 w3 q s} a w2 ra rb :
   (tpa a) ∈ s ->
   {SS{{  ▷ (PC @@ i ->r a)
          ∗ ▷ (a ->a w1)
-         ∗ ▷ (i -@{ q }A> [s])
+         ∗ ▷ (i -@{ q }A> s)
          ∗ ▷ (ra @@ i ->r w2)
          ∗ ▷ (rb @@ i ->r w3) }}}
     ExecI @ i ;E
   {{{ RET (false, ExecI); PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
-                   ∗ (i -@{ q }A> [s])
+                   ∗ (i -@{ q }A> s)
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.

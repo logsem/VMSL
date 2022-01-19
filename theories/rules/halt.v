@@ -8,17 +8,18 @@ Section halt.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma halt {E i w1 q} ai :
+Lemma halt {E i w1 q s} ai :
   decode_instruction w1 = Some(Halt) ->
+  (tpa ai) ∈ s ->
   {SS{{▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
-          ∗ ▷ (i -@{q}A> (tpa ai))}}}
+          ∗ ▷ (i -@{q}A> s)}}}
     ExecI @ i ;E
  {{{ RET (false, HaltI);  PC @@ i ->r (ai ^+ 1)%f
                   ∗ ai ->a w1
-                  ∗ i -@{q}A> (tpa ai) }}}.
+                  ∗ i -@{q}A> s}}}.
 Proof.
-  iIntros (Hdecode ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -32,9 +33,9 @@ Proof.
   (* valid regs *)
   iDestruct ((gen_reg_valid1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
-  iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc") as %Hacc;first set_solver +.
+  iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc") as %Hacc;first auto.
   (* valid mem *)
-  iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
+  iDestruct (gen_mem_valid ai w1 with "Hmem Hapc") as %Hmem.
   iSplit.
   - (* reducible *)
     iPureIntro.

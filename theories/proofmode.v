@@ -86,7 +86,7 @@ Qed.
 
 Instance FramableMachineResource_access `{gen_VMG Σ} p q s :
   FramableAccessPointsto p q s →
-  FramableMachineResource (p -@{q}A> [s]).
+  FramableMachineResource (p -@{q}A> s).
 Qed.
 
 Instance FramableMachineResource_TX `{gen_VMG Σ} i p :

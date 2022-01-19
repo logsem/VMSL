@@ -35,15 +35,14 @@ Section proof.
     ].
 
   Context `{!gen_VMG Σ}.
- (*TODO change ps*)
-  Notation VMProp2 ps p:= (VMProp_unknown V2 ps p ∅) (only parsing).
+  Notation VMProp2 p_tx p_rx:= (VMProp_unknown V2 p_tx p_rx ∅) (only parsing).
 
-  Lemma rywu_machine0 {prog1page prog3page} p_rx2 :
-      let R2 := (RX@V2 :=() ∗ RX@ V2 := p_rx2 ∗ memory_pages {[p_rx2]})%I in
-      prog1page ≠ prog3page ->
+  Lemma rywu_machine0 {prog1page prog3page} {p_tx2 p_rx2} :
+      let R2 := (RX_state@V2 := None ∗ mailbox.rx_page V2 p_rx2 ∗ memory_pages {[p_rx2]})%I in
+      (prog1page ∉ ({[prog3page; p_tx2; p_rx2]}:gset _)) ->
       seq_in_page (of_pid prog1page) (length rywu_program1) prog1page ->
       (program (rywu_program1) (of_pid prog1page)) ∗
-      (V0 -@A> [{[prog1page]}]) ∗
+      (V0 -@A> {[prog1page]}) ∗
       (PC @@ V0 ->r (of_pid prog1page)) ∗
       (∃ r0, R0 @@ V0 ->r r0) ∗
       (∃ r1, R1 @@ V0 ->r r1) ∗
@@ -51,16 +50,16 @@ Section proof.
       (VMProp V1 ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗
                     VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗
                                  VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp) ∗
-      (VMProp2 {[prog3page]} p_rx2) ∗
-      V2 -@{1/2}A> prog3page ∗
+      (VMProp2 p_tx2 p_rx2) ∗
+      V2 -@{1/2}A> {[prog3page;p_tx2;p_rx2]} ∗
       LB_auth ∅ ∗
-      hp [hs_all] ∗
+      trans.fresh_handles 1 hs_all ∗
       R2
       ⊢ WP ExecI @ V0
             {{ (λ m,
                  ⌜m = HaltI⌝ ∗
                  program rywu_program1 (of_pid prog1page) ∗
-                 (V0 -@A> [{[prog1page]}]) ∗
+                 (V0 -@A> {[prog1page]}) ∗
                  PC @@ V0 ->r ((of_pid prog1page) ^+ (length rywu_program1))%f∗
                  R0 @@ V0 ->r yield_I ∗
                  R1 @@ V0 ->r encode_vmid V2
@@ -83,7 +82,7 @@ Section proof.
     iIntros "(PCz & p_2 & acc & R1z) _".
     (* hvc_I *)
     rewrite wp_sswp.
-    set (T := (PC @@ V0 ->r (((prog1page ^+ 1) ^+ 1) ^+ 1)%f ∗ ((prog1page ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> [{[prog1page]}])%I).
+    set (T := (PC @@ V0 ->r (((prog1page ^+ 1) ^+ 1) ^+ 1)%f ∗ ((prog1page ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> {[prog1page]})%I).
     iApply ((run (((of_pid prog1page) ^+ 1) ^+ 1)%f V1 (R := True) (R' := T))
              with "[PCz p_3 acc R0z R1z prop0 prop1]"); try rewrite HIn //;iFrameAutoSolve.
     { set_solver +. }
@@ -123,7 +122,7 @@ Section proof.
     rewrite wp_sswp.
     iApply ((run (((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f V2 (R := True%I)
                 (R' := PC @@ V0 ->r ((((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f
-                                 ∗(((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> [{[prog1page]}] )
+                                 ∗(((((prog1page ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> {[prog1page]})
                 ) with "[PCz p_6 acc R0z R1z prop0 prop2 acc2 LB2 hp R2]"); try rewrite HIn //;iFrameAutoSolve.
     { set_solver +. }
     { set_solver +. }
@@ -135,48 +134,54 @@ Section proof.
       done.
       iSplitR "";last done.
       iNext.
-      iIntros "((PC & addr & acc & R0 & R1) & _ & prop)".
+      iIntros "((PC & addr & acc & R0 & R1) & _ & prop0)".
       iFrame "PC addr R0 R1 acc".
-      iExists {[prog1page]}, ∅, hs_all.
-      iFrame.
-      iSplitL "";first done.
+      iExists {[prog1page]}, {[prog3page;p_tx2;p_rx2]} , ∅, hs_all, None.
+      iFrame "acc2 LB2".
       iSplitL "".
-      { rewrite disjoint_singleton_l not_elem_of_singleton //. }
-      iSplitL "".
-      { iPureIntro.
-        rewrite /inv_trans_hpool_consistent'. split.
-        {
-          rewrite /inv_trans_hpool_disj dom_empty_L.
-          apply disjoint_empty_l.
-        }
-        {
-          rewrite /inv_finite_handles dom_empty_L union_empty_l_L //.
-        }
-      }
-      iSplitL "".
+      iPureIntro. set_solver + Hneq_p.
+      iSplitL "hp".
       {
-        rewrite /transferred_tran_entries.
-        by iApply big_sepM_empty.
-      }
-      iSplitL "".
-      {
-        rewrite /transferred_pgt_entries.
-        by iApply big_sepM_empty.
-      }
-      iSplitL "".
-      {
-        rewrite /accessible_trans.
-        rewrite map_filter_empty.
-        rewrite /ps_trans map_fold_empty.
-        rewrite /memory_pages.
-        iExists ∅.
+        rewrite /transaction_hpool_global_transferred.
         iSplitL "".
         iPureIntro.
-        rewrite set_of_addr_empty.
-        set_solver +.
-        by iApply big_sepM_empty.
+        rewrite dom_empty_L union_empty_r_L //.
+        iFrame.
+        rewrite big_sepM_empty //.
       }
-      iDestruct "R2" as "(rx_s & rx & rx_mem)".
+      iSplitL "".
+      {
+        rewrite /transaction_pagetable_entries_transferred.
+        rewrite /trans_transferred.
+        rewrite map_filter_empty big_sepM_empty //.
+      }
+      iSplitL "".
+      {
+        rewrite /retrieval_entries.
+        rewrite /trans_related.
+        rewrite map_filter_empty big_sepM_empty //.
+      }
+      iSplitL "".
+      {
+        rewrite /memory_transferred.
+        rewrite /trans_memory_in_trans /pages_in_trans.
+        rewrite map_filter_empty map_fold_empty.
+        iApply memory_pages_empty.
+      }
+      iDestruct "R2" as "(R1 & R2 & R3)".
+      iFrame "R1 R2 R3".
+      iSplit.
+      iIntros;done.
+      iSplitL "".
+      iIntros;done.
+      iSplitL "".
+      {
+        rewrite /trans_memory_in_trans /pages_in_trans.
+        rewrite map_filter_empty map_fold_empty.
+        iIntros "[? _]".
+        rewrite difference_empty_L union_empty_r_L.
+        done.
+      }
       iFrame.
     }
     iNext.
@@ -188,7 +193,7 @@ Section proof.
     iSimpl in "Hholds0".
     done.
     (* getting back resources *)
-    iDestruct "P'" as ">[(% & % & % & ? & ? & ? & ? & ? & ? & ? & R0z & R1z)|False]".
+    iDestruct "P'" as ">[(% & % & % & % & ? & ? & ? & ? & ? & ? & ? & R0z & R1z & ?)|False]".
     2: { (* V2 does not yield *)
     iExFalso.
     iExact "False".
@@ -213,7 +218,6 @@ Section proof.
     done.
   Qed.
 
-
   Lemma rywu_machine1 {prog2page} :
       seq_in_page (of_pid prog2page) (length rywu_program2) prog2page ->
       (program rywu_program2 (of_pid prog2page))
@@ -221,7 +225,7 @@ Section proof.
         ∗ VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp)
         ∗ (PC @@ V1 ->r (of_pid prog2page))
         ∗ (∃ r0, R0 @@ V1 ->r r0)
-        ∗ (V1 -@A> [{[prog2page]}] )
+        ∗ (V1 -@A> {[prog2page]} )
         ⊢ VMProp_holds V1 (1/2)%Qp -∗ (WP ExecI @ V1
               {{ (λ m, False)}}%I).
   Proof.

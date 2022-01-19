@@ -321,9 +321,8 @@ Notation "p -@{ q }O> v" := (own_mapsto p q (Some v)) (at level 20, format "p  -
 Notation "p -@O> v" := (p -@{ 1 }O> v)%I (at level 20, format "p  -@O>  v"):bi_scope.
 Notation "p -@O> -" := (own_mapsto p 1 None) (at level 20, format "p  -@O>  -"):bi_scope.
 
-Notation "v -@{ q }A> p " := (access_mapsto v q {[p]}) (at level 20, format "v  -@{ q }A>  p"):bi_scope.
-Notation "v -@{ q }A> [ s ]" := (access_mapsto v q s) (at level 20, format "v  -@{ q }A>  [ s ]"):bi_scope.
-Notation "v -@A> [ s ]" := (v -@{ 1 }A> [ s ])%I (at level 20, format "v  -@A>  [ s ]"):bi_scope.
+Notation "v -@{ q }A> s" := (access_mapsto v q s) (at level 20, format "v  -@{ q }A>  s"):bi_scope.
+Notation "v -@A> s" := (v -@{ 1 }A> s)%I (at level 20, format "v  -@A>  s"):bi_scope.
 
 Notation "p -@{ q }E> b" := (excl_mapsto p q b) (at level 20, format "p  -@{ q }E>  b"):bi_scope.
 Notation "p -@E> b" := (p -@{ 1 }E> b)%I (at level 20, format "p  -@E>  b"):bi_scope.
@@ -476,7 +475,7 @@ End alloc_rules.
 Section timeless.
   Context `{vmG : gen_VMG Σ}.
   (* all resources are timeless(▷ P -> P),
-    which means we can easily get rid of the later modalities of resources when opening invariants. *)
+    which means we can easily eliminate the later modalities before these resrouces. *)
 
   Global Instance mem_mapsto_timeless a w : Timeless ((a ->a w)).
   Proof. rewrite mem_mapsto_eq /mem_mapsto_def. apply _. Qed.
@@ -484,16 +483,16 @@ Section timeless.
   Global Instance reg_mapsto_timeless r i a : Timeless ((r @@ i ->r a)).
   Proof. rewrite reg_mapsto_eq /reg_mapsto_def. apply _. Qed.
   
-  Global Instance access_mapsto_timeless p q v : Timeless (p -@{ q }A> [ v ]).
+  Global Instance access_mapsto_timeless p q v : Timeless (p -@{q}A> v).
   Proof. rewrite access_mapsto_eq /access_mapsto_def. apply _. Qed.
 
-  Global Instance own_mapsto_timeless p q v : Timeless (p -@{q}O> v).
+  Global Instance own_mapsto_timeless_Some p q v : Timeless (p -@{q}O> v).
   Proof. rewrite own_mapsto_eq /own_mapsto_def. apply _. Qed.
 
-  Global Instance own_mapsto_timeless' p : Timeless (p -@O> -).
+  Global Instance own_mapsto_timeless_None p : Timeless (p -@O> -).
   Proof. rewrite own_mapsto_eq /own_mapsto_def. apply _. Qed.
 
-  Global Instance excl_mapsto_timeless p b : Timeless (p -@E> b).
+  Global Instance excl_mapsto_timeless p q b : Timeless (p -@{q}E> b).
   Proof. rewrite excl_mapsto_eq /excl_mapsto_def. apply _. Qed.
 
   Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).
@@ -505,13 +504,19 @@ Section timeless.
   Global Instance rx_state_mapsto_timeless i o : Timeless (RX_state@ i := o).
   Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
-  Global Instance trans_mapsto_timeless w q me : Timeless (w -{q}>t me).
+  Global Instance trans_mapsto_timeless_Some w q me : Timeless (w -{q}>t me).
+  Proof. rewrite trans_mapsto_eq /trans_mapsto_def. apply _. Qed.
+
+  Global Instance trans_mapsto_timeless_None w q : Timeless (w -{q}>t -).
   Proof. rewrite trans_mapsto_eq /trans_mapsto_def. apply _. Qed.
 
   Global Instance hpool_mapsto_timeless q sh : Timeless (hp {q}[sh]).
   Proof. rewrite hpool_mapsto_eq /hpool_mapsto_def. apply _. Qed.
 
-  Global Instance retri_mapsto_timeless w q (b:bool) : Timeless (w -{q}>re b).
+  Global Instance retri_mapsto_timeless_Some w q (b:bool) : Timeless (w -{q}>re b).
+  Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
+
+  Global Instance retri_mapsto_timeless_None w q : Timeless (w -{q}>re -).
   Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
 
   Global Instance lower_bound_frag_mapsto_timeless (i:VMID) (s:gset PID) : Timeless (LB@ i := [s]).
@@ -519,6 +524,8 @@ Section timeless.
 
   Global Instance lower_bound_auth_mapsto_timeless (gm :gmap VMID (gset PID)) : Timeless (LB_auth gm).
   Proof. rewrite lower_bound_auth_mapsto_eq /lower_bound_auth_mapsto_def. apply _. Qed.
+
+
 
 End timeless.
 

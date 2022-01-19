@@ -13,14 +13,14 @@ Context `{vmG: !gen_VMG Σ}.
 Lemma yield {E w1 w2 a_ b_ q s R R' Q P P' i} ai :
   let T := (▷ (PC @@ i ->r ai)
               ∗ ▷ (ai ->a w1)
-              ∗ ▷ (i -@{q}A> [s])
+              ∗ ▷ (i -@{q}A> s)
               ∗ ▷ (R0 @@ i ->r w2)
               ∗ ▷ (R0 @@ V0 ->r a_)
               ∗ ▷ (R1 @@ V0 ->r b_))%I
   in
   let T' := ((PC @@ i ->r (ai ^+ 1)%f)
                ∗ (ai ->a w1)
-               ∗ (i -@{q}A> [s])
+               ∗ (i -@{q}A> s)
                ∗ (R0 @@ i ->r w2)
                ∗ (R0 @@ V0 ->r (encode_hvc_func Yield))
                ∗ (R1 @@ V0 ->r (encode_vmid i)))%I

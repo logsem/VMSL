@@ -85,12 +85,11 @@ Proof.
   rewrite /scheduled /machine.scheduler //= /scheduler.
 Qed.
 
-(* TODO: we don't necessarily need full acc *)
 Lemma not_valid_pc {s} i a :
   (tpa a) ∉ s ->
-  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ i -@A> [s] }}}
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ i -@A> s }}}
   ExecI @ i
-  {{{ RET (false, FailI); PC @@ i ->r a ∗ i -@A> [s] }}}.
+  {{{ RET (false, FailI); PC @@ i ->r a ∗ i -@A> s}}}.
 Proof.
   iIntros (Hmm ϕ) "(>Hpc & >Ha) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
@@ -142,12 +141,12 @@ Lemma not_valid_instr {q s} i a wi :
   decode_instruction wi = None ->
   (tpa a) ∈ s ->
   {SS{{ ▷ (PC @@ i ->r a)
-        ∗ ▷ i -@{q}A> [s]
+        ∗ ▷ i -@{q}A> s
         ∗ ▷ a ->a wi}}}
   ExecI @ i
   {{{ RET (false, FailI);
     PC @@ i ->r a
-    ∗ i -@{q}A> [s]
+    ∗ i -@{q}A> s
     ∗ a ->a wi
   }}}.
 Proof.

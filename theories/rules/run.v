@@ -14,13 +14,13 @@ Context `{vmG: !gen_VMG Σ}.
 Lemma run {E w1 w2 w3 q s R R' Q P P'} ai i :
   let T := (▷ (PC @@ V0 ->r ai)
             ∗ ▷ (ai ->a w1)
-            ∗ ▷ (V0 -@{q}A> [s])
+            ∗ ▷ (V0 -@{q}A> s)
             ∗ ▷ (R0 @@ V0 ->r w2)
             ∗ ▷ (R1 @@ V0 ->r w3))%I
   in
   let T' := ((PC @@ V0 ->r (ai ^+ 1)%f)
                ∗ (ai ->a w1)
-               ∗ (V0 -@{q}A> [s])
+               ∗ (V0 -@{q}A> s)
                ∗ (R0 @@ V0 ->r w2)
                ∗ (R1 @@ V0 ->r w3))%I
   in
