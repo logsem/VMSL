@@ -338,7 +338,7 @@ Proof.
   intros i.
   destruct (list_to_map
     (map
-       (λ v0 : fin vm_count,
+       (λ v0 : VMID,
           match get_transactions (get_transactions get_mail_boxes fill_rx_unsafe σ l v r tx rx !!! v0) with
           | Some (l0, j) => (v0, Some (l0, j))
           | None => (v0, None)

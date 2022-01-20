@@ -130,7 +130,7 @@ Proof.
   intros i.
   destruct (list_to_map
     (map
-       (λ v : fin vm_count,
+       (λ v : VMID,
           match get_transactions (get_transactions get_mail_boxes empty_rx_global σ l !!! v) with
           | Some (l0, j) => (v, Some (l0, j))
           | None => (v, None)
