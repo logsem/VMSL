@@ -317,7 +317,7 @@ Section rywu_adequacy.
       done.
     }
 
-    iIntros "(VMProp0 & VMProp1 & VMProp2)".
+    iIntros "(VMProp0 & VMProp1 & VMProp2 & _)".
     rewrite /scheduled /machine.scheduler //= /scheduler Hcur //=.
     
     (* use assumptions to extract resources *)
@@ -424,8 +424,7 @@ Section rywu_adequacy.
 
 
     iDestruct (VMProp_split with "VMProp1") as "[VMProp1_half VMProp1_half']".
-    iDestruct (VMProp_split with "[VMProp2]") as "[VMProp2_half VMProp2_half']".
-    iDestruct "VMProp2" as "[$ _]".
+    iDestruct (VMProp_split with "VMProp2") as "[VMProp2_half VMProp2_half']".
 
     (* TODO: split Hown Haccess Hexcl Hmb *)
 

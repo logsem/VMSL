@@ -770,6 +770,7 @@ Section fundamental.
                { (* TODO: tpa ai ∉ ps_acc' ∖ ({[p_rx]} ∪ pages_in_trans (trans_memory_in_trans i trans')) *)
                  admit.
                }
+               }
             { (*Share: TODO*) admit. }
             { (*Lend*) admit. }
             { (*Donate*) admit. }
@@ -787,8 +788,8 @@ Section fundamental.
         iDestruct (reg_big_sepM_split regs i Hlookup_PC with "[$regs]") as "[PC _]".
         (* we don't update pagetable *)
         (* getting mem *)
-        iDestruct (mem_big_sepM_split mem Hlookup_mem_ai with "mem")
-          as "[mem_instr Hacc_mem]".
+        iDestruct (mem_big_sepM_split mem_acc Hlookup_mem_ai with "mem_acc")
+          as "[mem_instr Hacc_mem_acc]".
         iApply (not_valid_instr _ ai instr with "[PC pgt_acc mem_instr]"); iFrameAutoSolve.
         iNext.
         iIntros "? _".
