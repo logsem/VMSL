@@ -13,9 +13,6 @@ Section rywu_adequacy.
     
   Context `{hypparams: !HypervisorParameters}.
 
-  Definition mk_region (p:PID) (ws: list Word) : gmap Addr Word:=
-    (list_to_map (zip (finz.seq (of_pid p) (length ws)) ws)).
-
   Definition pgt_layout (σ : state) (p_prog1 p_prog2 p_prog3 p_tx3 p_rx3 : PID) :=
     (* pvm has exclusive access to prog pg 1 *)
     ((get_page_table σ) !! p_prog1 = Some (Some V0,true, {[V0]})) ∧
@@ -24,18 +21,50 @@ Section rywu_adequacy.
     ((get_page_table σ) !! p_prog3 = Some (Some V2, true, {[V2]})) ∧
     ((get_page_table σ) !! p_tx3 = Some (None, true, {[V2]})) ∧
     ((get_page_table σ) !! p_rx3 = Some (None, true, {[V2]}))
-    (* Have no other assumptions on the pagetable.
-       Namely, other irrelavant pages can be owned/accessible by anyone *)
+      (* more *)
     .
 
+  Definition mem_page_program (p : PID) (wl: list Word) (Hle: length wl < (Z.to_nat page_size)) : gmap Addr Word :=
+    list_to_map ((λ kv, (((of_pid p) ^+ (Z.of_nat kv.1))%f,kv.2)) <$> (map_to_list (map_seq 0 wl))).
+  (* FIXME: We cannot use kmap, because the mapping function is not injective... it is if [wl] can fit in one page *)
 
-  Definition mem_layout (σ : state) (p_prog1 p_prog2 p_prog3 p_tx3 p_rx3 : PID) :=
+  Lemma dom_mem_page_program (p:PID) wl {Hle}:
+    dom (gset _) (mem_page_program p wl Hle) ⊆ set_of_addr {[p]}.
+  Proof.
+    rewrite /mem_page_program.
+    rewrite ->dom_list_to_map_L.
+    rewrite -list_fmap_compose.
+    intro a.
+    rewrite elem_of_list_to_set.
+    rewrite elem_of_list_fmap.
+    intros [y [Heq Hin]].
+    apply (logrel_extra.elem_of_set_of_addr _ p);last set_solver +.
+    destruct y as [n a'].
+    rewrite elem_of_map_to_list in Hin.
+    simpl in Heq.
+    subst a.
+    rewrite lookup_map_seq_0 in Hin.
+    apply lookup_lt_Some in Hin.
+    pose proof (last_addr_in_bound p).
+    assert (n <= 1000 -1).
+    lia.
+    rewrite /addr_of_page.
+    assert ((Z.to_nat 1000) = 999 + 1) as ->.
+    lia.
+    apply finz_seq_in_inv.
+    solve_finz.
+    solve_finz.
+  Qed.
+
+  Program Definition mem_layout (σ : state) (p_prog1 p_prog2 p_prog3 p_tx3 p_rx3 : PID) :=
     let mem := ((get_mem σ): gmap Addr Word)  in
     (* prog 1 is in prog pg 1 *)
-    (∀ (a w: Word), (a,w) ∈ (zip (finz.seq (of_pid p_prog1) (length rywu_program1)) rywu_program1) -> (mem !! a) = Some w) ∧
+    (mem_page_program p_prog1 rywu_program1 _) ⊆ mem ∧
     (* prog 2 is in prog pg 2 *)
-    (∀ (a w: Word), (a,w) ∈ (zip (finz.seq (of_pid p_prog2) (length rywu_program2)) rywu_program2) -> (mem !! a) = Some w) ∧
+    (mem_page_program p_prog2 rywu_program2 _) ⊆ mem ∧
     ((set_of_addr {[p_prog1;p_prog2;p_prog3;p_tx3;p_rx3]}) ⊆ dom (gset _) mem).
+  Next Obligation. lia. Qed.
+  Next Obligation. lia. Qed.
 
   Definition reg_layout (σ : state) (p_prog1 p_prog2 : PID):=
     (get_reg_files σ)!!!V0 !! PC = Some (of_pid p_prog1) ∧
@@ -77,18 +106,6 @@ Section rywu_adequacy.
   Definition get_reg_gmap_vm (σ:state) (v:VMID) : gmap (reg_name * VMID) Word :=
     (list_to_map (map (λ p, ((p.1,v),p.2)) (map_to_list ((get_reg_files σ !!! v))))).
 
-  (* Definition get_mem_gmap_vm (σ:state) (pgt: page_table) (v:VMID) : gmap Addr Word := *)
-  (*   (filter (λ (m: Addr * Word),  (match pgt !! (tpa m.1) with *)
-  (*                                  | Some perm => v ∈ perm.2 *)
-  (*                                  | None => True *)
-  (*                                  end)) σ.1.2). *)
-
-
-  (* Lemma get_mem_gmap_vm_noaccess_disj (σ:state) (pgt: page_table) (p: PID) (v:VMID): *)
-  (*   (∃ perm, pgt !! p = Some perm ∧ v ∉ perm.2) -> get_mem_gmap_page σ p ##ₘ get_mem_gmap_vm σ pgt v. *)
-  (* Proof. *)
-  (*   intros. *)
-  (*   Admitted. *)
 
   Lemma get_reg_gmap_vm_lookup_eq σ i i' r:
     is_Some ((get_reg_gmap_vm σ i) !! (r,i')) -> i = i'.
@@ -251,8 +268,8 @@ Section rywu_adequacy.
     (* allocate VMProps *)
     set pgt := (get_page_table σ).
     iExists [True%I;
-      ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ V1 -@A> {[p_prog2]}) ∗
-         VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ V1 -@A> {[p_prog2]}) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I;
+      ((R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗
+         VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗ VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I;
       (VMProp_unknown V2 p_tx3 p_rx3 ∅)%I].
     iSimpl.
     iSplit; first done.
@@ -363,8 +380,6 @@ Section rywu_adequacy.
     iDestruct (big_sepM_insert with "Hreg1") as "(R01 & _)".
     { rewrite lookup_empty; eauto. }
 
-    (* TODO: regs of VM2 in logrel are in another notation *)
-
     (** extract mem **)
 
     destruct Hmem as ( ? & ? & Hdom_mem).
@@ -378,59 +393,69 @@ Section rywu_adequacy.
       apply map_union_subseteq_r.
       done.
     }
-
     clear Hunion_mem Hdisj_mem mem1.
 
-    (* TODO: WIP *)
+    (* rewrite logrel_extra.set_of_addr_union. *)
+    pose proof (logrel_extra.union_split_difference_intersection_subseteq_L {[p_prog1; p_prog2; p_prog3; p_tx3; p_rx3]} {[p_prog1]}) as [Heq Hdisj].
+    set_solver.
+    rewrite Heq in Hdom_mem2.
+    rewrite logrel_extra.set_of_addr_union in Hdom_mem2.
+    2 : { set_solver. }
+    clear Heq.
+    apply dom_union_inv_L in Hdom_mem2.
+    2 : { apply logrel_extra.set_of_addr_disj. done. }
+    destruct Hdom_mem2 as (mem1 & mem_p_prog1 & -> & Hmem1_disj  & Hdom_mem1 & Hdom_mem_p_prog1).
+    clear Hdisj.
+    iDestruct ((big_sepM_union _ _) with "Hmem") as "(Hmem1 & mem_p_prog1)";auto.
 
-    iDestruct ((big_sepM_union _ _) with "Hmem") as "(Hprog12 & Hmem2)".
-    {
-      apply map_disjoint_union_l.
-      split.
-      apply get_mem_gmap_vm_noaccess_disj.
-      destruct Hlookup_pgt_p1 as [perm [Hlookup_pgt_p1 Hin_p1]].
-      exists perm.
-      split;eauto.
-      set_solver + Hin_p1.
-      apply get_mem_gmap_vm_noaccess_disj.
-      destruct Hlookup_pgt_p2 as [perm [Hlookup_pgt_p2 Hin_p2]].
-      exists perm.
-      split;eauto.
-      set_solver + Hin_p2.
-    }
 
-    iDestruct ((big_sepM_union _ _) with "Hprog12") as "(Hprog1 & Hprog2)".
-    {
-      admit.
-    }
+
+    pose proof (logrel_extra.union_split_difference_intersection_subseteq_L ({[p_prog1; p_prog2; p_prog3; p_tx3; p_rx3]} ∖ {[p_prog1]}) {[p_prog2]}) as [Heq Hdisj].
+    set_solver.
+    rewrite Heq in Hdom_mem1.
+    rewrite logrel_extra.set_of_addr_union in Hdom_mem1.
+    2 : { set_solver. }
+    clear Heq.
+    apply dom_union_inv_L in Hdom_mem1.
+    2 : { apply logrel_extra.set_of_addr_disj. done. }
+    destruct Hdom_mem1 as (mem2 & mem_p_prog2 &  -> & Hmem2_disj  & Hdom_mem2 & Hdom_mem_p_prog2).
+    clear Hdisj.
+    iDestruct ((big_sepM_union _ _) with "Hmem1") as "(Hmem2 & mem_p_prog2)";auto.
+
 
     iDestruct (VMProp_split with "VMProp1") as "[VMProp1_half VMProp1_half']".
     iDestruct (VMProp_split with "[VMProp2]") as "[VMProp2_half VMProp2_half']".
     iDestruct "VMProp2" as "[$ _]".
 
-    iSplitL "PCz R0z R1z Hprog1 Haccess Hhpool VMProp0 VMProp1_half' VMProp2_half'".
+    (* TODO: split Hown Haccess Hexcl Hmb *)
+
+    iSplitL "PCz R0z R1z mem_p_prog1 Hhpool VMProp0 VMProp1_half' VMProp2_half'".
     iIntros "_".
-    iDestruct (rywu_machine0 (prog1page := p1) (prog2page := p2) pgt _ with "[-]") as "HWP".
+    iDestruct (rywu_machine0 (prog1page := p_prog1) (prog3page := p_prog3) (p_tx2 := p_tx3) (p_rx2 := p_rx3) with "[-]") as "HWP".
     { admit. }
+    { simpl. rewrite /seq_in_page. admit. }
+    iFrame.
+    admit.
+    iApply (wp_mono with "HWP").
+    intros k.
+    simpl.
+    iIntros "[$ _]".
+
+    iSplitL "VMProp1_half PC1 R01".
+    iApply (rywu_machine1 (prog2page:= p_prog2)).
     { admit. }
+    iFrame.
     admit.
 
-    iSplitL "Hprog2 VMProp1_half PC1 R01".
-    iApply (rywu_machine1 (prog2page:= p2)).
-    { admit. }
-    { admit. }
-
     iSplitR ""; last done.
-    iApply (rywu_ftlr V2 pgt with "[-] []").
-    { iExists (σ.1.1.1.1.1 !!! V2) , σ.1.2.
+    iApply (rywu_ftlr p_prog3 p_tx3 p_rx3 with "[-] []").
+    2: { iPureIntro. cbn. done. }
+    { rewrite /rywu_interp_access /interp_access.
       iSplitL "Hreg2".
       admit.
+      iFrame "VMProp2_half".
       admit.
     }
-    iPureIntro.
-    simpl.
-    lia.
-
    Admitted.
 
 End rywu_adequacy.
