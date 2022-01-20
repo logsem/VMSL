@@ -158,6 +158,7 @@ Section logrel.
       (tx_page i p_tx ∗ memory_pages {[p_tx]}) ∗
       (* access *)
       i -@{1/2}A> ps_acc ∗
+      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned trans ∗
       memory_pages ps_oea ∗

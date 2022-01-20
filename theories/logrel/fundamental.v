@@ -22,7 +22,7 @@ Section fundamental.
   ∀  p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
-    iIntros (????) "((%regs & #Htotal_regs & regs) & (tx & mem_tx) & pgt_acc & pgt_owned & tran_pgt_owned & mem_owned & VMProp)
+    iIntros (????) "((%regs & #Htotal_regs & regs) & (tx & mem_tx) & pgt_acc & %Hsubset_mb & pgt_owned & tran_pgt_owned & mem_owned & VMProp)
                              %Hneq_p VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
     iEval (rewrite later_exist) in "Hres".
@@ -48,20 +48,42 @@ Section fundamental.
     iDestruct (later_wand with "Himp_mem") as "Himp_mem".
     iDestruct ("Himp_mem" with "[$mem_owned $mem_transferred]") as ">mem".
 
-    iLöb as "IH" forall (regs ps_acc' trans' Hdisj_na) "Htotal_regs".
 
-    (* iDestruct (memory_pages_disj with "[$mem $mem_rx]") as %Hdisj_ps_rx. *)
     iAssert (memory_pages (ps_acc' ∪ pages_in_trans (trans_memory_in_trans i trans')))%I
       with "[mem mem_rx mem_tx]" as "mem".
     {
-      admit.
-      (* iApply (memory_pages_split_diff with "[-]"). *)
-      (* {exact Hps_incl. } *)
-      (* iFrame "mem_owned". *)
-      (* rewrite Heq_acc_trans. *)
-      (* rewrite memory_pages_split_union;last done. *)
-      (* iFrame. *)
+    iDestruct (memory_pages_disj with "[$mem $mem_rx]") as %Hdisj_ps_rx.
+    iDestruct (memory_pages_disj with "[$mem $mem_tx]") as %Hdisj_ps_tx.
+    assert (pages_in_trans (trans_memory_in_trans i trans') ## {[p_tx]}) as Hdisj_ps_tx'.
+    set_solver.
+    assert (pages_in_trans (trans_memory_in_trans i trans') ## {[p_rx]}) as Hdisj_ps_rx'.
+    set_solver.
+    assert (ps_acc' ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i trans') ∪  {[p_rx; p_tx]} =
+              (ps_acc' ∪ pages_in_trans (trans_memory_in_trans i trans'))) as <-.
+    {
+      rewrite -union_assoc_L.
+      rewrite (union_comm_L _ {[p_rx; p_tx]}).
+      rewrite union_assoc_L.
+      rewrite difference_union_L.
+      f_equal.
+      rewrite union_comm_L.
+      rewrite subseteq_union_1_L //.
+      set_solver + Hsubset_mb.
     }
+    iApply (memory_pages_split_union with "[$mem mem_rx mem_tx]").
+    { set_solver. }
+    iDestruct (memory_pages_disj with "[$mem_tx $mem_rx]") as %Hdisj_tx_rx.
+    rewrite memory_pages_split_union.
+    iFrame.
+    set_solver.
+    }
+
+    iDestruct (memory_pages_split_diff _ ps_acc' with "mem") as "[mem_rest mem_acc]".
+    set_solver.
+    assert ((ps_acc' ∪ pages_in_trans (trans_memory_in_trans i trans')) ∖ ps_acc' = pages_in_trans (trans_memory_in_trans i trans') ∖ ps_acc') as ->.
+    { set_solver +. }
+
+    iLöb as "IH" forall (regs ps_acc' Hsubset_mb trans' Hdisj_na) "Htotal_regs".
 
     (* we don't really need to get the resource of PC, but just the value *)
     iDestruct "Htotal_regs" as %Htotal_regs.
@@ -72,48 +94,33 @@ Section fundamental.
     destruct (decide ((tpa ai) ∈ ps_acc')).
     { (* i has access *)
       (* TODO: (tpa ai) ≠ tx *)
-      iEval (rewrite /memory_pages ) in "mem".
-      iDestruct "mem" as (mem) "[%Hdom_mem mem]".
-      Admitted.
-(*       pose proof (elem_of_memory_pages_lookup _ _ _ e Hdom_mem) as [instr Hlookup_mem_ai]. *)
-(*       destruct (decode_instruction instr) as [instr'|] eqn:Heqn. *)
-(*       { (* valid instruction *) *)
-(*         destruct instr'. *)
-(*         { (* nop *) *)
-(*           (* getting the PC *) *)
-(*           iDestruct (reg_big_sepM_split_upd regs i Hlookup_PC with "[$regs]") *)
-(*             as "[PC Hacc_regs]";first done. *)
-(*           (* getting mem *) *)
-(*           iDestruct (mem_big_sepM_split mem Hlookup_mem_ai with "mem") *)
-(*             as "[mem_instr Hacc_mem]". *)
-(*           iApply (nop ai (w1 := instr) with "[PC pgt_acc mem_instr]"); iFrameAutoSolve. *)
-(*           iNext. *)
-(*           iIntros "(PC & mem_instr & pgt_acc) _". *)
-(*           iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "PC") as "[#Htotal_regs' regs]". *)
-(*           iDestruct ("Hacc_mem" with "[mem_instr]") as "mem";  first iFrame. *)
-(*           (* split mem*) *)
-(*           iAssert (memory_pages ps_acc)%I with "[mem]" as "mem". *)
-(*           { *)
-(*             iExists mem. *)
-(*             iFrame. *)
-(*             done. *)
-(*           } *)
-(*           iDestruct (memory_pages_split_diff ps_acc (ps_trans (accessible_trans i trans') ∪ {[p_rx]}) with "mem") as "[mem_owned mem_transferred]". *)
-(*           rewrite -Heq_acc_trans //. *)
-(*           iDestruct (memory_pages_split_union with "mem_transferred") as "[mem_transferred mem_rx]";eauto. *)
-(*           iEval (rewrite -Heq_acc_trans) in "mem_owned". *)
-(*           iSpecialize ("IH" $! _ with "regs tx pgt_acc pgt_owned trans_owned mem_owned *)
-(*                              [LB hp pgt_acc' trans_transferred pgt_transferred mem_transferred $rx_state $rx $mem_rx $R0z $R1z prop0] *)
-(*                              propi "). *)
-(*           { iNext. iExists ps_na, ps_acc', trans', hpool. iFrame. *)
-(*             iSplitL "";first done. *)
-(*             iSplitL "";first done. *)
-(*             done. *)
-(*           } *)
-(*           iApply "IH". *)
-(*           done. *)
-(*           done. *)
-(*         } *)
+      iEval (rewrite /memory_pages) in "mem_acc".
+
+      iDestruct "mem_acc" as (mem_acc) "[%Hdom_mem_acc mem_acc]".
+      pose proof (elem_of_memory_pages_lookup _ _ _ e Hdom_mem_acc) as [instr Hlookup_mem_ai].
+      destruct (decode_instruction instr) as [instr'|] eqn:Heqn.
+      { (* valid instruction *)
+        destruct instr'.
+        { (* nop *)
+          (* getting the PC *)
+          iDestruct (reg_big_sepM_split_upd regs i Hlookup_PC with "[$regs]")
+            as "[PC Hacc_regs]";first done.
+          (* getting mem *)
+          iDestruct (mem_big_sepM_split mem_acc Hlookup_mem_ai with "mem_acc")
+            as "[mem_instr Hacc_mem_acc]".
+          iApply (nop ai (w1 := instr) with "[PC pgt_acc mem_instr]"); iFrameAutoSolve.
+          iNext.
+          iIntros "(PC & mem_instr & pgt_acc) _".
+          iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "PC") as "[#Htotal_regs' regs]".
+          iDestruct ("Hacc_mem_acc" with "[$mem_instr]") as "mem_acc".
+          (* split mem*)
+          iAssert (memory_pages ps_acc')%I with "[mem_acc]" as "mem_acc".
+          { iExists mem_acc. by iFrame. }
+          iSpecialize ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na with "regs tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc
+                            Htotal_regs'").
+          iApply "IH".
+        }
 (*         { (* mov *) *)
 (*           admit. *)
 (*           (* destruct src as [imm | srcreg]. *) *)
