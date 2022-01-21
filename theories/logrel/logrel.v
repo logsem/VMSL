@@ -88,14 +88,16 @@ Section logrel.
   Definition VMProp_unknown p_tx p_rx trans : iProp Σ:=
     ∃ ps_na' ps_acc' (trans' : gmap Word transaction) hpool' rx_state ,
                let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ pages_in_trans (trans_memory_in_trans trans) in
-               let ps_mem_in_trans' := pages_in_trans (trans_memory_in_trans trans') in
-               let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_mem_in_trans' in
+               let ps_macc_trans' := pages_in_trans (trans_memory_in_trans trans') in
+               let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
                (* lower bound *)
                i -@{1/2}A> ps_acc' ∗
                LB@ i := [ps_na'] ∗
-               ⌜ps_na' ## ps_acc'⌝ ∗
-               (* TODO: we can derive this from rx_page/tx_page ∗ transaction_hpool_global_transferred
-                  ⌜{[p_rx;p_tx]} ## ps_mem_in_trans''⌝ ∗ *)
+               (* NOTE: Just having [ps_acc'] seems not enough, which can be broken by getting access to pages in ps_na from some
+                transaction. *)
+               (* XXX: how to formulate the disjointness using RAs? making use of ownership and exclusiveness? *)
+               ⌜ps_na' ## (ps_acc' ∪ ps_macc_trans')⌝ ∗
+               (* we can derive ⌜{[p_rx;p_tx]} ## ps_mem_in_trans''⌝ from rx_page/tx_page ∗ transaction_hpool_global_transferred *)
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred hpool' trans' ∗
                transaction_pagetable_entries_transferred trans' ∗
@@ -120,7 +122,7 @@ Section logrel.
                (transaction_pagetable_entries_owned trans -∗ transaction_pagetable_entries_owned trans') ∗
                (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗
                (memory_pages ps_oea ∗ memory_transferred trans' -∗
-                memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_mem_in_trans')) ∗
+                memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans')) ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0
                       ((∃ ps_na'' ps_acc'' trans'' hpool'',
@@ -172,4 +174,5 @@ Section logrel.
    - [] message passing (seems we need RXs of all VMs?)
    - [] if we need more pure propositions to relate trans'' and other stuff
    *)
+
 End logrel.
