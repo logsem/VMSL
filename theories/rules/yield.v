@@ -258,4 +258,23 @@ Proof.
         -- apply lookup_insert_None; split; eauto; intros P; by inversion P.
         -- apply lookup_insert_None. split; [apply lookup_insert_None; split; eauto; intros P; by inversion P |]; eauto; intros P; by inversion P.
 Qed.
+
+Lemma yield_primary {E w1 w2 a_ q s p_tx i} ai:
+  (tpa ai) ∈ s ->
+  (tpa ai) ≠ p_tx ->
+  decode_instruction w1 = Some Hvc ->
+  decode_hvc_func w2 = Some Yield ->
+  {SS{{ ▷ (PC @@ i ->r ai)
+              ∗ ▷ (ai ->a w1)
+              ∗ ▷ (V0 -@{q}A> s)
+              ∗ ▷ (TX@ V0:= p_tx)
+              ∗ ▷ (R0 @@ V0 ->r a_)}}}
+    ExecI @ V0;E
+    {{{ RET (false, ExecI); PC @@ i ->r (ai ^+ 1)%f
+               ∗ ai ->a w1
+               ∗ V0 -@{q}A> s
+               ∗ TX@ V0 := p_tx
+               ∗ R0 @@ V0 ->r (encode_hvc_func Yield)}}}.
+  Admitted.
+
 End yield.

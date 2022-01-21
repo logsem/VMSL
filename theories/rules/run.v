@@ -207,4 +207,73 @@ Proof.
       iFrame.
     + apply get_reg_gmap_get_reg_Some; auto.
 Qed.
+
+Lemma run_not_primary {E w1 w2 q s p_tx } ai i :
+  (tpa ai) ∈ s ->
+  (tpa ai) ≠ p_tx ->
+  i ≠ V0 ->
+  decode_instruction w1 = Some Hvc ->
+  decode_hvc_func w2 = Some Run ->
+  {SS{{ ▷ (PC @@ i ->r ai)
+            ∗ ▷ (ai ->a w1)
+            ∗ ▷ (i -@{q}A> s)
+            ∗ ▷ (TX@ i := p_tx)
+            ∗ ▷ (R0 @@ i ->r w2)
+            ∗ ▷ (∃r, R2 @@ i ->r r)
+            }}}
+    ExecI @ i ;E
+    {{{ RET (false, ExecI); PC @@ i ->r (ai ^+ 1)%f
+               ∗ ai ->a w1
+               ∗ i -@{q}A> s
+               ∗ TX@ i := p_tx
+               ∗ R0 @@ i ->r (encode_hvc_ret_code Error)
+               ∗ R2 @@ i ->r (encode_hvc_error Denied) }}}.
+  Admitted.
+
+
+Lemma run_invalid_vmid {E w1 w2 w3 q s p_tx } ai i :
+  (tpa ai) ∈ s ->
+  (tpa ai) ≠ p_tx ->
+  i ≠ V0 ->
+  decode_instruction w1 = Some Hvc ->
+  decode_hvc_func w2 = Some Run ->
+  decode_vmid w3 = None ->
+  {SS{{ ▷ (PC @@ V0 ->r ai)
+            ∗ ▷ (ai ->a w1)
+            ∗ ▷ (V0 -@{q}A> s)
+            ∗ ▷ (TX@ V0 := p_tx)
+            ∗ ▷ (R0 @@ V0 ->r w2)
+            ∗ ▷ (R1 @@ V0 ->r w3)
+            ∗ ▷ (∃r, R2 @@ V0 ->r r)
+            }}}
+    ExecI @ V0 ;E
+    {{{ RET (false, ExecI); PC @@ V0 ->r (ai ^+ 1)%f
+               ∗ ai ->a w1
+               ∗ V0 -@{q}A> s
+               ∗ TX@ V0 := p_tx
+               ∗ R0 @@ V0 ->r (encode_hvc_ret_code Error)
+               ∗ R1 @@ V0 ->r w3
+               ∗ R2 @@ V0 ->r (encode_hvc_error InvParam) }}}.
+  Admitted.
+
+Lemma run_primay {E w1 w2 w3 q s p_tx} ai :
+  (tpa ai) ∈ s ->
+  (tpa ai) ≠ p_tx ->
+  decode_instruction w1 = Some Hvc ->
+  decode_hvc_func w2 = Some Run ->
+  decode_vmid w3 = Some V0 ->
+  {SS{{ ▷ (PC @@ V0 ->r ai)
+            ∗ ▷ (ai ->a w1)
+            ∗ ▷ (V0 -@{q}A> s)
+            ∗ ▷ (TX@ V0 := p_tx)
+            ∗ ▷ (R0 @@ V0 ->r w2)}}}
+    ExecI @ V0 ;E
+    {{{ RET (false, ExecI); PC @@ V0 ->r (ai ^+ 1)%f
+               ∗ ai ->a w1
+               ∗ V0 -@{q}A> s
+               ∗ TX@ V0 := p_tx
+               ∗ R0 @@ V0 ->r w2}}}.
+  Admitted.
+
+
 End run.

@@ -807,7 +807,7 @@ Definition run (s : state) : exec_mode * state :=
       then
         unit (s, id)
       else
-        throw InvParam
+        throw Denied
   in
   unpack_hvc_result_yield s comp.
 
@@ -816,7 +816,7 @@ Program Definition yield (s : state) : exec_mode * state :=
       let s' := (update_reg_global s V0 R0
                                    (encode_hvc_func Yield))
       in
-      if is_primary s'
+      if is_primary s
       then
         unit (s', V0)
       else
