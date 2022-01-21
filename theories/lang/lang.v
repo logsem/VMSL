@@ -98,6 +98,12 @@ Definition check_access_page (st : state) (v : VMID) (p : PID) : bool :=
   | _ => false
   end.
 
+Definition check_read_access_page (st : state) (v : VMID) (p : PID) : bool :=
+  check_access_page st v p && (bool_decide ((get_mail_box st @ v).1 ≠ p)).
+
+Definition check_write_access_page (st : state) (v :VMID) (p : PID) : bool :=
+  check_access_page st v p && (bool_decide ((get_mail_box st @ v).2.1 ≠ p)).
+
 Definition check_excl_page (st: state) (p: PID) : bool :=
   match (get_page_table st !! p)  with
   | Some (_, b, _) => b
@@ -109,6 +115,12 @@ Definition check_excl_access_page (st : state) (v : VMID) (p : PID) : bool :=
 
 Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
   check_access_page st v (to_pid_aligned a).
+
+Definition check_read_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
+  check_read_access_page st v (to_pid_aligned a).
+
+Definition check_write_access_addr (st : state) (v :VMID) (a : Addr) : bool :=
+  check_write_access_page st v (to_pid_aligned a).
 
 Definition check_ownership_addr (st : state) (v : VMID) (a : Addr) : bool :=
   check_ownership_page st v (to_pid_aligned a).
@@ -174,9 +186,6 @@ Program Definition update_offset_PC (st : state) (offset : Z) :  state :=
 Definition update_incr_PC (st : state) : state :=
   update_offset_PC st 1.
 
-Definition is_valid_PC (st : state) : option bool :=
-  w <- get_reg st PC ;;;
-  Some (check_access_addr st (get_current_vm st) w).
 
 Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mode * state :=
   match newSt with
@@ -209,15 +218,18 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
     in
   (option_state_unpack s comp).
 
-Definition update_memory (st : state) (a : Addr) (w : Word) : exec_mode * state :=
-  if check_access_addr st (get_current_vm st) a
+Definition write_memory (st : state) (a : Addr) (w : Word) : exec_mode * state :=
+  if check_write_access_addr st (get_current_vm st) a
   then (ExecI, update_memory_unsafe st a w)
   else (FailPageFaultI, st).
 
-Definition get_memory (st : state) (a : Addr) : option Word :=
-  if check_access_addr st (get_current_vm st) a
+Definition read_memory (st : state) (a : Addr) : option Word :=
+  if check_read_access_addr st (get_current_vm st) a
   then (get_mem st !! a)
   else None.
+
+Definition get_memory (st : state) (a : Addr) : option Word :=
+  (get_mem st !! a).
 
 Definition get_memory_with_offset (st : state) (base : Addr) (offset : Z) : option Word :=
   a <- (base + offset)%f ;;;
@@ -228,17 +240,10 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
   | (R _ _, R _ _) =>
     match get_reg s src with
     | Some src' =>
-      match (get_mail_boxes s) !!! (get_current_vm s) with
-      | (tx, _) =>
-        match decide (to_pid_aligned src' = tx) with
-        | right _ =>
-          match get_memory s src' with
+          match read_memory s src' with
           | Some v => (ExecI, update_incr_PC (update_reg s dst v))
           | _ => (FailPageFaultI, s)
           end
-        | left _ => (FailPageFaultI, s)
-        end
-      end
     | _ => (FailI, s)
     end
   | _ => (FailI, s)
@@ -252,17 +257,10 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
   in
   match comp with
   | Some (src', dst') =>
-    match (get_mail_boxes s) !!! (get_current_vm s) with
-    | (_, (rx, _)) =>
-      match decide (to_pid_aligned dst' = rx) with
-      | right _ =>
-        match update_memory s dst' src' with
+        match write_memory s dst' src' with
         | (ExecI, s') => (ExecI, update_incr_PC s')
         | _ => (FailPageFaultI, s)
         end
-      | left _ => (FailPageFaultI, s)
-      end
-    end
   | _ => (FailI, s)
   end.
 
@@ -879,21 +877,20 @@ Arguments exec !_ _.
 
 Inductive step : exec_mode -> state -> exec_mode -> state -> Prop :=
 | step_exec_fail_invalid_pc:
-    forall st,
-      not (is_valid_PC st = Some true) ->
+    forall st a,
+      get_reg st PC = Some a ->
+      read_memory st a = None ->
       step ExecI st FailI st
 | step_exec_fail_invalid_instr:
     forall st a w,
-      is_valid_PC st = Some true ->
       get_reg st PC = Some a ->
-      get_memory st a = Some w ->
+      read_memory st a = Some w ->
       decode_instruction w = None ->
       step ExecI st FailI st
 | step_exec_normal:
     forall st a w i c,
-      is_valid_PC st = Some true ->
       get_reg st PC = Some a ->
-      get_memory st a = Some w ->
+      read_memory st a = Some w ->
       decode_instruction w = Some i ->
       exec i st = c ->
       step ExecI st c.1 c.2.
