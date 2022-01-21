@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Import lifting rules.rules_base.
-From HypVeri.algebra Require Import base reg mem pagetable base_extra.
+From HypVeri.algebra Require Import base reg mem pagetable mailbox base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section halt.
@@ -8,18 +8,21 @@ Section halt.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma halt {E i w1 q s} ai :
+Lemma halt {E i w1 q s p_tx} ai :
   decode_instruction w1 = Some(Halt) ->
   (tpa ai) ∈ s ->
+  (tpa ai) ≠ p_tx ->
   {SS{{▷ (PC @@ i ->r ai)
           ∗ ▷ (ai ->a w1)
-          ∗ ▷ (i -@{q}A> s)}}}
+          ∗ ▷ (i -@{q}A> s)
+          ∗ ▷ (TX@i := p_tx)}}}
     ExecI @ i ;E
  {{{ RET (false, HaltI);  PC @@ i ->r (ai ^+ 1)%f
                   ∗ ai ->a w1
-                  ∗ i -@{q}A> s}}}.
+                  ∗ i -@{q}A> s
+                  ∗ TX@i := p_tx}}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hdecode Hin Hnottx ϕ) "(>Hpc & >Hapc & >Hacc & >tx) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -29,11 +32,13 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(#Hneq & Hmem & Hreg & Hrx & Hown & Hmb & Haccess & Hrest)".
+  iDestruct "Hσ" as "(#Hneq & Hmem & Hreg & Hmb & ? & Hown & Haccess & Hrest)".
   (* valid regs *)
   iDestruct ((gen_reg_valid1 PC i ai Hcur ) with "Hreg Hpc") as "%HPC";eauto.
   (* valid pt *)
   iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc") as %Hacc;first auto.
+  iDestruct (mb_valid_tx with "Hmb tx") as %Htx.
+  subst p_tx.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmem Hapc") as %Hmem.
   iSplit.
@@ -63,7 +68,7 @@ Proof.
     all: try rewrite p_upd_pc_trans //.
     all: try rewrite p_upd_pc_mb //.
     rewrite p_upd_pc_mem.
-    iFrame "Hmem Hrx Hown Hmb Haccess Hrest".
+    iFrame.
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
@@ -105,7 +110,7 @@ Proof.
     rewrite bool_decide_eq_true.
     reflexivity.
     simpl.
-    iApply ("Hϕ" with "[Hpc Hapc Hacc]").
+    iApply "Hϕ".
     iFrame.
     apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
 Qed.

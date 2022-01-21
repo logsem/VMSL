@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri Require Import machine_extra lifting rules.rules_base.
-From HypVeri.algebra Require Import base reg mem pagetable base_extra.
+From HypVeri.algebra Require Import base reg mem pagetable mailbox base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra current_extra.
 Require Import stdpp.fin.
 Require Import stdpp.listset_nodup.
@@ -11,20 +11,23 @@ Context `{hypparams:HypervisorParameters}.
   
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma run {E w1 w2 w3 q s R R' Q P P'} ai i :
+Lemma run {E w1 w2 w3 q s p_tx R R' Q P P'} ai i :
   let T := (▷ (PC @@ V0 ->r ai)
             ∗ ▷ (ai ->a w1)
             ∗ ▷ (V0 -@{q}A> s)
+            ∗ ▷ (TX@ V0 := p_tx)
             ∗ ▷ (R0 @@ V0 ->r w2)
             ∗ ▷ (R1 @@ V0 ->r w3))%I
   in
   let T' := ((PC @@ V0 ->r (ai ^+ 1)%f)
-               ∗ (ai ->a w1)
-               ∗ (V0 -@{q}A> s)
-               ∗ (R0 @@ V0 ->r w2)
-               ∗ (R1 @@ V0 ->r w3))%I
+               ∗ ai ->a w1
+               ∗ V0 -@{q}A> s
+               ∗ TX@ V0 := p_tx
+               ∗ R0 @@ V0 ->r w2
+               ∗ R1 @@ V0 ->r w3)%I
   in
   (tpa ai) ∈ s ->
+  (tpa ai) ≠ p_tx ->
   i ≠ V0 ->
   decode_instruction w1 = Some Hvc ->
   decode_hvc_func w2 = Some Run ->
@@ -37,7 +40,7 @@ Lemma run {E w1 w2 w3 q s R R' Q P P'} ai i :
     {{{ RET (true, ExecI); R' ∗ VMProp V0 P' (1/2)%Qp}}}.
 Proof.
   simpl.
-  iIntros (Hin Hneq_v Hdecode Hhvc Hvmid ϕ) "[(>Hpc & >Hapc & >Hacc & >Hr0 & >Hr1) (HPropi & HPropz & Himpl & HR)] Hϕ".
+  iIntros (Hin Hnottx Hneq_v Hdecode Hhvc Hvmid ϕ) "[(>Hpc & >Hapc & >Hacc & >tx & >Hr0 & >Hr1) (HPropi & HPropz & Himpl & HR)] Hϕ".
   iApply (sswp_lift_atomic_step ExecI); [done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -47,13 +50,15 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(%Hneq & Hmemown & Hregown & Hrx & Hown & Hmb & Haccessown & Hrest)".
+  iDestruct "Hσ" as "(%Hneq & Hmemown & Hreg & Hmb & ? & Hown & Haccessown & Hrest)".
   (* valid regs *)
-  iDestruct (gen_reg_valid1 PC V0 ai Hcur with "Hregown Hpc") as "%Hpc".
-  iDestruct (gen_reg_valid1 R0 V0 w2 Hcur with "Hregown Hr0") as "%Hr0".
-  iDestruct (gen_reg_valid1 R1 V0 w3 Hcur with "Hregown Hr1") as "%Hr1".
+  iDestruct (gen_reg_valid1 PC V0 ai Hcur with "Hreg Hpc") as "%Hpc".
+  iDestruct (gen_reg_valid1 R0 V0 w2 Hcur with "Hreg Hr0") as "%Hr0".
+  iDestruct (gen_reg_valid1 R1 V0 w3 Hcur with "Hreg Hr1") as "%Hr1".
   (* valid pt *)
   iDestruct (access_agree_check_true (tpa ai)  with "Haccessown Hacc") as %Hacc;first exact Hin.
+  iDestruct (mb_valid_tx with "Hmb tx") as %Htx.
+  subst p_tx.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1 with "Hmemown Hapc") as "%Hmem".
   iSplit.
@@ -91,8 +96,8 @@ Proof.
     all: try rewrite p_upd_id_pgt p_upd_pc_pgt //.
     all: try rewrite p_upd_id_trans p_upd_pc_trans //.
     rewrite p_upd_id_mem p_upd_pc_mem.
-    iFrame "Hrest Hrx Hmb Hmemown Haccessown Hown".
-    iDestruct ((gen_reg_update1_global PC V0 ai (ai ^+ 1)%f) with "Hregown Hpc") as "HpcUpd".
+    iFrame.
+    iDestruct ((gen_reg_update1_global PC V0 ai (ai ^+ 1)%f) with "Hreg Hpc") as "HpcUpd".
     rewrite (preserve_get_reg_gmap (update_offset_PC σ1 1) (update_current_vmid _ _));last rewrite p_upd_id_reg //.
     rewrite ->(update_offset_PC_update_PC1 _ V0 ai 1); auto.
     + iDestruct (VMProp_update V0 U P P' with "PAuth HPropz") as "HTemp".
@@ -192,7 +197,7 @@ Proof.
         done.
       }
       iDestruct (VMProp_split with "HPropz") as "[HPropz1 HPropz2]".
-      iDestruct ("Himpl" with "[Hpc Hapc Hacc Hr0 Hr1 HR HPropz1]") as "[Q R']".
+      iDestruct ("Himpl" with "[Hpc Hapc Hacc Hr0 Hr1 HR HPropz1 tx]") as "[Q R']".
       iFrame.
       iSplitR "Hϕ R' HPropz2".
       iSplit; last done.

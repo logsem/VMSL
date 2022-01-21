@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base reg mem pagetable base_extra.
+From HypVeri.algebra Require Import base reg mem pagetable mailbox base_extra.
 From HypVeri Require Import machine_extra lifting rules.rules_base.
 From HypVeri.lang Require Import lang_extra reg_extra.
 
@@ -8,20 +8,23 @@ Section mov.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma mov_word {E i w1 w3 q s} a w2 ra :
+Lemma mov_word {E i w1 w3 q s p_tx} a w2 ra :
   decode_instruction w1 = Some (Mov ra (inl w2)) ->
   (tpa a) ∈ s ->
+  (tpa a) ≠ p_tx ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
         ∗ ▷ (i -@{ q }A> s)
+        ∗ ▷ TX@ i := p_tx
         ∗ ▷ (ra @@ i ->r w3)}}}
     ExecI @ i ; E
   {{{ RET (false, ExecI);  (PC @@ i ->r (a ^+ 1)%f)
                            ∗ (a ->a w1)
                            ∗ (i -@{ q }A> s)
+                           ∗ TX@ i := p_tx
                            ∗ ra @@ i ->r w2 }}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "( >Hpc & >Hapc & >Hacc & >Hra) Hϕ".
+  iIntros (Hdecode Hin Hnottx ϕ) "( >Hpc & >Hapc & >Hacc & >Htx & >Hra) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -31,7 +34,7 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
+  iDestruct "Hσ" as "(H1 & Hmem & Hreg & Hmb & ? & ? & Haccess & H2)".
   pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [imm dst Hvalidra | | | | | | | | | | |].
   subst imm dst.
@@ -40,6 +43,8 @@ Proof.
   iDestruct ((gen_reg_valid2 i PC a ra w3 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]".
   (* valid pt *)  
   iDestruct (access_agree_check_true _ i with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct (mb_valid_tx i p_tx with "Hmb Htx") as %Htx.
+  subst p_tx.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -73,9 +78,9 @@ Proof.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1); eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]"; eauto.
+      iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hreg [pc ra]]"; eauto.
       iModIntro.
-      iFrame "Hσ".
+      iFrame "Hreg".
       iSplitL "PAuth".
       by iExists P.
       rewrite /just_scheduled_vms /just_scheduled.
@@ -109,28 +114,31 @@ Proof.
       }
       simpl.
       iApply "Hϕ".
-      iFrame "Hapc Hacc Hreg".
+      iFrame "Hapc Hacc pc ra Htx".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros Q; symmetry in Q; inversion Q; contradiction.
     Qed.
 
-Lemma mov_reg {E i w1 w3 q s} a w2 ra rb :
+Lemma mov_reg {E i w1 w3 q s p_tx} a w2 ra rb :
   decode_instruction w1 = Some (Mov ra (inr rb)) ->
   (tpa a) ∈ s ->
+  (tpa a) ≠ p_tx ->
   {SS{{  ▷ (PC @@ i ->r a)
          ∗ ▷ (a ->a w1)
          ∗ ▷ (i -@{ q }A> s)
+         ∗ ▷ (TX@ i := p_tx)
          ∗ ▷ (ra @@ i ->r w2)
          ∗ ▷ (rb @@ i ->r w3) }}}
     ExecI @ i ;E
   {{{ RET (false, ExecI); PC @@ i ->r (a ^+ 1)%f
                    ∗ a ->a w1
-                   ∗ (i -@{ q }A> s)
+                   ∗ i -@{ q }A> s
+                   ∗ TX@ i := p_tx
                    ∗ ra @@ i ->r w3
                    ∗ rb @@ i ->r w3}}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc & >Hra & >Hrb) Hϕ".
+  iIntros (Hdecode Hin Hnottx ϕ) "(>Hpc & >Hapc & >Hacc & >tx & >Hra & >Hrb) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -145,11 +153,13 @@ Proof.
   subst src dst.
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   inversion Hvalidrb as [ HneqPCb HneqNZb ].
-  iDestruct "Hσ" as "(Htok & Hmem & Hreg & ? & ? & ? & Haccess & ?)".
+  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Hmb & ? & ? & Haccess & ?)".
   (* valid regs *)
   iDestruct ((gen_reg_valid3 i PC a ra w2 rb w3 Hcur) with "Hreg Hpc Hra Hrb") as "[%HPC [%Hra %Hrb]]".
   (* valid pt *)
   iDestruct (access_agree_check_true _ i with "Haccess Hacc") as %Hacc;eauto.
+  iDestruct (mb_valid_tx i p_tx with "Hmb tx") as %Htx.
+  subst p_tx.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
@@ -183,9 +193,9 @@ Proof.
     (* updated part *)
     rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
     + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
-      iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w2 w3 ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
+      iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w2 w3 ) with "Hreg Hpc Hra") as ">(Hreg & pc & ra)";eauto.
       iModIntro.
-      iFrame "Hσ".
+      iFrame "Hreg".
       iSplitL "PAuth".
       by iExists P.
       iSplitL "".
@@ -220,7 +230,7 @@ Proof.
       }
       simpl.
       iApply "Hϕ".
-      by iFrame "Hapc Hacc Hrb Hreg".
+      by iFrame "Hapc Hacc Hrb ra pc".
     + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
       repeat solve_reg_lookup.
       intros P'; symmetry in P';inversion P'; contradiction.

@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base base_extra reg mem pagetable.
+From HypVeri.algebra Require Import base base_extra reg mem pagetable mailbox.
 From HypVeri Require Import machine_extra lifting rules.rules_base.
 From HypVeri.lang Require Import lang_extra reg_extra.
 
@@ -8,18 +8,21 @@ Section nop.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma nop {E i w1 q s} a :
+Lemma nop {E i w1 q s p_tx} a :
   decode_instruction w1 = Some Nop ->
   (tpa a) ∈ s ->
+  (tpa a) ≠ p_tx ->
   {SS{{ ▷ (PC @@ i ->r a)
         ∗ ▷ (a ->a w1)
-        ∗ ▷ (i -@{ q }A> s) }}}
+        ∗ ▷ (i -@{ q }A> s)
+        ∗ ▷ (TX@ i := p_tx)}}}
     ExecI @ i ; E
-  {{{ RET (false, ExecI); (PC @@ i ->r (a ^+ 1)%f)
-                  ∗ (a ->a w1)
-                  ∗ (i -@{ q }A> s)}}}.
+  {{{ RET (false, ExecI); PC @@ i ->r (a ^+ 1)%f
+                  ∗ a ->a w1
+                  ∗ i -@{ q }A> s
+                  ∗ TX@ i := p_tx}}}.
 Proof.
-  iIntros (Hdecode Hin ϕ) "(>Hpc & >Hapc & >Hacc) Hϕ".
+  iIntros (Hdecode Hin Hnottx ϕ) "(>Hpc & >Hapc & >Hacc & >tx) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche Hσ".
   rewrite /scheduled in Hsche.
@@ -29,13 +32,15 @@ Proof.
   clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(H1 & Hmem & Hreg & ? & ? & ? & Haccess & H2)".
+  iDestruct "Hσ" as "(H1 & Hmem & Hreg & Hmb & ? & ? & Haccess & H2)".
   pose proof (decode_instruction_valid w1 _ Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [| | | | | | | | | | |].
   (* valid regs *)
   iDestruct ((gen_reg_valid1 PC i a Hcur) with "Hreg Hpc") as "%HPC".
   (* valid pt *)
   iDestruct (access_agree_check_true with "Haccess Hacc") as %Hacc;first exact Hin.
+  iDestruct (mb_valid_tx with "Hmb tx") as %Htx.
+  subst p_tx.
   (* valid mem *)
   iDestruct (gen_mem_valid a w1 with "Hmem Hapc") as "%Hmem".
   iSplit.
