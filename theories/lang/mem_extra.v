@@ -6,46 +6,46 @@ Section mem_extra.
 Context `{HyperConst : HypervisorConstants}.
 
 (* lemmas about update_mem_unsafe *)
-Lemma update_memory_unsafe_preserve_current_vm σ a w :
-  (get_current_vm (update_memory_unsafe σ a w)) = (get_current_vm σ).
+Lemma update_memory_preserve_current_vm σ a w :
+  (get_current_vm (update_memory σ a w)) = (get_current_vm σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_reg σ a w:
-  get_reg_gmap (update_memory_unsafe σ a w) = get_reg_gmap σ.
+Lemma update_memory_preserve_reg σ a w:
+  get_reg_gmap (update_memory σ a w) = get_reg_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_mb σ a w :
-  get_mb_gmap (update_memory_unsafe σ a w) = get_mb_gmap σ.
+Lemma update_memory_preserve_mb σ a w :
+  get_mb_gmap (update_memory σ a w) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_rx σ a w :
-  get_rx_gmap (update_memory_unsafe σ a w) = (get_rx_gmap σ).
+Lemma update_memory_preserve_rx σ a w :
+  get_rx_gmap (update_memory σ a w) = (get_rx_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_owned σ a w :
-  get_own_gmap (update_memory_unsafe σ a w) = (get_own_gmap σ).
+Lemma update_memory_preserve_owned σ a w :
+  get_own_gmap (update_memory σ a w) = (get_own_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_access σ a w :
-  get_access_gmap (update_memory_unsafe σ a w) = (get_access_gmap σ).
+Lemma update_memory_preserve_access σ a w :
+  get_access_gmap (update_memory σ a w) = (get_access_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_trans σ a w :
-  get_trans_gmap (update_memory_unsafe σ a w) = (get_trans_gmap σ).
+Lemma update_memory_preserve_trans σ a w :
+  get_trans_gmap (update_memory σ a w) = (get_trans_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_trans' σ a w:
-  get_transactions (update_memory_unsafe σ a w) = (get_transactions σ).
+Lemma update_memory_preserve_trans' σ a w:
+  get_transactions (update_memory σ a w) = (get_transactions σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_preserve_retri σ a w :
-  get_retri_gmap (update_memory_unsafe σ a w) = (get_retri_gmap σ).
+Lemma update_memory_preserve_retri σ a w :
+  get_retri_gmap (update_memory σ a w) = (get_retri_gmap σ).
 Proof. f_equal. Qed.
 
-Lemma update_memory_unsafe_update_mem σ a w :
+Lemma update_memory_update_mem σ a w :
   is_Some((get_mem σ) !! a) ->
-  get_mem (update_memory_unsafe σ a w) = <[a := w]>(get_mem σ).
-Proof. intros. rewrite  /update_memory_unsafe //. Qed.
+  get_mem (update_memory σ a w) = <[a := w]>(get_mem σ).
+Proof. intros. rewrite  /update_memory //. Qed.
 
 (* lemmas about zero_pages *)
 Lemma zero_pages_preserve_current_vm σ ps:
@@ -471,15 +471,15 @@ End mem_extra.
 Ltac rewrite_mem_unsafe :=
   match goal with
   | |- _ =>
-    try rewrite -> update_memory_unsafe_preserve_current_vm;
-    try rewrite -> update_memory_unsafe_preserve_reg;
-    try rewrite -> update_memory_unsafe_preserve_mb;
-    try rewrite -> update_memory_unsafe_preserve_rx;
-    try rewrite -> update_memory_unsafe_preserve_owned;
-    try rewrite -> update_memory_unsafe_preserve_access;
-    try rewrite -> update_memory_unsafe_preserve_trans;
-    try rewrite -> update_memory_unsafe_preserve_trans';
-    try rewrite -> update_memory_unsafe_preserve_retri
+    try rewrite -> update_memory_preserve_current_vm;
+    try rewrite -> update_memory_preserve_reg;
+    try rewrite -> update_memory_preserve_mb;
+    try rewrite -> update_memory_preserve_rx;
+    try rewrite -> update_memory_preserve_owned;
+    try rewrite -> update_memory_preserve_access;
+    try rewrite -> update_memory_preserve_trans;
+    try rewrite -> update_memory_preserve_trans';
+    try rewrite -> update_memory_preserve_retri
   end.
 
 Ltac rewrite_mem_zero :=

@@ -173,7 +173,7 @@ Definition update_page_table_global (upd: permission -> VMID -> permission) (st:
 Definition update_memory_global_batch (st : state) (l : list (Addr * Word)) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, (list_to_map l) ∪ (get_mem st), get_transactions st).
 
-Definition update_memory_unsafe (st : state) (a : Addr) (w : Word) : state :=
+Definition update_memory (st : state) (a : Addr) (w : Word) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st,
    <[a:=w]>(get_mem st), get_transactions st).
 
@@ -185,7 +185,6 @@ Program Definition update_offset_PC (st : state) (offset : Z) :  state :=
 
 Definition update_incr_PC (st : state) : state :=
   update_offset_PC st 1.
-
 
 Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mode * state :=
   match newSt with
@@ -220,7 +219,7 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
 
 Definition write_memory (st : state) (a : Addr) (w : Word) : exec_mode * state :=
   if check_write_access_addr st (get_current_vm st) a
-  then (ExecI, update_memory_unsafe st a w)
+  then (ExecI, update_memory st a w)
   else (FailPageFaultI, st).
 
 Definition read_memory (st : state) (a : Addr) : option Word :=
@@ -251,9 +250,13 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
 
 Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state :=
   let comp :=
-      src' <- get_reg s src ;;;
-      dst' <- get_reg s dst ;;;
-      Some (src', dst')
+     match (dst, src) with
+     | (R _ _, R _ _) =>
+         src' <- get_reg s src ;;;
+         dst' <- get_reg s dst ;;;
+         Some (src', dst')
+     | _ => None
+     end
   in
   match comp with
   | Some (src', dst') =>
@@ -266,6 +269,8 @@ Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state
 
 Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : Word) : exec_mode * state :=
   let comp :=
+    match arg1 with
+     | R _ _ =>
       arg1' <- get_reg s arg1 ;;;
       m <- (if (arg1' <? arg2)%f then
            Some (update_reg s NZ W2)
@@ -273,11 +278,15 @@ Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : Word) : exec_mode * st
               Some (update_reg s NZ W0)
              else Some (update_reg s NZ W1)) ;;;
       Some(update_incr_PC m)
+    | _ => None
+    end
   in
   (option_state_unpack s comp).
 
 Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
+     match (arg1, arg2) with
+     | (R _ _, R _ _) =>
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       m <- (if (arg1' <? arg2')%f then
@@ -286,43 +295,63 @@ Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode *
               Some (update_reg s NZ W0)
              else Some (update_reg s NZ W1)) ;;;
       Some(update_incr_PC m)
+     | _ => None
+     end
   in
   (option_state_unpack s comp).
 
 Definition add (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
+     match (arg1, arg2) with
+     | (R _ _, R _ _) =>
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^+ (finz.to_z (arg2':Word)))%f))
+     | _ => None
+     end
   in
   (option_state_unpack s comp).
 
 Definition sub (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
-      arg1' <- get_reg s arg1 ;;;
+  match (arg1, arg2) with
+     | (R _ _, R _ _) =>
+     arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^- (finz.to_z (arg2':Word)))%f))
+     | _ => None
+     end
   in
   (option_state_unpack s comp).
 
 Definition mult (s : state) (arg1 : reg_name) (arg2 : Imm) : exec_mode * state :=
   let comp :=
+    match arg1 with
+      | R _ _ =>
       arg1' <- get_reg s arg1 ;;;
       Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^* (finz.to_z (arg2:Word)))%f))
+      | _ => None
+    end
   in
   (option_state_unpack s comp).
 
 Definition bne (s : state) (arg : reg_name) : exec_mode * state :=
   let comp :=
-      arg' <- get_reg s arg ;;;
+    match arg with
+    | R _ _ => arg' <- get_reg s arg ;;;
       nz <- get_reg s NZ ;;;
       if (nz =? W1)%f then  Some(update_incr_PC s)
       else Some (update_reg s PC arg')
+    | _ => None
+    end
   in
   (option_state_unpack s comp).
 
 Definition br (s : state) (arg : reg_name) : exec_mode * state :=
-  let comp := (fun x => update_reg s PC x) <$> (get_reg s arg)
+  let comp := match arg with
+              | R _ _ => (fun x => update_reg s PC x) <$> (get_reg s arg)
+              | _ => None
+              end
   in
   (option_state_unpack s comp).
 

@@ -98,9 +98,10 @@ Section mailbox_rules.
   Qed.
 
   Lemma mb_valid_tx {σ} i p:
-   TX@ i := p -∗ ghost_map_auth gen_mb_name 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).1 = p ⌝.
+   ghost_map_auth gen_mb_name 1 (get_mb_gmap σ) -∗
+   TX@ i := p -∗ ⌜(get_mail_box σ @ i).1 = p⌝.
   Proof.
-    iIntros "Htx Hσ".
+    iIntros "Hσ Htx".
     rewrite mb_mapsto_eq /mb_mapsto_def.
     destruct σ as [[[[[? mb] ?] ?] ?] ?].
     rewrite /get_mb_gmap.
@@ -119,14 +120,15 @@ Section mailbox_rules.
   Qed.
 
   Lemma mb_valid_rx {σ} i p:
-   RX@ i := p -∗ ghost_map_auth gen_mb_name 1 (get_mb_gmap σ)  -∗ ⌜ (get_mail_box σ @ i ).2.1 = p ⌝.
+   ghost_map_auth gen_mb_name 1 (get_mb_gmap σ) -∗
+   RX@ i := p -∗ ⌜(get_mail_box σ @ i).2.1 = p⌝.
   Proof.
-    iIntros "Htx Hσ".
+    iIntros "Hσ Hrx".
     rewrite mb_mapsto_eq /mb_mapsto_def.
     destruct σ as [[[[[? mb] ?] ?] ?] ?].
     rewrite /get_mb_gmap.
     simpl.
-    iDestruct (ghost_map_lookup with "Hσ Htx") as %Hlookup.
+    iDestruct (ghost_map_lookup with "Hσ Hrx") as %Hlookup.
     apply elem_of_list_to_map_2 in Hlookup.
     apply elem_of_list_In in Hlookup.
     apply in_flat_map in Hlookup.
