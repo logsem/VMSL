@@ -59,9 +59,9 @@ Section rywu_adequacy.
   Program Definition mem_layout (σ : state) (p_prog1 p_prog2 p_prog3 p_tx3 p_rx3 : PID) :=
     let mem := ((get_mem σ): gmap Addr Word)  in
     (* prog 1 is in prog pg 1 *)
-    (mem_page_program p_prog1 rywu_program1 _) ⊆ mem ∧
+    (mem_page_program p_prog1 rywu_program0 _) ⊆ mem ∧
     (* prog 2 is in prog pg 2 *)
-    (mem_page_program p_prog2 rywu_program2 _) ⊆ mem ∧
+    (mem_page_program p_prog2 rywu_program1 _) ⊆ mem ∧
     ((set_of_addr {[p_prog1;p_prog2;p_prog3;p_tx3;p_rx3]}) ⊆ dom (gset _) mem).
   Next Obligation. lia. Qed.
   Next Obligation. lia. Qed.
@@ -430,10 +430,9 @@ Section rywu_adequacy.
 
     iSplitL "PCz R0z R1z mem_p_prog1 Hhpool VMProp0 VMProp1_half' VMProp2_half'".
     iIntros "_".
-    iDestruct (rywu_machine0 (prog1page := p_prog1) (prog3page := p_prog3) (p_tx2 := p_tx3) (p_rx2 := p_rx3) with "[-]") as "HWP".
+    iDestruct (rywu_machine0  p_prog1 p_prog3 p_tx3 p_rx3 with "[-]") as "HWP".
     { admit. }
     { simpl. rewrite /seq_in_page. admit. }
-    iFrame.
     admit.
     iApply (wp_mono with "HWP").
     intros k.
@@ -441,7 +440,8 @@ Section rywu_adequacy.
     iIntros "[$ _]".
 
     iSplitL "VMProp1_half PC1 R01".
-    iApply (rywu_machine1 (prog2page:= p_prog2)).
+    iApply (rywu_machine1 p_prog2).
+    { admit. }
     { admit. }
     iFrame.
     admit.

@@ -126,17 +126,17 @@ Section logrel.
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0
                       ((∃ ps_na'' ps_acc'' trans'' hpool'',
-                           let ps_mem_in_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
+                           let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
                            (* lower bound *)
                            i -@{1/2}A> ps_acc'' ∗
                            LB@ i := [ps_na''] ∗
-                           ⌜ps_na' ## ps_acc''⌝ ∗
+                           ⌜ps_na' ## ps_acc'' ∪ ps_macc_trans''⌝ ∗
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred hpool'' trans'' ∗
                            transaction_pagetable_entries_transferred trans'' ∗
                            retrieval_entries trans'' ∗
                            (* memory *)
-                           memory_pages ps_mem_in_trans'' ∗
+                           memory_pages ps_macc_trans'' ∗
                            R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                            (* status of RX *)
                            (match rx_state with

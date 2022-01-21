@@ -449,7 +449,7 @@ Section logrel_extra.
 
   (** registers **)
    (* we provide lookup, so r and w can be implicit *)
-  Lemma reg_big_sepM_split reg i {r w}:
+  Lemma reg_big_sepM_split i {reg r w}:
     reg !! r = Some w ->
     (([∗ map] k↦y ∈ reg, k @@ i ->r y)%I
      ⊢  (r @@ i ->r w) ∗ ( r @@ i ->r w -∗ [∗ map] k↦y ∈ reg, k @@ i ->r y))%I.
@@ -460,7 +460,7 @@ Section logrel_extra.
   Qed.
 
 
-  Lemma reg_big_sepM_split_upd reg i {r w}:
+  Lemma reg_big_sepM_split_upd i {reg r w}:
     reg !! r = Some w ->
     ((⌜is_total_gmap (reg: gmap reg_name Addr)⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
      ⊢  (r @@ i ->r w) ∗ (∀ w', r @@ i ->r w' -∗ ⌜is_total_gmap (<[r := w']>reg)⌝ ∗ [∗ map] k↦y ∈  <[r := w']>reg, k @@ i ->r y))%I.
@@ -471,30 +471,30 @@ Section logrel_extra.
   Qed.
 
 
-  Lemma reg_big_sepM_split_upd2 reg i {r1 w1 r2 w2}:
-    r1 ≠ r2 ->
+  Lemma reg_big_sepM_split_upd2 i {reg r1 w1 r2 w2}:
     reg !! r1 = Some w1 ->
     reg !! r2 = Some w2 ->
+    r1 ≠ r2 ->
     ((⌜is_total_gmap reg⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
      ⊢  (r1 @@ i ->r w1) ∗ (r2 @@ i ->r w2) ∗
           (∀ w1' w2', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2'-∗ ∃ reg', (⌜is_total_gmap reg'⌝ ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
   Proof.
-    iIntros (Hneq Hlookup1 Hlookup2) "[%Hfull Hregs]".
+    iIntros ( Hlookup1 Hlookup2 Hneq) "[%Hfull Hregs]".
     iApply (ra_big_sepM_split_upd2 reg r1 r2 w1 w2 (λ k v, k @@ i ->r v)%I);eauto.
   Qed.
 
-  Lemma reg_big_sepM_split_upd3 reg i {r1 w1 r2 w2 r3 w3}:
-    r1 ≠ r2 ->
-    r1 ≠ r3 ->
-    r2 ≠ r3 ->
+  Lemma reg_big_sepM_split_upd3 i {reg r1 w1 r2 w2 r3 w3}:
     reg !! r1 = Some w1 ->
     reg !! r2 = Some w2 ->
     reg !! r3 = Some w3 ->
+    r1 ≠ r2 ->
+    r1 ≠ r3 ->
+    r2 ≠ r3 ->
     ((⌜is_total_gmap reg⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
      ⊢  (r1 @@ i ->r w1) ∗ (r2 @@ i ->r w2) ∗ (r3 @@ i ->r w3) ∗
           (∀ w1' w2' w3', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2' ∗ r3 @@ i ->r w3' -∗ ∃ reg', (⌜is_total_gmap reg'⌝ ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
   Proof.
-    iIntros (Hneq1 Hneq2 Hneq3 Hlookup1 Hlookup2 Hlookup3) "[%Hfull Hregs]".
+    iIntros (Hlookup1 Hlookup2 Hlookup3 Hneq1 Hneq2 Hneq3) "[%Hfull Hregs]".
     iApply (ra_big_sepM_split_upd3 reg r1 r2 r3 w1 w2 w3 (λ k v, k @@ i ->r v)%I);eauto.
   Qed.
 
