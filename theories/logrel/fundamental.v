@@ -681,14 +681,13 @@ Section fundamental.
               iDestruct (reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_reg_R0  with "[$regs]") as "(PC & R0 & Hacc_regs)";eauto.
               (* getting mem *)
               set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans')).
-              pose proof (union_split_difference_intersection_L ps_acc' ({[p_rx]} ∪ ps_mem_in_trans))
-                as [Heq_ps_acc' Hdisj_ps_acc'].
-                rewrite Heq_ps_acc' in Hdom_mem_acc.
-                rewrite set_of_addr_union in Hdom_mem_acc;last auto.
-                apply dom_union_inv_L in Hdom_mem_acc;last apply set_of_addr_disj;auto.
-                destruct Hdom_mem_acc as (mem_oea & mem_inters & Heq_mem_acc & Hdisj_mem_oea_inters & Hdom_mem_oea & Hdom_mem_inters).
-                rewrite Heq_mem_acc.
-                iDestruct (big_sepM_union with "mem_acc") as "[mem_oea mem_inters]";auto.
+              pose proof (union_split_difference_intersection_L ps_acc' ({[p_rx]} ∪ ps_mem_in_trans)) as [Heq_ps_acc' Hdisj_ps_acc'].
+              rewrite Heq_ps_acc' in Hdom_mem_acc.
+              rewrite set_of_addr_union in Hdom_mem_acc;last auto.
+              apply dom_union_inv_L in Hdom_mem_acc;last apply set_of_addr_disj;auto.
+              destruct Hdom_mem_acc as (mem_oea & mem_inters & Heq_mem_acc & Hdisj_mem_oea_inters & Hdom_mem_oea & Hdom_mem_inters).
+              rewrite Heq_mem_acc.
+              iDestruct (big_sepM_union with "mem_acc") as "[mem_oea mem_inters]";auto.
               destruct (decide ((tpa ai) ∈ (ps_acc' ∖ ({[p_rx]} ∪ ps_mem_in_trans)))) as [Hin_ps_oea | Hnin_ps_oea].
               { (* instruction is in ps_oea *)
                 assert (Hsubseteq_mem_acc: mem_oea ⊆ mem_acc).
@@ -769,7 +768,7 @@ Section fundamental.
                 iExFalso.
                 iApply (VMProp_invalid with "[$propi $propi'']").
                }
-               { (* TODO: tpa ai ∉ ps_acc' ∖ ({[p_rx]} ∪ ps_mem_in_trans) *)
+               { (* tpa ai ∉ ps_acc' ∖ ({[p_rx]} ∪ ps_mem_in_trans) *)
                  assert (tpa ai ∈ ps_acc' ∩ ({[p_rx]} ∪ ps_mem_in_trans )) as Hin_ps_inters.
                  {
                   rewrite Heq_ps_acc' in Hin_ps_acc.

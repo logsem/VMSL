@@ -548,41 +548,41 @@ Definition transaction_write_rx (st : state) (t : transaction) (h : Word) : opti
   | None => None
   end.
 
-Definition parse_list_of_pids (st : state) (b : Addr) l : option (list PID) :=
-   @sequence_a list _ _ _ PID option _ _ (map (λ v, (w <- (get_mem st !! v) ;;; (to_pid w) ))
+Definition parse_list_of_pids (ws: list Word) (wl: Word): option (list PID) :=
+  _ <- @bool_check_option True ((Z.to_nat (finz.to_z wl)) =? length ws);;;
+   @sequence_a list _ _ _ PID option _ _ (map to_pid ws).
+
+Definition parse_list_of_Word (st : state) (b : Addr) l : option (list Word) :=
+   @sequence_a list _ _ _ Word option _ _ (map (λ v, (get_mem st !! v))
                       (finz.seq b l)).
 
-Definition parse_memory_region_descriptor (st : state) (b:Addr) : option memory_region_descriptor :=
-  l <- get_memory_with_offset st b 0 ;;;
-  r <- get_memory_with_offset st b 1 ;;;
-  r' <- decode_vmid r ;;;
-  ls' <- parse_list_of_pids st (b^+2)%f (Z.to_nat (finz.to_z l));;;
-  unit (r', ls').
-
-Definition parse_transaction_descriptor_retrieve (st : state) (b : Addr) : option transaction_descriptor :=
-  vs <- get_memory_with_offset st b 0 ;;;
-  wf <- get_memory_with_offset st b 1 ;;;
-  wh <- get_memory_with_offset st b 2 ;;;
-  vs' <- decode_vmid vs ;;;
-  unit (vs', Some wh, wf, (get_current_vm st), ∅).
+Definition parse_transaction_descriptor_retrieve (st : state) (b : Addr) (len: nat) : option transaction_descriptor :=
+  raw_descriptor <- parse_list_of_Word st b len;;;
+  vs_raw <- raw_descriptor !! 0 ;;;
+  vs <- decode_vmid vs_raw ;;;
+  wf <- raw_descriptor !! 1 ;;;
+  wh <- raw_descriptor !! 2 ;;;
+  unit (vs, Some wh, wf, (get_current_vm st), ∅).
 
 (* TODO: Prop version, reflection *)
 
-Definition parse_transaction_descriptor (st : state) (b: Addr) : option transaction_descriptor :=
+Definition parse_transaction_descriptor (st : state) (b: Addr) (len: nat) : option transaction_descriptor :=
   (* Main fields *)
-  vs <- get_memory_with_offset st b 0 ;;;
-  wf <- get_memory_with_offset st b 1 ;;;
-  wh <- get_memory_with_offset st b 2 ;;;
-  md <- parse_memory_region_descriptor st (b^+3)%f;;;
-  vs' <- decode_vmid vs ;;;
-  unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, md.1, list_to_set md.2).
+  raw_descriptor <- parse_list_of_Word st b len;;;
+  vs_raw <- raw_descriptor !! 0 ;;;
+  vs <- decode_vmid vs_raw ;;;
+  wf <- raw_descriptor !! 1 ;;;
+  wh <- raw_descriptor !! 2 ;;;
+  wl <- raw_descriptor !! 3 ;;;
+  vr_raw <- raw_descriptor !! 4 ;;;
+  vr <- decode_vmid vr_raw ;;;
+  ps <- parse_list_of_pids (drop 5 raw_descriptor) wl ;;;
+  unit (vs, (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, vr, list_to_set ps).
 
-(* TODO: validate length *)
-
-Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transaction_type)
+Definition validate_transaction_descriptor (st : state) (ty : transaction_type)
            (t : transaction_descriptor) : hvc_result () :=
   match t with
-  | (s, h, wf, r ,ps) =>
+  | (s, h, wf, r, ps) =>
     _ <- lift_option_with_err (
              (* sender is the caller *)
         _ <- @bool_check_option True ((get_current_vm st) =? s);;;
@@ -660,8 +660,8 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
             then throw InvParam
             else
               td <- lift_option (parse_transaction_descriptor s
-                                              (of_pid (get_tx_pid s @ (get_current_vm s)))) ;;;
-              _ <- validate_transaction_descriptor s len ty td ;;;
+                                               (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) ;;;
+              _ <- validate_transaction_descriptor s ty td ;;;
               if (check_transition_transaction s td)
               then bind (new_transaction_from_descriptor s ty td)
                         (fun x => unit (x, td))
@@ -706,7 +706,7 @@ Definition retrieve (s : state) : exec_mode * state :=
             then throw InvParam
             else
               lift_option (parse_transaction_descriptor_retrieve s
-                             (of_pid (get_tx_pid s @ (get_current_vm s))))) ;;;
+                              (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len)))) ;;;
       match m with
       | (vs, Some handle, _, _, _) =>
         trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
