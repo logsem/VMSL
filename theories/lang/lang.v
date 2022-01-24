@@ -579,29 +579,26 @@ Definition parse_transaction_descriptor (mem : mem) (b: Addr) (len: nat) : optio
   ps <- parse_list_of_pids (drop 5 raw_descriptor) wl ;;;
   unit (vs, (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, vr, list_to_set ps).
 
-Definition validate_transaction_descriptor (st : state) (ty : transaction_type)
-           (t : transaction_descriptor) : hvc_result () :=
+Definition validate_transaction_descriptor (i:VMID) (ty : transaction_type)
+           (t : transaction_descriptor) : bool  :=
   match t with
   | (s, h, wf, r, ps) =>
-    _ <- lift_option_with_err (
              (* sender is the caller *)
-        _ <- @bool_check_option True ((get_current_vm st) =? s);;;
+         (andb (i =? s)
              (* none of the receivers is the caller  *)
-        _ <- @bool_check_option True  (negb (s =? r));;;
+          (andb (negb (s =? r))
              (* no other flags are supported *)
-        _ <- @bool_check_option True (wf <=? W1)%f;;;
+            (andb (orb (wf =? W1)%f (wf =? W0)%f)
              (* clearing is not allowed for mem sharing *)
-        _ <- @bool_check_option True (match ty with
+              (andb (match ty with
                                      | Sharing => (negb (wf =? W1)%f)
                                      | _ => true
-                                 end);;;
+                                 end)
              (* h equals 0*)
-        @bool_check_option True (match h with
+                    (match h with
                                       | None => true
                                       | Some _ => false
-                                     end)
-           ) InvParam ;;;
-    unit tt
+                                     end)))))
   end.
 
 Definition insert_transaction (st : state) (h : Word) (t : transaction):=
@@ -661,7 +658,7 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
             else
               td <- lift_option_with_err (parse_transaction_descriptor (get_mem s)
                                                (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) InvParam ;;;
-              _ <- validate_transaction_descriptor s ty td ;;;
+              _ <- (if (validate_transaction_descriptor (get_current_vm s) ty td) then unit () else throw InvParam) ;;;
               if (check_transition_transaction s td)
               then bind (new_transaction_from_descriptor s ty td)
                         (fun x => unit (x, td))
