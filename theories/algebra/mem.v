@@ -346,14 +346,24 @@ Section mem_rules.
     rewrite /set_of_addr set_fold_empty //.
   Qed.
 
-  Lemma memory_pages_split_union (ps1 ps2 :gset PID) :
+  Lemma set_of_addr_singleton p : set_of_addr {[p]} = (list_to_set (addr_of_page p)).
+  Proof.
+    rewrite /set_of_addr.
+    unfold fold_union_addr_of_page.
+    cbn.
+    rewrite elements_singleton.
+    cbn.
+    rewrite union_empty_r_L //.
+  Qed.
+
+  Lemma memory_pages_split_union {mem} (ps1 ps2 :gset PID):
     ps1 ## ps2 ->
-    (∃mem, memory_pages (ps1 ∪ ps2) mem) ⊣⊢ ∃ mem1 mem2, memory_pages ps1 mem1 ∗ memory_pages ps2 mem2.
+    memory_pages (ps1 ∪ ps2) mem ⊣⊢ ∃ mem1 mem2, memory_pages ps1 mem1 ∗ memory_pages ps2 mem2 ∗ ⌜mem1 ∪ mem2 = mem⌝.
   Proof.
     intro Hdisj.
     iSplit.
     {
-      iIntros "[%mem [%Hdom mem]]".
+      iIntros "[%Hdom mem]".
       rewrite set_of_addr_union in Hdom;last done.
       pose proof (dom_union_inv_L mem _ _ (set_of_addr_disj _ _ Hdisj) Hdom) as Hsplit.
       destruct Hsplit as (m1 & m2 & Heq & Hdisj_m & Hdom1 & Hdom2).
@@ -365,8 +375,8 @@ Section mem_rules.
       done.
     }
     {
-      iIntros "(%m1 & %m2 & [%Hdom1 mem1] & [%Hdom2 mem2])".
-      iExists (m1 ∪ m2).
+      iIntros "(%m1 & %m2 & [%Hdom1 mem1] & [%Hdom2 mem2] & %Heq)".
+      rewrite -Heq.
       iSplitL "".
       iPureIntro.
       rewrite dom_union_L.
@@ -387,9 +397,9 @@ Section mem_rules.
     }
   Qed.
 
-  Lemma memory_pages_split_diff s s' :
+  Lemma memory_pages_split_diff {mem} s s':
     s' ⊆ s ->
-    (∃mem, memory_pages s mem) ⊣⊢ ∃ mem1 mem2, memory_pages (s ∖ s') mem1 ∗ memory_pages s' mem2.
+    memory_pages s mem ⊣⊢ ∃ mem1 mem2, memory_pages (s ∖ s') mem1 ∗ memory_pages s' mem2 ∗ ⌜mem1 ∪ mem2 = mem⌝.
   Proof.
     intro Hsub.
     rewrite -memory_pages_split_union;last set_solver +.
@@ -401,13 +411,35 @@ Section mem_rules.
     done.
   Qed.
 
-  Lemma memory_pages_split_singleton p s :
+  Lemma memory_pages_singleton {mem} p:
+    memory_pages {[p]} mem ⊣⊢ memory_page p mem.
+  Proof.
+    rewrite /memory_pages /memory_page.
+    rewrite set_of_addr_singleton.
+    done.
+  Qed.
+
+  Lemma memory_pages_split_singleton {mem} p s:
     p ∈ s ->
-    (∃ mem, memory_pages s mem) ⊣⊢ ∃ mem1 mem2, memory_pages (s ∖ {[p]}) mem1  ∗ memory_pages {[p]} mem2.
+    memory_pages s mem ⊣⊢ ∃ mem1 mem2, memory_pages (s ∖ {[p]}) mem1  ∗ memory_page p mem2 ∗ ⌜mem1 ∪ mem2 = mem⌝.
   Proof.
     intro Hin.
-    apply memory_pages_split_diff.
-    set_solver + Hin.
+    iSplit.
+    {
+      iIntros  "mem".
+      iDestruct (memory_pages_split_diff s {[p]} with "mem") as "(%m1 & %m2 & mem1 & mem2)".
+      set_solver + Hin.
+      iExists m1, m2.
+      rewrite memory_pages_singleton.
+      iFrame.
+    }
+    {
+      iIntros "(%m1 & %m2 & mem1 & mem2 & %Heq)".
+      rewrite -Heq -memory_pages_singleton.
+      iApply (memory_pages_split_diff).
+      2:{  iExists m1, m2. iFrame "mem1 mem2". done. }
+      set_solver + Hin.
+    }
   Qed.
 
   Lemma big_sepM_not_disj`{Countable K} {V :Type} (m1 m2: gmap K V) (Φ: K -> V -> iProp Σ) :
@@ -437,11 +469,9 @@ Section mem_rules.
     iFrame.
   Qed.
 
-  Lemma memory_pages_disj_singleton{mem mem'} p  : memory_pages {[p]} mem ∗ memory_pages {[p]} mem'⊢ False.
+  Lemma memory_pages_disj_singleton {mem mem'} p  : memory_page p mem ∗ memory_page p mem'⊢ False.
   Proof.
     iIntros " [[%Hdom1 mem1] [%Hdom2 mem2]]".
-    rewrite /set_of_addr set_fold_singleton in Hdom1 Hdom2.
-    rewrite union_empty_r_L in Hdom1 Hdom2.
     iApply (big_sepM_not_disj with "[] [$mem1 $mem2]").
     rewrite map_disjoint_dom.
     rewrite Hdom1 Hdom2.
@@ -459,17 +489,17 @@ Section mem_rules.
     eauto using Qp_not_add_le_r.
   Qed.
 
-  Lemma memory_pages_disj{mem mem'} s1 s2 : memory_pages s1 mem ∗ memory_pages s2 mem' ⊢ ⌜s1 ## s2⌝.
+  Lemma memory_pages_disj {mem mem'} s1 s2 : memory_pages s1 mem ∗ memory_pages s2 mem' ⊢ ⌜s1 ## s2⌝.
   Proof.
     iIntros "[mem1 mem2]".
     rewrite elem_of_disjoint.
     iIntros (p Hin1 Hin2).
     iPoseProof (memory_pages_split_singleton p _ Hin1) as "[Hsplit _]".
-    iDestruct ("Hsplit" with "[mem1]") as "(% & % & mem1' & mem1_p)".
-    iExists mem. iFrame.
+    iDestruct ("Hsplit" with "[mem1]") as "(% & % & mem1' & mem1_p & _)".
+    iFrame.
     iPoseProof (memory_pages_split_singleton p _ Hin2) as "[Hsplit' _]".
-    iDestruct ("Hsplit'" with "[mem2]") as "(% & % & mem2' & mem2_p)".
-    iExists mem'. iFrame.
+    iDestruct ("Hsplit'" with "[mem2]") as "(% & % & mem2' & mem2_p & _)".
+    iFrame.
     iApply (memory_pages_disj_singleton with "[$mem1_p $mem2_p]").
   Qed.
 
@@ -482,6 +512,20 @@ Section mem_rules.
     rewrite big_sepM_empty //.
   Qed.
 
+  Lemma gen_mem_update_pages{σ mem_ps} ps (mem_ps': mem):
+    dom (gset _) mem_ps = dom (gset _) mem_ps' ->
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
+    memory_pages ps mem_ps ==∗
+    ghost_map_auth gen_mem_name 1 (mem_ps' ∪ (get_mem σ)) ∗
+    memory_pages ps mem_ps'.
+  Proof.
+    iIntros (Hdom) "auth [%Hdom_mem frag]".
+    rewrite /memory_page.
+    iDestruct ((gen_mem_update_SepM mem_ps mem_ps') with "auth frag") as ">[auth frag]";first auto.
+    iModIntro.
+    iFrame "auth frag".
+    rewrite -Hdom //.
+  Qed.
 
   Lemma gen_mem_update_page{σ mem_p} p (mem_p': mem):
     dom (gset _) mem_p = dom (gset _) mem_p' ->
@@ -490,15 +534,11 @@ Section mem_rules.
     ghost_map_auth gen_mem_name 1 (mem_p' ∪ (get_mem σ)) ∗
     memory_page p mem_p'.
   Proof.
-    iIntros (Hdom) "auth [%Hdom_mem frag]".
-    rewrite /memory_page.
-    (* iAssert (⌜length wl = Z.to_nat 1000 ⌝%I) as "%Hlen'". *)
-    (* { iDestruct (big_sepL2_alt with "Hp") as "[% Hp]". iPureIntro. rewrite finz_seq_length in H. lia. } *)
-    iDestruct ((gen_mem_update_SepM mem_p mem_p') with "auth frag") as ">[auth frag]";first auto.
-    iModIntro.
-    iFrame "auth frag".
-    rewrite -Hdom //.
+    rewrite -!memory_pages_singleton.
+    iIntros (Hdom) "H".
+    iApply (gen_mem_update_pages {[p]} mem_p');eauto.
   Qed.
+
 
   (* Lemma mem_pages_SepL2_length_pure ps wss: *)
   (*   ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ⊢ ⌜ (forall ws, ws ∈ wss -> length ws = (Z.to_nat page_size)) ⌝. *)
@@ -523,114 +563,70 @@ Section mem_rules.
   (*        by apply Hforall. } *)
   (* Qed. *)
 
-  (* TODO *)
-  Lemma mem_pages_SepL2_acc p ps wss:
+  Lemma memory_pages_acc p ps mem:
     p ∈ ps ->
-    ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ⊢
-    ∃ ws,  mem_page ws p ∗ ( mem_page ws p -∗  ([∗ list] p;ws ∈ ps;wss, mem_page ws p)).
+    memory_pages ps mem ⊢
+    ∃ mem_p,  memory_page p mem_p ∗ (memory_page p mem_p -∗  memory_pages ps mem).
   Proof.
-    iIntros (Hin) "Hl".
-    apply elem_of_list_lookup_1 in Hin.
-    destruct Hin as [? Hlk].
-    assert (HisSome: is_Some (ps!!x)). eauto.
-    pose proof (lookup_lt_is_Some_1 ps x HisSome) as Hltlen.
-    iDestruct (big_sepL2_length with  "Hl") as "%Heqlen".
-    rewrite Heqlen in Hltlen.
-    apply lookup_lt_is_Some_2 in Hltlen.
-    destruct Hltlen as [? Hlk'].
-    iExists x0.
-    iApply (big_sepL2_lookup_acc (λ _ p0 ws, mem_page ws p0) ps wss );eauto.
-  Qed.
-
-  Lemma mem_pages_SepL2_NoDup ps wss:
-    ([∗ list] p;ws ∈ ps;wss, mem_page ws p) -∗ ⌜ NoDup ps ⌝.
-  Proof.
-    revert wss.
-    induction ps.
-    - iIntros (?) "Hl".
-      iPureIntro; intros; constructor.
-    -  iIntros (?) "Hl".
-       destruct wss; cbn.
-       { iExFalso; done. }
-       { rewrite NoDup_cons.
-         iAssert (⌜ a ∉ ps ⌝%I) as "%Hnotin".
-         iIntros (?).
-         iDestruct "Hl" as "[Hl Hls]".
-         iDestruct ((mem_pages_SepL2_acc a ps wss) with "Hls") as "Hl'";eauto.
-         iDestruct "Hl'" as (ws') "[Hl' Hacc]".
-         iApply mem_page2_invalid.
-         iFrame "Hl Hl'".
-         iDestruct "Hl" as "[Hl Hls]".
-         iDestruct ((IHps wss) with "Hls") as "%Hnodup".
-         done. }
-  Qed.
-
-  Lemma mem_pages_to_mem_region_SepL2 (ps: list PID) (wss: list (list Word)):
-    ([∗ list] p;ws ∈ ps;wss, mem_page ws p) -∗
-    [∗ list] a;w ∈ (list_pid_to_addr ps);(flat_list_list_word wss), a ->a w.
-  Proof.
-    rewrite /mem_page /list_pid_to_addr /flat_list_list_word.
-    iRevert (wss).
-    iInduction ps as [|p ps'] "IH";cbn.
-    iIntros (?) "Hl".
-    iDestruct (big_sepL2_alt with "Hl") as "[%Heqlen Hl]".
-    destruct a;try inversion Heqlen.
-    done.
-    iIntros (wss) "Hlist".
-    destruct wss;cbn;try done.
-    iDestruct ("Hlist") as "[Hl Hlist]".
-    iApply (big_sepL2_app with "Hl").
-    by iApply "IH".
-  Qed.
-
-  Lemma mem_region_to_mem_pages_SepL2 (ps: list PID) (wss: list (list Word)):
-    (forall ws', ws' ∈ wss -> length ws' = (Z.to_nat page_size)) ->
-    ([∗ list] a;w ∈ (list_pid_to_addr ps);(flat_list_list_word wss), a ->a w) -∗
-    ([∗ list] p;ws ∈ ps;wss, mem_page ws p).
-  Proof.
-    rewrite /mem_page /list_pid_to_addr /flat_list_list_word.
-    iRevert (wss).
-    iInduction ps as [|p ps'] "IH";cbn.
-    iIntros (??) "Hl".
-    iDestruct (big_sepL2_alt with "Hl") as "[%Heqlen Hl]".
-    destruct a.
-    done.
-    assert (length l = Z.to_nat 1000) as Heqlen'.
-    { apply x. apply elem_of_cons;left;done. }
-    rewrite app_length Heqlen' in Heqlen.
-    inversion Heqlen.
-    iIntros (wss Hlen) "Hlist".
-    destruct wss;cbn;try done.
-    iDestruct (big_sepL2_app_inv with "Hlist") as "Hlist".
-    { left. rewrite finz_seq_length. symmetry;apply Hlen.  apply elem_of_cons;left;done. }
-    iDestruct ("Hlist") as "[Hl Hlist]".
-    iFrame "Hl".
-    iApply "IH".
-    { iPureIntro. intros.
-      apply Hlen.
-      apply elem_of_cons;right;done. }
+    iIntros (Hin) "mem".
+    iPoseProof (memory_pages_split_singleton p ps Hin) as "[Hsplit Hsplit2]".
+    iDestruct ("Hsplit" with "[mem]") as (m1 m2) "[Hrest [Hsingle %Heq]]".
+    { iFrame. }
+    iExists m2.
+    iFrame.
+    iIntros "Hsingle".
+    iApply ("Hsplit2" with "[Hrest Hsingle]").
+    iExists m1, m2.
+    iFrame.
     done.
   Qed.
 
-  Lemma gen_mem_update_pages{wss σ} (ps: list PID) (wss': list (list Word)):
-    (forall ws', ws' ∈ wss' -> length ws' = (Z.to_nat page_size)) ->
-    length ps = length wss' ->
-    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
-    ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ==∗
-    ghost_map_auth gen_mem_name 1 ((list_to_map
-                              (zip (list_pid_to_addr ps) (flat_list_list_word wss'))) ∪ (get_mem σ)) ∗
-    [∗ list] p;ws'∈ ps;wss',mem_page ws' p.
-  Proof.
-    iIntros (Hwslen Hwsslen) "Hσ Hpgs".
-    iDestruct (mem_pages_SepL2_NoDup with "Hpgs") as "%".
-    iDestruct (mem_pages_SepL2_length_pure with "Hpgs") as "%".
-    iDestruct (big_sepL2_length with "Hpgs") as "%".
-    iDestruct (mem_pages_to_mem_region_SepL2 with "Hpgs") as "Hpgs".
-    iDestruct ((gen_mem_update_SepL2 _ (flat_list_list_word wss) (flat_list_list_word wss')) with "Hσ Hpgs") as ">[Hσ Hpgs]".
-    { apply list_pid_to_addr_NoDup;eauto. }
-    { apply flat_list_list_word_length_eq;eauto. lia. }
-    iFrame "Hσ".
-    iApply mem_region_to_mem_pages_SepL2;eauto.
-  Qed.
+  (* Lemma mem_pages_to_mem_region_SepL2 (ps: list PID) (wss: list (list Word)): *)
+  (*   ([∗ list] p;ws ∈ ps;wss, mem_page ws p) -∗ *)
+  (*   [∗ list] a;w ∈ (list_pid_to_addr ps);(flat_list_list_word wss), a ->a w. *)
+  (* Proof. *)
+  (*   rewrite /mem_page /list_pid_to_addr /flat_list_list_word. *)
+  (*   iRevert (wss). *)
+  (*   iInduction ps as [|p ps'] "IH";cbn. *)
+  (*   iIntros (?) "Hl". *)
+  (*   iDestruct (big_sepL2_alt with "Hl") as "[%Heqlen Hl]". *)
+  (*   destruct a;try inversion Heqlen. *)
+  (*   done. *)
+  (*   iIntros (wss) "Hlist". *)
+  (*   destruct wss;cbn;try done. *)
+  (*   iDestruct ("Hlist") as "[Hl Hlist]". *)
+  (*   iApply (big_sepL2_app with "Hl"). *)
+  (*   by iApply "IH". *)
+  (* Qed. *)
+
+  (* Lemma mem_region_to_mem_pages_SepL2 (ps: list PID) (wss: list (list Word)): *)
+  (*   (forall ws', ws' ∈ wss -> length ws' = (Z.to_nat page_size)) -> *)
+  (*   ([∗ list] a;w ∈ (list_pid_to_addr ps);(flat_list_list_word wss), a ->a w) -∗ *)
+  (*   ([∗ list] p;ws ∈ ps;wss, mem_page ws p). *)
+  (* Proof. *)
+  (*   rewrite /mem_page /list_pid_to_addr /flat_list_list_word. *)
+  (*   iRevert (wss). *)
+  (*   iInduction ps as [|p ps'] "IH";cbn. *)
+  (*   iIntros (??) "Hl". *)
+  (*   iDestruct (big_sepL2_alt with "Hl") as "[%Heqlen Hl]". *)
+  (*   destruct a. *)
+  (*   done. *)
+  (*   assert (length l = Z.to_nat 1000) as Heqlen'. *)
+  (*   { apply x. apply elem_of_cons;left;done. } *)
+  (*   rewrite app_length Heqlen' in Heqlen. *)
+  (*   inversion Heqlen. *)
+  (*   iIntros (wss Hlen) "Hlist". *)
+  (*   destruct wss;cbn;try done. *)
+  (*   iDestruct (big_sepL2_app_inv with "Hlist") as "Hlist". *)
+  (*   { left. rewrite finz_seq_length. symmetry;apply Hlen.  apply elem_of_cons;left;done. } *)
+  (*   iDestruct ("Hlist") as "[Hl Hlist]". *)
+  (*   iFrame "Hl". *)
+  (*   iApply "IH". *)
+  (*   { iPureIntro. intros. *)
+  (*     apply Hlen. *)
+  (*     apply elem_of_cons;right;done. } *)
+  (*   done. *)
+  (* Qed. *)
+
 
 End mem_rules.
