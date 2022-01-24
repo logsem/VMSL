@@ -179,13 +179,13 @@ Section lang_extra.
   Qed.
 
   (* TODO: reprove this *)
-  Lemma transaction_descriptor_valid{i j wf l psd σ} des p :
+  Lemma transaction_descriptor_valid{i j wf l psd mem} des p :
     (finz.to_z l) = (Z.of_nat (length psd)) ->
     des = serialized_transaction_descriptor i j wf l psd W0 ->
     seq_in_page (of_pid p) (length des) p ->
     (∀ (k : nat) (y1 y2 : Addr),
-       finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-    parse_transaction_descriptor σ p (length des) = Some (i, None, wf, j, list_to_set psd).
+       finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → mem !! y1 = Some y2) ->
+    parse_transaction_descriptor mem p (length des) = Some (i, None, wf, j, list_to_set psd).
   Proof.
     Admitted.
   (*   intros. *)
@@ -252,12 +252,12 @@ Section lang_extra.
   (*   done. *)
   (* Qed. *)
 
-  Lemma transaction_retrieve_descriptor_valid {j handle wf σ} des p :
-    des = [of_imm (encode_vmid j); wf; handle; of_imm (encode_vmid (get_current_vm σ))] ->
+  Lemma transaction_retrieve_descriptor_valid {j handle wf mem} des p :
+    des = [of_imm (encode_vmid j); wf; handle; of_imm (encode_vmid V0)] ->
     seq_in_page (of_pid p) (length des) p ->
     (∀ (k : nat) (y1 y2 : Addr),
-             finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → get_mem σ !! y1 = Some y2) ->
-    parse_transaction_descriptor_retrieve σ p (length des)  = Some (j, Some handle, wf, (get_current_vm σ), ∅).
+             finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 →  mem !! y1 = Some y2) ->
+    parse_transaction_descriptor_retrieve mem p (length des)  = Some (j, Some handle, wf, V0, ∅).
   Proof.
     Admitted.
   (*   intros H H0 H1. *)

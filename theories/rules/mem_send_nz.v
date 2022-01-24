@@ -411,7 +411,7 @@ Lemma hvc_mem_send_not_share_nz tt i wi r2 ptx q des sh hvcf (l :Word) (spsd: gs
   (* pages in spsed are exclusive to VM i *)
       ▷ ([∗ set] p ∈ spsd, p -@A> i) ∗
       (* and the page which the instruction is in is not being shared, i.e. (tpa ai) ∉ spsd *)
-      (* TODO: to prove ftlr, we may need a seperate rule to cover the other case *)
+      (* TODO: to prove ftlr, we may need a separate rule to cover the other case. - No we don't need!  *)
       ▷ ((tpa ai) -@{q}A> i) ∗
       ▷ (R0 @@ i ->r r0) ∗
       ▷ (R1 @@ i ->r r1) ∗

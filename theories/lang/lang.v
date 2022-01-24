@@ -552,23 +552,23 @@ Definition parse_list_of_pids (ws: list Word) (wl: Word): option (list PID) :=
   _ <- @bool_check_option True ((Z.to_nat (finz.to_z wl)) =? length ws);;;
    @sequence_a list _ _ _ PID option _ _ (map to_pid ws).
 
-Definition parse_list_of_Word (st : state) (b : Addr) l : option (list Word) :=
-   @sequence_a list _ _ _ Word option _ _ (map (λ v, (get_mem st !! v))
+Definition parse_list_of_Word (mem : mem) (b : Addr) l : option (list Word) :=
+   @sequence_a list _ _ _ Word option _ _ (map (λ v, (mem !! v))
                       (finz.seq b l)).
 
-Definition parse_transaction_descriptor_retrieve (st : state) (b : Addr) (len: nat) : option transaction_descriptor :=
-  raw_descriptor <- parse_list_of_Word st b len;;;
+Definition parse_transaction_descriptor_retrieve (mem: mem) (b : Addr) (len: nat) : option transaction_descriptor :=
+  raw_descriptor <- parse_list_of_Word mem b len;;;
   vs_raw <- raw_descriptor !! 0 ;;;
   vs <- decode_vmid vs_raw ;;;
   wf <- raw_descriptor !! 1 ;;;
   wh <- raw_descriptor !! 2 ;;;
-  unit (vs, Some wh, wf, (get_current_vm st), ∅).
+  unit (vs, Some wh, wf, V0, ∅).
 
 (* TODO: Prop version, reflection *)
 
-Definition parse_transaction_descriptor (st : state) (b: Addr) (len: nat) : option transaction_descriptor :=
+Definition parse_transaction_descriptor (mem : mem) (b: Addr) (len: nat) : option transaction_descriptor :=
   (* Main fields *)
-  raw_descriptor <- parse_list_of_Word st b len;;;
+  raw_descriptor <- parse_list_of_Word mem b len;;;
   vs_raw <- raw_descriptor !! 0 ;;;
   vs <- decode_vmid vs_raw ;;;
   wf <- raw_descriptor !! 1 ;;;
@@ -659,8 +659,8 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
       m <- (if (page_size <? len)%Z
             then throw InvParam
             else
-              td <- lift_option (parse_transaction_descriptor s
-                                               (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) ;;;
+              td <- lift_option_with_err (parse_transaction_descriptor (get_mem s)
+                                               (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) InvParam ;;;
               _ <- validate_transaction_descriptor s ty td ;;;
               if (check_transition_transaction s td)
               then bind (new_transaction_from_descriptor s ty td)
@@ -705,14 +705,14 @@ Definition retrieve (s : state) : exec_mode * state :=
       m <- (if (page_size <? len)%Z
             then throw InvParam
             else
-              lift_option (parse_transaction_descriptor_retrieve s
-                              (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len)))) ;;;
+              lift_option_with_err (parse_transaction_descriptor_retrieve (get_mem s)
+                              (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) InvParam) ;;;
       match m with
       | (vs, Some handle, _, _, _) =>
         trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
         match trn with
          | (vs, w1, r, ps, ty, b) =>
-             let v := (get_current_vm s) in
+           let v := (get_current_vm s) in
            match (v =? r) , b with
            | true, false =>
              s' <- (write_retrieve_msg s (get_rx_pid s @ v) handle trn) ;;;

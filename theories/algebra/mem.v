@@ -8,12 +8,6 @@ Section mem_rules.
   Implicit Types w: Word.
   Implicit Types a: Addr.
 
-  Definition mem_region (instr: list Word) (b:Addr):=
-    ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I.
-
-  (* This definition implicitly requires the length of instr is equal to/less than page_size  *)
-  Definition mem_page (instr: list Word) (p: PID):=
-    ([∗ list] a;w ∈ (finz.seq (of_pid p) (Z.to_nat page_size));instr, (a ->a w))%I.
 
   (* rules for memory points-to *)
 
@@ -121,94 +115,415 @@ Section mem_rules.
     by iFrame.
   Qed.
 
-  Lemma gen_mem_update_SepL2 {σ} (ads : list Addr) (wl wl': list Word):
-    NoDup ads ->
-    length wl = length wl' ->
+  Lemma gen_mem_update_SepM {σ} (mem mem': mem):
+    dom (gset _) mem = dom (gset _) mem' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
-    ([∗ list] a;w ∈ ads;wl, a ->a w) ==∗
-    ghost_map_auth gen_mem_name 1 ((list_to_map (zip ads wl'))  ∪ (get_mem σ)) ∗
-    [∗ list] a;w' ∈ ads;wl', a ->a w'.
+    ([∗ map] a↦w ∈ mem, a ->a w) ==∗
+    ghost_map_auth gen_mem_name 1 (mem' ∪ (get_mem σ)) ∗
+    [∗ map] a↦w ∈ mem', a ->a w.
   Proof.
-    iIntros (Hnodup Hlen) "Hσ Hmm".
-    iDestruct (big_sepL2_alt with "Hmm") as "[% Hmm]".
-    rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word _).
-    2: { rewrite fst_zip //;lia. }
-    rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ).
-    rewrite  mem_mapsto_eq /mem_mapsto_def.
-    iDestruct ((ghost_map_update_big _  (list_to_map (zip ads wl'))) with "Hσ Hmm") as ">[Hσ Hmm]".
-    { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. lia. lia. }
-    rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name] w)%I) _ ).
-    rewrite map_to_list_to_map.
-    2 : { rewrite fst_zip //. lia. }
-    rewrite big_sepL2_alt.
-    iFrame "Hσ Hmm". rewrite -Hlen H //.
+    Admitted.
+    (* iIntros (Hnodup Hlen) "Hσ Hmm". *)
+    (* iDestruct (big_sepL2_alt with "Hmm") as "[% Hmm]". *)
+    (* rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word _). *)
+    (* 2: { rewrite fst_zip //;lia. } *)
+    (* rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ). *)
+    (* rewrite  mem_mapsto_eq /mem_mapsto_def. *)
+    (* iDestruct ((ghost_map_update_big _  (list_to_map (zip ads wl'))) with "Hσ Hmm") as ">[Hσ Hmm]". *)
+    (* { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. lia. lia. } *)
+    (* rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name] w)%I) _ ). *)
+    (* rewrite map_to_list_to_map. *)
+    (* 2 : { rewrite fst_zip //. lia. } *)
+    (* rewrite big_sepL2_alt. *)
+    (* iFrame "Hσ Hmm". rewrite -Hlen H //. *)
+  (* Qed. *)
+
+
+
+  (* Definition mem_region (instr: list Word) (b:Addr):= *)
+  (*   ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I. *)
+
+  (* This definition implicitly requires the length of instr is equal to/less than page_size  *)
+  (* Definition mem_page (instr: list Word) (p: PID):= *)
+  (*   ([∗ list] a;w ∈ (finz.seq (of_pid p) (Z.to_nat page_size));instr, (a ->a w))%I. *)
+
+  Definition memory_page (p : PID) (mem: mem): iProp Σ:=
+    ⌜dom (gset Addr) mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+
+  Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
+
+  Definition memory_pages (ps :gset PID) (mem:mem): iProp Σ:=
+    ⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+
+
+  (* lemmas about [memory_pages] *)
+  Notation fold_union_addr_of_page b ps :=
+    (set_fold (λ (p : PID) (acc : gset Addr), list_to_set (addr_of_page p) ∪ acc) b ps).
+
+  Lemma fold_union_addr_of_page_strong_assoc_comm (X : gset PID):
+    ∀ (x1 x2 : PID) (b' : gset Addr),
+    x1 ∈ X
+    → x2 ∈ X
+    → x1 ≠ x2
+    → list_to_set (addr_of_page x1) ∪ (list_to_set (addr_of_page x2) ∪ b') =
+        list_to_set (addr_of_page x2) ∪ (list_to_set (addr_of_page x1) ∪ b').
+  Proof.
+    intros ? ? b Hin1 Hin2 Hneq.
+    rewrite assoc_L.
+    rewrite assoc_L.
+    f_equal.
+    rewrite comm_L //.
   Qed.
 
-  Lemma gen_mem_update_page{σ wl} p (wl': list Word):
-    length wl' = (Z.to_nat page_size) ->
-    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
-    mem_page wl p ==∗
-    ghost_map_auth gen_mem_name 1
-    (list_to_map (zip (finz.seq p (Z.to_nat page_size)) wl') ∪ get_mem σ) ∗
-    mem_page wl' p.
+  Lemma fold_union_addr_of_page_comm (s1 : gset PID) (s2 s3: gset Addr) :
+    fold_union_addr_of_page (s3 ∪ s2) s1 = s3 ∪ fold_union_addr_of_page s2 s1.
   Proof.
-    iIntros (Hlen) "Hσ Hp".
-    rewrite /mem_page.
-    iAssert (⌜ length wl = Z.to_nat 1000 ⌝%I) as "%Hlen'".
-    { iDestruct (big_sepL2_alt with "Hp") as "[% Hp]". iPureIntro. rewrite finz_seq_length in H. lia. }
-    iApply ((gen_mem_update_SepL2 (finz.seq p (Z.to_nat 1000)) wl wl') with "Hσ");eauto.
-    apply finz_seq_NoDup'.
-    apply last_addr_in_bound. lia.
+    revert s1 s2 s3.
+    induction s1 using set_ind_L.
+    {
+      intros.
+      rewrite !set_fold_empty.
+      done.
+    }
+    {
+      intros.
+      rewrite (set_fold_disj_union_strong _ _  (s3 ∪ s2) {[x]} X).
+      {
+        rewrite set_fold_singleton.
+        assert ((list_to_set (addr_of_page x) ∪ (s3 ∪ s2)) = (s3 ∪ (list_to_set (addr_of_page x) ∪  s2))) as ->.
+        {
+          rewrite (union_assoc_L _ s3 s2).
+          rewrite (union_comm_L _ s3).
+          rewrite union_assoc_L //.
+        }
+        rewrite IHs1.
+        rewrite (set_fold_disj_union_strong _ _ s2 {[x]} X).
+        rewrite set_fold_singleton //.
+        apply fold_union_addr_of_page_strong_assoc_comm.
+        set_solver + H.
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      set_solver + H.
+    }
   Qed.
 
-  Lemma mem_pages_SepL2_length_pure ps wss:
-    ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ⊢ ⌜ (forall ws, ws ∈ wss -> length ws = (Z.to_nat page_size)) ⌝.
+  Lemma fold_union_addr_of_page_disj_aux (p: PID) (s1 : gset PID) (s2: gset Addr) : p ∉ s1 ->
+    (list_to_set (addr_of_page p)) ## s2 ->
+    (list_to_set (addr_of_page p)) ## (fold_union_addr_of_page s2 s1).
+  Proof.
+    revert s1 s2.
+    induction s1 using set_ind_L.
+    {
+      intros.
+      rewrite set_fold_empty.
+      done.
+    }
+    {
+      intros.
+      rewrite (set_fold_disj_union_strong _ _ s2 {[x]} X).
+      {
+        rewrite set_fold_singleton.
+        rewrite fold_union_addr_of_page_comm.
+        apply disjoint_union_r.
+        split.
+        { apply addr_of_page_disj. set_solver + H0. }
+        apply IHs1.
+        set_solver + H0.
+        done.
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      set_solver + H.
+    }
+  Qed.
+
+  Lemma set_of_addr_disj (s1 s2 : gset PID) :
+    s1 ## s2 ->
+    (set_of_addr s1) ## (set_of_addr s2).
+  Proof.
+    revert s1 s2.
+    rewrite /set_of_addr.
+    induction s1 using set_ind_L.
+    {
+      intros.
+      rewrite set_fold_empty.
+      done.
+    }
+    {
+      intros ? Hdisj.
+      rewrite (set_fold_disj_union_strong _ _ _ {[x]} X).
+      {
+        rewrite set_fold_singleton.
+        rewrite fold_union_addr_of_page_comm.
+        apply disjoint_union_l.
+        split.
+        { apply fold_union_addr_of_page_disj_aux.
+          set_solver + Hdisj.
+          apply disjoint_empty_r.
+        }
+        { apply IHs1.
+          set_solver + Hdisj. }
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      set_solver + H.
+    }
+  Qed.
+
+  Lemma set_of_addr_union (s1 s2 : gset PID):
+    s1 ## s2 ->
+    set_of_addr (s1 ∪ s2) =
+      (set_of_addr s1) ∪ (set_of_addr s2).
+  Proof.
+    intro Hdisj.
+    rewrite /set_of_addr.
+    rewrite (set_fold_disj_union_strong _ _ _ s1 s2).
+    {
+      rewrite -fold_union_addr_of_page_comm.
+      rewrite union_empty_r_L //.
+    }
+    apply fold_union_addr_of_page_strong_assoc_comm.
+    exact Hdisj.
+  Qed.
+
+  Lemma elem_of_set_of_addr a p ps:
+    a ∈ addr_of_page p ->
+    p ∈ ps ->
+    a ∈ set_of_addr ps.
   Proof.
     revert ps.
-    rewrite /mem_page.
-    induction wss.
-    - iIntros (?) "Hl".
-      iPureIntro; intros; inversion H.
-    -  iIntros (?) "Hl".
-       destruct ps; cbn.
-       { iExFalso; done. }
-       { iIntros (??).
-         iDestruct "Hl" as "[Hl Hls]".
-         iDestruct (big_sepL2_length with  "Hl") as "%".
-         rewrite finz_seq_length in H.
-         apply elem_of_cons in a1 as [Heqa | Hin].
-         subst a0.
-         done.
-         iDestruct ((IHwss ps) with "Hls") as "%Hforall".
-         iPureIntro.
-         by apply Hforall. }
+    induction ps using set_ind_L.
+    {
+      intros.
+      inversion H0.
+    }
+    intros Hin_a Hin_p.
+    destruct (decide (p = x)).
+    {
+      subst x.
+      rewrite set_of_addr_union.
+      {
+        apply elem_of_union_l.
+        rewrite /set_of_addr.
+        rewrite set_fold_singleton union_empty_r.
+        rewrite elem_of_list_to_set //.
+      }
+      rewrite disjoint_singleton_l //.
+    }
+    {
+      rewrite set_of_addr_union.
+      {
+       apply elem_of_union_r.
+       apply IHps.
+       done.
+       apply elem_of_union in Hin_p.
+       destruct Hin_p.
+       rewrite elem_of_singleton // in H0.
+       done.
+      }
+      rewrite disjoint_singleton_l //.
+    }
+    Qed.
+
+  Lemma elem_of_set_of_addr_tpa a ps:
+    (tpa a) ∈ ps -> a ∈ set_of_addr ps.
+  Proof.
+    apply elem_of_set_of_addr.
+    apply elem_of_addr_of_page_tpa.
   Qed.
 
-  Lemma mem_page2_invalid{ws ws'} p :
-    mem_page ws p ∗ mem_page ws' p -∗ False.
+  Lemma elem_of_memory_pages_lookup (m: gmap Addr Word) a ps:
+    (tpa a) ∈ ps ->
+    dom (gset Addr) m = set_of_addr ps ->
+    is_Some (m !! a).
   Proof.
-    iIntros "[Hpg Hpg']".
-    rewrite /mem_page.
-    iDestruct (big_sepL2_alt with "Hpg") as "[%Heqlen Hpg]".
-    iDestruct (big_sepL2_alt with "Hpg'") as "[%Heqlen' Hpg']".
-    destruct ws, ws';cbn.
-    inversion Heqlen.
-    inversion Heqlen.
-    inversion Heqlen'.
-    rewrite finz_seq_cons;[|lia].
-    cbn.
-    iDestruct "Hpg" as "[Hp Hpg]".
-    iDestruct "Hpg'" as "[Hp' Hpg']".
+    intros Hin Heq_dom.
+    apply elem_of_set_of_addr_tpa in Hin.
+    rewrite -Heq_dom in Hin.
+    by apply elem_of_dom.
+  Qed.
+
+  Lemma set_of_addr_empty : set_of_addr ∅ = ∅.
+  Proof.
+    rewrite /set_of_addr set_fold_empty //.
+  Qed.
+
+  Lemma memory_pages_split_union (ps1 ps2 :gset PID) :
+    ps1 ## ps2 ->
+    (∃mem, memory_pages (ps1 ∪ ps2) mem) ⊣⊢ ∃ mem1 mem2, memory_pages ps1 mem1 ∗ memory_pages ps2 mem2.
+  Proof.
+    intro Hdisj.
+    iSplit.
+    {
+      iIntros "[%mem [%Hdom mem]]".
+      rewrite set_of_addr_union in Hdom;last done.
+      pose proof (dom_union_inv_L mem _ _ (set_of_addr_disj _ _ Hdisj) Hdom) as Hsplit.
+      destruct Hsplit as (m1 & m2 & Heq & Hdisj_m & Hdom1 & Hdom2).
+      rewrite Heq.
+      rewrite big_sepM_union;last done.
+      iDestruct "mem" as "[mem1 mem2]".
+      iExists m1, m2.
+      iFrame.
+      done.
+    }
+    {
+      iIntros "(%m1 & %m2 & [%Hdom1 mem1] & [%Hdom2 mem2])".
+      iExists (m1 ∪ m2).
+      iSplitL "".
+      iPureIntro.
+      rewrite dom_union_L.
+      rewrite Hdom1 Hdom2.
+      rewrite /set_of_addr set_fold_disj_union_strong.
+      {
+        rewrite -fold_union_addr_of_page_comm.
+        rewrite union_empty_r_L //.
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      exact Hdisj.
+      rewrite big_sepM_union.
+      iFrame.
+      apply map_disjoint_dom.
+      rewrite Hdom1 Hdom2.
+      apply set_of_addr_disj.
+      done.
+    }
+  Qed.
+
+  Lemma memory_pages_split_diff s s' :
+    s' ⊆ s ->
+    (∃mem, memory_pages s mem) ⊣⊢ ∃ mem1 mem2, memory_pages (s ∖ s') mem1 ∗ memory_pages s' mem2.
+  Proof.
+    intro Hsub.
+    rewrite -memory_pages_split_union;last set_solver +.
+    assert (s ∖ s' ∪ s' = s) as ->.
+    {
+      rewrite difference_union_L.
+      set_solver + Hsub.
+    }
+    done.
+  Qed.
+
+  Lemma memory_pages_split_singleton p s :
+    p ∈ s ->
+    (∃ mem, memory_pages s mem) ⊣⊢ ∃ mem1 mem2, memory_pages (s ∖ {[p]}) mem1  ∗ memory_pages {[p]} mem2.
+  Proof.
+    intro Hin.
+    apply memory_pages_split_diff.
+    set_solver + Hin.
+  Qed.
+
+  Lemma big_sepM_not_disj`{Countable K} {V :Type} (m1 m2: gmap K V) (Φ: K -> V -> iProp Σ) :
+    ¬ (m1 ##ₘ m2) ->
+    (∀ k v1 v2, Φ k v1 ∗ Φ k v2 -∗ False) ⊢
+    ([∗ map] k↦v ∈ m1, Φ k v) ∗ ([∗ map] k↦v ∈ m2, Φ k v) -∗ False.
+  Proof.
+    iIntros (Hnot_disj) "Hexcl [m1 m2]".
+    assert (∃ k, is_Some(m1 !! k) ∧ is_Some(m2 !! k)) as Hexists.
+    {
+      rewrite map_disjoint_dom elem_of_disjoint in Hnot_disj.
+      apply  not_set_Forall_Exists in Hnot_disj;last eapply _.
+      destruct Hnot_disj as [k [Hin H']].
+      exists k.
+      split.
+      rewrite elem_of_dom // in Hin.
+      simpl in H'.
+      apply dec_stable in H'.
+      rewrite elem_of_dom // in H'.
+    }
+    destruct Hexists as [k [Hin1 Hin2]].
+    destruct Hin1 as [v1 Hlookup1].
+    destruct Hin2 as [v2 Hlookup2].
+    iDestruct (big_sepM_lookup with "m1") as "m1";first exact Hlookup1.
+    iDestruct (big_sepM_lookup with "m2") as "m2";first exact Hlookup2.
+    iApply ("Hexcl" $! k).
+    iFrame.
+  Qed.
+
+  Lemma memory_pages_disj_singleton{mem mem'} p  : memory_pages {[p]} mem ∗ memory_pages {[p]} mem'⊢ False.
+  Proof.
+    iIntros " [[%Hdom1 mem1] [%Hdom2 mem2]]".
+    rewrite /set_of_addr set_fold_singleton in Hdom1 Hdom2.
+    rewrite union_empty_r_L in Hdom1 Hdom2.
+    iApply (big_sepM_not_disj with "[] [$mem1 $mem2]").
+    rewrite map_disjoint_dom.
+    rewrite Hdom1 Hdom2.
+    rewrite disjoint_intersection_L.
+    pose proof (addr_of_page_not_empty_set p) as Hne.
+    rewrite intersection_idemp_L.
+    done.
+    iIntros (k v1 v2) "[Hp1 Hp2]".
     rewrite mem_mapsto_eq /mem_mapsto_def.
-    iDestruct (ghost_map_elem_valid_2 with "Hp Hp'") as "%Hvalid".
+    iDestruct (ghost_map_elem_valid_2 with "Hp1 Hp2") as "%Hvalid".
     destruct Hvalid as [Hvalid _].
     rewrite dfrac_op_own in Hvalid.
     rewrite -> dfrac_valid_own in Hvalid.
     exfalso.
-    apply (bool_decide_unpack _).
-    by compute.
+    eauto using Qp_not_add_le_r.
   Qed.
 
+  Lemma memory_pages_disj{mem mem'} s1 s2 : memory_pages s1 mem ∗ memory_pages s2 mem' ⊢ ⌜s1 ## s2⌝.
+  Proof.
+    iIntros "[mem1 mem2]".
+    rewrite elem_of_disjoint.
+    iIntros (p Hin1 Hin2).
+    iPoseProof (memory_pages_split_singleton p _ Hin1) as "[Hsplit _]".
+    iDestruct ("Hsplit" with "[mem1]") as "(% & % & mem1' & mem1_p)".
+    iExists mem. iFrame.
+    iPoseProof (memory_pages_split_singleton p _ Hin2) as "[Hsplit' _]".
+    iDestruct ("Hsplit'" with "[mem2]") as "(% & % & mem2' & mem2_p)".
+    iExists mem'. iFrame.
+    iApply (memory_pages_disj_singleton with "[$mem1_p $mem2_p]").
+  Qed.
+
+  Lemma memory_pages_empty : ⊢ memory_pages ∅ ∅.
+  Proof.
+    iIntros.
+    rewrite /memory_pages.
+    iSplit.
+    rewrite dom_empty_L set_of_addr_empty //.
+    rewrite big_sepM_empty //.
+  Qed.
+
+
+  Lemma gen_mem_update_page{σ mem_p} p (mem_p': mem):
+    dom (gset _) mem_p = dom (gset _) mem_p' ->
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
+    memory_page p mem_p ==∗
+    ghost_map_auth gen_mem_name 1 (mem_p' ∪ (get_mem σ)) ∗
+    memory_page p mem_p'.
+  Proof.
+    iIntros (Hdom) "auth [%Hdom_mem frag]".
+    rewrite /memory_page.
+    (* iAssert (⌜length wl = Z.to_nat 1000 ⌝%I) as "%Hlen'". *)
+    (* { iDestruct (big_sepL2_alt with "Hp") as "[% Hp]". iPureIntro. rewrite finz_seq_length in H. lia. } *)
+    iDestruct ((gen_mem_update_SepM mem_p mem_p') with "auth frag") as ">[auth frag]";first auto.
+    iModIntro.
+    iFrame "auth frag".
+    rewrite -Hdom //.
+  Qed.
+
+  (* Lemma mem_pages_SepL2_length_pure ps wss: *)
+  (*   ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ⊢ ⌜ (forall ws, ws ∈ wss -> length ws = (Z.to_nat page_size)) ⌝. *)
+  (* Proof. *)
+  (*   revert ps. *)
+  (*   rewrite /mem_page. *)
+  (*   induction wss. *)
+  (*   - iIntros (?) "Hl". *)
+  (*     iPureIntro; intros; inversion H. *)
+  (*   -  iIntros (?) "Hl". *)
+  (*      destruct ps; cbn. *)
+  (*      { iExFalso; done. } *)
+  (*      { iIntros (??). *)
+  (*        iDestruct "Hl" as "[Hl Hls]". *)
+  (*        iDestruct (big_sepL2_length with  "Hl") as "%". *)
+  (*        rewrite finz_seq_length in H. *)
+  (*        apply elem_of_cons in a1 as [Heqa | Hin]. *)
+  (*        subst a0. *)
+  (*        done. *)
+  (*        iDestruct ((IHwss ps) with "Hls") as "%Hforall". *)
+  (*        iPureIntro. *)
+  (*        by apply Hforall. } *)
+  (* Qed. *)
+
+  (* TODO *)
   Lemma mem_pages_SepL2_acc p ps wss:
     p ∈ ps ->
     ([∗ list] p;ws ∈ ps;wss, mem_page ws p) ⊢
