@@ -327,30 +327,12 @@ Section logrel_extra.
     {
       iPureIntro.
       intro k0.
+      rewrite -elem_of_dom.
+      rewrite dom_union_L.
       specialize (Htotal k0).
-      destruct Htotal as [? Hlookup_k0].
-      destruct (decide (k1 = k0)).
-      - subst k1.
-        simplify_map_eq /=.
-        done.
-      - simplify_map_eq /=.
-        destruct (decide (k2 = k0)).
-        + exists v2'.
-          rewrite lookup_union_Some_raw.
-          left.
-          subst k0.
-          apply lookup_insert_Some.
-          right.
-          split;first done.
-          apply lookup_insert_Some.
-          left.
-          rewrite Hlookup2 in Hlookup_k0.
-          inversion Hlookup_k0;subst x. done.
-        + exists x.
-          rewrite lookup_union_Some_raw.
-          right.
-          split;last done.
-          rewrite !lookup_insert_None;repeat split;done.
+      rewrite -elem_of_dom in Htotal.
+      apply elem_of_union_r.
+      done.
     }
     {
       iApply "Hrestore".
@@ -397,40 +379,12 @@ Section logrel_extra.
     {
       iPureIntro.
       intro k0.
+      rewrite -elem_of_dom.
+      rewrite dom_union_L.
       specialize (Htotal k0).
-      destruct Htotal as [? Hlookup_k0].
-      destruct (decide (k1 = k0)).
-      - subst k1.
-        simplify_map_eq /=.
-        done.
-      - simplify_map_eq /=.
-        destruct (decide (k2 = k0)).
-        + exists v2'.
-          rewrite lookup_union_Some_raw.
-          left.
-          subst k0.
-          apply lookup_insert_Some.
-          right.
-          split;first done.
-          apply lookup_insert_Some.
-          left.
-          done.
-        + destruct (decide (k3 = k0)).
-          * simplify_map_eq /=.
-            exists v3'.
-            rewrite lookup_union_Some_raw.
-            left.
-            rewrite !lookup_insert_Some.
-            right.
-            split;first done.
-            right.
-            split;first done.
-            left;done.
-          * exists x.
-            rewrite lookup_union_Some_raw.
-            right.
-            split;last done.
-            rewrite !lookup_insert_None;repeat split;done.
+      rewrite -elem_of_dom in Htotal.
+      apply elem_of_union_r.
+      done.
     }
     {
       iApply "Hrestore".
@@ -442,6 +396,67 @@ Section logrel_extra.
       done.
       apply lookup_insert_None.
       split;done.
+      rewrite !lookup_insert_None.
+      repeat split;done.
+    }
+  Qed.
+
+ Lemma ra_big_sepM_split_upd4 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3 k4: K) (v1 v2 v3 v4:V)
+        (total:= (λ m, (∀ k, is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ):
+    k1 ≠ k2 ->
+    k1 ≠ k3 ->
+    k2 ≠ k3 ->
+    k1 ≠ k4 ->
+    k4 ≠ k3 ->
+    k2 ≠ k4 ->
+    map !! k1 = Some v1 ->
+    map !! k2 = Some v2 ->
+    map !! k3 = Some v3 ->
+    map !! k4 = Some v4 ->
+    ((⌜total map⌝ ∗ [∗ map] k↦y ∈ map, f k y)%I
+     ⊢ f k1 v1 ∗ f k2 v2 ∗ f k3 v3 ∗ f k4 v4 ∗
+          (∀ v1' v2' v3' v4', f k1 v1' ∗ f k2 v2' ∗ f k3 v3' ∗ f k4 v4' -∗ ∃ map', (⌜total map'⌝ ∗ [∗ map] k↦y ∈ map', f k y)))%I.
+  Proof.
+    iIntros (Hneq1 Hneq2 Hneq3 Hneq4 Hneq5 Hneq6 Hlookup1 Hlookup2 Hlookup3 Hlookup4) "[%Htotal Hmaps]".
+    pose proof (Htotal k1) as Hlookup_k1.
+    pose proof (Htotal k2) as Hlookup_k2.
+    pose proof (Htotal k3) as Hlookup_k3.
+    pose proof (Htotal k4) as Hlookup_k4.
+    simplify_map_eq.
+    iDestruct (big_sepM_union_acc map {[k1 := v1 ; k2 := v2 ; k3 := v3 ; k4 := v4]} f with "Hmaps")
+      as "[Hsingle Hrestore]".
+    {
+      repeat apply insert_subseteq_l;eauto.
+      apply map_empty_subseteq.
+    }
+    rewrite !big_opM_insert;try rewrite !lookup_insert_None;eauto.
+    iDestruct "Hsingle" as "(single1 & single2 & single3 & single4 & _)".
+    iFrame "single1 single2 single3 single4".
+    iIntros (v1' v2' v3' v4') "Hsingle_upd".
+    iExists ({[k1 := v1'; k2:= v2'; k3 := v3'; k4:= v4']} ∪ map).
+    iSplitL "".
+    {
+      iPureIntro.
+      intro k0.
+      rewrite -elem_of_dom.
+      rewrite dom_union_L.
+      specialize (Htotal k0).
+      rewrite -elem_of_dom in Htotal.
+      apply elem_of_union_r.
+      done.
+    }
+    {
+      iApply "Hrestore".
+      iPureIntro. set_solver +.
+      rewrite !big_opM_insert.
+      iDestruct "Hsingle_upd" as "(single_upd1 & single_upd2 & single_upd3 & single_upd4)".
+      iFrame.
+      done.
+      done.
+      apply lookup_insert_None.
+      split;done.
+      rewrite !lookup_insert_None.
+      repeat split;done.
       rewrite !lookup_insert_None.
       repeat split;done.
     }
@@ -498,6 +513,24 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd3 reg r1 r2 r3 w1 w2 w3 (λ k v, k @@ i ->r v)%I);eauto.
   Qed.
 
+  Lemma reg_big_sepM_split_upd4 i {reg r1 w1 r2 w2 r3 w3 r4 w4}:
+    reg !! r1 = Some w1 ->
+    reg !! r2 = Some w2 ->
+    reg !! r3 = Some w3 ->
+    reg !! r4 = Some w4 ->
+    r1 ≠ r2 ->
+    r1 ≠ r3 ->
+    r2 ≠ r3 ->
+    r1 ≠ r4 ->
+    r4 ≠ r3 ->
+    r2 ≠ r4 ->
+    ((⌜is_total_gmap reg⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
+     ⊢  (r1 @@ i ->r w1) ∗ (r2 @@ i ->r w2) ∗ (r3 @@ i ->r w3) ∗ (r4 @@ i ->r w4) ∗
+          (∀ w1' w2' w3' w4', r1 @@ i ->r w1' ∗ r2 @@ i ->r w2' ∗ r3 @@ i ->r w3' ∗ r4 @@ i ->r w4' -∗ ∃ reg', (⌜is_total_gmap reg'⌝ ∗ [∗ map] k↦y ∈ reg', k @@ i ->r y)))%I.
+  Proof.
+    iIntros (Hlookup1 Hlookup2 Hlookup3 Hlookup4 Hneq1 Hneq2 Hneq3 ? ? ? ) "[%Hfull Hregs]".
+    iApply (ra_big_sepM_split_upd4 reg r1 r2 r3 r4 w1 w2 w3 w4 (λ k v, k @@ i ->r v)%I);eauto.
+  Qed.
 
 (** pagetable **)
  (* Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}: *)
