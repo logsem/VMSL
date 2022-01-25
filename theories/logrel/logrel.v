@@ -104,7 +104,7 @@ Section logrel.
                RX_state@ i := rx_state ∗
                (* RX *)
                (rx_page i p_rx) ∗
-               (∃ mem_rx, memory_page p_rx) ∗
+               (∃ mem_rx, memory_page p_rx mem_rx) ∗
                (* Implications: these implications relate [trans], the transactions at the beginning of the proof, and
                 [trans'], those at the point of switching to i. These assumptions are (I believe) necessary to prove FTLR.
                 Moreover, they are provable because of that fact that i as the invoker is the only vm can manipulate
@@ -116,7 +116,7 @@ Section logrel.
                 the proofs to the users of LR. *)
                (transaction_pagetable_entries_owned trans -∗ transaction_pagetable_entries_owned trans') ∗
                (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗
-               ((∃ mem_oea, memory_pages ps_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
+               ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
                 ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0
@@ -152,13 +152,13 @@ Section logrel.
       (* registers *)
       (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ i ->r w) ∗
       (* TX page and its memory *)
-      (tx_page i p_tx ∗ memory_pages {[p_tx]}) ∗
+      (tx_page i p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
       (* access *)
       i -@{1/2}A> ps_acc ∗
       ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned trans ∗
-      (∃ mem_oea, memory_pages ps_oea) ∗
+      (∃ mem_oea, memory_pages ps_oea mem_oea) ∗
       VMProp i (VMProp_unknown p_tx p_rx trans) (1/2)%Qp
     )%I.
 

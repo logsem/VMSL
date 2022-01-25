@@ -469,7 +469,7 @@ Section mem_rules.
     iFrame.
   Qed.
 
-  Lemma memory_pages_disj_singleton {mem mem'} p  : memory_page p mem ∗ memory_page p mem'⊢ False.
+  Lemma memory_page_false {mem mem'} p : memory_page p mem ∗ memory_page p mem'⊢ False.
   Proof.
     iIntros " [[%Hdom1 mem1] [%Hdom2 mem2]]".
     iApply (big_sepM_not_disj with "[] [$mem1 $mem2]").
@@ -489,6 +489,13 @@ Section mem_rules.
     eauto using Qp_not_add_le_r.
   Qed.
 
+  Lemma memory_page_neq {mem mem'} p p' : memory_page p mem ∗ memory_page p' mem'⊢ ⌜p ≠ p'⌝.
+  Proof.
+    iIntros "[H1 H2] %".
+    subst.
+    iApply (memory_page_false with "[$H1 $H2]").
+  Qed.
+
   Lemma memory_pages_disj {mem mem'} s1 s2 : memory_pages s1 mem ∗ memory_pages s2 mem' ⊢ ⌜s1 ## s2⌝.
   Proof.
     iIntros "[mem1 mem2]".
@@ -500,7 +507,17 @@ Section mem_rules.
     iPoseProof (memory_pages_split_singleton p _ Hin2) as "[Hsplit' _]".
     iDestruct ("Hsplit'" with "[mem2]") as "(% & % & mem2' & mem2_p & _)".
     iFrame.
-    iApply (memory_pages_disj_singleton with "[$mem1_p $mem2_p]").
+    iApply (memory_page_false with "[$mem1_p $mem2_p]").
+  Qed.
+
+  Lemma memory_pages_disj_singleton {mem mem'} s1 p : memory_pages s1 mem ∗ memory_page p mem' ⊢ ⌜p ∉ s1⌝.
+  Proof.
+    iIntros "[mem1 mem2]".
+    iIntros "%Hin".
+    iPoseProof (memory_pages_split_singleton p _ Hin) as "[Hsplit _]".
+    iDestruct ("Hsplit" with "[mem1]") as "(% & % & mem1' & mem1_p & _)".
+    iFrame.
+    iApply (memory_page_false with "[$mem1_p $mem2]").
   Qed.
 
   Lemma memory_pages_empty : ⊢ memory_pages ∅ ∅.

@@ -259,6 +259,6 @@ Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt wh q tran'} ai mem_tx tr
 Proof.
 Admitted.
 
-(* TODO : validate_transaction_descriptor i Sharing tran = true ->
-   ∃ j ps, parse_transaction_descriptor = Some (i,None,W0,j,ps)
- *)
+
+End mem_share.
+
