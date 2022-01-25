@@ -42,8 +42,8 @@ Lemma hvc_mem_share_nz {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset P
    ExecI @ i {{{ RET (false,ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
-                 ([∗ set] p ∈ ps, p -@O> i ) ∗
-                 i -@A> (sacc ∖ ps) ∗
+                 ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> false) ∗
+                 i -@A> sacc ∗
                  R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
                  R1 @@ i ->r r1 ∗
                  (∃ (wh: Word), ⌜wh ∈ sh⌝ ∗
@@ -284,6 +284,44 @@ Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt wh q tran' q' sacc} ai m
                  memory_page p_tx mem_tx ∗
                  wh -{q}>t tran'
     }}}.
+Proof.
+Admitted.
+
+
+Lemma hvc_mem_share_no_fresh_handles {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :
+  (tpa ai) ∈ sacc ->
+  (tpa ai) ≠ p_tx ->
+  let len := (Z.to_nat (finz.to_z r1)) in
+  decode_instruction wi = Some(Hvc) ->
+  decode_hvc_func r0 = Some(hvcf) ->
+  hvcf_to_tt hvcf = Some Sharing ->
+  (len <= page_size)%Z ->
+  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i,None,W0,j,ps) ->
+  i ≠ j ->
+  ps ⊆ sacc ->
+  sh = ∅ ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗
+      ▷ ai ->a wi ∗
+      ▷ ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
+      ▷ (i -@A> sacc) ∗
+      ▷ (R0 @@ i ->r r0) ∗
+      ▷ (R1 @@ i ->r r1) ∗
+      ▷ (R2 @@i ->r r2) ∗
+      ▷ (fresh_handles 1 sh) ∗
+      ▷ TX@ i := p_tx ∗
+      ▷ memory_page p_tx mem_tx
+       }}}
+   ExecI @ i {{{ RET (false,ExecI) ;
+                 PC @@ i ->r (ai ^+ 1)%f ∗
+                 ai ->a wi ∗
+                 ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
+                 i -@A> sacc ∗
+                 R0 @@ i ->r (encode_hvc_ret_code Error) ∗
+                 R1 @@ i ->r r1 ∗
+                 R2 @@ i ->r (encode_hvc_error NoMem) ∗
+                 fresh_handles 1 sh ∗
+                 TX@ i := p_tx ∗
+                 memory_page p_tx mem_tx}}}.
 Proof.
 Admitted.
 

@@ -11,8 +11,6 @@ Section logrel.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  (* TODO: we need some lemmas about it:
-     e.g. p ∈ pages_in_trans trans -> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2 *)
   Definition pages_in_trans (trans: gmap Word transaction) : gset PID :=
     map_fold (λ (k:Addr) v acc, v.1.1.2 ∪ acc) (∅: gset PID) trans.
 

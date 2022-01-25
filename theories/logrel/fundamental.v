@@ -945,7 +945,7 @@ Section fundamental.
               destruct (decide (ps_share ⊆ ps_acc' ∖ {[p_rx; p_tx]} ∖ ps_mem_in_trans)) as [Hsubseteq_share | Hnsubseteq_share].
               { (* all pages are exclusively owned, ok to perceed *)
                 destruct (decide (hpool' = ∅)).
-                { (* no avaiable fresh handles, apply [TODO] *)
+                { (* no avaiable fresh handles, apply [hvc_mem_share_no_fresh_handles] *)
                   admit.
                 }
                 (* succeed, apply [hvc_mem_share_nz] *)
@@ -953,8 +953,8 @@ Section fundamental.
               }
               { (* at least one page is not exclusively owned by i (i.e. is involved in a transaction) *)
                 assert (∃ p, p ∈ ps_share ∧ p ∈ ps_mem_in_trans) as [p [Hin_p_share Hin_p_mem_in_trans]].
-                { (*TODO*) admit.  }
-                (* TODO apply the lemma about [pages_in_trans] *)
+                { (* apply [not_subseteq_diff]*) admit.  }
+                (* apply [elem_of_pages_in_trans] *)
                 (* apply [hvc_mem_send_in_trans] *)
                 admit.
               }

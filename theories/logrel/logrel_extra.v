@@ -674,4 +674,76 @@ Section logrel_extra.
     }
   Qed.
 
+  Lemma not_subseteq `{Countable T} (A B: gset T):
+    A ⊈ B -> ∃ a, a ∈ A ∧ a ∉ B.
+  Proof.
+    intros.
+    induction A using set_ind_L.
+    pose proof (empty_subseteq B) .
+    done.
+    destruct (decide (x ∈ B)).
+    {
+      assert (X ⊈ B).
+      {
+        intro.
+        apply H0.
+        set_solver.
+      }
+      apply IHA in H2 as [a [? ?]].
+      exists a.
+      split;auto.
+      set_solver.
+    }
+    {
+      exists x.
+      split;auto.
+      set_solver.
+    }
+  Qed.
+
+ Lemma not_subseteq_diff `{Countable T} (A B C: gset T) :
+   A ⊆ B -> A ⊈ (B ∖ C) -> ∃ a, a ∈ A ∧ a ∈ C.
+  Proof.
+    intros Hsub1 Hsub2.
+    apply not_subseteq in Hsub2 as [a [Hin Hnin]].
+    rewrite elem_of_subseteq in Hsub1.
+    exists a.
+    split;auto.
+    specialize (Hsub1 a Hin).
+    set_solver.
+  Qed.
+
+  (* lemmas about pages_in_trans *)
+  Lemma elem_of_pages_in_trans p trans:
+    p ∈ pages_in_trans trans -> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.
+  Proof.
+    intros Hin.
+    rewrite /pages_in_trans in Hin.
+    induction trans using map_ind.
+    {
+      rewrite map_fold_empty // in Hin.
+    }
+    {
+      rewrite map_fold_insert_L in Hin.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      apply elem_of_union in Hin as [Hin |Hin].
+      exists i, x.
+      split;auto.
+      rewrite lookup_insert_Some;left;done.
+      apply IHtrans in Hin as [h [x' [Hlookup Hin']]].
+      exists h, x'.
+      split;auto.
+      rewrite lookup_insert_Some;right.
+      split;auto.
+      intro.
+      subst i.
+      rewrite H // in Hlookup.
+      done.
+    }
+  Qed.
+
 End logrel_extra.
