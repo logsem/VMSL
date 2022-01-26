@@ -146,7 +146,7 @@ Lemma hvc_mem_send_invalid_des {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tra
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tran p O :
+Lemma hvc_mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p O mem_tx tran :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -182,7 +182,7 @@ Lemma hvc_mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tran 
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tran p :
+Lemma hvc_mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p mem_tx tran :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -217,7 +217,7 @@ Lemma hvc_mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tran p
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai mem_tx tran p :
+Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai p mem_tx tran:
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -251,7 +251,7 @@ Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai mem_tx tran p :
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt wh q tran' q' sacc} ai mem_tx tran p :
+Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt wh q tran' q' sacc} ai p mem_tx tran:
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -288,7 +288,7 @@ Proof.
 Admitted.
 
 
-Lemma hvc_mem_share_no_fresh_handles {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :
+Lemma hvc_mem_share_no_fresh_handles {i wi r0 r1 r2 hvcf p_tx sacc} ai sh j mem_tx (ps: gset PID):
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in

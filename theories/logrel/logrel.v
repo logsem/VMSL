@@ -25,9 +25,10 @@ Section logrel.
    (⌜i ≠ V0⌝ -∗
         (VMProp_holds i (1/2)%Qp -∗ WP ExecI @ i {{(λ _, True )}}))%I.
 
-
   (* [pagetable_entries_excl_owned]: For pages that are exclusively accessible and owned by i, i keeps the entries. *)
   Definition pagetable_entries_excl_owned (i:VMID) (ps: gset PID) := pgt ps 1 i true.
+
+  (* TODO: a more general definition for [∗ map] filter trans, and lemmas about it  *)
 
   (* [transaction_hpool_global_transferred]: All of half of transactions, as we don't know which one would be used by i. *)
   (* We need the pure proposition to ensure all transaction entries are transferred.
