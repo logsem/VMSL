@@ -7,6 +7,15 @@ Section trans_rules.
 
 (* rules for transactions *)
 
+
+  Lemma trans_split w q tran :
+    w -{q}>t tran ⊣⊢ w -{q/2}>t tran ∗ w -{q/2}>t tran.
+    Admitted.
+
+  Lemma retri_split w q bool:
+    w -{q}>re bool ⊣⊢ w -{q/2}>re bool∗ w -{q/2}>re bool.
+    Admitted.
+
   Lemma trans_valid_Some {σ q} {meta} wh:
     (ghost_map_auth gen_trans_name 1 (get_trans_gmap σ)) -∗
      wh -{q}>t (meta) -∗
@@ -183,6 +192,14 @@ Section trans_rules.
 
   Definition fresh_handles q hs := (hp {q}[hs] ∗ ([∗ set] h ∈ hs, h -{q}>t - ∗ h -{q}>re -))%I.
 
+  Lemma not_elem_of_fresh_handles hs q w q' tran:
+    fresh_handles q hs ∗ w -{q'}>t tran ⊢ ⌜w ∉ hs⌝.
+  Admitted.
 
+
+  Lemma fresh_handles_disj hs q (trans : gmap Addr transaction) q':
+    fresh_handles q hs ∗
+    ([∗ map] w ↦ tran ∈ trans, w -{q'}>t tran.1) ⊢ ⌜hs ## dom (gset _) trans⌝.
+  Admitted.
 
 End trans_rules.

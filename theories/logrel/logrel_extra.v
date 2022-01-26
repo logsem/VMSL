@@ -7,17 +7,115 @@ From HypVeri Require Import proofmode.
 From stdpp Require fin_map_dom.
 Import uPred.
 
+Section sets.
+  Context `{Countable T}.
+  Implicit Type A B C : gset T.
 
-Section sep_map.
+  (* lemmas about sets... *)
+  Lemma union_split_difference_intersection_L A B:
+    A = (A ∖ B) ∪ (A ∩ B) ∧ (A ∖ B) ## (A ∩ B).
+  Proof.
+    split.
+    {
+      rewrite union_intersection_l_L.
+      rewrite difference_union_L.
+      set_solver.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma union_split_difference_intersection_subseteq_L A B:
+    B ⊆ A ->
+    A = (A ∖ B) ∪ B ∧ (A ∖ B) ## B.
+  Proof.
+    intro H0.
+    pose proof (union_split_difference_intersection_L A B) as H1.
+    assert (A∩ B = B).
+    {
+      set_solver + H0.
+    }
+    rewrite H2 in H1.
+    done.
+  Qed.
+
+  Lemma union_split_difference_1_L A B:
+    A ∪ B = A ∪ (B ∖ A) ∧ A ## (B ∖ A).
+  Proof.
+    split.
+    {
+      rewrite union_comm_L (union_comm_L _ (B ∖ A)).
+      rewrite difference_union_L //.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma union_split_difference_2_L A B:
+    A ∪ B = B ∪ (A ∖ B) ∧ B ## (A ∖ B).
+  Proof.
+    split.
+    {
+      rewrite  (union_comm_L _ (A ∖ B)).
+      rewrite difference_union_L //.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma not_subseteq A B:
+    A ⊈ B -> ∃ a, a ∈ A ∧ a ∉ B.
+  Proof.
+    intros.
+    induction A using set_ind_L.
+    pose proof (empty_subseteq B) .
+    done.
+    destruct (decide (x ∈ B)).
+    {
+      assert (X ⊈ B).
+      {
+        intro.
+        apply H0.
+        set_solver.
+      }
+      apply IHA in H2 as [a [? ?]].
+      exists a.
+      split;auto.
+      set_solver.
+    }
+    {
+      exists x.
+      split;auto.
+      set_solver.
+    }
+  Qed.
+
+ Lemma not_subseteq_diff A B C :
+   A ⊆ B -> A ⊈ (B ∖ C) -> ∃ a, a ∈ A ∧ a ∈ C.
+  Proof.
+    intros Hsub1 Hsub2.
+    apply not_subseteq in Hsub2 as [a [Hin Hnin]].
+    rewrite elem_of_subseteq in Hsub1.
+    exists a.
+    split;auto.
+    specialize (Hsub1 a Hin).
+    set_solver.
+  Qed.
+
+End sets.
+
+Section big_sep.
   Context `{Countable K} {A : Type}.
   Context {PROP : bi}.
   Implicit Types m : gmap K A.
-  Implicit Types Φ Ψ : K → A → PROP.
+  Implicit Types s : gset K.
 
 
 (* TODO: move to iris.algebra.big_op *)
-
-  Lemma big_sepM_union_acc m m' Φ `{!∀ m m'', Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
+  Lemma big_sepM_union_acc m m' (Φ: K → A → PROP) `{!∀ m m'', Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
               -∗ [∗ map] k↦y ∈ (m'' ∪  m) , Φ k y)} :
     m' ⊆ m ->
     ([∗ map] k↦y ∈ m, Φ k y) ⊢
@@ -82,13 +180,41 @@ Section sep_map.
       inversion Hlookup_some.
   Qed.
 
-End sep_map.
+  Lemma big_sepS_union_acc s s' (Φ: K → PROP) `{!∀ s s' s'', Absorbing (([∗ set] x ∈ s'', Φ x)
+              -∗ [∗ set] x ∈ (s ∖ s' ∪ s'') , Φ x)}:
+    s' ⊆ s ->
+    ([∗ set] x ∈ s, Φ x) ⊢
+    ([∗ set] x ∈ s', Φ x) ∗
+      (∀ s'', ⌜s'' ## (s ∖ s')⌝
+              -∗ ([∗ set] x ∈ s'', Φ x)
+              -∗ [∗ set] x ∈ (s ∖ s' ∪ s'') , Φ x).
+  Proof.
+    iIntros (Hsubseteq) "Hset".
+    pose proof(union_split_difference_intersection_subseteq_L s s' Hsubseteq) as [Heq Hdisj].
+    rewrite Heq.
+    iDestruct (big_sepS_union with "Hset") as "[Hset1 Hset2]".
+    done.
+    iFrame "Hset2".
+    iIntros (?) "%Hdisj' Hset'".
+    rewrite -Heq.
+    rewrite -Heq in Hdisj'.
+    iApply big_sepS_union.
+    done.
+    iFrame.
+  Qed.
+
+
+End big_sep.
 
 Section logrel_extra.
 
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
+
+  Lemma pgt_split {q} s o b:
+    pgt s q o b ⊣⊢ pgt s (q/2) o b ∗ pgt s (q/2) o b.
+  Admitted.
 
   Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
          (f: K -> V -> iProp Σ)
@@ -619,99 +745,6 @@ Section logrel_extra.
 
   (* TODO: For memory chunks *)
 
-  (* lemmas about sets... *)
-  Lemma union_split_difference_intersection_L `{Countable T} (A B: gset T):
-    A = (A ∖ B) ∪ (A ∩ B) ∧ (A ∖ B) ## (A ∩ B).
-  Proof.
-    split.
-    {
-      rewrite union_intersection_l_L.
-      rewrite difference_union_L.
-      set_solver.
-    }
-    {
-      set_solver.
-    }
-  Qed.
-
-  Lemma union_split_difference_intersection_subseteq_L `{Countable T} (A B: gset T):
-    B ⊆ A ->
-    A = (A ∖ B) ∪ B ∧ (A ∖ B) ## B.
-  Proof.
-    intro H0.
-    pose proof (union_split_difference_intersection_L A B) as H1.
-    assert (A∩ B = B).
-    {
-      set_solver + H0.
-    }
-    rewrite H2 in H1.
-    done.
-  Qed.
-
-  Lemma union_split_difference_1_L `{Countable T} (A B: gset T):
-    A ∪ B = A ∪ (B ∖ A) ∧ A ## (B ∖ A).
-  Proof.
-    split.
-    {
-      rewrite union_comm_L (union_comm_L _ (B ∖ A)).
-      rewrite difference_union_L //.
-    }
-    {
-      set_solver.
-    }
-  Qed.
-
-  Lemma union_split_difference_2_L `{Countable T} (A B: gset T):
-    A ∪ B = B ∪ (A ∖ B) ∧ B ## (A ∖ B).
-  Proof.
-    split.
-    {
-      rewrite  (union_comm_L _ (A ∖ B)).
-      rewrite difference_union_L //.
-    }
-    {
-      set_solver.
-    }
-  Qed.
-
-  Lemma not_subseteq `{Countable T} (A B: gset T):
-    A ⊈ B -> ∃ a, a ∈ A ∧ a ∉ B.
-  Proof.
-    intros.
-    induction A using set_ind_L.
-    pose proof (empty_subseteq B) .
-    done.
-    destruct (decide (x ∈ B)).
-    {
-      assert (X ⊈ B).
-      {
-        intro.
-        apply H0.
-        set_solver.
-      }
-      apply IHA in H2 as [a [? ?]].
-      exists a.
-      split;auto.
-      set_solver.
-    }
-    {
-      exists x.
-      split;auto.
-      set_solver.
-    }
-  Qed.
-
- Lemma not_subseteq_diff `{Countable T} (A B C: gset T) :
-   A ⊆ B -> A ⊈ (B ∖ C) -> ∃ a, a ∈ A ∧ a ∈ C.
-  Proof.
-    intros Hsub1 Hsub2.
-    apply not_subseteq in Hsub2 as [a [Hin Hnin]].
-    rewrite elem_of_subseteq in Hsub1.
-    exists a.
-    split;auto.
-    specialize (Hsub1 a Hin).
-    set_solver.
-  Qed.
 
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:

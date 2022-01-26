@@ -22,6 +22,10 @@ Section pagetable_rules.
     done.
   Qed.
 
+  Lemma own_split {q} p o :
+    p -@{q}O> o ⊣⊢ p -@{q/2}O> o ∗ p -@{q/2}O> o.
+  Admitted.
+
   Lemma own_agree {σ q γ} p s:
    ghost_map_auth γ 1 (get_own_gmap σ)  -∗
    ghost_map_elem γ p (DfracOwn q) s -∗
@@ -45,6 +49,10 @@ Section pagetable_rules.
     }
     done.
   Qed.
+
+  Lemma excl_split {q} p o :
+    p -@{q}E> o ⊣⊢ p -@{q/2}E> o ∗ p -@{q/2}E> o.
+  Admitted.
 
   Lemma excl_agree {σ q γ} p s:
    ghost_map_auth γ 1 (get_excl_gmap σ)  -∗
@@ -529,5 +537,14 @@ Section pagetable_rules.
   (*   rewrite own_mapsto_eq /own_mapsto_def. *)
   (*   iApply (gen_pagetable_update_union with "HO Hown");eauto. *)
   (* Qed. *)
+
+  (* TODO: a general lemma that can cover both *)
+  Lemma own_split_bigS {q} s o :
+    ([∗ set] p ∈ s, p -@{ q }O> o) ⊣⊢ ([∗ set] p ∈ s, p -@{ q/2 }O> o) ∗ [∗ set] p ∈ s, p -@{q/2}O> o.
+  Admitted.
+
+  Lemma excl_split_bigS {q} s o :
+    ([∗ set] p ∈ s, p -@{ q }E> o) ⊣⊢ ([∗ set] p ∈ s, p -@{ q/2 }E> o) ∗ [∗ set] p ∈ s, p -@{q/2}E> o.
+  Admitted.
 
 End pagetable_rules.

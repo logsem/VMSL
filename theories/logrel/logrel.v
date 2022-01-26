@@ -33,8 +33,8 @@ Section logrel.
   (* We need the pure proposition to ensure all transaction entries are transferred.
      Only half is needed so that the invokers can remember transactions by keeping the other half.
      Having half of pagetable entries gives us some extra properties... [TODO] *)
-  Definition transaction_hpool_global_transferred (hpool: gset Word) (trans: gmap Addr transaction) : iProp Σ:=
-    ⌜hpool ∪ dom (gset _ ) trans = hs_all⌝ ∗ fresh_handles 1 hpool ∗
+  Definition transaction_hpool_global_transferred (trans: gmap Addr transaction) : iProp Σ:=
+    ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = hs_all⌝ ∗ fresh_handles 1 hpool ∗
     [∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1 ∗ pgt tran.1.1.2 (1/2)%Qp tran.1.1.1.1.1 (bool_decide (tran.1.2 ≠ Sharing)).
 
   (* [transaction_pagetable_entries_owned]: transaction and page table entries that are owned initially by i,
@@ -68,7 +68,7 @@ Section logrel.
   Definition trans_mutable_retri(trans: gmap Word transaction) :=
     filter (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = false ∨ kv.2.1.1.1.1.1 = i)) trans.
   Definition retrieval_entries(trans: gmap Addr transaction) : iProp Σ:=
-     [∗ map] h ↦ tran ∈ (trans_related trans), (h -{1/2}>re tran.2) ∗
+     ([∗ map] h ↦ tran ∈ (trans_related trans), (h -{1/2}>re tran.2)) ∗
      [∗ map] h ↦ tran ∈ (trans_mutable_retri trans),(h -{1/2}>re tran.2) .
 
   (* [memory_transferred]: some memory points-to predicates are transferred by VMProp.
@@ -79,7 +79,7 @@ Section logrel.
    memory_pages (pages_in_trans (trans_memory_in_trans trans)) mem.
 
   Definition VMProp_unknown p_tx p_rx trans : iProp Σ:=
-    ∃ ps_na' ps_acc' (trans' : gmap Word transaction) hpool' rx_state ,
+    ∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state ,
                let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ pages_in_trans (trans_memory_in_trans trans) in
                let ps_macc_trans' := pages_in_trans (trans_memory_in_trans trans') in
                let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
@@ -92,7 +92,7 @@ Section logrel.
                ⌜ps_na' ## (ps_acc' ∪ ps_macc_trans')⌝ ∗
                (* we can derive ⌜{[p_rx;p_tx]} ## ps_mem_in_trans''⌝ from rx_page/tx_page ∗ transaction_hpool_global_transferred *)
                (* transaction and pagetable entries *)
-               transaction_hpool_global_transferred hpool' trans' ∗
+               transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred trans' ∗
                retrieval_entries trans' ∗
                (* memory *)
@@ -118,14 +118,14 @@ Section logrel.
                 ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0
-                      ((∃ ps_na'' ps_acc'' trans'' hpool'',
+                      ((∃ ps_na'' ps_acc'' trans'',
                            let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
                            (* lower bound *)
                            i -@{1/2}A> ps_acc'' ∗
                            LB@ i := [ps_na''] ∗
                            ⌜ps_na' ## ps_acc'' ∪ ps_macc_trans''⌝ ∗
                            (* transaction and pagetable entries *)
-                           transaction_hpool_global_transferred hpool'' trans'' ∗
+                           transaction_hpool_global_transferred trans'' ∗
                            transaction_pagetable_entries_transferred trans'' ∗
                            retrieval_entries trans'' ∗
                            (* memory *)
