@@ -251,7 +251,7 @@ Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai p mem_tx tran:
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt wh q tran' q' sacc} ai p mem_tx tran:
+Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt tran q tran' q' sacc} ai p wh mem_tx:
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in

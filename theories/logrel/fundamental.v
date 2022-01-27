@@ -985,28 +985,113 @@ iFrame.
               }
               destruct (decide (p_tx ∈ ps_share)) as [Hin_ptx_share | Hnin_ptx_share].
               { (* tx is not owned by i, apply [hvc_mem_send_not_owned] *)
-                admit.
+                iDestruct "pgt_tx" as "[own_tx excl_tx]".
+                iApply (hvc_mem_send_not_owned ai _ (p_tx -@O> -)%I with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_tx]");iFrameAutoSolve.
+                exact Hdecode_hvc.
+                simpl; reflexivity.
+                lia.
+                exact Heq_parse_tran.
+                done.
+                simpl; exact Hin_ptx_share.
+                iFrame.
+                iNext.
+                iIntros "?".
+                iLeft;done.
+                iNext.
+                iIntros "(PC & mem_instr & pgt_acc' & R0 & R1 & R2 & tx & mem_tx & own_tx) _".
+                iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
+
+                iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx with "regs tx [$own_tx $excl_tx] pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [mem_acc_tx mem_tx]
+                            Htotal_regs'").
+                {
+                  iApply (memory_pages_split_singleton p_tx).
+                  set_solver + Hsubset_mb.
+                  iExists mem_acc_tx, mem_tx.
+                  iFrame.
+                  eauto.
+                }
               }
 
               destruct (decide (p_rx ∈ ps_share)) as [Hin_prx_share | Hnin_prx_share].
               { (* rx is not owned by i, apply [hvc_mem_send_not_owned] *)
-                admit.
+                iDestruct "rx" as "[rx [own_rx excl_rx]]".
+                iApply (hvc_mem_send_not_owned ai _ (p_rx -@O> -)%I with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_rx]");iFrameAutoSolve.
+                exact Hdecode_hvc.
+                simpl; reflexivity.
+                lia.
+                exact Heq_parse_tran.
+                done.
+                simpl; exact Hin_prx_share.
+                iFrame.
+                iNext.
+                iIntros "?".
+                iLeft;done.
+                iNext.
+                iIntros "(PC & mem_instr & pgt_acc' & R0 & R1 & R2 & tx & mem_tx & own_rx) _".
+                iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
+
+                iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state [$rx $own_rx $excl_rx] prop0 propi tran_pgt_owned pgt_owned mem_rest [mem_acc_tx mem_tx]
+                            Htotal_regs'").
+                {
+                  iApply (memory_pages_split_singleton p_tx).
+                  set_solver + Hsubset_mb.
+                  iExists mem_acc_tx, mem_tx.
+                  iFrame.
+                  eauto.
+                }
               }
 
               assert (Hsubseteq_share' : ps_share ⊆ ps_acc' ∖ {[p_rx;p_tx]}).
               { set_solver + Hsubseteq_share Hnin_ptx_share Hnin_prx_share. }
               clear Hsubseteq_share Hnin_ptx_share Hnin_prx_share.
+
+              iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
               destruct (decide (ps_share ⊆ ps_acc' ∖ {[p_rx; p_tx]} ∖ ps_mem_in_trans)) as [Hsubseteq_share | Hnsubseteq_share].
               { (* all pages are exclusively owned, ok to perceed *)
-                iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
-                destruct (decide (hpool = ∅)).
-                { (* no avaiable fresh handles, apply [hvc_mem_share_no_fresh_handles] *)
-                  admit.
-                }
                 iDestruct (fresh_handles_disj with "[$fresh_handles trans]") as "%Hdisj_hpool".
                 { iDestruct (big_sepM_sep with "trans") as "[$ _]". }
                 iDestruct (access_split with "[$ pgt_acc $ pgt_acc' ]") as "pgt_acc".
                 iDestruct (big_sepS_union_acc _ ps_share with "pgt_owned") as "[pgt_oe_share Hacc_pgt_oe]";auto.
+                destruct (decide (hpool = ∅)).
+                { (* no avaiable fresh handles, apply [hvc_mem_share_no_fresh_handles] *)
+                  iApply (hvc_mem_share_no_fresh_handles ai hpool j mem_tx ps_share with "[PC mem_instr pgt_acc pgt_oe_share R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
+                  exact Hdecode_hvc.
+                  simpl; reflexivity.
+                  lia.
+                  intro;apply Hneq_sr,symmetry;done.
+                  set_solver + Hsubseteq_share'.
+                  iFrame.
+                  iNext. iIntros "(PC & mem_instr & pgt_oe_share & pgt_acc & R0 & R1 & R2 & fresh_handles & tx & mem_tx ) _".
+                  iDestruct ("Hacc_pgt_oe" $! ps_share with "[] pgt_oe_share") as "pgt_owned".
+                  { iPureIntro;set_solver +. }
+
+                  iDestruct ("Hacc_regs" $! (ai ^+ 1)%f _ _ _ with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
+                  iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+                  iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+                  iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned [pgt_owned] mem_rest [mem_acc_tx mem_tx]
+                            Htotal_regs'").
+                  {
+                    iExists hpool.
+                    by iFrame.
+                  }
+                  {
+                    pose proof (union_split_difference_intersection_subseteq_L _ _ Hsubseteq_share) as [<- _].
+                    iFrame.
+                  }
+                  (* TODO: iAssert it *)
+                  {
+                    iApply (memory_pages_split_singleton p_tx).
+                    set_solver + Hsubset_mb.
+                    iExists mem_acc_tx, mem_tx.
+                    iFrame.
+                    eauto.
+                  }
+                }
                 iApply (hvc_mem_share_nz ai j mem_tx hpool ps_share with "[PC mem_instr pgt_acc pgt_oe_share R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
                 exact Hdecode_hvc.
                 simpl; reflexivity.
@@ -1148,8 +1233,34 @@ iFrame.
                 assert (∃ p, p ∈ ps_share ∧ p ∈ ps_mem_in_trans) as [p [Hin_p_share Hin_p_mem_in_trans]].
                 { apply (not_subseteq_diff _ (ps_acc' ∖ {[p_rx; p_tx]}));auto. }
                 apply elem_of_pages_in_trans in  Hin_p_mem_in_trans as [h [tran [Hlookup_tran Hin_p_tran]]].
-                (* apply [hvc_mem_send_in_trans] *)
-                admit.
+                apply map_filter_lookup_Some in Hlookup_tran as [Hlookup_tran Htran_prop].
+                iDestruct (big_sepM_lookup_acc with "trans") as "[[tran_tran pgt_tran] Hacc_trans]";first exact Hlookup_tran.
+                (* XXX: Can we also apply [not_owned]/[not_excl]? this iApply is noticeable slow *)
+                iApply (hvc_mem_send_in_trans ai p h with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx tran_tran]");iFrameAutoSolve.
+                exact Hdecode_hvc.
+                simpl; reflexivity.
+                lia.
+                exact Heq_parse_tran.
+                done.
+                simpl; exact Hin_p_share.
+                iFrame.
+                iNext.
+                iIntros "(PC & mem_instr & pgt_acc' & R0 & R1 & R2 & tx & mem_tx & tran_tran) _".
+                iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
+                iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+                iDestruct ("Hacc_trans" with "[$ tran_tran $ pgt_tran]") as "trans".
+
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [mem_acc_tx mem_tx]
+                            Htotal_regs'").
+                iExists hpool;by iFrame.
+                {
+                  iApply (memory_pages_split_singleton p_tx).
+                  set_solver + Hsubset_mb.
+                  iExists mem_acc_tx, mem_tx.
+                  iFrame.
+                  eauto.
+                }
               }
             }
             { (*Lend*) admit. }
