@@ -525,8 +525,6 @@ Section timeless.
   Global Instance lower_bound_auth_mapsto_timeless (gm :gmap VMID (gset PID)) : Timeless (LB_auth gm).
   Proof. rewrite lower_bound_auth_mapsto_eq /lower_bound_auth_mapsto_def. apply _. Qed.
 
-
-
 End timeless.
 
 From machine_program_logic.program_logic Require Import weakestpre.
