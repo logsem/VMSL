@@ -206,7 +206,7 @@ Section big_sep.
   Qed.
 
   Lemma big_sepFM_lookup_Some_acc {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
-        {Φ : K -> A -> PROP} {k: K} {v : A} :
+        {Φ : K -> A -> PROP} {k : K} {v : A} :
     m !! k = Some v ->
     P (k,v) ->
     big_sepFM m P Φ ⊢ Φ k v ∗ (∀ v', if (decide (P (k,v'))) then (Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ)
@@ -230,7 +230,7 @@ Section big_sep.
   Qed.
 
   Lemma big_sepFM_lookup_None {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
-        {Φ : K -> A -> PROP} (k: K)  :
+        {Φ : K -> A -> PROP} (k : K) :
     m !! k = None ->
     big_sepFM m P Φ ⊢  (∀ v', if (decide (P (k,v'))) then (Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ)
                                                                                   else big_sepFM (<[k := v']>m) P Φ).
@@ -249,8 +249,8 @@ Section big_sep.
     rewrite delete_notin; done.
   Qed.
 
-  Lemma big_sepFM_lookup_None_True {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
-        {Φ : K -> A -> PROP} {k: K} {v : A} v' :
+  Lemma big_sepFM_lookup_None_True {m  : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} (v' : A) :
     m !! k = None ->
     P (k,v') ->
     big_sepFM m P Φ ⊢  Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ.
@@ -265,7 +265,7 @@ Section big_sep.
   Qed.
 
   Lemma big_sepFM_lookup_None_False {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
-        {Φ : K -> A -> PROP} {k: K} {v : A} v' :
+        {Φ : K -> A -> PROP} {k : K} (v' : A) :
     m !! k = None ->
     ¬P (k,v') ->
     big_sepFM m P Φ ⊢  big_sepFM (<[k := v']>m) P Φ.
@@ -313,11 +313,6 @@ Section logrel_extra.
   Lemma pgt_split {q} s o b:
     pgt s q o b ⊣⊢ pgt s (q/2) o b ∗ pgt s (q/2) o b.
   Admitted.
-
-
-
-
-
 
   Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
          (f: K -> V -> iProp Σ)

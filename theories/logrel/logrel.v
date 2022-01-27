@@ -33,7 +33,7 @@ Section logrel.
   (* [transaction_hpool_global_transferred]: All of half of transactions, as we don't know which one would be used by i. *)
   (* We need the pure proposition to ensure all transaction entries are transferred.
      Only half is needed so that the invokers can remember transactions by keeping the other half.
-     Having half of pagetable entries gives us some extra properties... [TODO] *)
+     Holding half of pagetable entries gives us extra properties... [TODO] *)
   Definition transaction_hpool_global_transferred (trans: gmap Addr transaction) : iProp Σ:=
     ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = hs_all⌝ ∗ fresh_handles 1 hpool ∗
     [∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1 ∗ pgt tran.1.1.2 (1/2)%Qp tran.1.1.1.1.1 (bool_decide (tran.1.2 ≠ Sharing)).
@@ -44,7 +44,7 @@ Section logrel.
      Therefore, i ownes half of these pagetable entries even if they are in some transactions.
      Furthermore, since it is suffice for the receiver to retrieve or relinquish with half of transacitons entries,
      while the sender needs full to reclaim, we let i always own half and only pass the otner half around with VMProp*)
-  (* [TODO] properties gained, relation to [pagetable_entries_excl_owned] *)
+  (* [TODO] relation to [pagetable_entries_excl_owned] *)
   Definition transaction_pagetable_entries_owned (trans: gmap Addr transaction) : iProp Σ:=
     big_sepFM trans (λ kv, kv.2.1.1.1.1.1 = i ∧ kv.2.1.2 ≠ Donation) (λ k v, k -{1/2}>t v.1 ∗ pgt v.1.1.2 (1/2)%Qp v.1.1.1.1.1 (bool_decide (v.1.2 ≠ Sharing)))%I.
 
