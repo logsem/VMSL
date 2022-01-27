@@ -3,9 +3,14 @@ From HypVeri.algebra Require Import base.
 Section predicates.
 
   Context `{hypconst : !HypervisorConstants}.
+  Context `{Countable K} {V: Type}.
 
-  Definition is_total_gmap `{Countable K} {V: Type} (m : gmap K V) : Prop := ∀ (k : K), is_Some (m !! k).
+  Definition is_total_gmap  (m : gmap K V) : Prop := ∀ (k : K), is_Some (m !! k).
 
+  Context {PROP : bi}.
+
+  Definition big_sepFM(m : gmap K V) (P : K * V-> Prop) `{∀ x, Decision (P x)} (Φ : K -> V -> PROP) : PROP:=
+    [∗ map] k ↦ v ∈ (filter P m), Φ k v.
 End predicates.
 
 Section preservation.

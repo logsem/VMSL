@@ -113,8 +113,6 @@ Section big_sep.
   Implicit Types m : gmap K A.
   Implicit Types s : gset K.
 
-
-(* TODO: move to iris.algebra.big_op *)
   Lemma big_sepM_union_acc m m' (Φ: K → A → PROP) `{!∀ m m'', Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
               -∗ [∗ map] k↦y ∈ (m'' ∪  m) , Φ k y)} :
     m' ⊆ m ->
@@ -180,6 +178,106 @@ Section big_sep.
       inversion Hlookup_some.
   Qed.
 
+    Lemma big_sepM_union_acc_singleton k v m (Φ: K → A → PROP) `{!∀ m m'', Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
+              -∗ [∗ map] k↦y ∈ (m'' ∪  m) , Φ k y)} :
+    m !! k = Some v ->
+    ([∗ map] k↦y ∈ m, Φ k y) ⊢
+     (Φ k v)∗
+      (∀ v',  Φ k v' -∗ [∗ map] k↦y ∈ <[k:= v']> m , Φ k y).
+  Proof.
+    iIntros (Hlookup) "Hmap".
+    iDestruct (big_sepM_union_acc m {[k:= v]} with "Hmap") as "[Φ Hacc]".
+    {
+      rewrite map_subseteq_spec.
+      intros ? ? Hlookup'.
+      rewrite lookup_singleton_Some in Hlookup'.
+      destruct Hlookup' as [-> ->].
+      done.
+    }
+    rewrite big_sepM_singleton.
+    iFrame.
+    iIntros (v') "Φ'".
+    iDestruct ("Hacc" $! {[k:= v']} with "[] [Φ']") as "Hmap".
+    rewrite 2!dom_singleton_L //.
+    rewrite big_sepM_singleton.
+    iFrame.
+    rewrite insert_union_singleton_l.
+    iFrame.
+  Qed.
+
+  Lemma big_sepFM_lookup_Some_acc {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k: K} {v : A} :
+    m !! k = Some v ->
+    P (k,v) ->
+    big_sepFM m P Φ ⊢ Φ k v ∗ (∀ v', if (decide (P (k,v'))) then (Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ)
+                                                                                  else big_sepFM (<[k := v']>m) P Φ).
+  Proof.
+    iIntros (Hlk P_v) "fm".
+    rewrite /big_sepFM.
+    iDestruct (big_sepM_delete _ _ k v with "fm") as "[Φ Hacc]".
+    rewrite map_filter_lookup_Some.
+    split;auto.
+    iFrame "Φ".
+    iIntros (v').
+    case_decide.
+    iIntros "Φ".
+    rewrite map_filter_insert_True;auto.
+    rewrite big_sepM_insert_delete.
+    iFrame.
+    rewrite map_filter_insert_False;auto.
+    rewrite map_filter_delete.
+    done.
+  Qed.
+
+  Lemma big_sepFM_lookup_None {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} (k: K)  :
+    m !! k = None ->
+    big_sepFM m P Φ ⊢  (∀ v', if (decide (P (k,v'))) then (Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ)
+                                                                                  else big_sepFM (<[k := v']>m) P Φ).
+  Proof.
+    iIntros (Hlk) "fm".
+    rewrite /big_sepFM.
+    iIntros (v').
+    case_decide.
+    iIntros "Φ".
+    rewrite map_filter_insert_True;auto.
+    rewrite big_sepM_insert.
+    iFrame.
+    rewrite map_filter_lookup_None.
+    eauto.
+    rewrite map_filter_insert_False;auto.
+    rewrite delete_notin; done.
+  Qed.
+
+  Lemma big_sepFM_lookup_None_True {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k: K} {v : A} v' :
+    m !! k = None ->
+    P (k,v') ->
+    big_sepFM m P Φ ⊢  Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ.
+  Proof.
+    iIntros (Hlk P_v') "fm".
+    iIntros  "Φ".
+    iDestruct (big_sepFM_lookup_None k with "fm") as "Hacc";auto.
+    iDestruct ("Hacc" $! v') as "Hacc".
+    case_decide.
+    iApply ("Hacc" with "Φ").
+    done.
+  Qed.
+
+  Lemma big_sepFM_lookup_None_False {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k: K} {v : A} v' :
+    m !! k = None ->
+    ¬P (k,v') ->
+    big_sepFM m P Φ ⊢  big_sepFM (<[k := v']>m) P Φ.
+  Proof.
+    iIntros (Hlk P_v') "fm".
+    iDestruct (big_sepFM_lookup_None k with "fm") as "Hacc";auto.
+    iDestruct ("Hacc" $! v') as "Hacc".
+    case_decide.
+    done.
+    iApply "Hacc".
+  Qed.
+
   Lemma big_sepS_union_acc s s' (Φ: K → PROP) `{!∀ s s' s'', Absorbing (([∗ set] x ∈ s'', Φ x)
               -∗ [∗ set] x ∈ (s ∖ s' ∪ s'') , Φ x)}:
     s' ⊆ s ->
@@ -215,6 +313,11 @@ Section logrel_extra.
   Lemma pgt_split {q} s o b:
     pgt s q o b ⊣⊢ pgt s (q/2) o b ∗ pgt s (q/2) o b.
   Admitted.
+
+
+
+
+
 
   Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
          (f: K -> V -> iProp Σ)
