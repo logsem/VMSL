@@ -1,5 +1,5 @@
 From HypVeri.algebra Require Import base.
-From HypVeri Require Import lang_extra.
+From HypVeri Require Import lang lang_extra.
 
 Section mem_rules.
 
@@ -139,22 +139,45 @@ Section mem_rules.
   (* Qed. *)
 
 
-
-  (* Definition mem_region (instr: list Word) (b:Addr):= *)
-  (*   ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I. *)
-
-  (* This definition implicitly requires the length of instr is equal to/less than page_size  *)
-  (* Definition mem_page (instr: list Word) (p: PID):= *)
-  (*   ([∗ list] a;w ∈ (finz.seq (of_pid p) (Z.to_nat page_size));instr, (a ->a w))%I. *)
+  Definition memory_page_l (p: PID) (ws: list Word): iProp Σ:=
+    ([∗ list] a;w ∈ (addr_of_page p);ws, (a ->a w))%I.
 
   Definition memory_page (p : PID) (mem: mem): iProp Σ:=
     ⌜dom (gset Addr) mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+
+  Lemma memory_page_m_to_l {p : PID} (m: mem):
+    memory_page p m ⊢ ∃ l, memory_page_l p l ∗
+                             ⌜l = l⌝.
+  Admitted.
+
+  Lemma memory_page_l_to_m {p : PID} (l: list Word):
+    memory_page_l p l ⊢ memory_page p (list_to_map (zip (addr_of_page p) l)).
+  Proof.
+    iIntros "mem".
+    iDestruct (big_sepL2_alt with "mem") as "[%Hlen mem]".
+    rewrite /memory_page.
+    iSplit.
+    {
+      rewrite dom_list_to_map_L.
+      rewrite fst_zip //.
+      rewrite Hlen.
+      lia.
+    }
+    {
+      rewrite big_opM_map_to_list.
+      rewrite map_to_list_to_map.
+      done.
+      rewrite fst_zip.
+      apply addr_of_page_NoDup.
+      rewrite Hlen.
+      lia.
+    }
+  Qed.
 
   Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
 
   Definition memory_pages (ps :gset PID) (mem:mem): iProp Σ:=
     ⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
-
 
   (* lemmas about [memory_pages] *)
   Notation fold_union_addr_of_page b ps :=

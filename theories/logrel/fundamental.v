@@ -98,10 +98,7 @@ Section fundamental.
     }
 
     iDestruct "tx" as "[tx pgt_tx]".
-    (* iPoseProof (memory_pages_split_singleton p_tx ps_acc') as "[Hsplit _]". set_solver + Hsubset_mb. *)
     iDestruct (memory_pages_split_singleton p_tx ps_acc' with "mem_acc") as (mem_acc_tx mem_tx) "[[%Hdom_mem_acc_tx mem_acc_tx] [mem_tx %Heq_mem_acc]]". set_solver + Hsubset_mb.
-    (* { rewrite /memory_pages. iSplit. 2:{ iDestruct "mem_acc" as "[_ $]". } *)
-    (* iClear "Hsplit". *)
 
     subst ps_mem_in_trans.
     iLöb as "IH" forall (regs ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx) "Htotal_regs".
@@ -701,7 +698,7 @@ Section fundamental.
              iApply (excl_ne with "[$ excl_tx $ excl_rx]").
             }
             destruct (hvc_f).
-            { (*RUN TODO *) admit. }
+            { (*RUN*) admit. }
             { (*Yield*)
               iDestruct (reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_reg_R0  with "[$regs]") as "(PC & R0 & Hacc_regs)";eauto.
               pose proof (union_split_difference_intersection_L (ps_acc'∖ {[p_tx]}) ({[p_rx]} ∪ ps_mem_in_trans)) as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
@@ -869,7 +866,7 @@ Section fundamental.
                 iApply (VMProp_invalid with "[$propi $propi'']").
               }
             }
-            { (*Share: WIP *)
+            { (*Share *)
               pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
               pose proof (Htotal_regs R2) as[r2 Hlookup_reg_R2].
               iDestruct (reg_big_sepM_split_upd4 i Hlookup_PC Hlookup_reg_R0 Hlookup_reg_R1 Hlookup_reg_R2 with "[$regs]")
@@ -892,7 +889,7 @@ Section fundamental.
                              }
 
               destruct (parse_transaction_descriptor mem_tx p_tx (Z.to_nat r1))  as [tran_des|] eqn:Heq_parse_tran.
-              2 :{ (* cannot parse the msg as a descriptor *)
+              2:{ (* cannot parse the msg as a descriptor *)
                 iApply (hvc_mem_send_invalid_msg ai with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx]");iFrameAutoSolve.
                 exact Hdecode_hvc.
                 simpl; reflexivity.
@@ -909,7 +906,7 @@ Section fundamental.
               }
 
               destruct (validate_transaction_descriptor i Sharing tran_des) eqn:Hvalid_tran_des.
-              2: { (* validation of descriptor fails, apply [hvc_mem_send_invalid_des] *)
+              2:{ (* validation of descriptor fails, apply [hvc_mem_send_invalid_des] *)
                 iApply (hvc_mem_send_invalid_des ai with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx]");iFrameAutoSolve.
                 exact Hdecode_hvc.
                 simpl; reflexivity.
@@ -929,7 +926,7 @@ Section fundamental.
               pose proof (Hvalid_tran_des) as Hvalid_trans_des'.
               apply validate_descriptor_share in Hvalid_tran_des as [j [ps_share [-> Hneq_sr]]].
               destruct (decide (ps_share ⊆ ps_acc')) as [Hsubseteq_share | Hnsubseteq_share].
-              2: { (* no access to at least one page in ps_share, apply [hvc_mem_send_not_acc] *)
+              2:{ (* no access to at least one page in ps_share, apply [hvc_mem_send_not_acc] *)
                 apply not_subseteq in Hnsubseteq_share as [p [Hin_p_share Hnin_p_acc]].
                 iDestruct (access_split with "[$ pgt_acc $ pgt_acc' ]") as "pgt_acc".
                 iApply (hvc_mem_send_not_acc ai p with "[PC mem_instr pgt_acc R0 R1 R2 tx mem_tx]");iFrameAutoSolve.
@@ -1187,10 +1184,10 @@ Section fundamental.
             }
             { (*Lend*) admit. }
             { (*Donate*) admit. }
-            { (*Retrieve*) admit. }
+            { (*Retrieve WIP*) admit. }
             { (*Relinquish*) admit. }
             { (*Reclaim*) admit. }
-            { (*Send*) admit. }
+            { (*Send TODO*) admit. }
             { (*Wait*) admit. }
             { (*Poll*) admit. }
           }

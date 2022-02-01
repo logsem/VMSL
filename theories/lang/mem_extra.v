@@ -209,74 +209,75 @@ Proof.
 Qed.
 
 
-Lemma copy_page_segment_unsafe_preserve_current_vm σ src dst l:
-  get_current_vm (copy_page_segment_unsafe σ src dst l) = get_current_vm σ.
+Lemma copy_page_segment_preserve_current_vm σ src dst l:
+  get_current_vm (copy_page_segment σ src dst l) = get_current_vm σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma copy_page_segment_preserve_regs σ src dst l:
+  get_reg_gmap (copy_page_segment σ src dst l) = get_reg_gmap σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma copy_page_segment_preserve_mb σ src dst l:
+  get_mb_gmap (copy_page_segment σ src dst l) = get_mb_gmap σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma copy_page_segment_preserve_rx σ src dst l:
+  get_rx_gmap (copy_page_segment σ src dst l) = get_rx_gmap σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma copy_page_segment_preserve_owned σ src dst l:
+  get_own_gmap (copy_page_segment σ src dst l) = get_own_gmap σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma copy_page_segment_preserve_access σ src dst l:
+  get_access_gmap (copy_page_segment σ src dst l) = get_access_gmap σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma copy_page_segment_preserve_trans σ src dst l:
+  (get_trans_gmap (copy_page_segment σ src dst l))
+  = get_trans_gmap σ.
+Proof.
+rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma copy_page_segment_preserve_receivers σ src dst l:
+  get_retri_gmap (copy_page_segment σ src dst l) = get_retri_gmap σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma write_mem_segment_preserve_current_vm σ dst ws:
+  get_current_vm (write_mem_segment σ dst ws) = get_current_vm σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_regs σ src dst l:
-  get_reg_gmap (copy_page_segment_unsafe σ src dst l) = get_reg_gmap σ.
+Lemma write_mem_segment_preserve_regs σ dst ws:
+  get_reg_gmap (write_mem_segment σ dst ws) = get_reg_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_mb σ src dst l:
-  get_mb_gmap (copy_page_segment_unsafe σ src dst l) = get_mb_gmap σ.
+Lemma write_mem_segment_preserve_mb σ dst ws:
+  get_mb_gmap (write_mem_segment σ dst ws) = get_mb_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_rx σ src dst l:
-  get_rx_gmap (copy_page_segment_unsafe σ src dst l) = get_rx_gmap σ.
+Lemma write_mem_segment_preserve_rx σ dst ws:
+  get_rx_gmap (write_mem_segment σ dst ws) = get_rx_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_owned σ src dst l:
-  get_own_gmap (copy_page_segment_unsafe σ src dst l) = get_own_gmap σ.
+Lemma write_mem_segment_preserve_owned σ dst ws:
+  get_own_gmap (write_mem_segment σ dst ws) = get_own_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_access σ src dst l:
-  get_access_gmap (copy_page_segment_unsafe σ src dst l) = get_access_gmap σ.
+Lemma write_mem_segment_preserve_access σ dst ws:
+  get_access_gmap (write_mem_segment σ dst ws) = get_access_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_trans σ src dst l:
-  (get_trans_gmap (copy_page_segment_unsafe σ src dst l))
+Lemma write_mem_segment_preserve_trans σ dst ws:
+  (get_trans_gmap (write_mem_segment σ dst ws))
   = get_trans_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma copy_page_segment_unsafe_preserve_receivers σ src dst l:
-  get_retri_gmap (copy_page_segment_unsafe σ src dst l) = get_retri_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_current_vm σ dst ws:
-  get_current_vm (write_mem_segment_unsafe σ dst ws) = get_current_vm σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_regs σ dst ws:
-  get_reg_gmap (write_mem_segment_unsafe σ dst ws) = get_reg_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_mb σ dst ws:
-  get_mb_gmap (write_mem_segment_unsafe σ dst ws) = get_mb_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_rx σ dst ws:
-  get_rx_gmap (write_mem_segment_unsafe σ dst ws) = get_rx_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_owned σ dst ws:
-  get_own_gmap (write_mem_segment_unsafe σ dst ws) = get_own_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_access σ dst ws:
-  get_access_gmap (write_mem_segment_unsafe σ dst ws) = get_access_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_trans σ dst ws:
-  (get_trans_gmap (write_mem_segment_unsafe σ dst ws))
-  = get_trans_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_unsafe_preserve_receivers σ dst ws:
-  get_retri_gmap (write_mem_segment_unsafe σ dst ws) = get_retri_gmap σ.
+Lemma write_mem_segment_preserve_receivers σ dst ws:
+  get_retri_gmap (write_mem_segment σ dst ws) = get_retri_gmap σ.
 Proof. f_equal. Qed.
 
 
-Lemma fill_rx_unsafe_preserve_current_vm σ l v r tx rx :
+Lemma fill_rx_unsafe_preserve_current_vm σ v r l tx rx :
   get_current_vm (fill_rx_unsafe σ l v r tx rx) = get_current_vm σ.
 Proof. f_equal. Qed.
 
@@ -294,7 +295,7 @@ Lemma fill_rx_unsafe_preserve_mb σ l v r tx rx :
 Proof.
   Admitted.
 (*   intros H. *)
-(*   rewrite /fill_rx_unsafe /get_mb_gmap H *)
+(*   rewrite /fill_rx /get_mb_gmap H *)
 (*           /get_tx_pid_global /get_vm_mail_box /get_mail_boxes. *)
 (*   simpl. *)
 (*   f_equal. *)
@@ -468,7 +469,7 @@ Qed.
 
 End mem_extra.
 
-Ltac rewrite_mem_unsafe :=
+Ltac rewrite_mem :=
   match goal with
   | |- _ =>
     try rewrite -> update_memory_preserve_current_vm;

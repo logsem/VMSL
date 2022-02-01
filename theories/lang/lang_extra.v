@@ -252,38 +252,6 @@ Section lang_extra.
   (*   done. *)
   (* Qed. *)
 
-  Lemma transaction_retrieve_descriptor_valid {j handle wf mem} des p :
-    des = [of_imm (encode_vmid j); wf; handle; of_imm (encode_vmid V0)] ->
-    seq_in_page (of_pid p) (length des) p ->
-    (∀ (k : nat) (y1 y2 : Addr),
-             finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 →  mem !! y1 = Some y2) ->
-    parse_transaction_descriptor_retrieve mem p (length des)  = Some (j, Some handle, wf, V0, ∅).
-  Proof.
-    Admitted.
-  (*   intros H H0 H1. *)
-  (*   rewrite /parse_transaction_descriptor_retrieve /get_memory_with_offset. *)
-  (*   destruct H0 as [_ [? _]]. *)
-  (*   simpl. *)
-  (*   pose proof (last_addr_in_bound p) as HSome. *)
-  (*   assert ( ((of_pid p) + 0)%f = Some ((of_pid p) ^+ 0)%f) as ->. *)
-  (*   solve_finz. *)
-  (*   rewrite (H1 0 ((of_pid p) ^+ 0)%f (encode_vmid j)). *)
-  (*   2: { apply finz_seq_lookup. rewrite H /=. lia. solve_finz. } *)
-  (*   2: { rewrite H. by list_simplifier. } *)
-  (*   assert (((of_pid p) + 1)%f = Some ((of_pid p) ^+ 1)%f) as ->. *)
-  (*   solve_finz. *)
-  (*   rewrite (H1 1 ((of_pid p) ^+ 1)%f wf). *)
-  (*   2: { apply finz_seq_lookup. rewrite H /=. lia. solve_finz. } *)
-  (*   2: { rewrite H . by list_simplifier. } *)
-  (*   assert (((of_pid p) + 2)%f = Some ((of_pid p) ^+ 2)%f) as ->. *)
-  (*   solve_finz. *)
-  (*   rewrite (H1 2 ((of_pid p) ^+ 2)%f handle). *)
-  (*   2: { apply finz_seq_lookup. rewrite H /=. lia. solve_finz. } *)
-  (*   2: { rewrite H. by list_simplifier. } *)
-  (*   rewrite !decode_encode_vmid /=. *)
-  (*   reflexivity. *)
-  (* Qed. *)
-
 
   (** lemmas about taking a step *)
 
