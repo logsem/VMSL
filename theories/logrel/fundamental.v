@@ -98,10 +98,10 @@ Section fundamental.
     }
 
     iDestruct "tx" as "[tx pgt_tx]".
-    iDestruct (memory_pages_split_singleton p_tx ps_acc' with "mem_acc") as (mem_acc_tx mem_tx) "[[%Hdom_mem_acc_tx mem_acc_tx] [mem_tx %Heq_mem_acc]]". set_solver + Hsubset_mb.
+    iDestruct (memory_pages_split_singleton p_tx ps_acc' with "mem_acc") as (mem_acc_tx mem_tx) "[mem_acc_tx [mem_tx %Heq_mem_acc_tx]]". set_solver + Hsubset_mb.
 
     subst ps_mem_in_trans.
-    iLöb as "IH" forall (regs ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx rx_state') "Htotal_regs".
+    iLöb as "IH" forall (regs ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx rx_state') "Htotal_regs".
     set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans')).
 
     iDestruct "Htotal_regs" as %Htotal_regs.
@@ -121,6 +121,7 @@ Section fundamental.
       }
       assert (Hin_ps_acc_tx': (tpa ai) ∈ ps_acc' ∖ {[p_tx]}).
       { set_solver + Hin_ps_acc Hneq_ptx. }
+      iDestruct "mem_acc_tx" as "[%Hdom_mem_acc_tx mem_acc_tx]".
       pose proof Hin_ps_acc_tx' as Hin_ps_acc_tx.
       apply elem_of_set_of_addr_tpa in Hin_ps_acc_tx'.
       rewrite -Hdom_mem_acc_tx in Hin_ps_acc_tx'.
@@ -141,9 +142,10 @@ Section fundamental.
           iIntros "(PC & mem_instr & pgt_acc & tx) _".
           iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "PC") as "[#Htotal_regs' regs]".
           iDestruct ("Hacc_mem_acc" with "[$mem_instr]") as "mem_acc_tx".
-          iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx
+          iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx
                             Htotal_regs'").
+          done.
         }
         { (* mov *) admit.
           (* destruct src as [imm | srcreg]. *)
@@ -705,8 +707,8 @@ Section fundamental.
               rewrite Heq_ps_acc_tx in Hdom_mem_acc_tx.
               rewrite set_of_addr_union in Hdom_mem_acc_tx;last auto.
               apply dom_union_inv_L in Hdom_mem_acc_tx;last apply set_of_addr_disj;auto.
-              destruct Hdom_mem_acc_tx as (mem_oea & mem_inters & Heq_mem_acc_tx & Hdisj_mem_oea_inters & Hdom_mem_oea & Hdom_mem_inters).
-              rewrite Heq_mem_acc_tx.
+              destruct Hdom_mem_acc_tx as (mem_oea & mem_inters & Heq_mem_acc_tx' & Hdisj_mem_oea_inters & Hdom_mem_oea & Hdom_mem_inters).
+              rewrite Heq_mem_acc_tx'.
               iDestruct (big_sepM_union with "mem_acc_tx") as "[mem_oea mem_inters]";auto.
 
               (* for simplication *)
@@ -728,7 +730,7 @@ Section fundamental.
               { (* instruction is in ps_oea *)
                 (* in this case, we don't need to transfer instruction *)
                 assert (Hsubseteq_mem_acc: mem_oea ⊆ mem_acc_tx).
-                rewrite Heq_mem_acc_tx.
+                rewrite Heq_mem_acc_tx'.
                 apply map_union_subseteq_l.
                 rewrite map_subseteq_spec in Hsubseteq_mem_acc.
                 apply elem_of_set_of_addr_tpa in Hin_ps_oea.
@@ -769,7 +771,7 @@ Section fundamental.
                   iIntros "((PC & mem_instr & pgt_acc & tx & R0i &R0z & R1z) & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri) & propi)".
                   iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z rx_state rx mem_tran".
                   iLeft.
-                  iExists ps_na', ps_acc', trans'.
+                  iExists ps_na', ps_acc', trans', rx_state'.
                   iFrame.
                   iSplitL ""; first done.
                   (* split [mem_tran] into [mem_rx] and [mem_trans] *)
@@ -777,8 +779,6 @@ Section fundamental.
                   set_solver + Hnin_rx.
                   iFrame.
                   iSplitL "mem_trans". iExists mem2. iFrame.
-                  iSplitR "mem_rx".
-                  destruct rx_state'; iFrame "rx_state".
                   iExists mem1. rewrite memory_pages_singleton. iFrame.
                   iCombine "PC mem_instr R0i pgt_acc' propi" as "R'". iExact "R'".
                 }
@@ -802,7 +802,7 @@ Section fundamental.
                   destruct Hin_ps_acc_tx;done.
                 }
                 assert (Hsubseteq_mem_acc: mem_inters ⊆ mem_acc_tx).
-                { rewrite Heq_mem_acc_tx. apply map_union_subseteq_r. done. }
+                { rewrite Heq_mem_acc_tx'. apply map_union_subseteq_r. done. }
                 rewrite map_subseteq_spec in Hsubseteq_mem_acc.
                 apply elem_of_set_of_addr_tpa in Hin_ps_inters.
                 rewrite -Hdom_mem_inters in  Hin_ps_inters.
@@ -843,15 +843,13 @@ Section fundamental.
 
                   iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z rx_state rx mem_tran".
                   iLeft.
-                  iExists ps_na', ps_acc', trans'.
+                  iExists ps_na', ps_acc', trans', rx_state'.
                   iFrame.
                   iSplitL ""; first done.
                   iDestruct (memory_pages_split_union with "mem_tran") as (? ? )"[mem1 [mem2 %Heq_mem']]".
                   set_solver + Hnin_rx.
                   iFrame.
                   iSplitL "mem2". iExists mem2. iFrame.
-                  iSplitR "mem1".
-                  destruct rx_state'; iFrame "rx_state".
                   iExists mem1. rewrite memory_pages_singleton. iFrame.
                   iCombine "PC R0i pgt_acc' propi" as "R'". iExact "R'".
                 }
@@ -883,9 +881,10 @@ Section fundamental.
                 iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
 
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx
                             Htotal_regs'").
+                done.
                              }
 
               destruct (parse_transaction_descriptor mem_tx p_tx (Z.to_nat r1))  as [tran_des|] eqn:Heq_parse_tran.
@@ -901,8 +900,9 @@ Section fundamental.
                 iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
 
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx Htotal_regs'").
+                done.
               }
 
               destruct (validate_transaction_descriptor i Sharing tran_des) eqn:Hvalid_tran_des.
@@ -919,8 +919,9 @@ Section fundamental.
                 iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
 
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx Htotal_regs'").
+                done.
               }
 
               pose proof (Hvalid_tran_des) as Hvalid_trans_des'.
@@ -943,8 +944,9 @@ Section fundamental.
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
                 iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx  with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx Htotal_regs'").
+                done.
               }
               destruct (decide (p_tx ∈ ps_share)) as [Hin_ptx_share | Hnin_ptx_share].
               { (* tx is not owned by i, apply [hvc_mem_send_not_owned] *)
@@ -965,8 +967,9 @@ Section fundamental.
                 iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
 
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx [$own_tx $excl_tx] pgt_acc pgt_acc' LB trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx [$own_tx $excl_tx] pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx Htotal_regs'").
+                done.
               }
 
               destruct (decide (p_rx ∈ ps_share)) as [Hin_prx_share | Hnin_prx_share].
@@ -988,8 +991,9 @@ Section fundamental.
                 iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
 
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z rx_state [$rx $own_rx $excl_rx] prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+                            tran_pgt_transferred retri R0z R1z rx_state [$rx $own_rx $excl_rx] prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx Htotal_regs'").
+                done.
               }
 
               assert (Hsubseteq_share' : ps_share ⊆ ps_acc' ∖ {[p_rx;p_tx]}).
@@ -1019,8 +1023,8 @@ Section fundamental.
                   iDestruct ("Hacc_regs" $! (ai ^+ 1)%f _ _ _ with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
                   iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
                   iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
-                  iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned [pgt_owned] mem_rest mem_acc_tx mem_tx Htotal_regs'").
+                  iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned [pgt_owned] mem_rest [$mem_acc_tx] mem_tx Htotal_regs'").
                   {
                     iExists hpool.
                     by iFrame.
@@ -1029,6 +1033,7 @@ Section fundamental.
                     pose proof (union_split_difference_intersection_subseteq_L _ _ Hsubseteq_share) as [<- _].
                     iFrame.
                   }
+                  done.
                 }
                 iApply (hvc_mem_share_nz ai j mem_tx hpool ps_share with "[PC mem_instr pgt_acc pgt_oe_share R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
                 exact Hdecode_hvc.
@@ -1073,7 +1078,7 @@ Section fundamental.
                 iDestruct (trans_split with "tran_share") as "[tran_share tran_share']".
                 iDestruct (pgt_split with "pgt_oe_share") as "[pgt_oe_share pgt_oe_share']".
 
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans'' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran_share trans pgt_oe_share] [tran_pgt_transferred] [retri retri_share] R0z R1z rx_state rx prop0 propi [tran_pgt_owned tran_share' pgt_oe_share'] [pgt_owned] [mem_rest] mem_acc_tx mem_tx Htotal_regs'");iClear "IH".
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans'' with "[] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran_share trans pgt_oe_share] [tran_pgt_transferred] [retri retri_share] R0z R1z rx_state rx prop0 propi [tran_pgt_owned tran_share' pgt_oe_share'] [pgt_owned] [mem_rest] [$mem_acc_tx] mem_tx Htotal_regs'");iClear "IH".
                 {
                   rewrite -Hrewrite.
                   rewrite union_assoc_L.
@@ -1100,7 +1105,6 @@ Section fundamental.
                   rewrite subseteq_union_1_L;auto.
                   done.
                 }
-                done.
                 {
                   iExists (hpool ∖ {[wh]}).
                   iSplit.
@@ -1155,6 +1159,7 @@ Section fundamental.
                  set_solver + Hsubseteq_share'.
                  rewrite union_empty_l_L //.
                 }
+                done.
               }
               { (* at least one page is not exclusively owned by i (i.e. is involved in a transaction) *)
                 assert (∃ p, p ∈ ps_share ∧ p ∈ ps_mem_in_trans) as [p [Hin_p_share Hin_p_mem_in_trans]].
@@ -1177,9 +1182,10 @@ Section fundamental.
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
                 iDestruct ("Hacc_trans" with "[$ tran_tran $ pgt_tran]") as "trans".
 
-                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
+                iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest [$mem_acc_tx] mem_tx Htotal_regs'").
                 iExists hpool;by iFrame.
+                done.
               }
             }
             { (*Lend*) admit. }
@@ -1251,7 +1257,7 @@ Section fundamental.
 
               assert (p_rx ∈ ps_acc' ∖ {[p_tx]}) as Hin_ps_acc_tx'. set_solver + Hsubset_mb Hneq_mb.
               iDestruct (memory_pages_split_singleton p_rx _ Hin_ps_acc_tx') as "[Hsplit _]".
-              iDestruct ("Hsplit" with "[mem_acc_tx]") as (mem_acc_tx_rx mem_rx) "[[%Hdom_mem_acc_tx_rx mem_acc_tx_rx] [mem_rx %Heq_mem_acc_tx]]".
+              iDestruct ("Hsplit" with "[mem_acc_tx]") as (mem_acc_tx_rx mem_rx) "[[%Hdom_mem_acc_tx_rx mem_acc_tx_rx] [mem_rx %Heq_mem_acc_tx_rx]]".
               {
                 rewrite /memory_pages.
                 iSplitL "".
@@ -1264,7 +1270,7 @@ Section fundamental.
               (* set_solver + Hin_ps_acc_tx'. *)
               (* rewrite Heq_ps_acc_tx in Hin_ps_acc_tx. *)
               (* rewrite elem_of_union in Hin_ps_acc_tx. *)
-              rewrite -Heq_mem_acc_tx in Hlookup_mem_ai.
+              rewrite -Heq_mem_acc_tx_rx in Hlookup_mem_ai.
               rewrite lookup_union_Some in Hlookup_mem_ai.
 
               destruct (tran.1.2) eqn:Heq_tran_tt.
@@ -1299,10 +1305,10 @@ Section fundamental.
                 iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
                 iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
                 iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+                iApply ("IH" $! _ _ _ (delete r1 trans') _ _ _ with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+                            [tran_pgt_transferred] [retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned] [own_tran excl_tran pgt_owned] [mem_rest] [mem_acc_tx_rx mem_rx] mem_tx Htotal_regs'");iClear "IH".
                 (* TODO *)
-                iApply ("IH" $! _ (tran.1.1.2 ∪ ps_acc') Hsubset_mb (delete r1 trans') Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx [pgt_acc] [pgt_acc'] LB [fresh_handles trans]
-                            [tran_pgt_transferred] [retri retri'] R0z R1z rx_state [rx pgt_rx] prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
-
+                admit.
                 }
                 admit.
               }
