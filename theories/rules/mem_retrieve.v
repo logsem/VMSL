@@ -8,19 +8,14 @@ Section retrieve.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_mem_retrieve_donate {E i wi sacc pi r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+Lemma hvc_mem_retrieve_donate {E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+  (* has access to the page which the instruction is in *)
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
   (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
-  (* has access to the page which the instruction is in *)
-  pi ∈ sacc ->
-  (* has neither owership nor access to these pages *)
-  ps ## sacc ->
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        (* registers *)
@@ -57,13 +52,53 @@ Lemma hvc_mem_retrieve_donate {E i wi sacc pi r0 sh j wf mem_rx p_rx} {ps: gset 
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_invalid_handle {E i wi sacc pi r0 r2 wh} ai:
+Lemma hvc_mem_retrieve_donate_rx {E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ ([∗ set] p ∈ ps, p -@O> j) ∗
+       ▷ i -@A> sacc ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{1}>t (j, wf, i, ps, Donation) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := (tpa ai) ∗ ▷ RX_state@ i := None ∗
+       ▷ (ai ->a wi -∗ memory_page p_rx mem_rx) ∗
+       (* the handle pool *)
+       ▷ fresh_handles 1 sh}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       ([∗ set] p ∈ ps, p -@O> i) ∗
+       i -@A> (ps ∪ sacc) ∗
+       (* new descriptor in rx *)
+       RX@ i := (tpa ai) ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation ;(l ^- 5)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx))) ∗
+       (* the transaction is completed, deallocate it and release the handle *)
+       fresh_handles 1 (sh ∪ {[wh]}) }}}.
+Proof.
+Admitted.
+
+Lemma hvc_mem_retrieve_invalid_handle {E i wi sacc r0 r2 wh} ai:
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
   (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
   wh ∉ hs_all ->
@@ -86,19 +121,12 @@ Lemma hvc_mem_retrieve_invalid_handle {E i wi sacc pi r0 r2 wh} ai:
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_fresh_handle {E i wi sacc pi r0 r2 wh sh q} ai:
+Lemma hvc_mem_retrieve_fresh_handle {E i wi sacc r0 r2 wh sh q} ai:
   (tpa ai) ∈ sacc ->
-  (* the current instruction is hvc *)
-  (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
-  (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
   wh ∈ sh ->
-  {SS{{(* the encoding of instruction wi is stored in location ai *)
-       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
-       (* registers *)
+  {SS{{▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        ▷ (R0 @@ i ->r r0) ∗
        ▷ (R1 @@ i ->r wh) ∗
        ▷ (R2 @@ i ->r r2) ∗
@@ -106,7 +134,6 @@ Lemma hvc_mem_retrieve_fresh_handle {E i wi sacc pi r0 r2 wh sh q} ai:
        ▷ fresh_handles q sh}}}
    ExecI @ i; E
    {{{ RET (false, ExecI) ;
-       (* PC is incremented *)
        PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
        R0 @@ i ->r (encode_hvc_ret_code Error) ∗
        R1 @@ i ->r wh ∗
@@ -117,10 +144,9 @@ Lemma hvc_mem_retrieve_fresh_handle {E i wi sacc pi r0 r2 wh sh q} ai:
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_invalid_trans {E i wi sacc pi r0 r2 wh meta q} ai:
+Lemma hvc_mem_retrieve_invalid_trans {E i wi sacc r0 r2 wh meta q} ai:
   (tpa ai) ∈ sacc ->
   decode_instruction wi = Some(Hvc) ->
-  addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Retrieve) ->
   meta.1.1.2 ≠ i ->
   {SS{{▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
@@ -142,10 +168,9 @@ Lemma hvc_mem_retrieve_invalid_trans {E i wi sacc pi r0 r2 wh meta q} ai:
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_retrieved{E i wi sacc pi r0 r2 wh q} ai:
+Lemma hvc_mem_retrieve_retrieved{E i wi sacc r0 r2 wh q} ai:
   (tpa ai) ∈ sacc ->
   decode_instruction wi = Some(Hvc) ->
-  addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Retrieve) ->
   {SS{{▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        ▷ (R0 @@ i ->r r0) ∗
@@ -166,10 +191,9 @@ Lemma hvc_mem_retrieve_retrieved{E i wi sacc pi r0 r2 wh q} ai:
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_rx_full{E i wi sacc pi r0 r2 wh q1 q2 j wf tt rx_state} {ps: gset PID} ai:
+Lemma hvc_mem_retrieve_rx_full{E i wi sacc r0 r2 wh q1 q2 j wf tt rx_state} {ps: gset PID} ai:
   (tpa ai) ∈ sacc ->
   decode_instruction wi = Some(Hvc) ->
-  addr_in_page ai pi ->
   decode_hvc_func r0 = Some(Retrieve) ->
   is_Some (rx_state) ->
   {SS{{▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
@@ -195,20 +219,14 @@ Lemma hvc_mem_retrieve_rx_full{E i wi sacc pi r0 r2 wh q1 q2 j wf tt rx_state} {
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_lend{E i wi sacc pi r0 sh j wf mem_rx p_rx} {ps: gset PID}
-      ai wh:
+Lemma hvc_mem_retrieve_lend{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+  (* has access to the page which the instruction is in *)
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
   (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
-  (* has access to the page which the instruction is in *)
-  pi ∈ sacc ->
-  (* has neither owership nor access to these pages *)
-  ps ## sacc ->
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        (* registers *)
@@ -244,20 +262,14 @@ Proof.
 Admitted.
 
 
-Lemma hvc_mem_retrieve_share{E i wi sacc pi r0 sh j wf mem_rx p_rx} {ps: gset PID}
-      ai wh:
+Lemma hvc_mem_retrieve_share{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+  (* has access to the page which the instruction is in *)
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
-  (* the instruction is in page pi *)
-  addr_in_page ai pi ->
   (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
-  (* has access to the page which the instruction is in *)
-  pi ∈ sacc ->
-  (* has neither owership nor access to these pages *)
-  ps ## sacc ->
   (* l is the number of involved pages, of type word *)
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗

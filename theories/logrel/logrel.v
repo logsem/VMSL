@@ -53,7 +53,7 @@ Section logrel.
       full entries.
       Pagetable entries are transferred along as both sender and receiver could be the exclusive owner of those pages. *)
   Definition transaction_pagetable_entries_transferred (trans: gmap Addr transaction) : iProp Σ:=
-    big_sepFM trans (λ kv, kv.2.1.2 = Donation ∧ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1.1 false)%I.
+    big_sepFM trans (λ kv, kv.2.1.2 = Donation ∧ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>t v.1 ∗ pgt v.1.1.2 (1/2)%Qp v.1.1.1.1.1 true)%I.
 
   (* [retrieval entries]: half of all retrieval entries of i-related transactions are required.
      For transactions where i is the sender, we need the corresponding retrieval entries to check if it is allowed for i to reclaim,
@@ -61,8 +61,8 @@ Section logrel.
   (* There are also some cases when we need the second half, as in those cases we may update/remove the retrival state *)
   (* XXX: How to relate retrieval and transaction entries? Using option(frac_agree transaction,option bool)? or is it unnecessary? *)
   Definition retrieval_entries(trans: gmap Addr transaction) : iProp Σ:=
-    (big_sepFM trans (λ kv, (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2)%I) ∗
-      (big_sepFM trans (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = false ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2)%I).
+    (big_sepFM trans (λ kv, (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2 )%I) ∗
+    (big_sepFM trans (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = false ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2)%I).
 
   (* [memory_transferred]: some memory points-to predicates are transferred by VMProp.
      the memory is the memory of pages associated with a transaction and i has or may have access to. *)

@@ -1189,8 +1189,11 @@ Section fundamental.
               pose proof (Htotal_regs R2) as[r2 Hlookup_reg_R2].
               iDestruct (reg_big_sepM_split_upd4 i Hlookup_PC Hlookup_reg_R0 Hlookup_reg_R1 Hlookup_reg_R2 with "[$regs]")
                 as "(PC & R0 & R1 & R2 & Hacc_regs)";eauto.
-              iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
+              iDestruct "rx" as "[rx pgt_rx]".
+
+              iDestruct (access_split with "[$pgt_acc $pgt_acc']") as "pgt_acc".
+              
               iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
               destruct (decide (r1 ∈ hs_all)) as [Hin_hs_all |Hnotin_hs_all].
               2: { (* apply [hvc_mem_retrieve_invalid_handle] *)
@@ -1246,9 +1249,58 @@ Section fundamental.
                 simpl. right;done.
               }
 
+              assert (p_rx ∈ ps_acc' ∖ {[p_tx]}) as Hin_ps_acc_tx'. set_solver + Hsubset_mb Hneq_mb.
+              iDestruct (memory_pages_split_singleton p_rx _ Hin_ps_acc_tx') as "[Hsplit _]".
+              iDestruct ("Hsplit" with "[mem_acc_tx]") as (mem_acc_tx_rx mem_rx) "[[%Hdom_mem_acc_tx_rx mem_acc_tx_rx] [mem_rx %Heq_mem_acc_tx]]".
+              {
+                rewrite /memory_pages.
+                iSplitL "".
+                iPureIntro.
+                apply Hdom_mem_acc_tx.
+                iFrame.
+              }
+              iClear "Hsplit".
+              (* pose proof (union_split_difference_intersection_subseteq_L (ps_acc' ∖ {[p_tx]}) {[p_rx]}) as [Heq_ps_acc_tx Hdisj_ps_acc_tx]. *)
+              (* set_solver + Hin_ps_acc_tx'. *)
+              (* rewrite Heq_ps_acc_tx in Hin_ps_acc_tx. *)
+              (* rewrite elem_of_union in Hin_ps_acc_tx. *)
+              rewrite -Heq_mem_acc_tx in Hlookup_mem_ai.
+              rewrite lookup_union_Some in Hlookup_mem_ai.
+
               destruct (tran.1.2) eqn:Heq_tran_tt.
               { (*apply [hvc_mem_retrieve_donate]*)
+                iDestruct (big_sepFM_lookup_Some_acc Hlookup_tran with "tran_pgt_transferred") as "[[tran' pgt_tran'] Hacc_tran_pgt_transf]".
+                simpl. split;first done. left;done.
+                iDestruct (trans_split with "[$tran $tran']") as "tran".
+                rewrite Heq_tran_tt.
+                case_bool_decide;last done;clear H.
+                iDestruct (pgt_split with "[$pgt_tran $pgt_tran']") as "pgt_tran".
+                iDestruct (big_sepS_sep with "pgt_tran") as "[own_tran excl_tran]".
 
+                destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
+                {
+
+                iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx]".
+
+                assert(tran.1 = (tran.1.1.1.1.1, tran.1.1.1.1.2, i, tran.1.1.2, Donation)) as ?.
+                {
+                  rewrite -Heq_tran_tt.
+                  rewrite -Heq_tran.
+                  repeat destruct tran as [tran ?]. simpl. done.
+                }
+                rewrite H.
+
+                iApply (hvc_mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 own_tran $pgt_acc $re $tran $rx $rx_state $mem_rx $fresh_handles]").
+                set_solver + Hin_ps_acc_tx.
+                done.
+
+                iFrameAutoSolve.
+                6: { rewrite H. simpl. iFrame. }
+                6: { iFrame. }
+                iFrameAutoSolve.
+                }
+
+                
                 admit.
               }
               { (*apply [hvc_mem_retrieve_share]*)
