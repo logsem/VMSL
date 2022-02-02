@@ -1,0 +1,50 @@
+\documentclass[a4paper]{article}
+\usepackage[a4paper,tmargin=0.75in,bmargin=1in,showframe=false]{geometry}
+\usepackage{multicol,multirow}
+\usepackage{amsmath}
+\usepackage{stmaryrd}
+\usepackage{mathpartir}
+\usepackage{hyperref}
+\usepackage{todonotes}
+\usepackage{graphicx}
+\usepackage{kpfonts}
+\usepackage{array}
+\usepackage{changepage}
+\usepackage[T1]{fontenc}
+\usepackage{tikz}
+\def\basedir{../}
+\usepackage{\basedir iris}
+\usepackage{\basedir includes}
+
+\title{Logical relations for verifying unknown VM code}
+ \date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Definition of \InterpA{}}
+
+\InterpA{} is parameterized by TX page PID $p_{rx}$, RX page PID $p_{tx}$, set of pages $i$ can access initially $ps_{a}$, and all initial transactions $t$.
+
+\begin{align*}
+  \InterpA{} ~ p_{tx} ~ p_{rx} ~ ps_{a} ~ t & \defined \\
+     & let ~ ps_{m} := pages\_in\_trans (trans\_memory\_in\_trans ~ t) in \\
+     & let ~ ps_{e} := ps_{a} \setminus \{p_{rx},p_{tx}\} \setminus ps_{m} in \\
+     & (\exists rs, total ~ rs \asts  \Sep_{r \mapsto w \in rs}, r @@ i ->r w) \asts \\
+     & (tx\_page ~ i ~ p_{tx} \ast \exists m_{tx}, \mempage ~ p_{tx} ~ m_{tx}) ~ \asts \\
+     & i -@\{1/2\}A> ps_{a} \asts \\
+     & \{ p_{tx},p_{rx} \} \subseteq s_{a} \asts \\
+     & pagetable\_entries\_excl\_owned ~ i ~ ps_{e} \asts \\
+     & transaction\_pagetable\_entries\_owned ~ t \asts \\
+     & (\exists m_{e}, \mempage ~ ps_{e} ~ m_{e}) \asts \\
+     & \VMProp ~ i ~ (VMProp\_unknown ~ p_{tx} ~ p_{rx} ~ t) (1/2)
+\end{align*}
+
+
+\section{Fundamental Theorem for Logical Relation(\FTLR{})}
+
+\section{Applications and Examples}
+
+
+
+\end{document}
