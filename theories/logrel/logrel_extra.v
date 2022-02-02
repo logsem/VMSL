@@ -841,27 +841,31 @@ Section logrel_extra.
  (*    iApply (ra_big_sepM_split_upd2 mem a1 a2 w1 w2 f);eauto. *)
  (*  Qed. *)
 
-  (* TODO: For memory chunks *)
-
-
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:
-    p ∈ pages_in_trans trans -> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.
+    p ∈ pages_in_trans trans <-> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.
   Proof.
-    intros Hin.
-    rewrite /pages_in_trans in Hin.
+    (* intros Hin. *)
+    rewrite /pages_in_trans.  (* in Hin. *)
     induction trans using map_ind.
     {
-      rewrite map_fold_empty // in Hin.
+
+      rewrite map_fold_empty //.
+      split;intros;first done.
+      destruct H as [? [? [? ?]]].
+      done.
     }
     {
-      rewrite map_fold_insert_L in Hin.
+      rewrite map_fold_insert_L.
       2:{
         intros w1 w2 trans1 trans2 y.
         intros Hneq Hlookup1 Hlookup2.
         set_solver +.
       }
-      apply elem_of_union in Hin as [Hin |Hin].
+      2: done.
+      rewrite elem_of_union.
+      split;intro Hin.
+      destruct Hin as [Hin|Hin].
       exists i, x.
       split;auto.
       rewrite lookup_insert_Some;left;done.
@@ -873,6 +877,22 @@ Section logrel_extra.
       intro.
       subst i.
       rewrite H // in Hlookup.
+      destruct (decide (p ∈ x.1.1.2)).
+      left;done.
+      right.
+      apply IHtrans.
+      destruct Hin as [h [x' [Hlookup Hin']]].
+      destruct (decide (i = h)).
+      subst i.
+      rewrite lookup_insert_Some in Hlookup.
+      destruct Hlookup as [? | [? ?]].
+      destruct H0;subst.
+      contradiction.
+      contradiction.
+      exists h, x'.
+      split;last done.
+      rewrite lookup_insert_ne in Hlookup.
+      done.
       done.
     }
   Qed.

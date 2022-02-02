@@ -1192,13 +1192,69 @@ Section fundamental.
               iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
               iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
-              destruct (decide (r1 ∈ hpool)).
-              {
+              destruct (decide (r1 ∈ hs_all)) as [Hin_hs_all |Hnotin_hs_all].
+              2: { (* apply [hvc_mem_retrieve_invalid_handle] *)
                 admit.
-                (* apply [hvc_mem_retrieve_invalid_handle] *)
               }
-              (* get transaction *)
-              admit. }
+              destruct (decide (r1 ∈ hpool)) as [Hin_hpool | Hnotin_hpool].
+              { (* apply [hvc_mem_retrieve_fresh_handle] *)
+                admit.
+              }
+              assert(r1 ∈ dom (gset _ ) trans') as Hin_trans_dom.
+              {
+                rewrite -Heq_hsall in Hin_hs_all.
+                rewrite elem_of_union in Hin_hs_all.
+                destruct Hin_hs_all;first contradiction.
+                done.
+              }
+              apply elem_of_dom in Hin_trans_dom as [tran Hlookup_tran].
+              iDestruct (big_sepM_lookup_acc _ trans' _  _ Hlookup_tran with "trans") as "((tran & pgt_tran) & Hacc_trans)".
+
+              destruct(decide (tran.1.1.1.2 = i)) as [Heq_tran | Hneq_tran].
+              2: { (*apply [hvc_mem_retrieve_invalid_trans]*)
+                admit.
+              }
+
+              iDestruct ("retri") as "[retri retri']".
+              iDestruct (big_sepFM_lookup_Some_acc Hlookup_tran with "retri") as "[re Hacc_retri]".
+              simpl;left;done.
+
+
+              destruct (tran.2) eqn:Heq_retri.
+              { (* apply [hvc_mem_retrieve_retrieved] *)
+                admit.
+              }
+
+              iDestruct (big_sepFM_lookup_Some_acc Hlookup_tran with "retri'") as "[re' Hacc_retri']".
+              simpl;left;split;done.
+              destruct (rx_state')  eqn: Heq_rxstate.
+              { (* apply [hvc_mem_retrieve_rx_full] *)
+                admit.
+              }
+
+              assert (tran.1.1.2 ⊆ ps_mem_in_trans) as Hsubseteq_tran.
+              {
+                rewrite elem_of_subseteq.
+                intros p Hin_p.
+                rewrite /ps_mem_in_trans.
+                rewrite elem_of_pages_in_trans.
+                exists r1, tran.
+                split;last auto.
+                rewrite map_filter_lookup_Some;split;first done.
+                simpl. right;done.
+              }
+
+              destruct (tran.1.2) eqn:Heq_tran_tt.
+              { (*apply [hvc_mem_retrieve_donate]*)
+                admit.
+              }
+              { (*apply [hvc_mem_retrieve_share]*)
+                admit.
+              }
+              { (*apply [hvc_mem_retrieve_lend]*)
+                admit.
+              }
+            }
             { (*Relinquish*) admit. }
             { (*Reclaim*) admit. }
             { (*Send TODO*) admit. }

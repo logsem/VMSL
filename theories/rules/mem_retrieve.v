@@ -58,7 +58,36 @@ Lemma hvc_mem_retrieve_donate {E i wi sacc pi r0 sh j wf mem_rx p_rx l} {ps: gse
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_invalid_handle {E i wi sacc pi r0 r2 wh sh q} {ps: gset PID} ai:
+Lemma hvc_mem_retrieve_invalid_handle {E i wi sacc pi r0 r2 wh} ai:
+  (tpa ai) ∈ sacc ->
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the instruction is in page pi *)
+  addr_in_page ai pi ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  wh ∉ hs_all ->
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       ▷ (R2 @@ i ->r r2) ∗
+       ▷ i -@A> sacc}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       R0 @@ i ->r (encode_hvc_ret_code Error) ∗
+       R1 @@ i ->r wh ∗
+       R2 @@ i ->r (encode_hvc_error InvParam) ∗
+       i -@A> sacc
+   }}}.
+Proof.
+Admitted.
+
+Lemma hvc_mem_retrieve_fresh_handle {E i wi sacc pi r0 r2 wh sh q} ai:
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
@@ -89,7 +118,7 @@ Lemma hvc_mem_retrieve_invalid_handle {E i wi sacc pi r0 r2 wh sh q} {ps: gset P
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_invalid_trans {E i wi sacc pi r0 r2 mem_tx p_tx wh meta q} {ps: gset PID} ai:
+Lemma hvc_mem_retrieve_invalid_trans {E i wi sacc pi r0 r2 wh meta q} ai:
   (tpa ai) ∈ sacc ->
   decode_instruction wi = Some(Hvc) ->
   addr_in_page ai pi ->
@@ -100,8 +129,6 @@ Lemma hvc_mem_retrieve_invalid_trans {E i wi sacc pi r0 r2 mem_tx p_tx wh meta q
        ▷ (R1 @@ i ->r wh) ∗
        ▷ (R2 @@ i ->r r2) ∗
        ▷ i -@A> sacc ∗
-       ▷ TX@i := p_tx ∗
-       ▷ (memory_page p_tx mem_tx) ∗
        ▷ wh -{q}>t (meta)
        }}}
    ExecI @ i; E
@@ -111,14 +138,12 @@ Lemma hvc_mem_retrieve_invalid_trans {E i wi sacc pi r0 r2 mem_tx p_tx wh meta q
        R1 @@ i ->r wh ∗
        R2 @@ i ->r (encode_hvc_error Denied) ∗
        i -@A> sacc ∗
-       TX@i := p_tx ∗
-       (memory_page p_tx mem_tx) ∗
        wh -{q}>t (meta)
    }}}.
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_retrieved{E i wi sacc pi r0 r2 wh q} {ps: gset PID} ai:
+Lemma hvc_mem_retrieve_retrieved{E i wi sacc pi r0 r2 wh q} ai:
   (tpa ai) ∈ sacc ->
   decode_instruction wi = Some(Hvc) ->
   addr_in_page ai pi ->
