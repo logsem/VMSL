@@ -166,7 +166,7 @@ Section definitions.
     map_Forall (λ _ v,
                  match v with
                  |Some tran =>
-                 (Z.of_nat (size tran.1.1.2) <? word_size)%Z = true
+                 (Z.of_nat ((size tran.1.1.2) + 5) <? page_size)%Z = true
                  |None => True
                end) trans.
 

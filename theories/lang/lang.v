@@ -476,11 +476,11 @@ Definition fill_rx (st : state) (l : Word) (v r : VMID) : hvc_result state :=
 Definition write_retrieve_msg (st:state) (dst: Addr) (wh:Word) (trn: transaction): hvc_result state:=
  match trn with
   | (vs, f, vr, ls, t, _) =>
-    match finz.of_z (Z.of_nat (size ls)) with
+    match finz.of_z (Z.of_nat ((size ls) + 5)) with
     | Some l =>
       let des := ([of_imm (encode_vmid vs); f; wh; encode_transaction_type t ;l]
                     ++ map of_pid (elements ls)) in
-      fill_rx (write_mem_segment st dst des) (l^+ 5)%f vr vr
+      fill_rx (write_mem_segment st dst des) l vr vr
     | None => throw InvParam
     end
  end.

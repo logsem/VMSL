@@ -8,7 +8,7 @@ Section retrieve.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_mem_retrieve_donate {E i wi sacc pi r0 sh j wf mem_rx p_rx l} {ps: gset PID} ai wh:
+Lemma hvc_mem_retrieve_donate {E i wi sacc pi r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
@@ -21,8 +21,6 @@ Lemma hvc_mem_retrieve_donate {E i wi sacc pi r0 sh j wf mem_rx p_rx l} {ps: gse
   pi ∈ sacc ->
   (* has neither owership nor access to these pages *)
   ps ## sacc ->
-  (* l is the number of involved pages, of type word *)
-  (finz.to_z l) = Z.of_nat (size ps) ->
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        (* registers *)
@@ -49,10 +47,11 @@ Lemma hvc_mem_retrieve_donate {E i wi sacc pi r0 sh j wf mem_rx p_rx l} {ps: gse
        ([∗ set] p ∈ ps, p -@O> i) ∗
        i -@A> (ps ∪ sacc) ∗
        (* new descriptor in rx *)
-       RX@ i := p_rx ∗ RX_state@ i := Some((l ^+ 5)%f, i) ∗
+       RX@ i := p_rx ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
-       (∃ mem_rx, memory_page p_rx mem_rx ∗
-          ⌜parse_transaction_descriptor mem_rx (of_pid p_rx) (size ps + 5) = Some (j,Some wh,wf,i,ps)⌝) ∗
+       (⌜des = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation ;(l ^- 5)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx))) ∗
        (* the transaction is completed, deallocate it and release the handle *)
        fresh_handles 1 (sh ∪ {[wh]}) }}}.
 Proof.
@@ -196,7 +195,7 @@ Lemma hvc_mem_retrieve_rx_full{E i wi sacc pi r0 r2 wh q1 q2 j wf tt rx_state} {
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_lend{E i wi sacc pi r0 sh j wf mem_rx p_rx l} {ps: gset PID}
+Lemma hvc_mem_retrieve_lend{E i wi sacc pi r0 sh j wf mem_rx p_rx} {ps: gset PID}
       ai wh:
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
@@ -210,8 +209,6 @@ Lemma hvc_mem_retrieve_lend{E i wi sacc pi r0 sh j wf mem_rx p_rx l} {ps: gset P
   pi ∈ sacc ->
   (* has neither owership nor access to these pages *)
   ps ## sacc ->
-  (* l is the number of involved pages, of type word *)
-  (finz.to_z l) = Z.of_nat (size ps) ->
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        (* registers *)
@@ -237,16 +234,17 @@ Lemma hvc_mem_retrieve_lend{E i wi sacc pi r0 sh j wf mem_rx p_rx l} {ps: gset P
        i -@A> (ps ∪ sacc) ∗
        wh ->re true ∗ wh -{1}>t (j, wf, i, ps, Lending) ∗
        (* new descriptor in rx *)
-       RX@ i := p_rx ∗ RX_state@ i := Some((l ^+ 5)%f, i) ∗
+       RX@ i := p_rx ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
-       (∃ mem_rx, memory_page p_rx mem_rx ∗
-          ⌜parse_transaction_descriptor mem_rx (of_pid p_rx) (size ps + 5) = Some (j,Some wh,wf,i,ps)⌝)
+       (⌜des = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation ;(l ^- 5)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
         }}}.
 Proof.
 Admitted.
 
 
-Lemma hvc_mem_retrieve_share{E i wi sacc pi r0 sh j wf mem_rx p_rx l } {ps: gset PID}
+Lemma hvc_mem_retrieve_share{E i wi sacc pi r0 sh j wf mem_rx p_rx} {ps: gset PID}
       ai wh:
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
@@ -261,7 +259,6 @@ Lemma hvc_mem_retrieve_share{E i wi sacc pi r0 sh j wf mem_rx p_rx l } {ps: gset
   (* has neither owership nor access to these pages *)
   ps ## sacc ->
   (* l is the number of involved pages, of type word *)
-  (finz.to_z l) = Z.of_nat (size ps) ->
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        (* registers *)
@@ -287,10 +284,11 @@ Lemma hvc_mem_retrieve_share{E i wi sacc pi r0 sh j wf mem_rx p_rx l } {ps: gset
        i -@A> (ps ∪ sacc) ∗
        wh ->re true ∗ wh -{1}>t (j, wf, i, ps, Sharing) ∗
        (* new descriptor in rx *)
-       RX@ i := p_rx ∗ RX_state@ i := Some((l ^+ 5)%f, i) ∗
+       RX@ i := p_rx ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
-       (∃ mem_rx, memory_page p_rx mem_rx ∗
-          ⌜parse_transaction_descriptor mem_rx (of_pid p_rx) (size ps + 5) = Some (j,Some wh,wf,i,ps)⌝)
+       (⌜des = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation ;(l ^- 5)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
         }}}.
 Proof.
 Admitted.

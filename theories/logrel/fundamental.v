@@ -1227,6 +1227,8 @@ Section fundamental.
 
               iDestruct (big_sepFM_lookup_Some_acc Hlookup_tran with "retri'") as "[re' Hacc_retri']".
               simpl;left;split;done.
+              rewrite Heq_retri.
+              iDestruct (retri_split with "[$re $re']") as "re".
               destruct (rx_state')  eqn: Heq_rxstate.
               { (* apply [hvc_mem_retrieve_rx_full] *)
                 admit.
@@ -1246,6 +1248,7 @@ Section fundamental.
 
               destruct (tran.1.2) eqn:Heq_tran_tt.
               { (*apply [hvc_mem_retrieve_donate]*)
+
                 admit.
               }
               { (*apply [hvc_mem_retrieve_share]*)
