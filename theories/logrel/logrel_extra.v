@@ -229,6 +229,21 @@ Section big_sep.
     done.
   Qed.
 
+   Lemma big_sepFM_lookup_Some{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} {v : A} :
+    m !! k = Some v ->
+    P (k,v) ->
+    big_sepFM m P Φ ⊢ Φ k v ∗ (big_sepFM (delete k m) P Φ).
+  Proof.
+    iIntros (Hlk P_v) "fm".
+    rewrite /big_sepFM.
+    iDestruct (big_sepM_delete _ _ k v with "fm") as "[Φ Hacc]".
+    rewrite map_filter_lookup_Some.
+    split;auto.
+    iFrame "Φ".
+    rewrite map_filter_delete;auto.
+  Qed.
+
   Lemma big_sepFM_lookup_None {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
         {Φ : K -> A -> PROP} (k : K) :
     m !! k = None ->

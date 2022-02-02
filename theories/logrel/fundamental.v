@@ -101,7 +101,7 @@ Section fundamental.
     iDestruct (memory_pages_split_singleton p_tx ps_acc' with "mem_acc") as (mem_acc_tx mem_tx) "[[%Hdom_mem_acc_tx mem_acc_tx] [mem_tx %Heq_mem_acc]]". set_solver + Hsubset_mb.
 
     subst ps_mem_in_trans.
-    iLöb as "IH" forall (regs ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx) "Htotal_regs".
+    iLöb as "IH" forall (regs ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx rx_state') "Htotal_regs".
     set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans')).
 
     iDestruct "Htotal_regs" as %Htotal_regs.
@@ -1184,7 +1184,7 @@ Section fundamental.
             }
             { (*Lend*) admit. }
             { (*Donate*) admit. }
-            { (*TODO: Retrieve*)
+            { (*WIP: Retrieve*)
               pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
               pose proof (Htotal_regs R2) as[r2 Hlookup_reg_R2].
               iDestruct (reg_big_sepM_split_upd4 i Hlookup_PC Hlookup_reg_R0 Hlookup_reg_R1 Hlookup_reg_R2 with "[$regs]")
@@ -1211,7 +1211,7 @@ Section fundamental.
                 done.
               }
               apply elem_of_dom in Hin_trans_dom as [tran Hlookup_tran].
-              iDestruct (big_sepM_lookup_acc _ trans' _  _ Hlookup_tran with "trans") as "((tran & pgt_tran) & Hacc_trans)".
+              iDestruct (big_sepM_delete _ trans' _  _ Hlookup_tran with "trans") as "((tran & pgt_tran) & trans)".
 
               destruct(decide (tran.1.1.1.2 = i)) as [Heq_tran | Hneq_tran].
               2: { (*apply [hvc_mem_retrieve_invalid_trans]*)
@@ -1219,19 +1219,19 @@ Section fundamental.
               }
 
               iDestruct ("retri") as "[retri retri']".
-              iDestruct (big_sepFM_lookup_Some_acc Hlookup_tran with "retri") as "[re Hacc_retri]".
+              iDestruct (big_sepFM_lookup_Some Hlookup_tran with "retri") as "[re retri]".
               simpl;left;done.
-
 
               destruct (tran.2) eqn:Heq_retri.
               { (* apply [hvc_mem_retrieve_retrieved] *)
                 admit.
               }
 
-              iDestruct (big_sepFM_lookup_Some_acc Hlookup_tran with "retri'") as "[re' Hacc_retri']".
+              iDestruct (big_sepFM_lookup_Some Hlookup_tran with "retri'") as "[re' retri']".
               simpl;left;split;done.
               rewrite Heq_retri.
               iDestruct (retri_split with "[$re $re']") as "re".
+
               destruct (rx_state')  eqn: Heq_rxstate.
               { (* apply [hvc_mem_retrieve_rx_full] *)
                 admit.
@@ -1269,7 +1269,7 @@ Section fundamental.
 
               destruct (tran.1.2) eqn:Heq_tran_tt.
               { (*apply [hvc_mem_retrieve_donate]*)
-                iDestruct (big_sepFM_lookup_Some_acc Hlookup_tran with "tran_pgt_transferred") as "[[tran' pgt_tran'] Hacc_tran_pgt_transf]".
+                iDestruct (big_sepFM_lookup_Some Hlookup_tran with "tran_pgt_transferred") as "[[tran' pgt_tran'] tran_pgt_transferred]".
                 simpl. split;first done. left;done.
                 iDestruct (trans_split with "[$tran $tran']") as "tran".
                 rewrite Heq_tran_tt.
@@ -1279,9 +1279,7 @@ Section fundamental.
 
                 destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
                 {
-
-                iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx]".
-
+                iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
                 assert(tran.1 = (tran.1.1.1.1.1, tran.1.1.1.1.2, i, tran.1.1.2, Donation)) as ?.
                 {
                   rewrite -Heq_tran_tt.
@@ -1290,17 +1288,22 @@ Section fundamental.
                 }
                 rewrite H.
 
-                iApply (hvc_mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 own_tran $pgt_acc $re $tran $rx $rx_state $mem_rx $fresh_handles]").
+                iApply (hvc_mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $re $tran $rx $rx_state $mem_rx $fresh_handles]").
                 set_solver + Hin_ps_acc_tx.
                 done.
+                done.
+                iNext.
+                simpl.
+                iIntros "(PC & mem_instr & R0 & R1 & own_tran & pgt_acc & rx & (%wl & %des & rx_state & _ & _ & mem_rx) & fresh_handles) _".
 
-                iFrameAutoSolve.
-                6: { rewrite H. simpl. iFrame. }
-                6: { iFrame. }
-                iFrameAutoSolve.
+                iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
+                iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
+                iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+                (* TODO *)
+                iApply ("IH" $! _ (tran.1.1.2 ∪ ps_acc') Hsubset_mb (delete r1 trans') Hdisj_na Hnin_rx Hnin_tx Hdom_mem_acc_tx with "regs tx pgt_tx [pgt_acc] [pgt_acc'] LB [fresh_handles trans]
+                            [tran_pgt_transferred] [retri retri'] R0z R1z rx_state [rx pgt_rx] prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx Htotal_regs'").
+
                 }
-
-                
                 admit.
               }
               { (*apply [hvc_mem_retrieve_share]*)

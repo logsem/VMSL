@@ -111,7 +111,7 @@ Section logrel.
                 ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0
-                      ((∃ ps_na'' ps_acc'' trans'',
+                      ((∃ ps_na'' ps_acc'' trans'' rx_state'',
                            let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
                            (* lower bound *)
                            i -@{1/2}A> ps_acc'' ∗
@@ -125,10 +125,7 @@ Section logrel.
                            (∃ mem_macc_trans, memory_pages ps_macc_trans'' mem_macc_trans) ∗
                            R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                            (* status of RX *)
-                           (match rx_state with
-                              | None => RX_state@ i := None
-                              | Some _ => RX_state@ i := None ∨ RX_state@i := rx_state
-                            end) ∗
+                           RX_state@ i := rx_state'' ∗
                            (* RX *)
                            rx_page i p_rx ∗ ∃ mem_rx, memory_page p_rx mem_rx)
                            (* no scheduling, we finish the proof *)
