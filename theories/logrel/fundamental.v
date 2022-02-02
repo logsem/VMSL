@@ -2,7 +2,7 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
-From HypVeri.rules Require Import rules_base nop mov yield mem_share (* ldr str halt fail add sub mult cmp *).
+From HypVeri.rules Require Import rules_base nop mov yield mem_share mem_retrieve(* ldr str halt fail add sub mult cmp *).
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
@@ -1184,7 +1184,21 @@ Section fundamental.
             }
             { (*Lend*) admit. }
             { (*Donate*) admit. }
-            { (*Retrieve WIP*) admit. }
+            { (*TODO: Retrieve*)
+              pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
+              pose proof (Htotal_regs R2) as[r2 Hlookup_reg_R2].
+              iDestruct (reg_big_sepM_split_upd4 i Hlookup_PC Hlookup_reg_R0 Hlookup_reg_R1 Hlookup_reg_R2 with "[$regs]")
+                as "(PC & R0 & R1 & R2 & Hacc_regs)";eauto.
+              iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
+
+              iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
+              destruct (decide (r1 ∈ hpool)).
+              {
+                admit.
+                (* apply [hvc_mem_retrieve_invalid_handle] *)
+              }
+              (* get transaction *)
+              admit. }
             { (*Relinquish*) admit. }
             { (*Reclaim*) admit. }
             { (*Send TODO*) admit. }
