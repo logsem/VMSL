@@ -182,8 +182,8 @@ Section big_sep.
               -∗ [∗ map] k↦y ∈ (m'' ∪  m) , Φ k y)} :
     m !! k = Some v ->
     ([∗ map] k↦y ∈ m, Φ k y) ⊢
-     (Φ k v)∗
-      (∀ v',  Φ k v' -∗ [∗ map] k↦y ∈ <[k:= v']> m , Φ k y).
+    (Φ k v) ∗
+    (∀ v',  Φ k v' -∗ [∗ map] k↦y ∈ <[k:= v']> m , Φ k y).
   Proof.
     iIntros (Hlookup) "Hmap".
     iDestruct (big_sepM_union_acc m {[k:= v]} with "Hmap") as "[Φ Hacc]".
@@ -346,6 +346,8 @@ Section big_sep.
     iExFalso.
     rewrite elem_of_disjoint in n.
   Admitted.
+
+
 
 End big_sep.
 
@@ -801,46 +803,8 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd4 reg r1 r2 r3 r4 w1 w2 w3 w4 (λ k v, k @@ i ->r v)%I);eauto.
   Qed.
 
-(** pagetable **)
- (* Lemma pgt_big_sepM_split (pgt: gmap PID (VMID * gset VMID)) {p pe} {f: _ -> _ -> iProp Σ}: *)
- (*    pgt !! p = Some pe-> *)
- (*    (( [∗ map] k↦y ∈ pgt, f k y)%I *)
- (*     ⊢  (f p pe) ∗ (f p pe -∗ [∗ map] k↦y ∈ pgt, f k y))%I. *)
- (*  Proof. *)
- (*    rewrite /total_gmap. *)
- (*    iIntros (Hlookup). *)
- (*    iApply (ra_big_sepM_split pgt p pe f Hlookup). *)
- (*  Qed. *)
-
-
- (* Lemma pgt_big_sepM_split2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}: *)
- (*    p1 ≠ p2 -> *)
- (*    pgt !! p1 = Some pe1 -> *)
- (*    pgt !! p2 = Some pe2-> *)
- (*    (( [∗ map] k↦y ∈ pgt, f k y)%I *)
- (*     ⊢  (f p1 pe1) ∗ (f p2 pe2) ∗ ((f p1 pe1 ∗ f p2 pe2 ) -∗ [∗ map] k↦y ∈ pgt, f k y))%I. *)
- (*  Proof. *)
- (*    rewrite /total_gmap. *)
- (*    iIntros (Hneq Hlookup1 Hlookup2). *)
- (*    iApply (ra_big_sepM_split2 pgt p1 p2 pe1 pe2 f);eauto. *)
- (*  Qed. *)
-
- (*  (* f is also implicit because coq can infer it from big_sepM *) *)
- (*  Lemma pgt_big_sepM_split_upd2 (pgt: gmap PID (VMID * gset VMID)) {p1 p2 pe1 pe2} {f: _ -> _ -> iProp Σ}: *)
- (*    p1 ≠ p2 -> *)
- (*    pgt !! p1 = Some pe1-> *)
- (*    pgt !! p2 = Some pe2-> *)
- (*    ((⌜total_gmap pgt⌝ ∗ [∗ map] k↦y ∈ pgt, f k y)%I *)
- (*     ⊢  (f p1 pe1) ∗ (f p2 pe2)∗ (∀ (pe1' pe2' : VMID * gset VMID) , (f p1 pe1' ∗ f p2 pe2') -∗ *)
- (*                          ∃ (pgt': gmap PID (VMID * gset VMID) ), (⌜total_gmap pgt'⌝ ∗ [∗ map] k↦y ∈ pgt', f k y)))%I. *)
- (*  Proof. *)
- (*    iIntros (Hneq Hlookup1 Hlookup2) "[%Htotal pgt]". *)
- (*    iApply (ra_big_sepM_split_upd2 pgt p1 p2 pe1 pe2 f);eauto. *)
- (*    Qed. *)
-
   (** memory **)
-
-  Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+    Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
     mem !! a = Some w->
     (([∗ map] k↦y ∈ mem, f k y)
      ⊢  (f a w) ∗ (f a w -∗
@@ -860,41 +824,13 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd mem a w f Hlookup).
   Qed.
 
- (*  Lemma mem_big_sepM_split2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}: *)
- (*    a1 ≠ a2 -> *)
- (*    mem !! a1 = Some w1-> *)
- (*    mem !! a2 = Some w2-> *)
- (*    (([∗ map] k↦y ∈ mem, f k y) *)
- (*     ⊢  f a1 w1 ∗ f a2 w2 ∗ ((f a1 w1 ∗ f a2 w2) -∗ *)
- (*                            ( [∗ map] k↦y ∈ mem, f k y)))%I. *)
- (*  Proof. *)
- (*    rewrite /total_gmap. *)
- (*    iIntros (Hneq Hlookup1 Hlookup2). *)
- (*    iApply (ra_big_sepM_split2 mem a1 a2 w1 w2 f);eauto. *)
- (*  Qed. *)
-
- (*  Lemma mem_big_sepM_split_upd2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}: *)
- (*    a1 ≠ a2 -> *)
- (*    mem !! a1 = Some w1-> *)
- (*    mem !! a2 = Some w2-> *)
- (*    ((⌜total_gmap mem⌝ ∗ [∗ map] k↦y ∈ mem, f k y)%I *)
- (*     ⊢  f a1 w1 ∗ f a2 w2 ∗ (∀ (w1' w2' : Word) , (f a1 w1' ∗ f a2 w2') -∗ *)
- (*                          ∃ mem', (⌜total_gmap mem'⌝ ∗ [∗ map] k↦y ∈ mem', f k y)))%I. *)
- (*  Proof. *)
- (*    rewrite /total_gmap. *)
- (*    iIntros (Hneq Hlookup1 Hlookup2). *)
- (*    iApply (ra_big_sepM_split_upd2 mem a1 a2 w1 w2 f);eauto. *)
- (*  Qed. *)
-
-  (* lemmas about pages_in_trans *)
+   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:
     p ∈ pages_in_trans trans <-> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.
   Proof.
-    (* intros Hin. *)
-    rewrite /pages_in_trans.  (* in Hin. *)
+    rewrite /pages_in_trans.
     induction trans using map_ind.
     {
-
       rewrite map_fold_empty //.
       split;intros;first done.
       destruct H as [? [? [? ?]]].
@@ -939,6 +875,104 @@ Section logrel_extra.
       rewrite lookup_insert_ne in Hlookup.
       done.
       done.
+    }
+  Qed.
+
+
+  Definition trans_ps_disj trans := map_Forall (λ h tran, tran.1.1.2 ## pages_in_trans (delete h trans)) trans.
+
+  Lemma get_trans_ps_disj trans {Φ : _ -> iProp Σ}:
+    (([∗ map] h ↦ tran ∈ trans , Φ tran) ∗
+    (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝)
+    ⊢ ⌜trans_ps_disj trans⌝)%I.
+  Proof.
+    rewrite /trans_ps_disj.
+    iIntros "[m Hfalse]".
+    iIntros (k v Hlookup).
+    rewrite elem_of_disjoint.
+    iIntros (p Hin Hin').
+    iDestruct (big_sepM_delete with "m") as "[Φ m]".
+    exact Hlookup.
+    apply elem_of_pages_in_trans in Hin' as [h [v' [Hlookup' Hin'']]].
+    iDestruct (big_sepM_delete with "m") as "[Φ' m]".
+    exact Hlookup'.
+    iDestruct ("Hfalse" $! v v' with "[$ Φ $ Φ']") as %Hdisj.
+    set_solver + Hdisj Hin Hin''.
+  Qed.
+
+  Lemma pages_in_trans_subseteq m m':
+    m' ⊆ m -> pages_in_trans m' ⊆ pages_in_trans m.
+
+  Lemma trans_ps_disj_subseteq m m':
+    trans_ps_disj m -> m' ⊆ m -> trans_ps_disj m'.
+  Proof.
+    intros Hdisj Hsub.
+    intros k v Hlookup.
+
+
+  Lemma pages_in_trans_delete {h tran trans}:
+    trans !! h = Some tran ->
+    trans_ps_disj trans ->
+    pages_in_trans (delete h trans) = pages_in_trans trans ∖ tran.1.1.2.
+  Proof.
+    intros Hlk Hdisj.
+    specialize (Hdisj _ _ Hlk).
+    rewrite /pages_in_trans.
+    induction trans using map_ind.
+    {
+      rewrite map_fold_empty //.
+    }
+    {
+      rewrite map_fold_insert_L.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      2: done.
+      destruct (decide (i = h)).
+      subst i.
+      rewrite delete_insert. 2: done.
+      {
+        simpl in Hdisj.
+        rewrite lookup_insert in Hlk.
+        inversion Hlk.
+        subst x.
+        clear Hlk.
+        rewrite delete_insert in Hdisj;auto.
+        rewrite /pages_in_trans in Hdisj.
+        set_solver + Hdisj.
+      }
+      {
+        rewrite delete_insert_ne;auto.
+        rewrite map_fold_insert_L.
+        2:{
+          intros w1 w2 trans1 trans2 y.
+          intros Hneq Hlookup1 Hlookup2.
+          set_solver +.
+        }
+        2: {
+          rewrite lookup_delete_ne;auto.
+        }
+        rewrite lookup_insert_ne in Hlk.
+        rewrite delete_insert_ne in Hdisj;auto.
+        rewrite /pages_in_trans in Hdisj.
+        rewrite map_fold_insert_L in Hdisj.
+        2:{
+          intros w1 w2 trans1 trans2 y.
+          intros Hneq Hlookup1 Hlookup2.
+          set_solver +.
+        }
+        2: {
+          rewrite lookup_delete_ne;auto.
+        }
+        rewrite /pages_in_trans.
+        rewrite IHtrans;auto.
+        2: {
+          set_solver + Hdisj. }
+        2: done.
+        set_solver + Hdisj.
+      }
     }
   Qed.
 
