@@ -4,7 +4,7 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base nop mov yield mem_share mem_retrieve(* ldr str halt fail add sub mult cmp *).
 From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri Require Import proofmode.
+From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
 Section fundamental.
@@ -1200,7 +1200,8 @@ Section fundamental.
                 {
                   rewrite union_empty_r_L.
                   rewrite /pagetable_entries_excl_owned /pgt.
-                  rewrite (pages_in_trans_insert Hlookup_wh_None).
+                  rewrite (pages_in_trans_insert Hlookup_wh_None) /=.
+                  rewrite (union_comm_L ps_share).
                   rewrite difference_difference_L.
                   iApply (big_sepS_sep with "pgt_owned").
                 }
@@ -1343,8 +1344,16 @@ Section fundamental.
               }
               iClear "Hsplit".
               rewrite -Heq_mem_acc_tx_rx in Hlookup_mem_ai.
+              iAssert (⌜dom (gset _) mem_rx = set_of_addr {[p_rx]}⌝)%I as "%Hdom_mem_rx".
+              {
+                rewrite set_of_addr_singleton.
+                iDestruct "mem_rx" as "[$ _]".
+              }
               rewrite lookup_union_Some in Hlookup_mem_ai.
-
+              2:{ apply map_disjoint_dom. rewrite Hdom_mem_acc_tx_rx Hdom_mem_rx.
+                  apply set_of_addr_disj.
+                  set_solver +.
+              }
               destruct (tran.1.2) eqn:Heq_tran_tt.
               { (*apply [hvc_mem_retrieve_donate]*)
                 iDestruct (big_sepFM_lookup_Some Hlookup_tran with "tran_pgt_transferred") as "[[tran' [own_tran excl_tran]] tran_pgt_transferred]".
@@ -1411,7 +1420,7 @@ Section fundamental.
                   set_solver + H.
                   apply (trans_ps_disj_subseteq trans').
                   done.
-                  admit. (*delete r1 trans' ⊆ trans'*)
+                  apply map_subseteq_delete.
                 }
                 {
                   rewrite /transaction_pagetable_entries_transferred.
@@ -1431,9 +1440,9 @@ Section fundamental.
                 }
                 {
                   assert (pages_in_trans (delete r1 trans') = pages_in_trans trans' ∖ tran.1.1.2) as ->.
-                {
-                  apply pages_in_trans_delete;auto.
-                }
+                  {
+                    apply pages_in_trans_delete;auto.
+                  }
                   rewrite (difference_union_distr_l_L tran.1.1.2).
                   assert (tran.1.1.2 ∖ {[p_rx;p_tx]} = tran.1.1.2) as ->.
                   set_solver + Hnin_rx Hnin_tx Hsubseteq_tran.
