@@ -672,7 +672,7 @@ Section logrel_extra.
     }
   Qed.
 
- Lemma ra_big_sepM_split_upd4 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3 k4: K) (v1 v2 v3 v4:V)
+  Lemma ra_big_sepM_split_upd4 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3 k4: K) (v1 v2 v3 v4:V)
         (total:= (λ m, (∀ k, is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ):
     k1 ≠ k2 ->
     k1 ≠ k3 ->
@@ -686,7 +686,7 @@ Section logrel_extra.
     map !! k4 = Some v4 ->
     ((⌜total map⌝ ∗ [∗ map] k↦y ∈ map, f k y)%I
      ⊢ f k1 v1 ∗ f k2 v2 ∗ f k3 v3 ∗ f k4 v4 ∗
-          (∀ v1' v2' v3' v4', f k1 v1' ∗ f k2 v2' ∗ f k3 v3' ∗ f k4 v4' -∗ ∃ map', (⌜total map'⌝ ∗ [∗ map] k↦y ∈ map', f k y)))%I.
+         (∀ v1' v2' v3' v4', f k1 v1' ∗ f k2 v2' ∗ f k3 v3' ∗ f k4 v4' -∗ ∃ map', (⌜total map'⌝ ∗ [∗ map] k↦y ∈ map', f k y)))%I.
   Proof.
     iIntros (Hneq1 Hneq2 Hneq3 Hneq4 Hneq5 Hneq6 Hlookup1 Hlookup2 Hlookup3 Hlookup4) "[%Htotal Hmaps]".
     pose proof (Htotal k1) as Hlookup_k1.
@@ -734,7 +734,7 @@ Section logrel_extra.
   Qed.
 
   (** registers **)
-   (* we provide lookup, so r and w can be implicit *)
+  (* we provide lookup, so r and w can be implicit *)
   Lemma reg_big_sepM_split i {reg r w}:
     reg !! r = Some w ->
     (([∗ map] k↦y ∈ reg, k @@ i ->r y)%I
@@ -804,7 +804,7 @@ Section logrel_extra.
   Qed.
 
   (** memory **)
-    Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
+  Lemma mem_big_sepM_split (mem: gmap Addr Word) {a w} {f: _ -> _ -> iProp Σ}:
     mem !! a = Some w->
     (([∗ map] k↦y ∈ mem, f k y)
      ⊢  (f a w) ∗ (f a w -∗
@@ -824,7 +824,7 @@ Section logrel_extra.
     iApply (ra_big_sepM_split_upd mem a w f Hlookup).
   Qed.
 
-   (* lemmas about pages_in_trans *)
+  (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:
     p ∈ pages_in_trans trans <-> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.
   Proof.
@@ -879,12 +879,44 @@ Section logrel_extra.
   Qed.
 
 
-  Definition trans_ps_disj trans := map_Forall (λ h tran, tran.1.1.2 ## pages_in_trans (delete h trans)) trans.
+  Lemma subseteq_pages_in_trans h tran trans:
+    trans !! h = Some tran ->
+    tran.1.1.2 ⊆ pages_in_trans trans.
+  Proof.
+    intros Hlk.
+    rewrite /pages_in_trans.
+    induction trans using map_ind.
+    {
+      rewrite map_fold_empty //.
+    }
+    {
+      rewrite map_fold_insert_L.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      2: done.
+      destruct (decide (i = h)).
+      {
+        subst i.
+        rewrite lookup_insert in Hlk.
+        inversion Hlk.
+        subst x.
+        set_solver +.
+      }
+      {
+        feed specialize IHtrans.
+        rewrite lookup_insert_ne in Hlk;auto.
+        set_solver + IHtrans.
+      }
+    }
+  Qed.
 
   Lemma get_trans_ps_disj trans {Φ : _ -> iProp Σ}:
     (([∗ map] h ↦ tran ∈ trans , Φ tran) ∗
-    (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝)
-    ⊢ ⌜trans_ps_disj trans⌝)%I.
+       (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝)
+     ⊢ ⌜trans_ps_disj trans⌝)%I.
   Proof.
     rewrite /trans_ps_disj.
     iIntros "[m Hfalse]".
@@ -943,7 +975,23 @@ Section logrel_extra.
       rewrite H1 in H.
       done.
     }
-Qed.
+  Qed.
+
+  Lemma pages_in_trans_insert{h tran trans}:
+    trans !! h = None ->
+    pages_in_trans (<[h := tran]> trans) =tran.1.1.2 ∪ pages_in_trans trans.
+  Proof.
+    intros Hlk.
+    rewrite /pages_in_trans.
+    rewrite map_fold_insert_L.
+    2:{
+      intros w1 w2 trans1 trans2 y.
+      intros Hneq Hlookup1 Hlookup2.
+      set_solver +.
+    }
+    2: done.
+    done.
+  Qed.
 
   Lemma trans_ps_disj_subseteq m m':
     trans_ps_disj m -> m' ⊆ m -> trans_ps_disj m'.
@@ -970,7 +1018,7 @@ Qed.
     feed specialize Hdisj.
     apply Hsub;eauto.
     set_solver + Hdisj H0.
-Qed.
+  Qed.
 
   Lemma pages_in_trans_delete {h tran trans}:
     trans !! h = Some tran ->
@@ -1035,6 +1083,35 @@ Qed.
         2: done.
         set_solver + Hdisj.
       }
+    }
+  Qed.
+
+  Lemma trans_ps_disj_insert h tran trans :
+    trans_ps_disj trans ->
+    trans !! h = None ->
+    tran.1.1.2 ## pages_in_trans trans ->
+    trans_ps_disj (<[h:=tran]> trans).
+  Proof.
+    intros Hdisj Hlk Hdisj'.
+    intros k v Hlk'.
+    destruct (decide (k = h)).
+    {
+      subst.
+      rewrite delete_insert;auto.
+      rewrite lookup_insert in Hlk'.
+      inversion Hlk'.
+      subst v.
+      done.
+    }
+    {
+      rewrite delete_insert_ne;auto.
+      rewrite pages_in_trans_insert.
+      rewrite lookup_insert_ne in Hlk';auto.
+
+      rewrite (pages_in_trans_delete Hlk' );auto.
+      pose proof (subseteq_pages_in_trans _ _ _ Hlk').
+      set_solver + Hdisj' H.
+      rewrite lookup_delete_ne;auto.
     }
   Qed.
 

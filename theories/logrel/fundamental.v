@@ -707,8 +707,6 @@ Section fundamental.
               iDestruct (big_sepM_union with "mem_acc_tx") as "[mem_oea mem_inters]";auto.
 
               (* for simplication *)
-
-
               assert (Heq_inter_diff_union: (ps_acc'∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans) ∪ ((ps_acc' ∪ ps_mem_in_trans ) ∖ ps_acc')
                           = {[p_rx]} ∪ ps_mem_in_trans).
               {
@@ -1038,12 +1036,22 @@ Section fundamental.
               { set_solver + Hsubseteq_share Hnin_ptx_share Hnin_prx_share. }
               clear Hsubseteq_share Hnin_ptx_share Hnin_prx_share.
 
-              iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
-              destruct (decide (ps_share ⊆ ps_acc' ∖ {[p_rx; p_tx]} ∖ ps_mem_in_trans)) as [Hsubseteq_share | Hnsubseteq_share].
+              iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & %Htrans_ps_disj & trans)".
+              destruct (decide (ps_share ⊆ ps_acc' ∖ {[p_rx; p_tx]} ∖ (pages_in_trans trans'))) as [Hsubseteq_share'' | Hnsubseteq_share].
               { (* all pages are exclusively owned, ok to perceed *)
-                iDestruct (fresh_handles_disj with "[$fresh_handles trans]") as "%Hdisj_hpool".
-                { iDestruct (big_sepM_sep with "trans") as "[$ _]". }
+                assert (ps_share ⊆ ps_acc' ∖ {[p_rx; p_tx]} ∖ ps_mem_in_trans) as Hsubseteq.
+                {
+                  assert (ps_mem_in_trans ⊆ (pages_in_trans trans')).
+                  {
+                    rewrite /ps_mem_in_trans.
+                    apply pages_in_trans_subseteq.
+                    apply map_filter_subseteq.
+                  }
+                  set_solver + H Hsubseteq_share''.
+                }
+                iDestruct (fresh_handles_disj with "[$fresh_handles $trans]") as "%Hdisj_hpool".
                 iDestruct (access_split with "[$ pgt_acc $ pgt_acc' ]") as "pgt_acc".
+                iDestruct (big_sepS_sep with "pgt_owned") as "pgt_owned".
                 iDestruct (big_sepS_union_acc _ ps_share with "pgt_owned") as "[pgt_oe_share Hacc_pgt_oe]";auto.
                 destruct (decide (hpool = ∅)).
                 { (* no avaiable fresh handles, apply [hvc_mem_share_no_fresh_handles] *)
@@ -1064,7 +1072,8 @@ Section fundamental.
                   iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
                             tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned [pgt_owned] [mem_rest mem_acc_tx mem_tx] Htotal_regs'").
                   iExists hpool. by iFrame.
-                  pose proof (union_split_difference_intersection_subseteq_L _ _ Hsubseteq_share) as [<- _]. iFrame.
+                  pose proof (union_split_difference_intersection_subseteq_L _ _ Hsubseteq_share'') as [<- _].
+                  iApply (big_sepS_sep with "pgt_owned").
                   {
                     iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
                     iSplitL "mem_acc_tx".
@@ -1115,11 +1124,10 @@ Section fundamental.
                 }
 
                 iDestruct (trans_split with "tran_share") as "[tran_share tran_share']".
-                iDestruct (pgt_split with "pgt_oe_share") as "[pgt_oe_share pgt_oe_share']".
 
                 iApply ("IH" $! _ ps_acc' Hsubset_mb trans'' with "[] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
-                [fresh_handles tran_share trans pgt_oe_share] [tran_pgt_transferred] [retri retri_share] R0z R1z
-                rx_state rx prop0 propi [tran_pgt_owned tran_share' pgt_oe_share'] [pgt_owned] [mem_rest mem_acc_tx mem_tx] Htotal_regs'");iClear "IH".
+                [fresh_handles tran_share trans] [tran_pgt_transferred] [retri retri_share] R0z R1z
+                rx_state rx prop0 propi [tran_pgt_owned tran_share' pgt_oe_share] [pgt_owned] [mem_rest mem_acc_tx mem_tx] Htotal_regs'");iClear "IH".
                 {
                   rewrite -Hrewrite.
                   rewrite union_assoc_L.
@@ -1159,7 +1167,10 @@ Section fundamental.
                   rewrite big_sepM_insert;auto.
                   iFrame.
                   simpl.
-                  case_bool_decide;done.
+                  iPureIntro.
+                  apply trans_ps_disj_insert;auto.
+                  simpl.
+                  set_solver + Hsubseteq_share' Hsubseteq_share''.
                 }
                 {
                   rewrite /transaction_pagetable_entries_transferred.
@@ -1184,14 +1195,14 @@ Section fundamental.
                   case_bool_decide.
                   simpl in H. done.
                   iFrame.
+                  iApply (big_sepS_sep with "pgt_oe_share").
                 }
                 {
                   rewrite union_empty_r_L.
                   rewrite /pagetable_entries_excl_owned /pgt.
-                  rewrite union_comm_L in Hrewrite.
-                  rewrite -Hrewrite.
+                  rewrite (pages_in_trans_insert Hlookup_wh_None).
                   rewrite difference_difference_L.
-                  iFrame.
+                  iApply (big_sepS_sep with "pgt_owned").
                 }
                 {
                   iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
@@ -1222,12 +1233,10 @@ Section fundamental.
                 }
               }
               { (* at least one page is not exclusively owned by i (i.e. is involved in a transaction) *)
-                assert (∃ p, p ∈ ps_share ∧ p ∈ ps_mem_in_trans) as [p [Hin_p_share Hin_p_mem_in_trans]].
+                assert (∃ p, p ∈ ps_share ∧ p ∈ pages_in_trans trans') as [p [Hin_p_share Hin_p_mem_in_trans]].
                 { apply (not_subseteq_diff _ (ps_acc' ∖ {[p_rx; p_tx]}));auto. }
                 apply elem_of_pages_in_trans in  Hin_p_mem_in_trans as [h [tran [Hlookup_tran Hin_p_tran]]].
-                apply map_filter_lookup_Some in Hlookup_tran as [Hlookup_tran Htran_prop].
-                iDestruct (big_sepM_lookup_acc with "trans") as "[[tran_tran pgt_tran] Hacc_trans]";first exact Hlookup_tran.
-                (* XXX: Can we also apply [not_owned]/[not_excl]? this iApply is noticeable slow *)
+                iDestruct (big_sepM_lookup_acc with "trans") as "[tran_tran Hacc_trans]";first exact Hlookup_tran.
                 iApply (hvc_mem_send_in_trans ai p h with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx tran_tran]");iFrameAutoSolve.
                 exact Hdecode_hvc.
                 simpl; reflexivity.
@@ -1240,7 +1249,7 @@ Section fundamental.
                 iIntros "(PC & mem_instr & pgt_acc' & R0 & R1 & R2 & tx & mem_tx & tran_tran) _".
                 iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[#Htotal_regs' regs]".
                 iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-                iDestruct ("Hacc_trans" with "[$ tran_tran $ pgt_tran]") as "trans".
+                iDestruct ("Hacc_trans" with "[$ tran_tran]") as "trans".
 
                 iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
                             tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned [mem_rest mem_acc_tx mem_tx] Htotal_regs'").
@@ -1267,7 +1276,7 @@ Section fundamental.
 
               iDestruct (access_split with "[$pgt_acc $pgt_acc']") as "pgt_acc".
               
-              iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
+              iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & %Htrans_ps_disj & trans)".
               destruct (decide (r1 ∈ hs_all)) as [Hin_hs_all |Hnotin_hs_all].
               2: { (* apply [hvc_mem_retrieve_invalid_handle] *)
                 admit.
@@ -1284,25 +1293,7 @@ Section fundamental.
                 done.
               }
               apply elem_of_dom in Hin_trans_dom as [tran Hlookup_tran].
-              iDestruct (get_trans_ps_disj trans' (Φ := (λ tran0, pgt tran0.1.1.2 (1 / 2) tran0.1.1.1.1.1 (bool_decide (tran0.1.2 ≠ Sharing)))
-                          ) with "[trans]") as %Htrans_ps_disj.
-              {
-                iSplitR "".
-                iDestruct (big_sepM_sep with "trans") as "[_ $]".
-                iIntros (? ?) "[pgt1 pgt2]".
-                (* TODO: make it a lemma *)
-                iDestruct (big_sepS_sep with "pgt1") as "[o1 _]".
-                iDestruct (big_sepS_sep with "pgt2") as "[o2 _]".
-                rewrite elem_of_disjoint.
-                iIntros (? ? ?).
-                iDestruct (big_sepS_delete with "o1") as "[o1 _]". exact a0.
-                iDestruct (big_sepS_delete with "o2") as "[o2 _]". exact a1.
-                iDestruct (own_ne a a with "[o1 o2]") as "%Hne".
-                (* FIXME: cannot prove it T_T, maybe just add trans_ps_disj to logrel? *)
-                admit.
-                contradiction.
-              }
-              iDestruct (big_sepM_delete _ trans' _  _ Hlookup_tran with "trans") as "((tran & pgt_tran) & trans)".
+              iDestruct (big_sepM_delete _ trans' _  _ Hlookup_tran with "trans") as "(tran & trans)".
 
               destruct(decide (tran.1.1.1.2 = i)) as [Heq_tran | Hneq_tran].
               2: { (*apply [hvc_mem_retrieve_invalid_trans]*)
@@ -1356,15 +1347,9 @@ Section fundamental.
 
               destruct (tran.1.2) eqn:Heq_tran_tt.
               { (*apply [hvc_mem_retrieve_donate]*)
-
-                iDestruct (big_sepFM_lookup_Some Hlookup_tran with "tran_pgt_transferred") as "[[tran' pgt_tran'] tran_pgt_transferred]".
+                iDestruct (big_sepFM_lookup_Some Hlookup_tran with "tran_pgt_transferred") as "[[tran' [own_tran excl_tran]] tran_pgt_transferred]".
                 simpl. split;first done. left;done.
                 iDestruct (trans_split with "[$tran $tran']") as "tran".
-
-                rewrite Heq_tran_tt.
-                case_bool_decide;last done;clear H.
-                iDestruct (pgt_split with "[$pgt_tran $pgt_tran']") as "pgt_tran".
-                iDestruct (big_sepS_sep with "pgt_tran") as "[own_tran excl_tran]".
 
                 destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
                 {
@@ -1422,7 +1407,11 @@ Section fundamental.
                   f_equal.
                   rewrite dom_delete_L.
                   rewrite difference_union_L.
+                  split.
                   set_solver + H.
+                  apply (trans_ps_disj_subseteq trans').
+                  done.
+                  admit. (*delete r1 trans' ⊆ trans'*)
                 }
                 {
                   rewrite /transaction_pagetable_entries_transferred.
@@ -1441,17 +1430,27 @@ Section fundamental.
                   contradiction.
                 }
                 {
-                  rewrite Hrewrite.
+                  assert (pages_in_trans (delete r1 trans') = pages_in_trans trans' ∖ tran.1.1.2) as ->.
+                {
+                  apply pages_in_trans_delete;auto.
+                }
                   rewrite (difference_union_distr_l_L tran.1.1.2).
                   assert (tran.1.1.2 ∖ {[p_rx;p_tx]} = tran.1.1.2) as ->.
                   set_solver + Hnin_rx Hnin_tx Hsubseteq_tran.
                   rewrite (difference_union_distr_l_L tran.1.1.2).
-                  assert (tran.1.1.2 ∖ (ps_mem_in_trans ∖ tran.1.1.2) = tran.1.1.2) as ->.
+                  assert (tran.1.1.2 ∖ (pages_in_trans trans' ∖ tran.1.1.2) = tran.1.1.2) as ->.
                   set_solver + Hsubseteq_tran.
-                  assert (tran.1.1.2 ∪ ps_acc' ∖ {[p_rx; p_tx]} ∖ (ps_mem_in_trans ∖ tran.1.1.2) = tran.1.1.2 ∪ ps_acc' ∖ {[p_rx; p_tx]} ∖ ps_mem_in_trans) as ->.
+                  assert (ps_mem_in_trans ⊆ pages_in_trans trans') as Hsub.
+                  apply pages_in_trans_subseteq.
+                  apply map_filter_subseteq.
+                  assert (tran.1.1.2 ∪ ps_acc' ∖ {[p_rx; p_tx]} ∖ (pages_in_trans trans' ∖ tran.1.1.2) = tran.1.1.2 ∪ ps_acc' ∖ {[p_rx; p_tx]} ∖ pages_in_trans trans') as ->.
                   set A := (ps_acc' ∖ {[p_rx; p_tx]}).
-                  set G := (tran.1.1.2 ∪ A ∖ (ps_mem_in_trans ∖ tran.1.1.2)).
-                  rewrite (union_difference_L tran.1.1.2 _ Hsubseteq_tran).
+                  set G := (tran.1.1.2 ∪ A ∖ (pages_in_trans trans' ∖ tran.1.1.2)).
+
+                  rewrite (union_difference_L tran.1.1.2 (pages_in_trans trans') ).
+                  2: {
+                    set_solver + Hsub Hsubseteq_tran.
+                  }
                   rewrite difference_union_distr_r_L.
                   rewrite union_intersection_l_L.
                   rewrite (union_comm_L tran.1.1.2).
@@ -1461,12 +1460,12 @@ Section fundamental.
                   rewrite /G.
                   rewrite subseteq_intersection_1_L. done.
                   set_solver +.
-                  iDestruct (big_sepS_sep with "[$own_tran $excl_tran]") as "pgt_tran".
-                  rewrite (union_comm_L tran.1.1.2).
-                  rewrite /pagetable_entries_excl_owned.
-                  rewrite /pgt.
-                  iApply (big_sepS_union with "[$pgt_owned $pgt_tran]").
-                  set_solver + Hsubseteq_tran.
+                  iDestruct "pgt_owned" as "[own_owned excl_owned]".
+                  iSplitL "own_owned own_tran".
+                  iApply (big_sepS_union with "[$own_tran $own_owned]").
+                  set_solver + Hsubseteq_tran Hsub.
+                  iApply (big_sepS_union with "[$excl_tran $excl_owned]").
+                  set_solver + Hsubseteq_tran Hsub.
                 }
                 {
                   rewrite Hrewrite.
@@ -1482,8 +1481,12 @@ Section fundamental.
                   iExists (list_to_map (zip (finz.seq p_rx (length des)) des) ∪ mem_rx); by iFrame "mem_rx".
                   iApply (memory_pages_split_singleton' p_tx with "[$mem_acc_tx $mem_tx]"). set_solver + Hsubset_mb.
                 }
+                }
+                { (* apply [hvc_mem_retrieve_donate_rx]*)
+                  admit.
+                }
               }
-              { (*apply [hvc_mem_retrieve_share]*)
+              { (* apply [hvc_mem_retrieve_share]*)
                 admit.
               }
               { (*apply [hvc_mem_retrieve_lend]*)
