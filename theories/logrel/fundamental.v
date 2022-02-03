@@ -1284,10 +1284,24 @@ Section fundamental.
                 done.
               }
               apply elem_of_dom in Hin_trans_dom as [tran Hlookup_tran].
-              (* TODO *)
-              (* iDestruct (pages_in_trans_disj trans (Φ := (λ tran0, pgt tran0.1.1.2 (1 / 2) tran0.1.1.1.1.1 (bool_decide (tran0.1.2 ≠ Sharing))) *)
-              (*             ) with "[trans]") as %Htrans_ps_disj. *)
-              assert (trans_ps_disj trans') as Htrans_ps_disj. admit.
+              iDestruct (get_trans_ps_disj trans' (Φ := (λ tran0, pgt tran0.1.1.2 (1 / 2) tran0.1.1.1.1.1 (bool_decide (tran0.1.2 ≠ Sharing)))
+                          ) with "[trans]") as %Htrans_ps_disj.
+              {
+                iSplitR "".
+                iDestruct (big_sepM_sep with "trans") as "[_ $]".
+                iIntros (? ?) "[pgt1 pgt2]".
+                (* TODO: make it a lemma *)
+                iDestruct (big_sepS_sep with "pgt1") as "[o1 _]".
+                iDestruct (big_sepS_sep with "pgt2") as "[o2 _]".
+                rewrite elem_of_disjoint.
+                iIntros (? ? ?).
+                iDestruct (big_sepS_delete with "o1") as "[o1 _]". exact a0.
+                iDestruct (big_sepS_delete with "o2") as "[o2 _]". exact a1.
+                iDestruct (own_ne a a with "[o1 o2]") as "%Hne".
+                (* FIXME: cannot prove it T_T, maybe just add trans_ps_disj to logrel? *)
+                admit.
+                contradiction.
+              }
               iDestruct (big_sepM_delete _ trans' _  _ Hlookup_tran with "trans") as "((tran & pgt_tran) & trans)".
 
               destruct(decide (tran.1.1.1.2 = i)) as [Heq_tran | Hneq_tran].
@@ -1375,7 +1389,6 @@ Section fundamental.
                 iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
                 iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
-
                 assert (pages_in_trans (trans_memory_in_trans i (delete r1 trans')) = ps_mem_in_trans ∖ tran.1.1.2) as Hrewrite.
                 {
                   rewrite /trans_memory_in_trans.
@@ -1384,7 +1397,9 @@ Section fundamental.
                   rewrite map_filter_lookup_Some.
                   split;first done.
                   simpl. right. done.
-                  admit.
+                  apply (trans_ps_disj_subseteq trans').
+                  done.
+                  apply map_filter_subseteq.
                 }
 
                 iApply ("IH" $! _ _ _ (delete r1 trans') _ _ _ with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]

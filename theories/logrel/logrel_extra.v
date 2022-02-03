@@ -902,13 +902,75 @@ Section logrel_extra.
 
   Lemma pages_in_trans_subseteq m m':
     m' ⊆ m -> pages_in_trans m' ⊆ pages_in_trans m.
+  Proof.
+    intros Hsub.
+    rewrite /pages_in_trans.
+    induction m' using map_ind.
+    {
+      rewrite map_fold_empty //.
+    }
+    {
+      rewrite map_fold_insert_L.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      2: done.
+      pose proof Hsub.
+      rewrite map_subseteq_spec in Hsub.
+      specialize (Hsub i x).
+      feed specialize Hsub.
+      rewrite lookup_insert //.
+      apply union_least.
+      {
+        rewrite elem_of_subseteq.
+        intros.
+        rewrite elem_of_pages_in_trans.
+        exists i, x.
+        split;done.
+      }
+      apply IHm'.
+      rewrite map_subseteq_spec.
+      intros.
+      rewrite map_subseteq_spec in H0.
+      apply H0.
+      rewrite lookup_insert_Some.
+      right.
+      split;last done.
+      intro.
+      subst.
+      rewrite H1 in H.
+      done.
+    }
+Qed.
 
   Lemma trans_ps_disj_subseteq m m':
     trans_ps_disj m -> m' ⊆ m -> trans_ps_disj m'.
   Proof.
     intros Hdisj Hsub.
     intros k v Hlookup.
-
+    rewrite map_subseteq_spec in Hsub.
+    assert (delete k m' ⊆ delete k m).
+    rewrite map_subseteq_spec.
+    intros.
+    destruct (decide (i = k)).
+    {
+      subst.
+      rewrite lookup_delete_Some in H.
+      destruct H;contradiction.
+    }
+    {
+      rewrite lookup_delete_ne in H;auto.
+      rewrite lookup_delete_ne;auto.
+    }
+    pose proof (pages_in_trans_subseteq _ _ H).
+    specialize (Hdisj k v).
+    simpl in Hdisj.
+    feed specialize Hdisj.
+    apply Hsub;eauto.
+    set_solver + Hdisj H0.
+Qed.
 
   Lemma pages_in_trans_delete {h tran trans}:
     trans !! h = Some tran ->
