@@ -166,7 +166,7 @@ Section definitions.
     map_Forall (λ _ v,
                  match v with
                  |Some tran =>
-                 (Z.of_nat (size tran.1.1.2) <? word_size)%Z = true
+                 (Z.of_nat ((size tran.1.1.2) + 5) <? page_size)%Z = true
                  |None => True
                end) trans.
 
@@ -524,8 +524,6 @@ Section timeless.
 
   Global Instance lower_bound_auth_mapsto_timeless (gm :gmap VMID (gset PID)) : Timeless (LB_auth gm).
   Proof. rewrite lower_bound_auth_mapsto_eq /lower_bound_auth_mapsto_def. apply _. Qed.
-
-
 
 End timeless.
 

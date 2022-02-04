@@ -170,8 +170,8 @@ Definition update_page_table_global (upd: permission -> VMID -> permission) (st:
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_memory_global_batch (st : state) (l : list (Addr * Word)) : state :=
-  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, (list_to_map l) ∪ (get_mem st), get_transactions st).
+Definition update_memory_global_batch (st : state) (m : mem) : state :=
+  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, m ∪ (get_mem st), get_transactions st).
 
 Definition update_memory (st : state) (a : Addr) (w : Word) : state :=
   (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st,
@@ -440,31 +440,28 @@ Definition get_rx_sender (st : state) : option VMID:=
 Definition get_rx_length (st : state) : option Word :=
   get_rx_length_global st (get_current_vm st).
 
-Definition empty_rx_global (st : state) (v : VMID) : state :=
-  match get_mail_box st @ v with
+Definition empty_rx(st : state) : state :=
+  match get_mail_box st @ (get_current_vm st) with
   | (txAddr, (rxAddr, _)) =>
     (get_reg_files st,
-     vinsert v (txAddr, (rxAddr,  None)) (get_mail_boxes st),
+     vinsert (get_current_vm st) (txAddr, (rxAddr,  None)) (get_mail_boxes st),
      get_page_table st,
      get_current_vm st,
      get_mem st, get_transactions st)
   end.
 
-Definition empty_rx (st : state) : state :=
-  empty_rx_global st (get_current_vm st).
+Definition write_mem_segment (st: state) (dst : Addr) (ws : list Word) : state :=
+  let m := list_to_map (zip (finz.seq dst (length ws)) ws) in
+  update_memory_global_batch st m.
 
-Definition write_mem_segment_unsafe (st : state) (dst : Addr) (segment : list Word) : state :=
-  update_memory_global_batch st (zip (finz.seq dst (Z.to_nat page_size)) segment).
+Definition read_mem_segment (m:mem) (src : Addr) (l : nat) : option (list Word) :=
+  @sequence_a list _ _ _ Word option _ _ ((λ a, (m !! a)) <$> (finz.seq src l)).
 
-Definition read_mem_segment_unsafe (st : state) (src : Addr) (l : Word) : list Word :=
-  foldr (fun x s => match get_mem st !! x with | Some x' => x' :: s | None => s end) [] (finz.seq src (Z.to_nat (finz.to_z l))).
-
-Definition copy_from_addr_to_addr_unsafe (st : state) (src dst : Addr) (l : Word) : state :=
-  write_mem_segment_unsafe st dst (read_mem_segment_unsafe st src l).
-
-Definition copy_page_segment_unsafe (st : state) (src dst : PID) (l : Word) : state :=
-  copy_from_addr_to_addr_unsafe st (of_pid src) (of_pid dst) l.
-
+Definition copy_page_segment (st:state) (src dst : PID) (l : nat) : state :=
+    match (read_mem_segment (get_mem st) (of_pid src) l) with
+      Some wl => write_mem_segment st (of_pid dst) wl
+      |None => st
+    end.
 
 Definition fill_rx_unsafe (st : state) (l : Word) (v r : VMID) (tx rx : PID) : state :=
   (get_reg_files st, vinsert r (tx, (rx, Some(l, v))) (get_mail_boxes st), get_page_table st, get_current_vm st, get_mem st, get_transactions st).
@@ -479,27 +476,21 @@ Definition fill_rx (st : state) (l : Word) (v r : VMID) : hvc_result state :=
 Definition write_retrieve_msg (st:state) (dst: Addr) (wh:Word) (trn: transaction): hvc_result state:=
  match trn with
   | (vs, f, vr, ls, t, _) =>
-    match finz.of_z (Z.of_nat (size ls)) with
+    match finz.of_z (Z.of_nat ((size ls) + 5)) with
     | Some l =>
       let des := ([of_imm (encode_vmid vs); f; wh; encode_transaction_type t ;l]
                     ++ map of_pid (elements ls)) in
-      match finz.of_z (Z.of_nat (length des)) with
-      | Some l' => fill_rx (write_mem_segment_unsafe st dst des) l' vr vr
-      | None => throw InvParam
-      end
+      fill_rx (write_mem_segment st dst des) l vr vr
     | None => throw InvParam
     end
  end.
 
-Definition transfer_msg_unsafe (st : state) (l : Word) (v : VMID) (r : VMID) : hvc_result state :=
+Definition transfer_msg (st : state) (v : VMID) (r : VMID) (l : Word) : hvc_result state :=
   if (page_size <? l)%Z
   then throw InvParam
   else
-    let st' := copy_page_segment_unsafe st (get_tx_pid st @ v) (get_rx_pid st @ r) l
+    let st' := copy_page_segment st (get_tx_pid st @ v) (get_rx_pid st @ r) (Z.to_nat l)
     in fill_rx st' l v r.
-
-Definition transfer_msg (st : state) (l : Word) (r : VMID) : hvc_result state :=
-  transfer_msg_unsafe st l (get_current_vm st) r.
 
 Definition get_fresh_handles (trans: transactions): gset Word:=
   (dom (gset _) (filter (λ kv, kv.2 = None) trans)).
@@ -544,7 +535,7 @@ Definition transaction_to_list_words (t : transaction) (h : Word) : option (list
 
 Definition transaction_write_rx (st : state) (t : transaction) (h : Word) : option state :=
   match transaction_to_list_words t h with
-  | Some ls => Some (write_mem_segment_unsafe st (get_rx_pid st @ (get_current_vm st)) ls)
+  | Some ls => Some (write_mem_segment st (get_rx_pid st @ (get_current_vm st)) ls)
   | None => None
   end.
 
@@ -555,14 +546,6 @@ Definition parse_list_of_pids (ws: list Word) (wl: Word): option (list PID) :=
 Definition parse_list_of_Word (mem : mem) (b : Addr) l : option (list Word) :=
    @sequence_a list _ _ _ Word option _ _ (map (λ v, (mem !! v))
                       (finz.seq b l)).
-
-Definition parse_transaction_descriptor_retrieve (mem: mem) (b : Addr) (len: nat) : option transaction_descriptor :=
-  raw_descriptor <- parse_list_of_Word mem b len;;;
-  vs_raw <- raw_descriptor !! 0 ;;;
-  vs <- decode_vmid vs_raw ;;;
-  wf <- raw_descriptor !! 1 ;;;
-  wh <- raw_descriptor !! 2 ;;;
-  unit (vs, Some wh, wf, V0, ∅).
 
 (* TODO: Prop version, reflection *)
 
@@ -646,9 +629,9 @@ Definition flat_list_list_word (wss: list (list Word)):=
 
 Definition zero_pages (st: state) (ps: list PID):=
    (get_reg_files st, get_mail_boxes st,
-  get_page_table st, get_current_vm st,
-  (list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word (pages_of_W0 (length ps))))) ∪ (get_mem st),
-   get_transactions st).
+     get_page_table st, get_current_vm st,
+     (list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word (pages_of_W0 (length ps))))) ∪ (get_mem st),
+     get_transactions st).
 
 Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   let comp :=
@@ -698,34 +681,22 @@ Definition get_transaction_type (t : transaction) : transaction_type :=
 
 Definition retrieve (s : state) : exec_mode * state :=
   let comp :=
-      len <- lift_option (get_reg s R1) ;;;
-      m <- (if (page_size <? len)%Z
-            then throw InvParam
-            else
-              lift_option_with_err (parse_transaction_descriptor_retrieve (get_mem s)
-                              (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) InvParam) ;;;
-      match m with
-      | (vs, Some handle, _, _, _) =>
-        trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-        match trn with
-         | (vs, w1, r, ps, ty, b) =>
+      handle <- lift_option (get_reg s R2) ;;;
+      trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
+      match trn with
+         | (vs, w1 , vr, ps, ty, b) =>
            let v := (get_current_vm s) in
-           match (v =? r) , b with
+           match (v =? vr), b with
            | true, false =>
              s' <- (write_retrieve_msg s (get_rx_pid s @ v) handle trn) ;;;
              let upd := match ty with
-               | Sharing => (λ perm v, flip_excl (grant_access perm v) v)
-               | Lending => grant_access
+               | Sharing | Lending => grant_access
                | Donation => (λ perm v, update_ownership (grant_access perm v) v)
                end in
              match ty with
-             | Sharing =>
+             | Sharing | Lending =>
                  unit  (update_reg
-                          (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true)) v ps)
-                          R0 (encode_hvc_ret_code Succ))
-             | Lending =>
-                 unit  (update_reg
-                          (update_page_table_global upd (update_transaction s' handle (vs, w1, r, ps, ty, true)) v ps)
+                          (update_page_table_global upd (update_transaction s' handle (vs, w1 , vr, ps, ty, true)) v ps)
                           R0 (encode_hvc_ret_code Succ))
              | Donation =>
                  unit  (update_reg
@@ -734,8 +705,6 @@ Definition retrieve (s : state) : exec_mode * state :=
              end
            | _ , _ => throw Denied
            end
-         end
-      | _ => throw InvParam
       end
   in
   unpack_hvc_result_normal s comp.
@@ -827,7 +796,7 @@ Definition send (s : state) : exec_mode * state :=
       receiver <- lift_option (get_reg s R1) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
       l <- lift_option (get_reg s R2) ;;;
-      st <- transfer_msg s l receiver' ;;;
+      st <- transfer_msg s (get_current_vm s) receiver' l ;;;
       if is_primary st
       then
         unit (st, V0)

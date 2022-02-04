@@ -1,4 +1,4 @@
-From HypVeri.algebra Require Import base.
+From HypVeri.algebra Require Import base base_extra.
 
 Section trans_rules.
 
@@ -7,14 +7,19 @@ Section trans_rules.
 
 (* rules for transactions *)
 
-
   Lemma trans_split w q tran :
     w -{q}>t tran ⊣⊢ w -{q/2}>t tran ∗ w -{q/2}>t tran.
-    Admitted.
+  Proof.
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iApply ghost_map_elem_split.
+  Qed.
 
   Lemma retri_split w q bool:
-    w -{q}>re bool ⊣⊢ w -{q/2}>re bool∗ w -{q/2}>re bool.
-    Admitted.
+    w -{q}>re bool ⊣⊢ w -{q/2}>re bool ∗ w -{q/2}>re bool.
+  Proof.
+    rewrite retri_mapsto_eq /retri_mapsto_def.
+    iApply (ghost_map_elem_split w _ q (Some bool)).
+  Qed.
 
   Lemma trans_valid_Some {σ q} {meta} wh:
     (ghost_map_auth gen_trans_name 1 (get_trans_gmap σ)) -∗
@@ -194,12 +199,30 @@ Section trans_rules.
 
   Lemma not_elem_of_fresh_handles hs q w q' tran:
     fresh_handles q hs ∗ w -{q'}>t tran ⊢ ⌜w ∉ hs⌝.
-  Admitted.
+  Proof.
+    rewrite /fresh_handles.
+    iIntros "[[_ hs] tran]".
+    destruct (decide (w ∈ hs)).
+    iDestruct (big_sepS_elem_of _ hs w e with "hs") as "[tran' _]".
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iDestruct (ghost_map_elem_agree with "tran tran'") as %H.
+    inversion H.
+    done.
+  Qed.
 
 
   Lemma fresh_handles_disj hs q (trans : gmap Addr transaction) q':
     fresh_handles q hs ∗
     ([∗ map] w ↦ tran ∈ trans, w -{q'}>t tran.1) ⊢ ⌜hs ## dom (gset _) trans⌝.
-  Admitted.
+  Proof.
+    iIntros "[fresh map]".
+    rewrite elem_of_disjoint.
+    iIntros (? Hin_hs Hin_dom).
+    rewrite elem_of_dom in Hin_dom.
+    destruct Hin_dom as [? Hlookup].
+    iDestruct (big_sepM_lookup with "map") as "tran";eauto.
+    iDestruct (not_elem_of_fresh_handles with "[$fresh $tran]") as %Hnin.
+    done.
+  Qed.
 
 End trans_rules.

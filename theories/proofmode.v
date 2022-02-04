@@ -27,11 +27,11 @@ Class FramableRXPointsto `{HypervisorConstants} (i: VMID) (p: PID) := {}.
 Class FramableWordPool (s: gset Word) := {}.
 #[export] Hint Mode FramableWordPool - : typeclass_instances.
 
-Class FramableTransaction `{HypervisorConstants} (wh : Word) (meta: VMID  * Word  * VMID  * gset PID * transaction_type) := {}.
-#[export] Hint Mode FramableTransaction + + - : typeclass_instances.
+Class FramableTransaction `{HypervisorConstants} (wh : Word) (q: Qp) (meta: meta_info) := {}.
+#[export] Hint Mode FramableTransaction + + - - : typeclass_instances.
 
-Class FramableRetrieve (wh : Word) (b : bool)  := {}.
-#[export] Hint Mode FramableRetrieve + - : typeclass_instances.
+Class FramableRetrieve (wh : Word) (q: Qp) (b : bool)  := {}.
+#[export] Hint Mode FramableRetrieve + - - : typeclass_instances.
 
 Instance FramableRegisterPointsto_default `{HypervisorConstants} r i w :
   FramableRegisterPointsto r i w
@@ -61,12 +61,12 @@ Instance FramableWordPool_default `{HypervisorConstants} s :
   FramableWordPool s
 | 100. Qed.
 
-Instance FramableTransaction_default `{HypervisorConstants} wh meta :
-  FramableTransaction wh meta
+Instance FramableTransaction_default `{HypervisorConstants} wh q meta :
+  FramableTransaction wh q meta
 | 100. Qed.
 
-Instance FramableRetrieve_default wh b:
-  FramableRetrieve wh b
+Instance FramableRetrieve_default wh q b:
+  FramableRetrieve wh q b
 | 100. Qed.
 
 Instance FramableMachineResource_reg `{gen_VMG Σ} r i w :
@@ -104,12 +104,12 @@ Instance FramableMachineResource_hp`{gen_VMG Σ} s :
   FramableMachineResource (hp [s]).
 Qed.
 
-Instance FramableMachineResource_trans`{gen_VMG Σ} wh meta :
-  FramableTransaction wh meta →
-  FramableMachineResource (wh->t meta).
+Instance FramableMachineResource_trans`{gen_VMG Σ} wh q meta :
+  FramableTransaction wh q meta →
+  FramableMachineResource (wh-{q}>t meta).
 Qed.
 
-Instance FramableMachineResource_retri `{gen_VMG Σ} wh b:
-  FramableRetrieve wh b →
-  FramableMachineResource (wh->re b).
+Instance FramableMachineResource_retri `{gen_VMG Σ} wh q b:
+  FramableRetrieve wh q b →
+  FramableMachineResource (wh-{q}>re b).
 Qed.

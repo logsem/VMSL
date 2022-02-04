@@ -1,5 +1,5 @@
 From HypVeri.algebra Require Import base.
-From HypVeri Require Import lang_extra.
+From HypVeri Require Import lang lang_extra.
 
 Section mem_rules.
 
@@ -139,22 +139,45 @@ Section mem_rules.
   (* Qed. *)
 
 
-
-  (* Definition mem_region (instr: list Word) (b:Addr):= *)
-  (*   ([∗ list] a;w ∈ (finz.seq b (length instr));instr, (a ->a w))%I. *)
-
-  (* This definition implicitly requires the length of instr is equal to/less than page_size  *)
-  (* Definition mem_page (instr: list Word) (p: PID):= *)
-  (*   ([∗ list] a;w ∈ (finz.seq (of_pid p) (Z.to_nat page_size));instr, (a ->a w))%I. *)
+  Definition memory_page_l (p: PID) (ws: list Word): iProp Σ:=
+    ([∗ list] a;w ∈ (addr_of_page p);ws, (a ->a w))%I.
 
   Definition memory_page (p : PID) (mem: mem): iProp Σ:=
     ⌜dom (gset Addr) mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+
+  Lemma memory_page_m_to_l {p : PID} (m: mem):
+    memory_page p m ⊢ ∃ l, memory_page_l p l ∗
+                             ⌜l = l⌝.
+  Admitted.
+
+  Lemma memory_page_l_to_m {p : PID} (l: list Word):
+    memory_page_l p l ⊢ memory_page p (list_to_map (zip (addr_of_page p) l)).
+  Proof.
+    iIntros "mem".
+    iDestruct (big_sepL2_alt with "mem") as "[%Hlen mem]".
+    rewrite /memory_page.
+    iSplit.
+    {
+      rewrite dom_list_to_map_L.
+      rewrite fst_zip //.
+      rewrite Hlen.
+      lia.
+    }
+    {
+      rewrite big_opM_map_to_list.
+      rewrite map_to_list_to_map.
+      done.
+      rewrite fst_zip.
+      apply addr_of_page_NoDup.
+      rewrite Hlen.
+      lia.
+    }
+  Qed.
 
   Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
 
   Definition memory_pages (ps :gset PID) (mem:mem): iProp Σ:=
     ⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
-
 
   (* lemmas about [memory_pages] *)
   Notation fold_union_addr_of_page b ps :=
@@ -397,6 +420,51 @@ Section mem_rules.
     }
   Qed.
 
+   Lemma memory_pages_split_union' (ps1 ps2 :gset PID):
+    ps1 ## ps2 ->
+    (∃ mem, memory_pages (ps1 ∪ ps2) mem) ⊣⊢ (∃ mem1 , memory_pages ps1 mem1) ∗ ∃mem2, memory_pages ps2 mem2.
+  Proof.
+    intro Hdisj.
+    iSplit.
+    {
+      iIntros "[%mem [%Hdom mem]]".
+      rewrite set_of_addr_union in Hdom;last done.
+      pose proof (dom_union_inv_L mem _ _ (set_of_addr_disj _ _ Hdisj) Hdom) as Hsplit.
+      destruct Hsplit as (m1 & m2 & Heq & Hdisj_m & Hdom1 & Hdom2).
+      rewrite Heq.
+      rewrite big_sepM_union;last done.
+      iDestruct "mem" as "[mem1 mem2]".
+      iSplitL "mem1".
+      iExists m1.
+      iFrame.
+      done.
+      iExists m2.
+      iFrame.
+      done.
+    }
+    {
+      iIntros "((%m1 & [%Hdom1 mem1]) & (%m2 & [%Hdom2 mem2]))".
+      iExists (m1 ∪ m2).
+      iSplitL "".
+      iPureIntro.
+      rewrite dom_union_L.
+      rewrite Hdom1 Hdom2.
+      rewrite /set_of_addr set_fold_disj_union_strong.
+      {
+        rewrite -fold_union_addr_of_page_comm.
+        rewrite union_empty_r_L //.
+      }
+      apply fold_union_addr_of_page_strong_assoc_comm.
+      exact Hdisj.
+      rewrite big_sepM_union.
+      iFrame.
+      apply map_disjoint_dom.
+      rewrite Hdom1 Hdom2.
+      apply set_of_addr_disj.
+      done.
+    }
+  Qed.
+
   Lemma memory_pages_split_diff {mem} s s':
     s' ⊆ s ->
     memory_pages s mem ⊣⊢ ∃ mem1 mem2, memory_pages (s ∖ s') mem1 ∗ memory_pages s' mem2 ∗ ⌜mem1 ∪ mem2 = mem⌝.
@@ -411,8 +479,30 @@ Section mem_rules.
     done.
   Qed.
 
+  Lemma memory_pages_split_diff' s s':
+    s' ⊆ s ->
+   (∃ mem, memory_pages s mem) ⊣⊢ (∃ mem1, memory_pages (s ∖ s') mem1) ∗ (∃ mem2, memory_pages s' mem2).
+  Proof.
+    intro Hsub.
+    rewrite -memory_pages_split_union';last set_solver +.
+    assert (s ∖ s' ∪ s' = s) as ->.
+    {
+      rewrite difference_union_L.
+      set_solver + Hsub.
+    }
+    done.
+  Qed.
+
   Lemma memory_pages_singleton {mem} p:
     memory_pages {[p]} mem ⊣⊢ memory_page p mem.
+  Proof.
+    rewrite /memory_pages /memory_page.
+    rewrite set_of_addr_singleton.
+    done.
+  Qed.
+
+  Lemma memory_pages_singleton' p:
+    (∃ mem, memory_pages {[p]} mem) ⊣⊢ ∃ mem, memory_page p mem.
   Proof.
     rewrite /memory_pages /memory_page.
     rewrite set_of_addr_singleton.
@@ -438,6 +528,29 @@ Section mem_rules.
       rewrite -Heq -memory_pages_singleton.
       iApply (memory_pages_split_diff).
       2:{  iExists m1, m2. iFrame "mem1 mem2". done. }
+      set_solver + Hin.
+    }
+  Qed.
+
+  Lemma memory_pages_split_singleton' p s:
+    p ∈ s ->
+    (∃ mem, memory_pages s mem) ⊣⊢ (∃ mem1, memory_pages (s ∖ {[p]}) mem1) ∗ ∃ mem2, memory_page p mem2 .
+  Proof.
+    intro Hin.
+    iSplit.
+    {
+      iIntros  "mem".
+      iDestruct (memory_pages_split_diff' s {[p]} with "mem") as "(mem1 & mem2)".
+      set_solver + Hin.
+      iFrame.
+      rewrite memory_pages_singleton'.
+      done.
+    }
+    {
+      iIntros "(mem1 & mem2)".
+      rewrite -memory_pages_singleton'.
+      iApply memory_pages_split_diff'.
+      2:{ iFrame "mem1 mem2". }
       set_solver + Hin.
     }
   Qed.

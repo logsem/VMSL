@@ -3,40 +3,14 @@ From HypVeri.algebra Require Import base.
 Section predicates.
 
   Context `{hypconst : !HypervisorConstants}.
+  Context `{Countable K} {V: Type}.
 
-  Definition is_total_gmap `{Countable K} {V: Type} (m : gmap K V) : Prop := ∀ (k : K), is_Some (m !! k).
+  Definition is_total_gmap  (m : gmap K V) : Prop := ∀ (k : K), is_Some (m !! k).
 
-  (* Definition is_checkb (checkb: permission -> VMID -> Prop) (pgt:page_table) p i := *)
-  (*   match pgt !! p with *)
-  (*   | Some perm => checkb perm i *)
-  (*   (* assume pgt is total *) *)
-  (*   | None => False *)
-  (*   end. *)
+  Context {PROP : bi}.
 
-  (* Definition is_accessible pgt p i := is_checkb (λ perm i, i ∈ perm.2) pgt p i. *)
-
-  (* Lemma is_accessible_check_true σ p i: *)
-  (*   let pgt := (get_page_table σ) in *)
-  (*   is_total_gmap pgt -> is_accessible pgt p i -> check_access_page σ i p = true. *)
-  (* Proof. *)
-  (*   intros pgt Htotal Hcheckb. *)
-  (*   rewrite /check_access_page. *)
-  (*   rewrite /is_accessible /is_checkb in Hcheckb. *)
-  (*   destruct (pgt !! p) eqn:Heqn. *)
-  (*   - rewrite Heqn in Hcheckb. *)
-  (*     rewrite Heqn. *)
-  (*     destruct p0. *)
-  (*     case_match;first done. *)
-  (*     simpl in Heqn. *)
-  (*     done. *)
-  (*   - rewrite /is_total_gmap in Htotal. *)
-  (*     specialize (Htotal p) as [? Hsome]. *)
-  (*     rewrite Heqn in Hsome. *)
-  (*     done. *)
-  (* Qed. *)
-
-  (* Definition is_owned pgt p i := is_checkb (λ perm i, Some i = perm.1.1) pgt p i. *)
-
+  Definition big_sepFM(m : gmap K V) (P : K * V-> Prop) `{∀ x, Decision (P x)} (Φ : K -> V -> PROP) : PROP:=
+    [∗ map] k ↦ v ∈ (filter P m), Φ k v.
 End predicates.
 
 Section preservation.
@@ -140,3 +114,30 @@ Section helper.
                     ).
 
 End helper.
+
+
+From iris.algebra.lib Require Import gmap_view.
+
+Section ghost_map_extra.
+
+  Context `{ghost_mapG Σ K V}.
+
+  Lemma ghost_map_elem_split (k :K) γ q (v:V) :
+    k ↪[γ]{#q} v ⊣⊢ k ↪[γ]{#q / 2} v ∗ k ↪[γ]{#q / 2} v.
+  Proof.
+    iSplit.
+    iIntros "elem".
+    rewrite ghost_map_elem_eq /ghost_map_elem_def.
+    rewrite -own_op.
+    rewrite -gmap_view_frag_op.
+    rewrite dfrac_op_own.
+    rewrite (Qp_div_2 q).
+    done.
+    iIntros "[elem1 elem2]".
+    iDestruct (ghost_map_elem_combine with "elem1 elem2") as "[elem _]".
+    rewrite dfrac_op_own.
+    rewrite (Qp_div_2 q).
+    done.
+  Qed.
+
+  End ghost_map_extra.
