@@ -69,7 +69,28 @@ Section logrel.
   Definition memory_transferred (trans : gmap Word transaction) (mem: mem) :=
    memory_pages (pages_in_trans (trans_memory_in_trans trans)) mem.
 
-  Definition VMProp_unknown p_tx p_rx trans : iProp Σ:=
+  Definition vmprop_zero p_rx : iProp Σ :=
+    ((∃ ps_na'' ps_acc'' trans'' rx_state'',
+                           let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
+                           (* lower bound *)
+                           i -@{1/2}A> ps_acc'' ∗
+                           LB@ i := [ps_na''] ∗
+                           ⌜ps_na'' ## ps_acc'' ∪ ps_macc_trans''⌝ ∗
+                           (* transaction and pagetable entries *)
+                           transaction_hpool_global_transferred trans'' ∗
+                           transaction_pagetable_entries_transferred trans'' ∗
+                           retrieval_entries trans'' ∗
+                           (* memory *)
+                           (∃ mem_trans, memory_pages ps_macc_trans'' mem_trans) ∗
+                           R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
+                           (* status of RX *)
+                           RX_state@ i := rx_state'' ∗
+                           (* RX *)
+                           rx_page i p_rx ∗ ∃ mem_rx, memory_page p_rx mem_rx)
+                           (* no scheduling, we finish the proof *)
+                           ∨ False).
+
+  Definition vmprop_unknown p_tx p_rx trans : iProp Σ:=
     ∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state ,
                let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ (pages_in_trans trans)  in
                let ps_macc_trans' := (pages_in_trans (trans_memory_in_trans trans')) in
@@ -108,27 +129,7 @@ Section logrel.
                ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
                 ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
                (* if i yielding, we give following resources back to pvm *)
-               VMProp V0
-                      ((∃ ps_na'' ps_acc'' trans'' rx_state'',
-                           let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
-                           (* lower bound *)
-                           i -@{1/2}A> ps_acc'' ∗
-                           LB@ i := [ps_na''] ∗
-                           ⌜ps_na' ## ps_acc'' ∪ ps_macc_trans''⌝ ∗
-                           (* transaction and pagetable entries *)
-                           transaction_hpool_global_transferred trans'' ∗
-                           transaction_pagetable_entries_transferred trans'' ∗
-                           retrieval_entries trans'' ∗
-                           (* memory *)
-                           (∃ mem_macc_trans, memory_pages ps_macc_trans'' mem_macc_trans) ∗
-                           R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
-                           (* status of RX *)
-                           RX_state@ i := rx_state'' ∗
-                           (* RX *)
-                           rx_page i p_rx ∗ ∃ mem_rx, memory_page p_rx mem_rx)
-                           (* no scheduling, we finish the proof *)
-                           ∨ False) (1/2)%Qp
-             .
+               VMProp V0 (vmprop_zero p_rx) (1/2)%Qp.
 
   Program Definition interp_access p_tx p_rx ps_acc trans : iPropO Σ:=
     (
@@ -145,7 +146,7 @@ Section logrel.
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned trans ∗
       (∃ mem_oea, memory_pages ps_oea mem_oea) ∗
-      VMProp i (VMProp_unknown p_tx p_rx trans) (1/2)%Qp
+      VMProp i (vmprop_unknown p_tx p_rx trans) (1/2)%Qp
     )%I.
 
   (* Things we haven't really considerred:

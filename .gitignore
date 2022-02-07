@@ -27,6 +27,7 @@ _CoqProject
 *.toc
 *.nav
 *.log
+_region_.tex
 
 *~
 \#*\#
