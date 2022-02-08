@@ -58,9 +58,14 @@ Section logrel.
      for the cases when i is the receiver, they are required so that i can retrieve or relinquish *)
   (* There are also some cases when we need the second half, as in those cases we may update/remove the retrival state *)
   (* XXX: How to relate retrieval and transaction entries? Using option(frac_agree transaction,option bool)? or is it unnecessary? *)
-  Definition retrieval_entries(trans: gmap Addr transaction) : iProp Σ:=
-    (big_sepFM trans (λ kv, (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2 )%I) ∗
-    (big_sepFM trans (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = false ∨ kv.2.1.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2)%I).
+  Definition retrieval_entries_transferred(trans: gmap Addr transaction) : iProp Σ:=
+    (big_sepFM trans (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1.1 = i) (λ k v, k -{1/2}>re v.2 )%I) ∗
+    (big_sepFM trans (λ kv, (kv.2.1.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ kv.2.2 = false) (λ k v, k -{1/2}>re v.2)%I).
+
+  (* TODO *)
+  Definition retrieval_entries_owned(trans: gmap Addr transaction) : iProp Σ:=
+    (big_sepFM trans (λ kv, kv.2.1.1.1.2 = i ∧ kv.2.2 = true) (λ k v, k -{1/2}>re v.2)%I).
+
 
   (* [memory_transferred]: some memory points-to predicates are transferred by VMProp.
      the memory is the memory of pages associated with a transaction and i has or may have access to. *)
@@ -79,7 +84,7 @@ Section logrel.
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans'' ∗
                            transaction_pagetable_entries_transferred trans'' ∗
-                           retrieval_entries trans'' ∗
+                           retrieval_entries_transferred trans'' ∗
                            (* memory *)
                            (∃ mem_trans, memory_pages ps_macc_trans'' mem_trans) ∗
                            R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
@@ -106,7 +111,7 @@ Section logrel.
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred trans' ∗
-               retrieval_entries trans' ∗
+               retrieval_entries_transferred trans' ∗
                (* memory *)
                (∃ mem_trans, memory_transferred trans' mem_trans)∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
@@ -126,6 +131,7 @@ Section logrel.
                 the proofs to the users of LR. *)
                (transaction_pagetable_entries_owned trans -∗ transaction_pagetable_entries_owned trans') ∗
                (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗
+               (retrieval_entries_owned trans -∗ retrieval_entries_owned trans') ∗
                ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
                 ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
                (* if i yielding, we give following resources back to pvm *)
@@ -145,6 +151,7 @@ Section logrel.
       ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned trans ∗
+      retrieval_entries_owned trans ∗
       (∃ mem_oea, memory_pages ps_oea mem_oea) ∗
       VMProp i (vmprop_unknown p_tx p_rx trans) (1/2)%Qp
     )%I.

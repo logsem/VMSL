@@ -229,7 +229,35 @@ Section big_sep.
     done.
   Qed.
 
-   Lemma big_sepFM_lookup_Some{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+  Lemma big_sepFM_delete_acc_True {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} {v : A} (v' :A):
+    P (k,v') ->
+    (big_sepFM (delete k m) P Φ) ⊢
+    Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ .
+  Proof.
+    intro HP.
+    iIntros "delete Φ".
+    rewrite /big_sepFM.
+    rewrite map_filter_insert_True;auto.
+    rewrite big_sepM_insert_delete.
+    iFrame "Φ".
+    rewrite map_filter_delete.
+    done.
+  Qed.
+
+    Lemma big_sepFM_delete_acc_False {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} {v : A} (v' :A):
+    ¬P (k,v') ->
+    (big_sepFM (delete k m) P Φ) ⊢
+    big_sepFM (<[k := v']>m) P Φ .
+  Proof.
+    intro HP.
+    iIntros "delete".
+    rewrite /big_sepFM.
+    rewrite map_filter_insert_False;auto.
+  Qed.
+
+  Lemma big_sepFM_lookup_Some{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
         {Φ : K -> A -> PROP} {k : K} {v : A} :
     m !! k = Some v ->
     P (k,v) ->

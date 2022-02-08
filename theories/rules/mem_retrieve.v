@@ -219,7 +219,7 @@ Lemma hvc_mem_retrieve_rx_full{E i wi sacc r0 r2 wh q1 q2 j wf tt rx_state} {ps:
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_lend{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+Lemma hvc_mem_retrieve_lend{E i wi sacc r0 j wf mem_rx p_rx q} {ps: gset PID} ai wh:
   (* has access to the page which the instruction is in *)
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
@@ -235,12 +235,10 @@ Lemma hvc_mem_retrieve_lend{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} a
        (* the pagetable *)
        ▷ i -@A> sacc ∗
        (* the transaction hasn't been retrieved *)
-       ▷ wh ->re false ∗ ▷ wh -{1}>t (j, wf, i, ps, Lending) ∗
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, wf, i, ps, Lending) ∗
        (* the rx page and locations that the rx descriptor will be at *)
        ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
-       ▷ memory_page p_rx mem_rx ∗
-       (* the handle pool *)
-       ▷ fresh_handles 1 sh}}}
+       ▷ memory_page p_rx mem_rx}}}
    ExecI @ i; E
    {{{ RET (false, ExecI) ;
        (* PC is incremented *)
@@ -250,7 +248,7 @@ Lemma hvc_mem_retrieve_lend{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} a
        R1 @@ i ->r wh ∗
        (* gain exclusive access and ownership *)
        i -@A> (ps ∪ sacc) ∗
-       wh ->re true ∗ wh -{1}>t (j, wf, i, ps, Lending) ∗
+       wh ->re true ∗ wh -{q}>t (j, wf, i, ps, Lending) ∗
        (* new descriptor in rx *)
        RX@ i := p_rx ∗
        (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
@@ -262,7 +260,7 @@ Proof.
 Admitted.
 
 
-Lemma hvc_mem_retrieve_share{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+Lemma hvc_mem_retrieve_share{E i wi sacc r0 j wf mem_rx p_rx q} {ps: gset PID} ai wh:
   (* has access to the page which the instruction is in *)
   (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
@@ -279,12 +277,10 @@ Lemma hvc_mem_retrieve_share{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} 
        (* the pagetable *)
        ▷ i -@A> sacc ∗
        (* the transaction hasn't been retrieved *)
-       ▷ wh ->re false ∗ ▷ wh -{1}>t (j, wf, i, ps, Sharing) ∗
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, wf, i, ps, Sharing) ∗
        (* the rx page and locations that the rx descriptor will be at *)
        ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
-       ▷ memory_page p_rx mem_rx ∗
-       (* the handle pool *)
-       ▷ fresh_handles 1 sh}}}
+       ▷ memory_page p_rx mem_rx}}}
    ExecI @ i; E
    {{{ RET (false, ExecI) ;
        (* PC is incremented *)
@@ -294,7 +290,7 @@ Lemma hvc_mem_retrieve_share{E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} 
        R1 @@ i ->r wh ∗
        (* gain exclusive access and ownership *)
        i -@A> (ps ∪ sacc) ∗
-       wh ->re true ∗ wh -{1}>t (j, wf, i, ps, Sharing) ∗
+       wh ->re true ∗ wh -{q}>t (j, wf, i, ps, Sharing) ∗
        (* new descriptor in rx *)
        RX@ i := p_rx ∗
        (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗

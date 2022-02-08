@@ -44,7 +44,7 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
                       LB@ i := [ps_na] -∗
                       transaction_hpool_global_transferred a1 -∗
                       transaction_pagetable_entries_transferred i a1 -∗
-                      retrieval_entries i a1 -∗
+                      retrieval_entries_transferred i a1 -∗
                       R0 @@ V0 ->r encode_hvc_func Run -∗
                       R1 @@ V0 ->r encode_vmid i -∗
                       RX_state@i:= a2 -∗
@@ -53,6 +53,7 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
                       VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
                       transaction_pagetable_entries_owned i a1 -∗
                       pagetable_entries_excl_owned i (a0 ∖ {[p_rx; p_tx]} ∖ pages_in_trans a1) -∗
+                      retrieval_entries_owned i a1 -∗
                       (∃ mem : lang.mem, memory_pages (a0 ∪ pages_in_trans (trans_memory_in_trans i a1)) mem) -∗
                       WP ExecI @ i {{ _, True }}) -∗
    ([∗ map] r↦w ∈ regs, r @@ i ->r w) -∗
@@ -63,7 +64,7 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
    LB@ i := [ps_na] -∗
    transaction_hpool_global_transferred trans -∗
    transaction_pagetable_entries_transferred i trans -∗
-   retrieval_entries i trans -∗
+   retrieval_entries_transferred i trans -∗
    R0 @@ V0 ->r encode_hvc_func Run -∗
    R1 @@ V0 ->r encode_vmid i -∗
    RX_state@i:= rx_state -∗
@@ -72,6 +73,7 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
    VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
    transaction_pagetable_entries_owned i trans -∗
    pagetable_entries_excl_owned i (ps_acc ∖ {[p_rx; p_tx]} ∖ pages_in_trans trans) -∗
+   retrieval_entries_owned i trans -∗
    (∃ mem1 : mem, memory_pages ((ps_acc ∪ (pages_in_trans (trans_memory_in_trans i trans))) ∖ ps_acc) mem1) -∗
    ([∗ map] k↦v ∈ mem_acc_tx, k ->a v) -∗
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
@@ -80,7 +82,7 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
     iIntros (Htotal_regs Hsubset_mb Hneq_0 Hdisj_na Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
                          Hlookup_mem_ai Heqn  Hlookup_reg_R0 Hdecode_hvc).
     iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0
-             propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx".
+             propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
     set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans)).
               iDestruct (reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_reg_R0  with "[$regs]") as "(PC & R0 & Hacc_regs)";eauto.
               pose proof (union_split_difference_intersection_L (ps_acc∖ {[p_tx]}) ({[p_rx]} ∪ ps_mem_in_trans)) as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
@@ -142,7 +144,7 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
                 iDestruct (mem_big_sepM_split mem_oea Hlookup_mem_ai' with "mem_oea") as "[mem_instr Hacc_mem]".
                 iApply (yield ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
                                  transaction_hpool_global_transferred trans ∗
-                                 transaction_pagetable_entries_transferred i trans ∗ retrieval_entries i trans)%I False
+                                 transaction_pagetable_entries_transferred i trans ∗ retrieval_entries_transferred i trans)%I False
                          with "[PC R0 R0z R1z pgt_acc tx mem_instr prop0 propi LB pgt_acc' trans_hpool_global tran_pgt_transferred mem_tran
                             retri rx_state rx]"); iFrameAutoSolve.
                 {
@@ -201,7 +203,7 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
                 iDestruct (mem_big_sepM_split mem_inters Hlookup_mem_ai' with "mem_inters") as "[mem_instr Hacc_mem_inters]".
                 iApply (yield ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
                                   transaction_hpool_global_transferred trans ∗
-                                  transaction_pagetable_entries_transferred i trans ∗ retrieval_entries i trans) False
+                                  transaction_pagetable_entries_transferred i trans ∗ retrieval_entries_transferred i trans) False
                          with "[PC R0 R0z R1z pgt_acc tx mem_instr prop0 propi LB pgt_acc' trans_hpool_global tran_pgt_transferred Hacc_mem_inters mem_rest
                             retri rx_state rx]"); iFrameAutoSolve.
                 {

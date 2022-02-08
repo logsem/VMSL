@@ -4,7 +4,7 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base nop mov yield mem_share mem_retrieve(* ldr str halt fail add sub mult cmp *).
 From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve.
+From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share (* ftlr_retrieve *).
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
@@ -19,7 +19,7 @@ Section fundamental.
   Proof.
     rewrite /interp_access /=.
     iIntros (????) "((%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & pgt_owned & tran_pgt_owned &
-                            mem_owned & VMProp) %Hneq_0 VMProp_holds".
+                           retri_owned & mem_owned & VMProp) %Hneq_0 VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
     iEval (rewrite later_exist) in "Hres".
     iDestruct "Hres" as (ps_na') "Hres".
@@ -32,12 +32,14 @@ Section fundamental.
     iEval (rewrite 15!later_sep) in "Hres".
     iDestruct "Hres" as  "( >pgt_acc' & >LB & >%Hdisj_na & >trans_hpool_global & >tran_pgt_transferred &
                          >retri & >mem_transferred &  >R0z & >R1z & >rx_state & >rx & >[% mem_rx] &
-                          Himp_tran_pgt & Himp_pgt & Himp_mem & prop0)".
+                          Himp_tran_pgt & Himp_pgt & Himp_retri & Himp_mem & prop0)".
     iDestruct (access_agree_eq with "[$pgt_acc $pgt_acc']") as %->.
     iDestruct (later_wand with "Himp_tran_pgt") as "Himp_tran_pgt".
     iDestruct ("Himp_tran_pgt" with "tran_pgt_owned") as ">tran_pgt_owned".
     iDestruct (later_wand with "Himp_pgt") as "Himp_pgt".
     iDestruct ("Himp_pgt" with "pgt_owned") as ">pgt_owned".
+    iDestruct (later_wand with "Himp_retri") as "Himp_retri".
+    iDestruct ("Himp_retri" with "retri_owned") as ">retri_owned".
     iDestruct (later_wand with "Himp_mem") as "Himp_mem".
     iDestruct ("Himp_mem" with "[$mem_owned $mem_transferred]") as  (?) ">mem".
 
