@@ -122,7 +122,7 @@ Section fundamental.
         destruct instr'.
         { (* nop *)
           iApply (ftlr_nop with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
           all:done.
         }
         { (* mov *) admit. }
@@ -150,19 +150,19 @@ Section fundamental.
             { (*RUN*) admit. }
             { (*Yield*)
               iApply (ftlr_yield with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Share *)
               iApply (ftlr_share with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Lend*) admit. }
             { (*Donate*) admit. }
             { (*WIP: Retrieve*)
               iApply (ftlr_retrieve with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Relinquish*) admit. }
