@@ -52,7 +52,7 @@ Lemma hvc_mem_retrieve_donate {E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_donate_rx {E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset PID} ai wh:
+Lemma hvc_mem_retrieve_donate_rx {E i wi sacc r0 sh j wf mem_rx } {ps: gset PID} ai wh:
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
@@ -70,7 +70,7 @@ Lemma hvc_mem_retrieve_donate_rx {E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset 
        ▷ wh ->re false ∗ ▷ wh -{1}>t (j, wf, i, ps, Donation) ∗
        (* the rx page and locations that the rx descriptor will be at *)
        ▷ RX@ i := (tpa ai) ∗ ▷ RX_state@ i := None ∗
-       ▷ (ai ->a wi -∗ memory_page p_rx mem_rx) ∗
+       ▷ (ai ->a wi -∗ memory_page (tpa ai) mem_rx) ∗
        (* the handle pool *)
        ▷ fresh_handles 1 sh}}}
    ExecI @ i; E
@@ -88,7 +88,7 @@ Lemma hvc_mem_retrieve_donate_rx {E i wi sacc r0 sh j wf mem_rx p_rx} {ps: gset 
        (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation ;(l ^- 5)%f] ++ map of_pid (elements ps))⌝ ∗
-                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx))) ∗
+                 memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx))) ∗
        (* the transaction is completed, deallocate it and release the handle *)
        fresh_handles 1 (sh ∪ {[wh]}) }}}.
 Proof.
@@ -259,6 +259,45 @@ Lemma hvc_mem_retrieve_lend{E i wi sacc r0 j wf mem_rx p_rx q} {ps: gset PID} ai
 Proof.
 Admitted.
 
+Lemma hvc_mem_retrieve_lend_rx{E i wi sacc r0 j wf mem_rx q} {ps: gset PID} ai wh:
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  (* l is the number of involved pages, of type word *)
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ i -@A> sacc ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, wf, i, ps, Lending) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := (tpa ai) ∗ ▷ RX_state@ i := None ∗
+       ▷ (ai ->a wi -∗ memory_page (tpa ai) mem_rx)}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       i -@A> (ps ∪ sacc) ∗
+       wh ->re true ∗ wh -{q}>t (j, wf, i, ps, Lending) ∗
+       (* new descriptor in rx *)
+       RX@ i := (tpa ai) ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation ;(l ^- 5)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
+        }}}.
+Proof.
+Admitted.
+
 
 Lemma hvc_mem_retrieve_share{E i wi sacc r0 j wf mem_rx p_rx q} {ps: gset PID} ai wh:
   (* has access to the page which the instruction is in *)
@@ -300,5 +339,45 @@ Lemma hvc_mem_retrieve_share{E i wi sacc r0 j wf mem_rx p_rx q} {ps: gset PID} a
         }}}.
 Proof.
 Admitted.
+
+Lemma hvc_mem_retrieve_share_rx{E i wi sacc r0 j wf mem_rx q} {ps: gset PID} ai wh:
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  (* l is the number of involved pages, of type word *)
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ i -@A> sacc ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, wf, i, ps, Sharing) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := (tpa ai) ∗ ▷ RX_state@ i := None ∗
+       ▷ (ai ->a wi -∗ memory_page (tpa ai) mem_rx)}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       i -@A> (ps ∪ sacc) ∗
+       wh ->re true ∗ wh -{q}>t (j, wf, i, ps, Sharing) ∗
+       (* new descriptor in rx *)
+       RX@ i := (tpa ai) ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wf; wh; encode_transaction_type Donation ;(l ^- 5)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
+        }}}.
+Proof.
+Admitted.
+
 
 End retrieve.
