@@ -4,7 +4,7 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base nop mov yield mem_share mem_retrieve(* ldr str halt fail add sub mult cmp *).
 From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share (* ftlr_retrieve *).
+From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve.
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 

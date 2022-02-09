@@ -96,11 +96,67 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & %Htrans_ps_disj & trans)".
     destruct (decide (r1 ∈ hs_all)) as [Hin_hs_all |Hnotin_hs_all].
     2: { (* apply [hvc_mem_retrieve_invalid_handle] *)
-      admit.
+        iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
+
+        iApply (hvc_mem_retrieve_invalid_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc]").
+        set_solver + Hin_ps_acc_tx.
+        done.
+        done.
+        done.
+        iNext.
+        iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc) _".
+
+        iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
+        iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+        iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+
+        iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
+        {
+          iExists hpool.
+          iSplitL "";auto.
+          iFrame "fresh_handles".
+          iSplitL "";auto.
+        }
+        {
+          iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+          iExists mem_acc_tx;by iFrame "mem_acc_tx".
+          iApply (memory_pages_split_diff' _ ps_acc with "[$mem_rest $mem_acc]").
+          set_solver +.
+        }
     }
     destruct (decide (r1 ∈ hpool)) as [Hin_hpool | Hnotin_hpool].
     { (* apply [hvc_mem_retrieve_fresh_handle] *)
-      admit.
+      iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
+
+      iApply (hvc_mem_retrieve_fresh_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $fresh_handles]").
+      set_solver + Hin_ps_acc_tx.
+      done.
+      done.
+      done.
+      iNext.
+      iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & fresh_handles) _".
+
+      iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
+      iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+      iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+
+      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
+      {
+        iExists hpool.
+        iSplitL "";auto.
+        iFrame "fresh_handles".
+        iSplitL "";auto.
+      }
+      {
+        iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+        iExists mem_acc_tx;by iFrame "mem_acc_tx".
+        iApply (memory_pages_split_diff' _ ps_acc with "[$mem_rest $mem_acc]").
+        set_solver +.
+      }
     }
     assert(r1 ∈ dom (gset _ ) trans) as Hin_trans_dom.
     {
@@ -114,7 +170,40 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
     destruct(decide (tran.1.1.1.2 = i)) as [Heq_tran | Hneq_tran].
     2: { (*apply [hvc_mem_retrieve_invalid_trans]*)
-      admit.
+      iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
+
+      iApply (hvc_mem_retrieve_invalid_trans ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tran]").
+      set_solver + Hin_ps_acc_tx.
+      done.
+      done.
+      done.
+      iNext.
+      iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & tran) _".
+
+      iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
+      iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+      iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+
+      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran trans]
+                            tran_pgt_transferred retri R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
+      {
+        iExists hpool.
+        iSplitL "";auto.
+        iFrame "fresh_handles".
+        iSplitL "";auto.
+        rewrite (big_sepM_delete _ trans).
+        iSplitL "tran".
+        iExact "tran".
+        done.
+        done.
+      }
+      {
+        iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+        iExists mem_acc_tx;by iFrame "mem_acc_tx".
+        iApply (memory_pages_split_diff' _ ps_acc with "[$mem_rest $mem_acc]").
+        set_solver +.
+      }
     }
 
     iDestruct ("retri") as "[retri retri']".
@@ -123,7 +212,103 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
     destruct (tran.2) eqn:Heq_retri.
     { (* apply [hvc_mem_retrieve_retrieved] *)
-      admit.
+     iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
+
+     iApply (hvc_mem_retrieve_retrieved ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re]").
+     set_solver + Hin_ps_acc_tx.
+     done.
+     done.
+     iNext.
+     iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & re) _".
+
+     iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
+     iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+     iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+
+     iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran trans]
+                            tran_pgt_transferred [re retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
+     {
+       iExists hpool.
+       iSplitL "";auto.
+       iFrame "fresh_handles".
+       iSplitL "";auto.
+       rewrite (big_sepM_delete _ trans).
+       iSplitL "tran".
+       iExact "tran".
+       done.
+       done.
+     }
+     {
+       rewrite /retrieval_entries_transferred.
+       iDestruct (big_sepFM_delete_acc_True tran with "retri") as "retri".
+       simpl. left;done.
+       rewrite Heq_retri.
+       iDestruct ("retri" with "re") as "retri".
+       rewrite insert_id;auto.
+       iFrame.
+     }
+     {
+       iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+       iExists mem_acc_tx;by iFrame "mem_acc_tx".
+       iApply (memory_pages_split_diff' _ ps_acc with "[$mem_rest $mem_acc]").
+       set_solver +.
+     }
+    }
+
+    assert(tran.1 = (tran.1.1.1.1.1, tran.1.1.1.1.2, i, tran.1.1.2, tran.1.2)) as Hrw_tran.
+    {
+      rewrite -Heq_tran.
+      repeat destruct tran as [tran ?]. simpl. done.
+    }
+    rewrite Hrw_tran.
+
+
+    destruct (rx_state)  eqn: Heq_rxstate.
+    { (* apply [hvc_mem_retrieve_rx_full] *)
+     iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
+     iApply (hvc_mem_retrieve_rx_full ai r1 with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re $tran $rx_state]").
+     set_solver + Hin_ps_acc_tx.
+     done.
+     done.
+     done.
+     iNext.
+     iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & re & tran & rx_state) _".
+
+     iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
+     iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
+     iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+
+     iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran trans]
+                            tran_pgt_transferred [re retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
+     {
+       iExists hpool.
+       iSplitL "";auto.
+       iFrame "fresh_handles".
+       iSplitL "";auto.
+       rewrite (big_sepM_delete _ trans).
+       iSplitL "tran".
+       rewrite -Hrw_tran.
+       iExact "tran".
+       done.
+       done.
+     }
+     {
+       rewrite /retrieval_entries_transferred.
+       iDestruct (big_sepFM_delete_acc_True tran with "retri") as "retri".
+       simpl. left;done.
+       rewrite Heq_retri.
+       iDestruct ("retri" with "re") as "retri".
+       rewrite insert_id;auto.
+       iFrame.
+     }
+     {
+       iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+       iExists mem_acc_tx;by iFrame "mem_acc_tx".
+       iApply (memory_pages_split_diff' _ ps_acc with "[$mem_rest $mem_acc]").
+       set_solver +.
+     }
     }
 
     iDestruct (big_sepFM_lookup_Some Hlookup_tran with "retri'") as "[re' retri']".
@@ -131,10 +316,6 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     rewrite Heq_retri.
     iDestruct (retri_split with "[$re $re']") as "re".
 
-    destruct (rx_state)  eqn: Heq_rxstate.
-    { (* apply [hvc_mem_retrieve_rx_full] *)
-      admit.
-    }
 
     assert (tran.1.1.2 ⊆ ps_mem_in_trans) as Hsubseteq_tran.
     {
@@ -171,12 +352,6 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         set_solver +.
     }
 
-    assert(tran.1 = (tran.1.1.1.1.1, tran.1.1.1.1.2, i, tran.1.1.2, tran.1.2)) as Hrw_tran.
-    {
-      rewrite -Heq_tran.
-      repeat destruct tran as [tran ?]. simpl. done.
-    }
-    rewrite Hrw_tran.
 
     destruct (tran.1.2) eqn:Heq_tran_tt.
     { (* retrieve donate*)
@@ -198,7 +373,6 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         apply map_filter_subseteq.
       }
 
-
       destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
       { (* apply [hvc_mem_retrieve_donate]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
@@ -215,9 +389,34 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
-        iApply ("IH" $! _ _ (delete r1 trans) _ Htotal_regs' _ _ _ _ with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+        iApply ("IH" $! _ _ (delete r1 trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
                             [tran_pgt_transferred] [retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
                             [own_tran excl_tran pgt_owned] [retri_owned] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
+        {
+          iPureIntro.
+          set_solver + Hsubset_mb.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite union_assoc_L.
+          set_solver + Hdisj_na Hsubseteq_tran.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_rx.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_tx.
+        }
         {
           iExists (hpool ∪ {[r1]}).
           iFrame "fresh_handles trans".
@@ -336,17 +535,40 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         done.
         iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
         iSplitL "". 2: iExact "rx". done.
-        iNext.
-        simpl.
+        iNext. simpl.
         iIntros "(PC & R0 & R1 & own_tran & pgt_acc & rx & (%wl & %des & rx_state & _ & _ & mem_rx) & fresh_handles) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
-
-        iApply ("IH" $! _ _ (delete r1 trans) _ Htotal_regs' _ _ _ _ with "regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
+        iApply ("IH" $! _ _ (delete r1 trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
                             [tran_pgt_transferred] [retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
                             [own_tran excl_tran pgt_owned] [retri_owned] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
+        {
+          iPureIntro.
+          set_solver + Hsubset_mb.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite union_assoc_L.
+          set_solver + Hdisj_na Hsubseteq_tran.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_rx.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_tx.
+        }
         {
           iExists (hpool ∪ {[r1]}).
           iFrame "fresh_handles trans".
@@ -382,9 +604,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           rewrite /transaction_pagetable_entries_owned.
           rewrite (big_sepFM_delete_False Hlookup_tran).
           iFrame "tran_pgt_owned".
-          simpl.
-          intros [_ ?].
-          contradiction.
+          simpl. intros [_ ?]. contradiction.
         }
         {
           assert (pages_in_trans (delete r1 trans) = pages_in_trans trans ∖ tran.1.1.2) as ->.
@@ -403,7 +623,6 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           assert (tran.1.1.2 ∪ ps_acc ∖ {[(tpa ai); p_tx]} ∖ (pages_in_trans trans ∖ tran.1.1.2) = tran.1.1.2 ∪ ps_acc ∖ {[(tpa ai); p_tx]} ∖ pages_in_trans trans) as ->.
           set A := (ps_acc ∖ {[(tpa ai); p_tx]}).
           set G := (tran.1.1.2 ∪ A ∖ (pages_in_trans trans ∖ tran.1.1.2)).
-
           rewrite (union_difference_L tran.1.1.2 (pages_in_trans trans) ).
           2: {
             set_solver + Hsub Hsubseteq_tran.
@@ -448,6 +667,18 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       }
     }
     { (* retrieve share*)
+      assert (pages_in_trans (trans_memory_in_trans i (<[r1 := (tran.1, true)]> trans)) = pages_in_trans (trans_memory_in_trans i trans)) as Hrewrite.
+      rewrite /trans_memory_in_trans.
+      rewrite map_filter_insert_True.
+      2: {
+        simpl.
+        right.
+        done.
+      }
+      erewrite (pages_in_trans_insert' (tran:= tran) (tran' := (tran.1, true)));auto.
+      rewrite map_filter_lookup_Some.
+      split;auto.
+
       destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
       { (* apply [hvc_mem_retrieve_share]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
@@ -463,10 +694,33 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
         iDestruct (retri_split with "re") as "[re re']".
 
-        iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' _ _ _ _ with "regs tx pgt_tx pgt_acc pgt_acc' LB
+        iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
                             [fresh_handles trans tran]
                             [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
                             [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
+        {
+          iPureIntro.
+          set_solver + Hsubset_mb.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          set_solver + Hdisj_na Hsubseteq_tran.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_rx.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_tx.
+        }
         {
           iExists hpool.
           iSplitL "".
@@ -487,13 +741,8 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           rewrite /transaction_pagetable_entries_transferred.
           rewrite Hrw_tran /=.
           iApply (big_sepFM_update_False _ Hlookup_tran);auto.
-          simpl.
-          rewrite Heq_tran_tt.
-          intros [? _].
-          done.
-          simpl.
-          intros [? _].
-          done.
+          simpl. rewrite Heq_tran_tt. intros [? _]. done.
+          simpl. intros [? _]. done.
         }
         {
           rewrite /retrieval_entries_transferred.
@@ -549,18 +798,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           simpl; iFrame.
         }
         {
-          assert (pages_in_trans (trans_memory_in_trans i (<[r1 := (tran.1, true)]> trans)) = pages_in_trans (trans_memory_in_trans i trans)) as H.
-          rewrite /trans_memory_in_trans.
-          rewrite map_filter_insert_True.
-          2: {
-            simpl.
-            right.
-            done.
-          }
-          erewrite (pages_in_trans_insert' (tran:= tran) (tran' := (tran.1, true)));auto.
-          rewrite map_filter_lookup_Some.
-          split;auto.
-          rewrite H;clear H.
+          rewrite Hrewrite.
           rewrite (union_comm_L tran.1.1.2).
           rewrite -(union_assoc_L ps_acc tran.1.1.2).
           assert ((tran.1.1.2 ∪ pages_in_trans (trans_memory_in_trans i trans)) = pages_in_trans (trans_memory_in_trans i trans)) as ->.
@@ -602,10 +840,33 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
         iDestruct (retri_split with "re") as "[re re']".
 
-        iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' _ _ _ _ with "regs tx pgt_tx pgt_acc pgt_acc' LB
+        iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] []regs tx pgt_tx pgt_acc pgt_acc' LB
                             [fresh_handles trans tran]
                             [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
                             [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
+        {
+          iPureIntro.
+          set_solver + Hsubset_mb.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          set_solver + Hdisj_na Hsubseteq_tran.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_rx.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_tx.
+        }
         {
           iExists hpool.
           iSplitL "".
@@ -626,13 +887,8 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           rewrite /transaction_pagetable_entries_transferred.
           rewrite Hrw_tran /=.
           iApply (big_sepFM_update_False _ Hlookup_tran);auto.
-          simpl.
-          rewrite Heq_tran_tt.
-          intros [? _].
-          done.
-          simpl.
-          intros [? _].
-          done.
+          simpl. rewrite Heq_tran_tt. intros [? _]. done.
+          simpl. intros [? _]. done.
         }
         {
           rewrite /retrieval_entries_transferred.
@@ -691,11 +947,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           assert (pages_in_trans (trans_memory_in_trans i (<[r1 := (tran.1, true)]> trans)) = pages_in_trans (trans_memory_in_trans i trans)) as H.
           rewrite /trans_memory_in_trans.
           rewrite map_filter_insert_True.
-          2: {
-            simpl.
-            right.
-            done.
-          }
+          2: { simpl. right. done. }
           erewrite (pages_in_trans_insert' (tran:= tran) (tran' := (tran.1, true)));auto.
           rewrite map_filter_lookup_Some.
           split;auto.
@@ -715,9 +967,311 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         }
       }
     }
-    { (*apply [hvc_mem_retrieve_lend]*)
-      admit.
+    { (* retrieve lending*)
+
+      assert (pages_in_trans (trans_memory_in_trans i (<[r1 := (tran.1, true)]> trans)) = pages_in_trans (trans_memory_in_trans i trans)) as Hrewrite.
+      rewrite /trans_memory_in_trans.
+      rewrite map_filter_insert_True.
+      2: { simpl. right. done. }
+      erewrite (pages_in_trans_insert' (tran:= tran) (tran' := (tran.1, true)));auto.
+      rewrite map_filter_lookup_Some.
+      split;auto.
+
+      destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
+      { (* apply [hvc_mem_retrieve_lend]*)
+        iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
+
+        iApply (hvc_mem_retrieve_lend ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state $mem_rx]").
+        set_solver + Hin_ps_acc_tx.
+        done. done.
+        iNext. simpl.
+        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+
+        iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
+        iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
+        iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+        iDestruct (retri_split with "re") as "[re re']".
+
+        iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
+                            [fresh_handles trans tran]
+                            [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
+        {
+          iPureIntro.
+          set_solver + Hsubset_mb.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          set_solver + Hdisj_na Hsubseteq_tran.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_rx.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_tx.
+        }
+        {
+          iExists hpool.
+          iSplitL "".
+          rewrite dom_insert_lookup_L //.
+          iFrame "fresh_handles".
+          iSplitL "".
+          iPureIntro.
+          apply (trans_ps_disj_update Htrans_ps_disj Hlookup_tran).
+          done.
+          iApply (big_sepM_delete _ (<[r1:=(tran.1, true)]> trans) r1 (tran.1,true)).
+          rewrite lookup_insert_Some.
+          left. split;done.
+          rewrite Hrw_tran /=.
+          iSplitL "tran". iExact "tran".
+          rewrite delete_insert_delete //.
+        }
+        {
+          rewrite /transaction_pagetable_entries_transferred.
+          rewrite Hrw_tran /=.
+          iApply (big_sepFM_update_False _ Hlookup_tran);auto.
+          simpl. rewrite Heq_tran_tt. intros [? _]. done.
+          simpl. intros [? _]. done.
+        }
+        {
+          rewrite /retrieval_entries_transferred.
+          iDestruct (big_sepFM_delete_acc_True (tran.1, true) with "retri") as "retri".
+          simpl. left;done.
+          iDestruct (big_sepFM_delete_acc_False (tran.1, true) with "retri'") as "retri'".
+          simpl. intro. destruct H;done.
+          iDestruct ("retri" with "re") as "retri".
+          iFrame.
+        }
+        {
+          rewrite /transaction_pagetable_entries_owned.
+          destruct (decide (tran.1.1.1.1.1 = i)).
+          iApply (big_sepFM_update_True _ Hlookup_tran).
+          simpl. split. done. rewrite Heq_tran_tt;done.
+          simpl. split. done. rewrite Heq_tran_tt;done.
+          simpl. iIntros "?";iFrame.
+          iFrame.
+          iApply (big_sepFM_update_False _ Hlookup_tran).
+          simpl. intros [? _]. contradiction.
+          simpl. intros [? _]. contradiction.
+          iFrame.
+        }
+        {
+          rewrite (pages_in_trans_insert' Hlookup_tran).
+          assert ((tran.1.1.2 ∪ ps_acc) ∖ {[p_rx; p_tx]} ∖ pages_in_trans trans = ps_acc ∖ {[p_rx; p_tx]} ∖ pages_in_trans trans) as ->.
+          {
+            rewrite 2!difference_difference_L.
+            rewrite difference_union_distr_l_L.
+            assert (tran.1.1.2 ∖ ({[p_rx; p_tx]} ∪ pages_in_trans trans) = ∅) as ->.
+            {
+              rewrite difference_union_distr_r_L.
+              assert (tran.1.1.2 ∖ pages_in_trans trans = ∅) as ->.
+              {
+                assert (ps_mem_in_trans ⊆ pages_in_trans trans) as Hsub.
+                apply pages_in_trans_subseteq.
+                apply map_filter_subseteq.
+                set_solver + Hsub Hsubseteq_tran.
+              }
+              set_solver +.
+            }
+            set_solver +.
+          }
+          done.
+          done.
+        }
+        {
+          rewrite /retrieval_entries_owned.
+          iDestruct (big_sepFM_delete_False Hlookup_tran with "retri_owned") as "retri_owned".
+          simpl. intros [_ ?]. rewrite H  // in Heq_retri.
+          iApply (big_sepFM_delete_acc_True with "[$retri_owned]").
+          simpl. split;done.
+          simpl; iFrame.
+        }
+        {
+          assert (pages_in_trans (trans_memory_in_trans i (<[r1 := (tran.1, true)]> trans)) = pages_in_trans (trans_memory_in_trans i trans)) as H.
+          rewrite /trans_memory_in_trans.
+          rewrite map_filter_insert_True.
+          2: { simpl. right. done. }
+          erewrite (pages_in_trans_insert' (tran:= tran) (tran' := (tran.1, true)));auto.
+          rewrite map_filter_lookup_Some.
+          split;auto.
+          rewrite H;clear H.
+          rewrite (union_comm_L tran.1.1.2).
+          rewrite -(union_assoc_L ps_acc tran.1.1.2).
+          assert ((tran.1.1.2 ∪ pages_in_trans (trans_memory_in_trans i trans)) = pages_in_trans (trans_memory_in_trans i trans)) as ->.
+          set_solver + Hsubseteq_tran.
+          iApply (memory_pages_split_diff' _ ps_acc).
+          set_solver +.
+          iSplitL "mem_rest"; first done.
+          iDestruct (memory_pages_split_singleton' p_rx with "[mem_acc_tx_rx mem_rx]") as "mem_acc_tx". set_solver + Hsubset_mb.
+          iSplitL "mem_acc_tx_rx".
+          iExists mem_acc_tx_rx; by iFrame "mem_acc_tx_rx".
+          iExists (list_to_map (zip (finz.seq p_rx (length des)) des) ∪ mem_rx); by iFrame "mem_rx".
+          iApply (memory_pages_split_singleton' p_tx with "[$mem_acc_tx $mem_tx]"). set_solver + Hsubset_mb.
+        }
+      }
+      { (* apply [hvc_mem_retrieve_lend_rx]*)
+        iDestruct (mem_big_sepM_split mem_rx Hlookup_mem_ai with "[mem_rx]") as "[mem_instr Hacc_mem_rx]".
+        iDestruct "mem_rx" as "[? $]".
+        rewrite set_of_addr_singleton in Hdom_mem_rx.
+
+        assert (p_rx = (tpa ai)) as ->.
+        {
+          apply elem_of_dom_2 in Hlookup_mem_ai.
+          rewrite Hdom_mem_rx in Hlookup_mem_ai.
+          rewrite elem_of_list_to_set in Hlookup_mem_ai.
+          apply elem_of_addr_of_page_iff in Hlookup_mem_ai.
+          done.
+        }
+
+        iApply (hvc_mem_retrieve_lend_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx]").
+        done.
+        done.
+        iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
+        iSplitL "". 2: iExact "rx". done.
+        iNext.
+        simpl.
+        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+
+        iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
+        iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
+        iDestruct (retri_split with "re") as "[re re']".
+
+        iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
+                            [fresh_handles trans tran]
+                            [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
+        {
+          iPureIntro.
+          set_solver + Hsubset_mb.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          set_solver + Hdisj_na Hsubseteq_tran.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_rx.
+        }
+        {
+          iPureIntro.
+          rewrite Hrewrite.
+          rewrite union_comm_L.
+          rewrite difference_union_distr_l_L.
+          set_solver + Hdisj_na Hsubseteq_tran Hnin_tx.
+        }
+        {
+          iExists hpool.
+          iSplitL "".
+          rewrite dom_insert_lookup_L //.
+          iFrame "fresh_handles".
+          iSplitL "".
+          iPureIntro.
+          apply (trans_ps_disj_update Htrans_ps_disj Hlookup_tran).
+          done.
+          iApply (big_sepM_delete _ (<[r1:=(tran.1, true)]> trans) r1 (tran.1,true)).
+          rewrite lookup_insert_Some.
+          left. split;done.
+          rewrite Hrw_tran /=.
+          iSplitL "tran". iExact "tran".
+          rewrite delete_insert_delete //.
+        }
+        {
+          rewrite /transaction_pagetable_entries_transferred.
+          rewrite Hrw_tran /=.
+          iApply (big_sepFM_update_False _ Hlookup_tran);auto.
+          simpl. rewrite Heq_tran_tt. intros [? _]. done.
+          simpl. intros [? _]. done.
+        }
+        {
+          rewrite /retrieval_entries_transferred.
+          iDestruct (big_sepFM_delete_acc_True (tran.1, true) with "retri") as "retri".
+          simpl. left;done.
+          iDestruct (big_sepFM_delete_acc_False (tran.1, true) with "retri'") as "retri'".
+          simpl. intro. destruct H;done.
+          iDestruct ("retri" with "re") as "retri".
+          iFrame.
+        }
+        {
+          rewrite /transaction_pagetable_entries_owned.
+          destruct (decide (tran.1.1.1.1.1 = i)).
+          iApply (big_sepFM_update_True _ Hlookup_tran).
+          simpl. split. done. rewrite Heq_tran_tt;done.
+          simpl. split. done. rewrite Heq_tran_tt;done.
+          simpl. iIntros "?";iFrame.
+          iFrame.
+          iApply (big_sepFM_update_False _ Hlookup_tran).
+          simpl. intros [? _]. contradiction.
+          simpl. intros [? _]. contradiction.
+          iFrame.
+        }
+        {
+          rewrite (pages_in_trans_insert' Hlookup_tran).
+          assert ((tran.1.1.2 ∪ ps_acc) ∖ {[(tpa ai); p_tx]} ∖ pages_in_trans trans = ps_acc ∖ {[tpa ai; p_tx]} ∖ pages_in_trans trans) as ->.
+          {
+            rewrite 2!difference_difference_L.
+            rewrite difference_union_distr_l_L.
+            assert (tran.1.1.2 ∖ ({[tpa ai; p_tx]} ∪ pages_in_trans trans) = ∅) as ->.
+            {
+              rewrite difference_union_distr_r_L.
+              assert (tran.1.1.2 ∖ pages_in_trans trans = ∅) as ->.
+              {
+                assert (ps_mem_in_trans ⊆ pages_in_trans trans) as Hsub.
+                apply pages_in_trans_subseteq.
+                apply map_filter_subseteq.
+                set_solver + Hsub Hsubseteq_tran.
+              }
+              set_solver +.
+            }
+            set_solver +.
+          }
+          done.
+          done.
+        }
+        {
+          rewrite /retrieval_entries_owned.
+          iDestruct (big_sepFM_delete_False Hlookup_tran with "retri_owned") as "retri_owned".
+          simpl. intros [_ ?]. rewrite H  // in Heq_retri.
+          iApply (big_sepFM_delete_acc_True with "[$retri_owned]").
+          simpl. split;done.
+          simpl; iFrame.
+        }
+        {
+          assert (pages_in_trans (trans_memory_in_trans i (<[r1 := (tran.1, true)]> trans)) = pages_in_trans (trans_memory_in_trans i trans)) as H.
+          rewrite /trans_memory_in_trans.
+          rewrite map_filter_insert_True.
+          2: { simpl. right. done. }
+          erewrite (pages_in_trans_insert' (tran:= tran) (tran' := (tran.1, true)));auto.
+          rewrite map_filter_lookup_Some.
+          split;auto.
+          rewrite H;clear H.
+          rewrite (union_comm_L tran.1.1.2).
+          rewrite -(union_assoc_L ps_acc tran.1.1.2).
+          assert ((tran.1.1.2 ∪ pages_in_trans (trans_memory_in_trans i trans)) = pages_in_trans (trans_memory_in_trans i trans)) as ->.
+          set_solver + Hsubseteq_tran.
+          iApply (memory_pages_split_diff' _ ps_acc).
+          set_solver +.
+          iSplitL "mem_rest"; first done.
+          iDestruct (memory_pages_split_singleton' (tpa ai) with "[mem_acc_tx_rx mem_rx]") as "mem_acc_tx". set_solver + Hsubset_mb.
+          iSplitL "mem_acc_tx_rx".
+          iExists mem_acc_tx_rx; by iFrame "mem_acc_tx_rx".
+          iExists (list_to_map (zip (finz.seq (tpa ai) (length des)) des) ∪ mem_rx); by iFrame "mem_rx".
+          iApply (memory_pages_split_singleton' p_tx with "[$mem_acc_tx $mem_tx]"). set_solver + Hsubset_mb.
+        }
+      }
     }
-  Admitted.
+  Qed.
 
 End ftlr_retrieve.

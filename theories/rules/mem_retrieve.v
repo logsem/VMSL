@@ -191,7 +191,7 @@ Lemma hvc_mem_retrieve_retrieved{E i wi sacc r0 r2 wh q} ai:
 Proof.
 Admitted.
 
-Lemma hvc_mem_retrieve_rx_full{E i wi sacc r0 r2 wh q1 q2 j wf tt rx_state} {ps: gset PID} ai:
+Lemma hvc_mem_retrieve_rx_full{E i wi sacc r0 r2 q1 q2 j wf tt rx_state} {ps: gset PID} ai wh:
   (tpa ai) ∈ sacc ->
   decode_instruction wi = Some(Hvc) ->
   decode_hvc_func r0 = Some(Retrieve) ->

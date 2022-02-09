@@ -230,7 +230,7 @@ Section big_sep.
   Qed.
 
   Lemma big_sepFM_delete_acc_True {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
-        {Φ : K -> A -> PROP} {k : K} {v : A} (v' :A):
+        {Φ : K -> A -> PROP} {k : K} (v' :A):
     P (k,v') ->
     (big_sepFM (delete k m) P Φ) ⊢
     Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ .
@@ -246,7 +246,7 @@ Section big_sep.
   Qed.
 
   Lemma big_sepFM_delete_acc_False {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
-        {Φ : K -> A -> PROP} {k : K} {v : A} (v' :A):
+        {Φ : K -> A -> PROP} {k : K} (v' :A):
     ¬P (k,v') ->
     (big_sepFM (delete k m) P Φ) ⊢
     big_sepFM (<[k := v']>m) P Φ .
