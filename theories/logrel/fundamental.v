@@ -4,7 +4,7 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base nop mov yield mem_share mem_retrieve(* ldr str halt fail add sub mult cmp *).
 From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve.
+(* From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve. *)
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
@@ -31,7 +31,7 @@ Section fundamental.
     iDestruct "Hres" as (rx_state') "Hres".
     iEval (rewrite 15!later_sep) in "Hres".
     iDestruct "Hres" as  "( >pgt_acc' & >LB & >%Hdisj_na & >trans_hpool_global & >tran_pgt_transferred &
-                         >retri & >mem_transferred &  >R0z & >R1z & >rx_state & >rx & >[% mem_rx] &
+                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >rx  & >[% mem_rx] & >other_rx &
                           Himp_tran_pgt & Himp_pgt & Himp_retri & Himp_mem & prop0)".
     iDestruct (access_agree_eq with "[$pgt_acc $pgt_acc']") as %->.
     iDestruct (later_wand with "Himp_tran_pgt") as "Himp_tran_pgt".

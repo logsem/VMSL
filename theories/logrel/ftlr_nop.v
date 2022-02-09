@@ -43,6 +43,7 @@ Lemma ftlr_nop {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr} trans 
                       retrieval_entries_transferred i a1 -∗
                       R0 @@ V0 ->r encode_hvc_func Run -∗
                       R1 @@ V0 ->r encode_vmid i -∗
+                      (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
                       RX_state@i:= a2 -∗
                       mailbox.rx_page i p_rx -∗
                       ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
@@ -63,6 +64,7 @@ Lemma ftlr_nop {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr} trans 
    retrieval_entries_transferred i trans -∗
    R0 @@ V0 ->r encode_hvc_func Run -∗
    R1 @@ V0 ->r encode_vmid i -∗
+   (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
    RX_state@i:= rx_state -∗
    mailbox.rx_page i p_rx -∗
    ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗

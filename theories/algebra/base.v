@@ -237,14 +237,14 @@ Section definitions.
   Definition reg_mapsto := reg_mapsto_aux.(unseal).
   Definition reg_mapsto_eq : @reg_mapsto = @reg_mapsto_def := reg_mapsto_aux.(seal_eq).
 
-  Definition mb_mapsto_def (i:VMID) (mb: MailBox) q (p: PID) : iProp Σ :=
-    ghost_map_elem gen_mb_name (i,mb) (DfracOwn q) p.
+  Definition mb_mapsto_def (i:VMID) (mb: MailBox) (p: PID) : iProp Σ :=
+    ghost_map_elem gen_mb_name (i,mb) (DfracDiscarded) p.
   Definition mb_mapsto_aux : seal (@mb_mapsto_def). Proof. by eexists. Qed.
   Definition mb_mapsto := mb_mapsto_aux.(unseal).
   Definition mb_mapsto_eq : @mb_mapsto = @mb_mapsto_def := mb_mapsto_aux.(seal_eq).
 
-  Definition rx_state_mapsto_def (i:VMID) (nr : option (Word * VMID)) : iProp Σ :=
-    ghost_map_elem gen_rx_state_name i (DfracOwn 1) nr.
+  Definition rx_state_mapsto_def (i:VMID) (q: frac) (nr : option (Word * VMID)) : iProp Σ :=
+    ghost_map_elem gen_rx_state_name i (DfracOwn q) nr.
   Definition rx_state_mapsto_aux : seal (@rx_state_mapsto_def). Proof. by eexists. Qed.
   Definition rx_state_mapsto := rx_state_mapsto_aux.(unseal).
   Definition rx_state_mapsto_eq : @rx_state_mapsto = @rx_state_mapsto_def :=
@@ -309,11 +309,13 @@ Notation "r @@ i ->r w" :=
 Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 
 (* predicates for TX and RX *)
-Notation "TX@ i := p" := (mb_mapsto i TX 1%Qp p)
+Notation "TX@ i := p" := (mb_mapsto i TX p)
                               (at level 20, format "TX@ i := p"): bi_scope.
-Notation "RX_state@ i := o" := ((rx_state_mapsto i (o)))%I
+Notation "RX_state{ q }@ i := o" := ((rx_state_mapsto i q o))%I
+                                        (at level 20, format "RX_state{ q }@ i :=  o"):bi_scope.
+Notation "RX_state@ i := o" := (RX_state{1}@i := o)%I
                                         (at level 20, format "RX_state@ i :=  o"):bi_scope.
-Notation "RX@ i := p " := (mb_mapsto i RX 1%Qp p)
+Notation "RX@ i := p " := (mb_mapsto i RX p)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)

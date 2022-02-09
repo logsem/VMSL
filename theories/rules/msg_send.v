@@ -71,6 +71,7 @@ Lemma hvc_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
       ExecI @ i ; E {{{ RET (true, ExecI) ; R' ∗ VMProp i P' 1%Qp}}}.
   Proof.
   Admitted.
+  (* can a VM send msg to itself?? no, TODO: fix opsem *)
 
   (*TODO: error cases*)
 
