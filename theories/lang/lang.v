@@ -7,7 +7,6 @@ Import Option.
 Import Sum.
 Open Scope monad_scope.
 
-
 (* Getters *)
 Notation "'get_current_vm' st" := (snd (fst (fst st))) (at level 70, only parsing).
 Notation "'get_mem' st" := (snd (fst st)) (at level 18, only parsing).
@@ -17,7 +16,6 @@ Notation "'get_mail_boxes' st" := (snd (fst (fst (fst (fst st))))) (at level 18,
 Notation "'get_page_table' st" := (snd (fst (fst (fst st)))) (at level 18, only parsing).
 Notation "'get_reg_file' st @ v" := (get_reg_files st !!! v) (at level 18, st as ident, only parsing).
 Notation "'get_mail_box' st @ v" := (get_mail_boxes st !!! v) (at level 18, only parsing).
-
 
 Section lang.
 Context `{HyperConst : !HypervisorConstants}.
@@ -810,8 +808,11 @@ Definition send (s : state) : exec_mode * state :=
 Definition wait (s : state) : exec_mode * state :=
   let comp :=
       if is_rx_ready s
-      then unit (s, get_current_vm s)
-      else unit ((update_reg_global s V0 R1
+      then
+        l <- lift_option (get_rx_length s) ;;;
+        n <- lift_option (get_rx_sender s) ;;;
+        unit ((update_reg (update_reg (update_reg (empty_rx s) R0 (encode_hvc_func Send)) R1 l) R2 (encode_vmid n)), (get_current_vm s))
+      else unit ((update_reg_global (update_reg_global s V0 R0 (encode_hvc_func Wait)) V0 R1
                       (encode_vmid (get_current_vm s))), V0)
   in
   unpack_hvc_result_yield s comp.

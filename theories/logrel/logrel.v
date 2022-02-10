@@ -80,7 +80,7 @@ Section logrel.
 
   (* [TODO] *)
   Definition return_reg_rx i : iProp Σ:=
-    (R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
+    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∨ R0 @@ V0 ->r encode_hvc_func(Wait)) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
     (R0 @@ V0 ->r encode_hvc_func(Send) ∗ ∃ j p_rx l, ⌜j ≠ i⌝ ∗ RX@ j := p_rx ∗ RX_state{1/2}@j := Some(l,i)
                           ∗ R1 @@ V0 ->r encode_vmid(j) ∗  R2 @@ V0 ->r l ∗ ∃ mem_rx, memory_page p_rx mem_rx).
 
