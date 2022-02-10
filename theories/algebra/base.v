@@ -503,7 +503,7 @@ Section timeless.
   Global Instance rx_mapsto_timeless i p : Timeless (RX@ i := p).
   Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
 
-  Global Instance rx_state_mapsto_timeless i o : Timeless (RX_state@ i := o).
+  Global Instance rx_state_mapsto_timeless i q o : Timeless (RX_state{q}@ i := o).
   Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
   Global Instance trans_mapsto_timeless_Some w q me : Timeless (w -{q}>t me).

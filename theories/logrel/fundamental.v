@@ -2,9 +2,9 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
-From HypVeri.rules Require Import rules_base nop mov yield mem_share mem_retrieve(* ldr str halt fail add sub mult cmp *).
+From HypVeri.rules Require Import rules_base.
 From HypVeri.logrel Require Import logrel logrel_extra.
-(* From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve. *)
+From HypVeri.logrel Require Import ftlr_nop (* ftlr_yield *) ftlr_share ftlr_retrieve.
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
@@ -13,7 +13,6 @@ Section fundamental.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-
   Lemma ftlr (i:VMID)  :
   ∀ p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.
@@ -21,17 +20,13 @@ Section fundamental.
     iIntros (????) "((%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & pgt_owned & tran_pgt_owned &
                            retri_owned & mem_owned & VMProp) %Hneq_0 VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
-    iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (ps_na') "Hres".
-    iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (ps_acc') "Hres".
-    iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (trans') "Hres".
-    iEval (rewrite later_exist) in "Hres".
-    iDestruct "Hres" as (rx_state') "Hres".
+    iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (ps_na') "Hres".
+    iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (ps_acc') "Hres".
+    iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (trans') "Hres".
+    iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rx_state') "Hres".
     iEval (rewrite 15!later_sep) in "Hres".
     iDestruct "Hres" as  "( >pgt_acc' & >LB & >%Hdisj_na & >trans_hpool_global & >tran_pgt_transferred &
-                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >rx  & >[% mem_rx] & >other_rx &
+                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >rx & >[% mem_rx] & >other_rx &
                           Himp_tran_pgt & Himp_pgt & Himp_retri & Himp_mem & prop0)".
     iDestruct (access_agree_eq with "[$pgt_acc $pgt_acc']") as %->.
     iDestruct (later_wand with "Himp_tran_pgt") as "Himp_tran_pgt".
@@ -121,8 +116,8 @@ Section fundamental.
       { (* valid instruction *)
         destruct instr'.
         { (* nop *)
-          iApply (ftlr_nop with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+          iApply (ftlr_nop with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
           all:done.
         }
         { (* mov *) admit. }
@@ -148,21 +143,21 @@ Section fundamental.
             }
             destruct (hvc_f).
             { (*RUN*) admit. }
-            { (*Yield*)
-              iApply (ftlr_yield with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
-              all:done.
+            { (*Yield*) admit.
+              (* iApply (ftlr_yield with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z *)
+              (*    rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve. *)
+              (* all:done. *)
             }
             { (*Share *)
-              iApply (ftlr_share with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_share with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Lend*) admit. }
             { (*Donate*) admit. }
             { (*WIP: Retrieve*)
-              iApply (ftlr_retrieve with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z
-                 rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_retrieve with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Relinquish*) admit. }

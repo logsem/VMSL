@@ -47,8 +47,10 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
                       retrieval_entries_transferred i a1 -∗
                       R0 @@ V0 ->r encode_hvc_func Run -∗
                       R1 @@ V0 ->r encode_vmid i -∗
+                      (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
                       RX_state@i:= a2 -∗
                       mailbox.rx_page i p_rx -∗
+                      rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
                       ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
                       VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
                       transaction_pagetable_entries_owned i a1 -∗
@@ -67,8 +69,10 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
    retrieval_entries_transferred i trans -∗
    R0 @@ V0 ->r encode_hvc_func Run -∗
    R1 @@ V0 ->r encode_vmid i -∗
+   (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
    RX_state@i:= rx_state -∗
    mailbox.rx_page i p_rx -∗
+   rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
    ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
    VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
    transaction_pagetable_entries_owned i trans -∗
@@ -81,172 +85,174 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
   Proof.
     iIntros (Htotal_regs Hsubset_mb Hneq_0 Hdisj_na Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
                          Hlookup_mem_ai Heqn  Hlookup_reg_R0 Hdecode_hvc).
-    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0
+    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
              propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
     set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans)).
-              iDestruct (reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_reg_R0  with "[$regs]") as "(PC & R0 & Hacc_regs)";eauto.
-              pose proof (union_split_difference_intersection_L (ps_acc∖ {[p_tx]}) ({[p_rx]} ∪ ps_mem_in_trans)) as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
-              rewrite Heq_ps_acc_tx in Hdom_mem_acc_tx.
-              rewrite set_of_addr_union in Hdom_mem_acc_tx;last auto.
-              apply dom_union_inv_L in Hdom_mem_acc_tx;last apply set_of_addr_disj;auto.
-              destruct Hdom_mem_acc_tx as (mem_oea & mem_inters & Heq_mem_acc_tx' & Hdisj_mem_oea_inters & Hdom_mem_oea & Hdom_mem_inters).
-              rewrite Heq_mem_acc_tx'.
-              iDestruct (big_sepM_union with "mem_acc_tx") as "[mem_oea mem_inters]";auto.
+    iDestruct (reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_reg_R0  with "[$regs]") as "(PC & R0 & Hacc_regs)";eauto.
+    pose proof (union_split_difference_intersection_L (ps_acc∖ {[p_tx]}) ({[p_rx]} ∪ ps_mem_in_trans)) as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
+    rewrite Heq_ps_acc_tx in Hdom_mem_acc_tx.
+    rewrite set_of_addr_union in Hdom_mem_acc_tx;last auto.
+    apply dom_union_inv_L in Hdom_mem_acc_tx;last apply set_of_addr_disj;auto.
+    destruct Hdom_mem_acc_tx as (mem_oea & mem_inters & Heq_mem_acc_tx' & Hdisj_mem_oea_inters & Hdom_mem_oea & Hdom_mem_inters).
+    rewrite Heq_mem_acc_tx'.
+    iDestruct (big_sepM_union with "mem_acc_tx") as "[mem_oea mem_inters]";auto.
 
-              (* for simplication *)
-              assert (Heq_inter_diff_union: (ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans) ∪ ((ps_acc ∪ ps_mem_in_trans ) ∖ ps_acc)
-                          = {[p_rx]} ∪ ps_mem_in_trans).
-              {
-                assert ((ps_acc ∪ ps_mem_in_trans ) ∖ ps_acc = ps_mem_in_trans ∖ (ps_acc∖ {[p_tx]})) as ->.
-                {
-                  assert ((ps_acc ∪ ps_mem_in_trans ) ∖ ps_acc = ps_mem_in_trans ∖ ps_acc) as ->.
-                  set_solver +.
-                  set_solver + Hnin_tx.
-                }
-                rewrite intersection_union_l_L.
-                rewrite -union_assoc_L.
-                rewrite intersection_comm_L.
-                rewrite subseteq_intersection_1_L.
-                2: { apply subseteq_difference_r. set_solver. set_solver + Hsubset_mb. }
-                pose proof (union_split_difference_intersection_L ps_mem_in_trans (ps_acc∖ {[p_tx]})) as [Heq _].
-                rewrite union_comm_L intersection_comm_L in Heq.
-                rewrite  -Heq //.
-              }
+    (* for simplication *)
+    assert (Heq_inter_diff_union: (ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans) ∪ ((ps_acc ∪ ps_mem_in_trans ) ∖ ps_acc)
+                                  = {[p_rx]} ∪ ps_mem_in_trans).
+    {
+      assert ((ps_acc ∪ ps_mem_in_trans ) ∖ ps_acc = ps_mem_in_trans ∖ (ps_acc∖ {[p_tx]})) as ->.
+      {
+        assert ((ps_acc ∪ ps_mem_in_trans ) ∖ ps_acc = ps_mem_in_trans ∖ ps_acc) as ->.
+        set_solver +.
+        set_solver + Hnin_tx.
+      }
+      rewrite intersection_union_l_L.
+      rewrite -union_assoc_L.
+      rewrite intersection_comm_L.
+      rewrite subseteq_intersection_1_L.
+      2: { apply subseteq_difference_r. set_solver. set_solver + Hsubset_mb. }
+      pose proof (union_split_difference_intersection_L ps_mem_in_trans (ps_acc∖ {[p_tx]})) as [Heq _].
+      rewrite union_comm_L intersection_comm_L in Heq.
+      rewrite  -Heq //.
+    }
 
-              (* we have this annoying case anlaysis because we need to know if the instruction is in the memory pages required by VMProp 0 *)
-              destruct (decide ((tpa ai) ∈ ((ps_acc∖ {[p_tx]}) ∖ ({[p_rx]} ∪ ps_mem_in_trans)))) as [Hin_ps_oea | Hnin_ps_oea].
-              { (* instruction is in ps_oea *)
-                (* in this case, we don't need to transfer instruction *)
-                assert (Hsubseteq_mem_acc: mem_oea ⊆ mem_acc_tx).
-                rewrite Heq_mem_acc_tx'.
-                apply map_union_subseteq_l.
-                rewrite map_subseteq_spec in Hsubseteq_mem_acc.
-                apply elem_of_set_of_addr_tpa in Hin_ps_oea.
-                rewrite -Hdom_mem_oea in Hin_ps_oea.
-                rewrite elem_of_dom in Hin_ps_oea.
-                destruct Hin_ps_oea as [? Hlookup_mem_ai'].
-                specialize (Hsubseteq_mem_acc ai _ Hlookup_mem_ai').
-                rewrite Hlookup_mem_ai in Hsubseteq_mem_acc.
-                inversion Hsubseteq_mem_acc.
-                subst x. clear Hsubseteq_mem_acc.
+    (* we have this annoying case anlaysis because we need to know if the instruction is in the memory pages required by VMProp 0 *)
+    destruct (decide ((tpa ai) ∈ ((ps_acc∖ {[p_tx]}) ∖ ({[p_rx]} ∪ ps_mem_in_trans)))) as [Hin_ps_oea | Hnin_ps_oea].
+    { (* instruction is in ps_oea *)
+      (* in this case, we don't need to transfer instruction *)
+      assert (Hsubseteq_mem_acc: mem_oea ⊆ mem_acc_tx).
+      rewrite Heq_mem_acc_tx'.
+      apply map_union_subseteq_l.
+      rewrite map_subseteq_spec in Hsubseteq_mem_acc.
+      apply elem_of_set_of_addr_tpa in Hin_ps_oea.
+      rewrite -Hdom_mem_oea in Hin_ps_oea.
+      rewrite elem_of_dom in Hin_ps_oea.
+      destruct Hin_ps_oea as [? Hlookup_mem_ai'].
+      specialize (Hsubseteq_mem_acc ai _ Hlookup_mem_ai').
+      rewrite Hlookup_mem_ai in Hsubseteq_mem_acc.
+      inversion Hsubseteq_mem_acc.
+      subst x. clear Hsubseteq_mem_acc.
 
-                iAssert (memory_pages ((ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) mem_inters)%I  with "[mem_inters]" as "mem_inters".
-                { rewrite /memory_pages. iSplitL "";first done. iFrame. }
+      iAssert (memory_pages ((ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) mem_inters)%I  with "[mem_inters]" as "mem_inters".
+      { rewrite /memory_pages. iSplitL "";first done. iFrame. }
 
-                (* merge [mem_inters] and [mem_rest] into [mem_trans] (including [mem_rx]) *)
-                iDestruct (memory_pages_split_union'
-                             ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) with "[mem_inters mem_rest]") as "mem_tran".
-                2:{ iSplitL "mem_inters". iExists mem_inters. iFrame "mem_inters". iExact "mem_rest". }
-                { set_solver +. }
-                rewrite Heq_inter_diff_union.
+      (* merge [mem_inters] and [mem_rest] into [mem_trans] (including [mem_rx]) *)
+      iDestruct (memory_pages_split_union'
+                   ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) with "[mem_inters mem_rest]") as "mem_tran".
+      2:{ iSplitL "mem_inters". iExists mem_inters. iFrame "mem_inters". iExact "mem_rest". }
+      { set_solver +. }
+      rewrite Heq_inter_diff_union.
 
-                (* getting instruction from [mem_oea] *)
-                iDestruct (mem_big_sepM_split mem_oea Hlookup_mem_ai' with "mem_oea") as "[mem_instr Hacc_mem]".
-                iApply (yield ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
-                                 transaction_hpool_global_transferred trans ∗
-                                 transaction_pagetable_entries_transferred i trans ∗ retrieval_entries_transferred i trans)%I False
-                         with "[PC R0 R0z R1z pgt_acc tx mem_instr prop0 propi LB pgt_acc' trans_hpool_global tran_pgt_transferred mem_tran
+      (* getting instruction from [mem_oea] *)
+      iDestruct (mem_big_sepM_split mem_oea Hlookup_mem_ai' with "mem_oea") as "[mem_instr Hacc_mem]".
+      iApply (yield ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
+                                                         transaction_hpool_global_transferred trans ∗
+                                                         transaction_pagetable_entries_transferred i trans ∗ retrieval_entries_transferred i trans)%I False
+               with "[PC R0 R0z R1z R2z pgt_acc tx mem_instr other_rx prop0 propi LB pgt_acc' trans_hpool_global tran_pgt_transferred mem_tran
                             retri rx_state rx]"); iFrameAutoSolve.
-                {
-                  iSplitL "prop0".
-                  iFrame.
-                  iSplitL "propi".
-                  iFrame.
-                  iSplitR "LB trans_hpool_global tran_pgt_transferred retri".
-                  2:{ iFrame. }
-                  iNext.
-                  iIntros "((PC & mem_instr & pgt_acc & tx & R0i &R0z & R1z) & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri) & propi)".
-                  iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z rx_state rx mem_tran".
-                  iLeft.
-                  iExists ps_na, ps_acc, trans, rx_state.
-                  iFrame.
-                  iSplitL ""; first done.
-                  (* split [mem_tran] into [mem_rx] and [mem_trans] *)
-                  iDestruct (memory_pages_split_union' with "mem_tran") as "[mem_rx mem_trans]".
-                  set_solver + Hnin_rx.
-                  iFrame.
-                  rewrite memory_pages_singleton'. iFrame.
-                  iCombine "PC mem_instr R0i pgt_acc' propi" as "R'". iExact "R'".
-                }
-                iNext.
-                iIntros "[(PC & mem_instr & R0i & pgt_acc' & propi) propi']".
-                iSimpl.
-                iIntros "Hholds".
-                rewrite /VMProp_holds.
-                iDestruct "Hholds" as (P) "( _ & propi'')".
-                iDestruct (VMProp_split with "[$propi $propi']") as "propi".
-                iExFalso.
-                iApply (VMProp_invalid with "[$propi $propi'']").
-               }
-              { (* tpa ai ∉ ps_acc ∖ ({[p_rx]} ∪ ps_mem_in_trans) *)
-                (* we don't need to touch [mem_oea]*)
-                (* first show instr is in [mem_inters] *)
-                assert (tpa ai ∈ (ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans )) as Hin_ps_inters.
-                {
-                  rewrite Heq_ps_acc_tx in Hin_ps_acc_tx.
-                  rewrite elem_of_union in Hin_ps_acc_tx.
-                  destruct Hin_ps_acc_tx;done.
-                }
-                assert (Hsubseteq_mem_acc: mem_inters ⊆ mem_acc_tx).
-                { rewrite Heq_mem_acc_tx'. apply map_union_subseteq_r. done. }
-                rewrite map_subseteq_spec in Hsubseteq_mem_acc.
-                apply elem_of_set_of_addr_tpa in Hin_ps_inters.
-                rewrite -Hdom_mem_inters in  Hin_ps_inters.
-                rewrite elem_of_dom in Hin_ps_inters.
-                destruct Hin_ps_inters as [? Hlookup_mem_ai'].
-                specialize (Hsubseteq_mem_acc ai _ Hlookup_mem_ai').
-                rewrite Hlookup_mem_ai in Hsubseteq_mem_acc.
-                inversion Hsubseteq_mem_acc.
-                subst x. clear Hsubseteq_mem_acc.
+      {
+        iSplitL "prop0".
+        iFrame.
+        iSplitL "propi".
+        iFrame.
+        iSplitR "LB trans_hpool_global tran_pgt_transferred retri".
+        2:{ iFrame. }
+        iNext.
+        iIntros "((PC & mem_instr & pgt_acc & tx & R0i &R0z & R1z) & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri) & propi)".
+        iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran".
+        iLeft.
+        iExists ps_na, ps_acc, trans, rx_state.
+        iFrame.
+        iSplitL ""; first done.
+        (* split [mem_tran] into [mem_rx] and [mem_trans] *)
+        iDestruct (memory_pages_split_union' with "mem_tran") as "[mem_rx mem_trans]".
+        set_solver + Hnin_rx.
+        iFrame.
+        rewrite memory_pages_singleton'. iFrame.
+        iLeft. iFrame.
+        iCombine "PC mem_instr R0i pgt_acc' propi" as "R'". iExact "R'".
+      }
+      iNext.
+      iIntros "[(PC & mem_instr & R0i & pgt_acc' & propi) propi']".
+      iSimpl.
+      iIntros "Hholds".
+      rewrite /VMProp_holds.
+      iDestruct "Hholds" as (P) "( _ & propi'')".
+      iDestruct (VMProp_split with "[$propi $propi']") as "propi".
+      iExFalso.
+      iApply (VMProp_invalid with "[$propi $propi'']").
+    }
+    { (* tpa ai ∉ ps_acc ∖ ({[p_rx]} ∪ ps_mem_in_trans) *)
+      (* we don't need to touch [mem_oea]*)
+      (* first show instr is in [mem_inters] *)
+      assert (tpa ai ∈ (ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans )) as Hin_ps_inters.
+      {
+        rewrite Heq_ps_acc_tx in Hin_ps_acc_tx.
+        rewrite elem_of_union in Hin_ps_acc_tx.
+        destruct Hin_ps_acc_tx;done.
+      }
+      assert (Hsubseteq_mem_acc: mem_inters ⊆ mem_acc_tx).
+      { rewrite Heq_mem_acc_tx'. apply map_union_subseteq_r. done. }
+      rewrite map_subseteq_spec in Hsubseteq_mem_acc.
+      apply elem_of_set_of_addr_tpa in Hin_ps_inters.
+      rewrite -Hdom_mem_inters in  Hin_ps_inters.
+      rewrite elem_of_dom in Hin_ps_inters.
+      destruct Hin_ps_inters as [? Hlookup_mem_ai'].
+      specialize (Hsubseteq_mem_acc ai _ Hlookup_mem_ai').
+      rewrite Hlookup_mem_ai in Hsubseteq_mem_acc.
+      inversion Hsubseteq_mem_acc.
+      subst x. clear Hsubseteq_mem_acc.
 
-                (* get instruction *)
-                iDestruct (mem_big_sepM_split mem_inters Hlookup_mem_ai' with "mem_inters") as "[mem_instr Hacc_mem_inters]".
-                iApply (yield ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
-                                  transaction_hpool_global_transferred trans ∗
-                                  transaction_pagetable_entries_transferred i trans ∗ retrieval_entries_transferred i trans) False
-                         with "[PC R0 R0z R1z pgt_acc tx mem_instr prop0 propi LB pgt_acc' trans_hpool_global tran_pgt_transferred Hacc_mem_inters mem_rest
+      (* get instruction *)
+      iDestruct (mem_big_sepM_split mem_inters Hlookup_mem_ai' with "mem_inters") as "[mem_instr Hacc_mem_inters]".
+      iApply (yield ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
+                                                         transaction_hpool_global_transferred trans ∗
+                                                         transaction_pagetable_entries_transferred i trans ∗ retrieval_entries_transferred i trans) False
+               with "[PC R0 R0z R1z R2z pgt_acc tx mem_instr other_rx prop0 propi LB pgt_acc' trans_hpool_global tran_pgt_transferred Hacc_mem_inters mem_rest
                             retri rx_state rx]"); iFrameAutoSolve.
-                {
-                  iSplitL "prop0".
-                  iFrame.
-                  iSplitL "propi".
-                  iFrame.
-                  iSplitR "LB trans_hpool_global tran_pgt_transferred retri".
-                  2:{ iFrame. }
-                  iNext.
-                  iIntros "((PC & mem_instr & pgt_acc & tx & R0i &R0z & R1z) & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri) & propi)".
-                  iDestruct ("Hacc_mem_inters" with "mem_instr") as "mem_inters".
-                  (* FIXME: copied proofs  *)
-                  iAssert (memory_pages ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) mem_inters)%I  with "[mem_inters]" as "mem_inters".
-                  { rewrite /memory_pages. iSplitL "";first done. iFrame. }
-                  (* [mem_inters] + [mem_rest] = [mem_tran] *)
-                  iDestruct (memory_pages_split_union'
-                               ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) with "[mem_inters mem_rest]") as "mem_tran".
-                  2:{ iSplitL "mem_inters". iExists mem_inters. iFrame "mem_inters". iExact "mem_rest". }
-                  { set_solver +. }
-                  rewrite Heq_inter_diff_union.
+      {
+        iSplitL "prop0".
+        iFrame.
+        iSplitL "propi".
+        iFrame.
+        iSplitR "LB trans_hpool_global tran_pgt_transferred retri".
+        2:{ iFrame. }
+        iNext.
+        iIntros "((PC & mem_instr & pgt_acc & tx & R0i &R0z & R1z) & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri) & propi)".
+        iDestruct ("Hacc_mem_inters" with "mem_instr") as "mem_inters".
+        (* FIXME: copied proofs  *)
+        iAssert (memory_pages ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) mem_inters)%I  with "[mem_inters]" as "mem_inters".
+        { rewrite /memory_pages. iSplitL "";first done. iFrame. }
+        (* [mem_inters] + [mem_rest] = [mem_tran] *)
+        iDestruct (memory_pages_split_union'
+                     ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ ps_mem_in_trans)) with "[mem_inters mem_rest]") as "mem_tran".
+        2:{ iSplitL "mem_inters". iExists mem_inters. iFrame "mem_inters". iExact "mem_rest". }
+        { set_solver +. }
+        rewrite Heq_inter_diff_union.
 
-                  iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z rx_state rx mem_tran".
-                  iLeft.
-                  iExists ps_na, ps_acc, trans, rx_state.
-                  iFrame.
-                  iSplitL ""; first done.
-                  iDestruct (memory_pages_split_union' with "mem_tran") as "[mem1 mem2]".
-                  set_solver + Hnin_rx.
-                  iFrame.
-                  rewrite memory_pages_singleton'. iFrame.
-                  iCombine "PC R0i pgt_acc' propi" as "R'". iExact "R'".
-                }
-                iNext.
-                iIntros "[(PC & R0i & pgt_acc' & propi) propi']".
-                iSimpl.
-                iIntros "Hholds".
-                rewrite /VMProp_holds.
-                iDestruct "Hholds" as (P) "( _ & propi'')".
-                iDestruct (VMProp_split with "[$propi $propi']") as "propi".
-                iExFalso.
-                iApply (VMProp_invalid with "[$propi $propi'']").
-              }
+        iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran".
+        iLeft.
+        iExists ps_na, ps_acc, trans, rx_state.
+        iFrame.
+        iSplitL ""; first done.
+        iDestruct (memory_pages_split_union' with "mem_tran") as "[mem1 mem2]".
+        set_solver + Hnin_rx.
+        iFrame.
+        rewrite memory_pages_singleton'. iFrame.
+        iLeft. iFrame.
+        iCombine "PC R0i pgt_acc' propi" as "R'". iExact "R'".
+      }
+      iNext.
+      iIntros "[(PC & R0i & pgt_acc' & propi) propi']".
+      iSimpl.
+      iIntros "Hholds".
+      rewrite /VMProp_holds.
+      iDestruct "Hholds" as (P) "( _ & propi'')".
+      iDestruct (VMProp_split with "[$propi $propi']") as "propi".
+      iExFalso.
+      iApply (VMProp_invalid with "[$propi $propi'']").
+    }
   Qed.
 
 End ftlr_yield.

@@ -47,8 +47,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
                       retrieval_entries_transferred i a1 -∗
                       R0 @@ V0 ->r encode_hvc_func Run -∗
                       R1 @@ V0 ->r encode_vmid i -∗
+                      (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
                       RX_state@i:= a2 -∗
                       mailbox.rx_page i p_rx -∗
+                      rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
                       ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
                       VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
                       transaction_pagetable_entries_owned i a1 -∗
@@ -67,8 +69,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
    retrieval_entries_transferred i trans -∗
    R0 @@ V0 ->r encode_hvc_func Run -∗
    R1 @@ V0 ->r encode_vmid i -∗
+   (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
    RX_state@i:= rx_state -∗
    mailbox.rx_page i p_rx -∗
+   rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
    ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
    VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
    transaction_pagetable_entries_owned i trans -∗
@@ -81,7 +85,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
   Proof.
     iIntros (Htotal_regs Hsubset_mb Hneq_0 Hdisj_na Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
                          Hlookup_mem_ai Heqn  Hlookup_reg_R0 Hdecode_hvc).
-    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0
+    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
              propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
     set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans)).
     pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
@@ -111,7 +115,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
         iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            tran_pgt_transferred retri R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi tran_pgt_owned
                             pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
         {
           iExists hpool.
@@ -143,7 +147,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
       iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            tran_pgt_transferred retri R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi tran_pgt_owned
                             pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
       {
         iExists hpool.
@@ -185,7 +189,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
       iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran trans]
-                            tran_pgt_transferred retri R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            tran_pgt_transferred retri R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi tran_pgt_owned
                             pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
       {
         iExists hpool.
@@ -226,7 +230,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
      iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran trans]
-                            tran_pgt_transferred [re retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            tran_pgt_transferred [re retri retri'] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi tran_pgt_owned
                             pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
      {
        iExists hpool.
@@ -280,7 +284,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
      iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles tran trans]
-                            tran_pgt_transferred [re retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi tran_pgt_owned
+                            tran_pgt_transferred [re retri retri'] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi tran_pgt_owned
                             pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
      {
        iExists hpool.
@@ -390,7 +394,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
         iApply ("IH" $! _ _ (delete r1 trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
-                            [tran_pgt_transferred] [retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [tran_pgt_transferred] [retri retri'] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi [tran_pgt_owned]
                             [own_tran excl_tran pgt_owned] [retri_owned] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
         {
           iPureIntro.
@@ -542,7 +546,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
         iApply ("IH" $! _ _ (delete r1 trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB [fresh_handles trans]
-                            [tran_pgt_transferred] [retri retri'] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [tran_pgt_transferred] [retri retri'] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi [tran_pgt_owned]
                             [own_tran excl_tran pgt_owned] [retri_owned] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
         {
           iPureIntro.
@@ -696,7 +700,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
         iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
                             [fresh_handles trans tran]
-                            [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [tran_pgt_transferred] [retri retri' re] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi [tran_pgt_owned]
                             [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
         {
           iPureIntro.
@@ -842,7 +846,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
         iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] []regs tx pgt_tx pgt_acc pgt_acc' LB
                             [fresh_handles trans tran]
-                            [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [tran_pgt_transferred] [retri retri' re] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi [tran_pgt_owned]
                             [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
         {
           iPureIntro.
@@ -994,7 +998,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
         iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
                             [fresh_handles trans tran]
-                            [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [tran_pgt_transferred] [retri retri' re] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi [tran_pgt_owned]
                             [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
         {
           iPureIntro.
@@ -1147,7 +1151,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
         iApply ("IH" $! _ _ (<[r1 := ((tran.1, true):transaction)]> trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
                             [fresh_handles trans tran]
-                            [tran_pgt_transferred] [retri retri' re] R0z R1z rx_state [$rx $pgt_rx] prop0 propi [tran_pgt_owned]
+                            [tran_pgt_transferred] [retri retri' re] R0z R1z R2z rx_state [$rx $pgt_rx] other_rx prop0 propi [tran_pgt_owned]
                             [pgt_owned] [retri_owned re'] [mem_rest mem_acc_tx_rx mem_rx mem_tx]").
         {
           iPureIntro.

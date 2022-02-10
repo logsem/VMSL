@@ -46,6 +46,7 @@ Lemma ftlr_nop {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr} trans 
                       (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
                       RX_state@i:= a2 -∗
                       mailbox.rx_page i p_rx -∗
+                      rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
                       ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
                       VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
                       transaction_pagetable_entries_owned i a1 -∗
@@ -67,6 +68,7 @@ Lemma ftlr_nop {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr} trans 
    (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
    RX_state@i:= rx_state -∗
    mailbox.rx_page i p_rx -∗
+   rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
    ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
    VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
    transaction_pagetable_entries_owned i trans -∗
@@ -78,7 +80,7 @@ Lemma ftlr_nop {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr} trans 
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
     iIntros (Htotal_regs Hsubset_mb Hdisj_na Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx Hlookup_mem_ai Heqn).
-    iIntros "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
+    iIntros "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
     (* getting the PC *)
     iDestruct (reg_big_sepM_split_upd i Hlookup_PC with "[$regs]")
       as "[PC Hacc_regs]";first done.
@@ -92,7 +94,7 @@ Lemma ftlr_nop {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr} trans 
     iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "PC") as "[%Htotal_regs' regs]".
     iDestruct ("Hacc_mem_acc" with "[$mem_instr]") as "mem_acc_tx".
     iApply ("IH" $! _ ps_acc trans _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
-                       LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi
+                       LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
     {
       iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
