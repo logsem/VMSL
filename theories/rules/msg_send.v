@@ -12,9 +12,9 @@ Lemma hvc_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
   tpa ai ∈ sacc ->
   decode_instruction wi = Some(Hvc) ->
   decode_hvc_func r0 = Some(Send) ->
+  ((finz.to_z l) <= page_size)%Z ->
   decode_vmid w = Some j ->
   j ≠ V0 ->
-  ((finz.to_z l) < page_size)%Z ->
   {SS{{ ▷(PC @@ V0 ->r ai) ∗
         ▷ ai ->a wi ∗
         ▷ V0 -@{q}A> sacc ∗
@@ -44,8 +44,8 @@ Lemma hvc_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     tpa ai ∈ sacc ->
     decode_instruction wi = Some(Hvc) ->
     decode_hvc_func r0 = Some(Send) ->
+    ((finz.to_z l) <= page_size)%Z ->
     decode_vmid w = Some j ->
-    ((finz.to_z l) < page_size)%Z ->
     i ≠ V0 ->
     let T' := (PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
                         ∗ i -@{q}A> sacc
@@ -71,8 +71,78 @@ Lemma hvc_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
       ExecI @ i ; E {{{ RET (true, ExecI) ; R' ∗ VMProp i P' 1%Qp}}}.
   Proof.
   Admitted.
-  (* can a VM send msg to itself?? no, TODO: fix opsem *)
 
-  (*TODO: error cases*)
+
+  Lemma hvc_send_invalid_length {E i wi r0 w sacc p_tx q l} ai:
+  tpa ai ≠ p_tx ->
+  tpa ai ∈ sacc ->
+  decode_instruction wi = Some(Hvc) ->
+  decode_hvc_func r0 = Some(Send) ->
+  ((finz.to_z l) > page_size)%Z ->
+  {SS{{ ▷ (PC @@ i ->r ai) ∗
+        ▷ ai ->a wi ∗
+        ▷ i -@{q}A> sacc ∗
+        ▷ TX@ i := p_tx ∗
+        ▷ (R0 @@ i ->r r0) ∗
+        ▷ (R1 @@ i ->r w) ∗
+        ▷ (R2 @@ i ->r l)}}}
+   ExecI @ i ; E {{{ RET (false, ExecI) ;
+                  PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+                  ∗ i -@{q}A> sacc
+                  ∗ TX@ i := p_tx
+                  ∗ R0 @@ i ->r encode_hvc_ret_code Error
+                  ∗ R1 @@ i ->r w
+                  ∗ R2 @@ i ->r encode_hvc_error InvParam}}}.
+  Proof.
+  Admitted.
+
+  Lemma hvc_send_invalid_receiver {E i wi r0 w sacc p_tx q l} ai:
+  tpa ai ≠ p_tx ->
+  tpa ai ∈ sacc ->
+  decode_instruction wi = Some(Hvc) ->
+  decode_hvc_func r0 = Some(Send) ->
+  ((finz.to_z l) <= page_size)%Z ->
+  decode_vmid w = None ->
+  {SS{{ ▷ (PC @@ i ->r ai) ∗
+        ▷ ai ->a wi ∗
+        ▷ i -@{q}A> sacc ∗
+        ▷ TX@ i := p_tx ∗
+        ▷ (R0 @@ i ->r r0) ∗
+        ▷ (R1 @@ i ->r w) ∗
+        ▷ (R2 @@ i ->r l)}}}
+   ExecI @ i ; E {{{ RET (false, ExecI) ;
+                  PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+                  ∗ i -@{q}A> sacc
+                  ∗ TX@ i := p_tx
+                  ∗ R0 @@ i ->r encode_hvc_ret_code Error
+                  ∗ R1 @@ i ->r w
+                  ∗ R2 @@ i ->r encode_hvc_error InvParam}}}.
+  Proof.
+  Admitted.
+
+  Lemma hvc_send_to_self {E i wi r0 w sacc p_tx q l} ai j :
+  tpa ai ≠ p_tx ->
+  tpa ai ∈ sacc ->
+  decode_instruction wi = Some(Hvc) ->
+  decode_hvc_func r0 = Some(Send) ->
+  ((finz.to_z l) <= page_size)%Z ->
+  decode_vmid w = Some j ->
+  j = i ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗
+        ▷ ai ->a wi ∗
+        ▷ i -@{q}A> sacc ∗
+        ▷ TX@ i := p_tx ∗
+        ▷ (R0 @@ i ->r r0) ∗
+        ▷ (R1 @@ i ->r w) ∗
+        ▷ (R2 @@ i ->r l)}}}
+   ExecI @ i ; E {{{ RET (false, ExecI) ;
+                  PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi
+                  ∗ i -@{q}A> sacc
+                  ∗ TX@ i := p_tx
+                  ∗ R0 @@ i ->r encode_hvc_ret_code Error
+                  ∗ R1 @@ i ->r w
+                  ∗ R2 @@ i ->r encode_hvc_error InvParam}}}.
+  Proof.
+  Admitted.
 
 End msg_send.

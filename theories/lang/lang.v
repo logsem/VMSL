@@ -795,6 +795,7 @@ Definition send (s : state) : exec_mode * state :=
   let comp :=
       receiver <- lift_option (get_reg s R1) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
+      _ <- (if bool_decide (receiver' = (get_current_vm s)) then throw InvParam else unit ()) ;;;
       l <- lift_option (get_reg s R2) ;;;
       st <- transfer_msg s (get_current_vm s) receiver' l ;;;
       if is_primary st
