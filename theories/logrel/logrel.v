@@ -73,12 +73,19 @@ Section logrel.
   Definition memory_transferred (trans : gmap Word transaction) (mem: mem) :=
    memory_pages (pages_in_trans (trans_memory_in_trans trans)) mem.
 
-  Definition other_rxs (rxs : gmap VMID (PID * (gmap Addr Word) * option (Word * VMID))) : iProp Σ :=
-    ⌜(list_to_set (list_of_vmids)) ∖ {[i]} = dom (gset _) rxs⌝ ∗
-    ([∗ map] j ↦ rx ∈ rxs, RX_state@ j := rx.2 ∗ (rx_page j rx.1.1) ∗ memory_page rx.1.1 rx.1.2).
+  (* [TODO] *)
+  Definition rx_pages (s: gset VMID) : iProp Σ :=
+    [∗ set] j ∈ s, ∃ p_rx, RX@ j := p_rx ∗ ∃ rx_state, RX_state{1/2}@j := rx_state ∗
+                  (⌜rx_state = None⌝ -∗ RX_state{1/2}@j := rx_state ∗ ∃ mem_rx, memory_page p_rx mem_rx).
 
-  Definition vmprop_zero p_rx rxs : iProp Σ :=
-    ((∃ ps_na'' ps_acc'' trans'' rx_state'' rxs'',
+  (* [TODO] *)
+  Definition return_reg_rx i : iProp Σ:=
+    (R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
+    (R0 @@ V0 ->r encode_hvc_func(Send) ∗ ∃ j p_rx l, ⌜j ≠ i⌝ ∗ RX@ j := p_rx ∗ RX_state{1/2}@j := Some(l,i)
+                          ∗ R1 @@ V0 ->r encode_vmid(j) ∗  R2 @@ V0 ->r l ∗ ∃ mem_rx, memory_page p_rx mem_rx).
+
+  Definition vmprop_zero p_rx : iProp Σ :=
+    ((∃ ps_na'' ps_acc'' trans'' rx_state'',
                            let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
                            (* lower bound *)
                            i -@{1/2}A> ps_acc'' ∗
@@ -90,20 +97,17 @@ Section logrel.
                            retrieval_entries_transferred trans'' ∗
                            (* memory *)
                            (∃ mem_trans, memory_pages ps_macc_trans'' mem_trans) ∗
-                           R0 @@ V0 ->r encode_hvc_func(Yield) ∗ R1 @@ V0 ->r encode_vmid(i) ∗
                            (* status of RX *)
                            RX_state@ i := rx_state'' ∗
                            (* RX *)
                            rx_page i p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
-                           other_rxs rxs'' ∗ ⌜∃ j, j ≠ i ∧ map_Forall (λ k v, rxs !! k = Some v) (delete j rxs'')
-                                                   ∧ rxs''!! j = Some⌝
-     )
-                           (* TODO: adding the rest of RXs*)
+                           rx_pages ((list_to_set (list_of_vmids)) ∖ {[i]}) ∗
+                           return_reg_rx i)
                            (* no scheduling, we finish the proof *)
                            ∨ False).
 
   Definition vmprop_unknown p_tx p_rx trans : iProp Σ:=
-    ∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state rxs ,
+    ∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state,
                let ps_oea := ps_acc' ∖ {[p_rx;p_tx]} ∖ (pages_in_trans trans)  in
                let ps_macc_trans' := (pages_in_trans (trans_memory_in_trans trans')) in
                let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ pages_in_trans trans' in
@@ -127,7 +131,8 @@ Section logrel.
                (* RX *)
                (rx_page i p_rx) ∗
                (∃ mem_rx, memory_page p_rx mem_rx) ∗
-               other_rxs rxs ∗
+               (* rx pages for all other VMs *)
+               rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗
                (* other RXs *)
                (* Implications: these implications relate [trans], the transactions at the beginning of the proof, and
                 [trans'], those at the point of switching to i. These assumptions are (I believe) necessary to prove FTLR.
