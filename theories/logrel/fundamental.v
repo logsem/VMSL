@@ -162,7 +162,9 @@ Section fundamental.
             }
             { (*Relinquish*) admit. }
             { (*Reclaim*) admit. }
-            { (*Send TODO*) admit. }
+            { (*Send TODO*)
+
+              admit. }
             { (*Wait*) admit. }
             { (*Poll*) admit. }
           }
