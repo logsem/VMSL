@@ -33,6 +33,9 @@ Class FramableTransaction `{HypervisorConstants} (wh : Word) (q: Qp) (meta: meta
 Class FramableRetrieve (wh : Word) (q: Qp) (b : bool)  := {}.
 #[export] Hint Mode FramableRetrieve + - - : typeclass_instances.
 
+Class FramableRXStatePointsto `{HypervisorConstants} (i : VMID) (q: Qp) (o : option (Word * VMID))  := {}.
+#[export] Hint Mode FramableRXStatePointsto + + - - : typeclass_instances.
+
 Instance FramableRegisterPointsto_default `{HypervisorConstants} r i w :
   FramableRegisterPointsto r i w
 | 100. Qed.
@@ -69,6 +72,10 @@ Instance FramableRetrieve_default wh q b:
   FramableRetrieve wh q b
 | 100. Qed.
 
+Instance FramableRXStatePointsto_default `{HypervisorConstants} i q o:
+  FramableRXStatePointsto i q o
+| 100. Qed.
+
 Instance FramableMachineResource_reg `{gen_VMG Σ} r i w :
   FramableRegisterPointsto r i w →
   FramableMachineResource (r @@ i ->r w).
@@ -97,6 +104,11 @@ Qed.
 Instance FramableMachineResource_RX `{gen_VMG Σ} i p :
   FramableRXPointsto i p →
   FramableMachineResource (RX@i := p).
+Qed.
+
+Instance FramableMachineResource_RXstate `{gen_VMG Σ} i q o :
+  FramableRXStatePointsto i q o →
+  FramableMachineResource (RX_state{q}@i := o).
 Qed.
 
 Instance FramableMachineResource_hp`{gen_VMG Σ} s :

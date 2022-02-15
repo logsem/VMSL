@@ -500,7 +500,13 @@ Section timeless.
   Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).
   Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
 
+  Global Instance tx_mapsto_persistent i p : Persistent (TX@ i := p).
+  Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
+
   Global Instance rx_mapsto_timeless i p : Timeless (RX@ i := p).
+  Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
+
+  Global Instance rx_mapsto_persistent i p : Persistent (RX@ i := p).
   Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
 
   Global Instance rx_state_mapsto_timeless i q o : Timeless (RX_state{q}@ i := o).

@@ -80,12 +80,13 @@ Section logrel.
 
   (* [TODO] *)
   Definition return_reg_rx i : iProp Σ:=
-    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∨ R0 @@ V0 ->r encode_hvc_func(Wait)) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
-    (R0 @@ V0 ->r encode_hvc_func(Send) ∗ ∃ j p_rx l, ⌜j ≠ i⌝ ∗ RX@ j := p_rx ∗ RX_state{1/2}@j := Some(l,i)
-                          ∗ R1 @@ V0 ->r encode_vmid(j) ∗  R2 @@ V0 ->r l ∗ ∃ mem_rx, memory_page p_rx mem_rx).
+    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∗ (∃ rx_state'', RX_state@ i := rx_state'')  ∨
+      R0 @@ V0 ->r encode_hvc_func(Wait) ∗ RX_state@ i :=None) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
+    (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', RX_state@ i := rx_state'') ∗ ∃ j p_rx l, ⌜j ≠ i⌝ ∗ RX@ j := p_rx ∗ RX_state{1/2}@j := Some(l,i)
+                          ∗ (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗ ∃ mem_rx, memory_page p_rx mem_rx).
 
   Definition vmprop_zero p_rx : iProp Σ :=
-    ((∃ ps_na'' ps_acc'' trans'' rx_state'',
+    ((∃ ps_na'' ps_acc'' trans'' ,
                            let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
                            (* lower bound *)
                            i -@{1/2}A> ps_acc'' ∗
@@ -98,7 +99,6 @@ Section logrel.
                            (* memory *)
                            (∃ mem_trans, memory_pages ps_macc_trans'' mem_trans) ∗
                            (* status of RX *)
-                           RX_state@ i := rx_state'' ∗
                            (* RX *)
                            rx_page i p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
                            rx_pages ((list_to_set (list_of_vmids)) ∖ {[i]}) ∗
@@ -174,7 +174,7 @@ Section logrel.
    - [] the zero flag (it seems unnecessary,
                        unless we want to reason about examples in which zeroing memory is important.
                        I assume such examples would be about confidentiality? )
-   - [WIP] message passing (seems we need RXs of all VMs?
+   - [x] message passing (seems we need RXs of all VMs?
                            - Yes, now the question is, do we need to provide full rx_state and memory_page if the rx is full)
    - [?] if we need more pure propositions to relate trans'' and other stuff
    *)
