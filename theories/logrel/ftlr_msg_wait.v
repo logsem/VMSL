@@ -93,7 +93,6 @@ Section ftlr_msg_wait.
       as "(PC & R0 & R1 & R2 & Hacc_regs)";eauto.
     iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-
     destruct (rx_state).
     { (* apply [msg_wait_filled] *)
       destruct p.
@@ -113,8 +112,8 @@ Section ftlr_msg_wait.
         set_solver +.
       }
     }
-    (* apply [msg_wait_empty] *)
 
+    (* apply [msg_wait_empty] *)
     iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
     pose proof (union_split_difference_intersection_L (ps_acc∖ {[p_tx]}) ({[p_rx]} ∪ ps_mem_in_trans)) as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
     rewrite Heq_ps_acc_tx in Hdom_mem_acc_tx.
@@ -283,3 +282,5 @@ Section ftlr_msg_wait.
       iApply (VMProp_invalid with "[$propi $propi']").
     }
     Qed.
+
+End ftlr_msg_wait.

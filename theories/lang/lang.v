@@ -708,29 +708,23 @@ Definition retrieve (s : state) : exec_mode * state :=
   unpack_hvc_result_normal s comp.
 
 Definition relinquish (s : state) : exec_mode * state :=
-  let b := (of_pid (get_tx_pid s @ (get_current_vm s))) in
   let comp :=
-      h <- lift_option (get_memory_with_offset s b 0) ;;;
-      f <- lift_option (get_memory_with_offset s b 1) ;;;
+      h <- lift_option (get_reg s R1) ;;;
+      f <- lift_option (get_reg s R2) ;;;
       trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
       if (f >? W1)%Z then throw InvParam else
         let ps := trn.1.1.2 in
         let v := (get_current_vm s) in
         s' <- (match trn with
-               | (vs, w1, r, ps, ty, b) =>
+               | (vs, wf, r, ps, ty, b) =>
                    if b && (v =? r)
-                   then unit (update_transaction s h (vs, w1,r, ps, ty, false))
+                   then
+                     if bool_decide (wf = W1) then
+                     unit (zero_pages (update_transaction s h (vs, W1, r, ps, ty, false)) (elements ps))
+                     else unit (update_transaction s h (vs, wf, r, ps, ty, false))
                    else throw Denied
                end) ;;;
-      let upd := match trn.1.2 with
-                 | Sharing => (λ perm v, flip_excl (revoke_access perm v) v)
-                 | _ => revoke_access
-                 end
-      in
-      if (f =? W1)%Z then
-        unit (update_page_table_global upd (update_reg (zero_pages s' (elements ps)) R0 (encode_hvc_ret_code Succ)) v ps)
-      else
-        unit (update_page_table_global upd (update_reg s' R0 (encode_hvc_ret_code Succ)) v ps)
+       unit (update_page_table_global revoke_access (update_reg s' R0 (encode_hvc_ret_code Succ)) v ps)
   in
   unpack_hvc_result_normal s comp.
 
@@ -740,18 +734,17 @@ Definition reclaim (s : state) : exec_mode * state :=
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
       ps <- unit ((get_memory_descriptor trn).2);;;
       v <- unit (get_current_vm s) ;;;
-      if (trn.1.1.1.1.1 =? v) && trn.2
+      if bool_decide (trn.1.1.1.1.1 = v) && (negb trn.2)
       then
         match trn.1.2 with
         | Sharing =>
             unit (update_reg
                     (update_page_table_global (λ perm v, flip_excl (grant_access perm v) v) (remove_transaction s handle) v ps)
                     R0 (encode_hvc_ret_code Succ))
-        | Lending =>
+        | Lending | Donation =>
             unit (update_reg
                     (update_page_table_global grant_access (remove_transaction s handle) v ps)
                     R0 (encode_hvc_ret_code Succ))
-        | Donation => throw InvParam
         end
       else throw Denied
   in
