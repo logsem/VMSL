@@ -70,7 +70,7 @@ Proof.
     apply (step_ExecI_normal V0 Hvc ai w1) in HstepP; eauto.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc in Heqc2; eauto.
-    rewrite  Hr0 Hhvc /run Hr1 in Heqc2.
+    rewrite  Hr0 /= Hhvc /run Hr1 in Heqc2.
     simpl in Heqc2.
     rewrite /unpack_hvc_result_yield Hvmid in Heqc2.
     simpl in Heqc2.

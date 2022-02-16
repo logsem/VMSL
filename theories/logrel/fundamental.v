@@ -4,7 +4,7 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base nop mov yield ldr halt fail add sub mult cmp br bne str run.
 From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve ftlr_msg_send
+From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_msg_send
      ftlr_msg_wait ftlr_msg_poll ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend ftlr_invalid_hvc.
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
@@ -143,37 +143,10 @@ Section fundamental.
               iApply (excl_ne with "[$ excl_tx $ excl_rx]").
             }
             destruct (hvc_f).
-            { (*RUN TODO: proof rule*)
-              pose proof (Htotal_regs R0) as [a_arg1 Hlookup_arg1].
-              pose proof (Htotal_regs R2) as [a_arg2 Hlookup_arg2].
-              (* getting registers *)
-              iDestruct ((reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_arg1 Hlookup_arg2)
-                           with "[$regs]") as "(PC & r_arg1 & r_arg2 & Hacc_regs)"; [done | done | done | done |].
-              (* getting mem *)
-              iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
-                as "[mem_instr Hacc_mem_acc]".
-              rewrite Hlookup_arg1 in Hlookup_reg_R0.
-              inversion Hlookup_reg_R0.
-              subst a_arg1.
-              iApply (run_not_primary (w2 := r0) ai i with "[PC tx pgt_acc' mem_instr r_arg1 r_arg2]"); iFrameAutoSolve.
-              iNext.
-              iExists a_arg2.
-              iFrame "r_arg2".
-              iNext.
-              iIntros "(PC & mem_instr & pgt_acc' & tx & r_arg1 & r_arg2) _".
-              iDestruct ("Hacc_regs" with "[$PC $r_arg1 $r_arg2]") as (regs') "[#Htotal_regs' regs]";iFrame.
-              iDestruct ("Hacc_mem_acc" with "[mem_instr]") as "mem"; iFrame.
-              iAssert (memory_pages (ps_acc' ∖ {[p_tx]}) _)%I with "[mem]" as "mem_acc".
-              by iFrame.
-              iApply ("IH" $! _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx Hnin_tx rx_state' with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned [mem_rest mem_acc mem_tx] Htotal_regs'").
-              {
-                iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
-                iSplitL "mem_acc".
-                iExists mem_acc_tx; by iFrame "mem_acc".
-                iFrame "mem_tx".
-                iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
-                set_solver +.
-              }
+            { (*RUN*)
+              iApply (ftlr_run with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
             }
             { (*Yield*)
               iApply (ftlr_yield with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
