@@ -714,7 +714,7 @@ Definition reclaim (s : state) : exec_mode * state :=
         match trn.1.2 with
         | Sharing =>
             unit (update_reg
-                    (update_page_table_global (λ perm v, flip_excl (grant_access perm v) v) (remove_transaction s handle) v ps)
+                    (update_page_table_global flip_excl (remove_transaction s handle) v ps)
                     R0 (encode_hvc_ret_code Succ))
         | Lending | Donation =>
             unit (update_reg

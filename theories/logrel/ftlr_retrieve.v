@@ -359,8 +359,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
 
         iApply (mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $tx $re $tran $rx $rx_state $mem_rx $fresh_handles]");auto.
-        iNext.
-        simpl.
+        iNext. simpl.
         iIntros "(PC & mem_instr & R0 & R1 & own_tran & pgt_acc & tx & rx & (%wl & %des & rx_state & _ & _ & mem_rx) & fresh_handles) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
@@ -940,7 +939,6 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       }
     }
     { (* retrieve lending*)
-
       assert (pages_in_trans (trans_memory_in_trans i (<[r1 := (tran.1, true)]> trans)) = pages_in_trans (trans_memory_in_trans i trans)) as Hrewrite.
       rewrite /trans_memory_in_trans.
       rewrite map_filter_insert_True.

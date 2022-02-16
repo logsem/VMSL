@@ -4,7 +4,8 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base.
 From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve ftlr_msg_send ftlr_msg_wait ftlr_msg_poll.
+From HypVeri.logrel Require Import ftlr_nop ftlr_yield ftlr_share ftlr_retrieve ftlr_msg_send
+     ftlr_msg_wait ftlr_msg_poll ftlr_relinquish ftlr_reclaim.
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
@@ -160,8 +161,16 @@ Section fundamental.
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
-            { (*Relinquish*) admit. }
-            { (*Reclaim*) admit. }
+            { (*Relinquish*)
+              iApply (ftlr_relinquish with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Reclaim*)
+              iApply (ftlr_reclaim with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+ }
             { (*Send*)
               iApply (ftlr_msg_send with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.

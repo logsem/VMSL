@@ -7,12 +7,12 @@ From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
-Section ftlr_retrieve.
+Section ftlr_relinquish.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans rx_state r0}:
+Lemma ftlr_relinquish {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans rx_state r0}:
   base_extra.is_total_gmap regs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
   i ≠ V0 ->
@@ -412,3 +412,5 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       iExists mem_acc_tx; iFrame "mem_acc_tx";done.
     }
   Qed.
+
+End ftlr_relinquish.
