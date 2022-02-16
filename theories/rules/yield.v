@@ -71,7 +71,7 @@ Proof.
     apply (step_ExecI_normal i Hvc ai w1) in HstepP; eauto.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc in Heqc2; eauto.
-    rewrite  Hr0 Hhvc /yield in Heqc2.
+    rewrite Hr0 /= Hhvc /= /yield in Heqc2.
     rewrite /is_primary /update_reg p_upd_reg_current_vm Hcur in Heqc2.
     destruct (decide (i = V0)).
     + exfalso.

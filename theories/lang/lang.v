@@ -796,13 +796,10 @@ Definition poll (s : state) : exec_mode * state :=
   unpack_hvc_result_normal s comp.
 
 Definition hvc (s : state) : exec_mode * state :=
-  match get_reg s R0 with
-  | None => fail s
-  | Some r0 =>
-    match decode_hvc_func r0 with
-    | None => fail s
-    | Some func =>
-      match func with
+  let comp :=
+    r0 <- lift_option (get_reg s R0) ;;;
+  func <- lift_option_with_err (decode_hvc_func r0) InvParam ;;;
+  unit (match func with
       | Run => run s
       | Yield => yield s
       | Share => mem_send s Sharing
@@ -814,8 +811,17 @@ Definition hvc (s : state) : exec_mode * state :=
       | Send => send s
       | Wait => wait s
       | Poll => poll s
-      end
-    end
+      end) in
+    match comp with
+    | inl err =>
+        match err with
+        | inl () => (FailI, s)
+        | inr err' =>
+            (ExecI, (update_incr_PC (update_reg
+                                       (update_reg s R0 (encode_hvc_ret_code Error))
+                                       R2 (encode_hvc_error err'))))
+        end
+    | inr o' => o'
   end.
 
 Definition exec (i : instruction) (s : state) : exec_mode * state :=
