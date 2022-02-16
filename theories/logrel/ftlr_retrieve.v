@@ -90,25 +90,20 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans)).
     pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
     pose proof (Htotal_regs R2) as[r2 Hlookup_reg_R2].
+
     iDestruct (reg_big_sepM_split_upd4 i Hlookup_PC Hlookup_reg_R0 Hlookup_reg_R1 Hlookup_reg_R2 with "[$regs]")
       as "(PC & R0 & R1 & R2 & Hacc_regs)";eauto.
-
     iDestruct "rx" as "[rx pgt_rx]".
-
     iDestruct (access_split with "[$pgt_acc $pgt_acc']") as "pgt_acc".
-
     iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & %Htrans_ps_disj & trans)".
+
     destruct (decide (r1 ∈ hs_all)) as [Hin_hs_all |Hnotin_hs_all].
     2: { (* apply [mem_retrieve_invalid_handle] *)
         iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-        iApply (mem_retrieve_invalid_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc]").
-        set_solver + Hin_ps_acc_tx.
-        done.
-        done.
-        done.
+        iApply (mem_retrieve_invalid_handle ai with "[$PC $mem_instr $tx $R0 $R1 $R2 $pgt_acc]");auto.
         iNext.
-        iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc) _".
+        iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & tx) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
@@ -134,13 +129,9 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     { (* apply [mem_retrieve_fresh_handle] *)
       iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-      iApply (mem_retrieve_fresh_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $fresh_handles]").
-      set_solver + Hin_ps_acc_tx.
-      done.
-      done.
-      done.
+      iApply (mem_retrieve_fresh_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tx $fresh_handles]");auto.
       iNext.
-      iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & fresh_handles) _".
+      iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & tx & fresh_handles) _".
 
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
@@ -176,13 +167,9 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     2: { (*apply [mem_retrieve_invalid_trans]*)
       iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-      iApply (mem_retrieve_invalid_trans ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tran]").
-      set_solver + Hin_ps_acc_tx.
-      done.
-      done.
-      done.
+      iApply (mem_retrieve_invalid_trans ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tx $tran]");auto.
       iNext.
-      iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & tran) _".
+      iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & tx & tran) _".
 
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
@@ -218,12 +205,9 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     { (* apply [mem_retrieve_retrieved] *)
      iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-     iApply (mem_retrieve_retrieved ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re]").
-     set_solver + Hin_ps_acc_tx.
-     done.
-     done.
+     iApply (mem_retrieve_retrieved ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tx $re]");auto.
      iNext.
-     iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & re) _".
+     iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & tx & re) _".
 
      iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
      iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
@@ -267,17 +251,12 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     }
     rewrite Hrw_tran.
 
-
     destruct (rx_state)  eqn: Heq_rxstate.
     { (* apply [mem_retrieve_rx_full] *)
      iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
-     iApply (mem_retrieve_rx_full ai r1 with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re $tran $rx_state]").
-     set_solver + Hin_ps_acc_tx.
-     done.
-     done.
-     done.
+     iApply (mem_retrieve_rx_full ai r1 with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tx $re $tran $rx_state]");auto.
      iNext.
-     iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & re & tran & rx_state) _".
+     iIntros "(PC & mem_instr & R0 & R1 & R2 & pgt_acc & tx & re & tran & rx_state) _".
 
      iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
      iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
@@ -320,7 +299,6 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     rewrite Heq_retri.
     iDestruct (retri_split with "[$re $re']") as "re".
 
-
     assert (tran.1.1.2 ⊆ ps_mem_in_trans) as Hsubseteq_tran.
     {
       rewrite elem_of_subseteq.
@@ -356,7 +334,6 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         set_solver +.
     }
 
-
     destruct (tran.1.2) eqn:Heq_tran_tt.
     { (* retrieve donate*)
       iDestruct (big_sepFM_lookup_Some Hlookup_tran with "tran_pgt_transferred") as "[[tran' [own_tran excl_tran]] tran_pgt_transferred]".
@@ -381,13 +358,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       { (* apply [mem_retrieve_donate]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
 
-        iApply (mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $re $tran $rx $rx_state $mem_rx $fresh_handles]").
-        set_solver + Hin_ps_acc_tx.
-        done.
-        done.
+        iApply (mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $tx $re $tran $rx $rx_state $mem_rx $fresh_handles]");auto.
         iNext.
         simpl.
-        iIntros "(PC & mem_instr & R0 & R1 & own_tran & pgt_acc & rx & (%wl & %des & rx_state & _ & _ & mem_rx) & fresh_handles) _".
+        iIntros "(PC & mem_instr & R0 & R1 & own_tran & pgt_acc & tx & rx & (%wl & %des & rx_state & _ & _ & mem_rx) & fresh_handles) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
@@ -534,13 +508,11 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           done.
         }
 
-        iApply (mem_retrieve_donate_rx ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx $fresh_handles]").
-        done.
-        done.
+        iApply (mem_retrieve_donate_rx ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $tx $re $tran $rx $rx_state Hacc_mem_rx $fresh_handles]");auto.
         iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
         iSplitL "". 2: iExact "rx". done.
         iNext. simpl.
-        iIntros "(PC & R0 & R1 & own_tran & pgt_acc & rx & (%wl & %des & rx_state & _ & _ & mem_rx) & fresh_handles) _".
+        iIntros "(PC & R0 & R1 & own_tran & pgt_acc & tx & rx & (%wl & %des & rx_state & _ & _ & mem_rx) & fresh_handles) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
@@ -687,11 +659,9 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       { (* apply [mem_retrieve_share]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
 
-        iApply (mem_retrieve_share ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state $mem_rx]").
-        set_solver + Hin_ps_acc_tx.
-        done. done.
+        iApply (mem_retrieve_share ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $tx $re $tran $rx $rx_state $mem_rx]");auto.
         iNext. simpl.
-        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
@@ -831,14 +801,12 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           done.
         }
 
-        iApply (mem_retrieve_share_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx]").
-        done.
-        done.
+        iApply (mem_retrieve_share_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $tx $re $tran $rx $rx_state Hacc_mem_rx]");auto.
         iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
         iSplitL "". 2: iExact "rx". done.
         iNext.
         simpl.
-        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
@@ -985,11 +953,9 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       { (* apply [mem_retrieve_lend]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
 
-        iApply (mem_retrieve_lend ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state $mem_rx]").
-        set_solver + Hin_ps_acc_tx.
-        done. done.
+        iApply (mem_retrieve_lend ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $tx $re $tran $rx $rx_state $mem_rx]");auto.
         iNext. simpl.
-        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
@@ -1136,14 +1102,12 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           done.
         }
 
-        iApply (mem_retrieve_lend_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx]").
-        done.
-        done.
+        iApply (mem_retrieve_lend_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $tx $re $tran $rx $rx_state Hacc_mem_rx]");auto.
         iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
         iSplitL "". 2: iExact "rx". done.
         iNext.
         simpl.
-        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".

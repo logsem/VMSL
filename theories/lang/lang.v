@@ -615,12 +615,6 @@ Definition list_pid_to_addr (ps: list PID):=
 Definition flat_list_list_word (wss: list (list Word)):=
   (foldr (++) [] wss).
 
-Definition zero_pages (st: state) (ps: list PID):=
-   (get_reg_files st, get_mail_boxes st,
-     get_page_table st, get_current_vm st,
-     (list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word (pages_of_W0 (length ps))))) ∪ (get_mem st),
-     get_transactions st).
-
 Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   let comp :=
       len <- lift_option (get_reg s R1) ;;;
@@ -665,7 +659,7 @@ Definition get_transaction_type (t : transaction) : transaction_type :=
 
 Definition retrieve (s : state) : exec_mode * state :=
   let comp :=
-      handle <- lift_option (get_reg s R2) ;;;
+      handle <- lift_option (get_reg s R1) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
       match trn with
          | (vs, vr, ps, ty, b) =>
@@ -695,19 +689,17 @@ Definition retrieve (s : state) : exec_mode * state :=
 
 Definition relinquish (s : state) : exec_mode * state :=
   let comp :=
-      h <- lift_option (get_reg s R1) ;;;
-      f <- lift_option (get_reg s R2) ;;;
-      trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
-      if (f >? W1)%Z then throw InvParam else
-        let ps := trn.1.1.2 in
-        let v := (get_current_vm s) in
-        s' <- (match trn with
-               | (vs, r, ps, ty, b) =>
-                   if b && (v =? r)
-                   then unit (update_transaction s h (vs, r, ps, ty, false))
-                   else throw Denied
-               end) ;;;
-       unit (update_page_table_global revoke_access (update_reg s' R0 (encode_hvc_ret_code Succ)) v ps)
+    h <- lift_option (get_reg s R1) ;;;
+    trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
+    let ps := trn.1.1.2 in
+    let v := (get_current_vm s) in
+      s' <- (match trn with
+             | (vs, r, ps, ty, b) =>
+                 if b && (v =? r)
+                 then unit (update_transaction s h (vs, r, ps, ty, false))
+                 else throw Denied
+             end) ;;;
+      unit (update_page_table_global revoke_access (update_reg s' R0 (encode_hvc_ret_code Succ)) v ps)
   in
   unpack_hvc_result_normal s comp.
 
