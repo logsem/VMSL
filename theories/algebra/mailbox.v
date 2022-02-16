@@ -7,7 +7,7 @@ Section mailbox_rules.
   Implicit Type i : VMID.
 
   Lemma rx_state_dupl_false i x x' :
-    rx_state_mapsto i x -∗ rx_state_mapsto i x' -∗ False.
+    RX_state@i := x -∗  RX_state@i := x' -∗ False.
   Proof.
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
     iIntros "Ha1 Ha2".
@@ -17,8 +17,18 @@ Section mailbox_rules.
     inversion Hvalid.
   Qed.
 
-  Lemma rx_state_valid {σ} i x :
-    (rx_state_mapsto i x) -∗
+  Lemma rx_state_split i q x:
+    RX_state{q}@i := x ⊣⊢ RX_state{q/2}@i := x ∗ RX_state{q/2}@i := x.
+  Proof.
+    Admitted.
+
+  Lemma rx_state_agree i q1 q2 x x':
+     RX_state{q1}@i := x -∗ RX_state{q2}@i := x' -∗ ⌜x = x'⌝.
+  Proof.
+  Admitted.
+
+  Lemma rx_state_valid {σ q} i x :
+    RX_state{q}@i := x-∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
     ⌜(get_mail_box σ @ i).2.2 = x⌝.
   Proof.
@@ -46,8 +56,8 @@ Section mailbox_rules.
     - done.
   Qed.
 
-  Lemma rx_state_valid_None {σ} i :
-    (RX_state@i := None) -∗
+  Lemma rx_state_valid_None {σ q} i :
+    (RX_state{q}@i := None) -∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
     ⌜(get_mail_box σ @ i).2.2 = None⌝.
   Proof.
@@ -55,8 +65,8 @@ Section mailbox_rules.
     by iApply (rx_state_valid with "H1 H2").
   Qed.
 
-  Lemma rx_state_valid_Some {σ} i a b :
-    (RX_state@i := Some (a, b)) -∗
+  Lemma rx_state_valid_Some {σ q} i a b :
+    (RX_state{q}@i := Some (a, b)) -∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
     ⌜(get_mail_box σ @ i).2.2 = Some (a, b)⌝.
   Proof.
@@ -66,9 +76,9 @@ Section mailbox_rules.
 
   Lemma rx_state_update {σ} i x x' :
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
-    (rx_state_mapsto i x) ==∗
+    RX_state@i := x ==∗
     ghost_map_auth gen_rx_state_name 1 (<[i:=x']>(get_rx_gmap σ)) ∗
-    rx_state_mapsto i x'.
+    RX_state@i := x'.
   Proof.
     iIntros "Hσ Hrx".
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.

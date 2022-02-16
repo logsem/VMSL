@@ -3,60 +3,12 @@ From HypVeri Require Import lifting rules.rules_base machine_extra.
 From HypVeri.algebra Require Import base mem reg pagetable mailbox trans base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra mem_extra pagetable_extra trans_extra.
 
-Section mem_share.
+Section mem_send.
 
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma hvc_mem_share_nz {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :
-  (tpa ai) ∈ sacc ->
-  (tpa ai) ≠ p_tx ->
-  (* len is the length of the msg *)
-  let len := (Z.to_nat (finz.to_z r1)) in
-  (* the decoding of wi is correct *)
-  decode_instruction wi = Some(Hvc) ->
-  (* the decoding of R0 is a FFA mem_share *)
-  decode_hvc_func r0 = Some(hvcf) ->
-  hvcf_to_tt hvcf = Some Sharing ->
-  (* the whole descriptor resides in the TX page *)
-  (len <= page_size)%Z ->
-  (* the descriptor *)
-  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i,None,W0,j,ps) ->
-  (* caller is not the receiver *)
-  i ≠ j ->
-  ps ⊆ sacc ->
-  (* there is at least one free handle in the hpool *)
-  sh ≠ ∅ ->
-  {SS{{ ▷(PC @@ i ->r ai) ∗
-      ▷ ai ->a wi ∗
-      (* VM i exclusively owns pages in ps *)
-      ▷ ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
-      ▷ (i -@A> sacc) ∗
-      ▷ (R0 @@ i ->r r0) ∗
-      ▷ (R1 @@ i ->r r1) ∗
-      ▷ (R2 @@i ->r r2) ∗
-      ▷ (fresh_handles 1 sh) ∗
-      ▷ TX@ i := p_tx ∗
-      ▷ memory_page p_tx mem_tx
-       }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
-                 PC @@ i ->r (ai ^+ 1)%f ∗
-                 ai ->a wi ∗
-                 ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> false) ∗
-                 i -@A> sacc ∗
-                 R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
-                 R1 @@ i ->r r1 ∗
-                 (∃ (wh: Word), ⌜wh ∈ sh⌝ ∗
-                 R2 @@ i ->r wh ∗
-                 wh ->t (i,W0,j,ps,Sharing) ∗
-                 wh ->re false ∗
-                 fresh_handles 1 (sh∖{[wh]})) ∗
-                 TX@ i := p_tx ∗
-                 memory_page p_tx mem_tx}}}.
-Proof.
-Admitted.
-
-Lemma hvc_mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
+Lemma mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (finz.to_z r1) in
@@ -72,7 +24,7 @@ Lemma hvc_mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
       ▷ (R2 @@ i ->r r2) ∗
       ▷ TX@ i := p_tx
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  i -@{q}A> sacc ∗
@@ -83,7 +35,7 @@ Lemma hvc_mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_invalid_msg {i wi r0 r1 r2 hvcf tt p_tx q sacc} ai mem_tx :
+Lemma mem_send_invalid_msg {i wi r0 r1 r2 hvcf tt p_tx q sacc} ai mem_tx :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -101,7 +53,7 @@ Lemma hvc_mem_send_invalid_msg {i wi r0 r1 r2 hvcf tt p_tx q sacc} ai mem_tx :
       ▷ (TX@ i := p_tx) ∗
       ▷ (memory_page p_tx mem_tx)
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  i -@{q}A> sacc ∗
@@ -114,7 +66,7 @@ Lemma hvc_mem_send_invalid_msg {i wi r0 r1 r2 hvcf tt p_tx q sacc} ai mem_tx :
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_invalid_des {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tran :
+Lemma mem_send_invalid_des {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tran :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -123,7 +75,7 @@ Lemma hvc_mem_send_invalid_des {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tra
   hvcf_to_tt hvcf = Some tt ->
   (len <= page_size)%Z ->
   parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some tran ->
-  validate_transaction_descriptor i tt tran = false ->
+  validate_transaction_descriptor i tran = false ->
   {SS{{ ▷(PC @@ i ->r ai) ∗
       ▷ ai ->a wi ∗
       ▷ i -@{q}A> sacc ∗
@@ -133,7 +85,7 @@ Lemma hvc_mem_send_invalid_des {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tra
       ▷ (TX@ i := p_tx) ∗
       ▷ (memory_page p_tx mem_tx)
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  i -@{q}A> sacc ∗
@@ -146,7 +98,7 @@ Lemma hvc_mem_send_invalid_des {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai mem_tx tra
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p O mem_tx tran :
+Lemma mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p O mem_tx tran :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -155,7 +107,7 @@ Lemma hvc_mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p O mem_tx t
   hvcf_to_tt hvcf = Some tt ->
   (len <= page_size)%Z ->
   parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some tran ->
-  validate_transaction_descriptor i tt tran = true ->
+  validate_transaction_descriptor i tran = true ->
   p ∈ tran.2 ->
   {SS{{ ▷(PC @@ i ->r ai) ∗
       ▷ ai ->a wi ∗
@@ -168,7 +120,7 @@ Lemma hvc_mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p O mem_tx t
       ▷ O ∗
       ▷ (O -∗ (p -@O> - ∨ (∃j, p -@O> j ∗ ⌜j ≠ i⌝)))
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  i -@{q}A> sacc ∗
@@ -182,7 +134,7 @@ Lemma hvc_mem_send_not_owned {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p O mem_tx t
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p mem_tx tran :
+Lemma mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p mem_tx tran :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -191,7 +143,7 @@ Lemma hvc_mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p mem_tx tran
   hvcf_to_tt hvcf = Some tt ->
   (len <= page_size)%Z ->
   parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some tran ->
-  validate_transaction_descriptor i tt tran = true ->
+  validate_transaction_descriptor i tran = true ->
   p ∈ tran.2 ->
   {SS{{ ▷(PC @@ i ->r ai) ∗
       ▷ ai ->a wi ∗
@@ -203,7 +155,7 @@ Lemma hvc_mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p mem_tx tran
       ▷ (memory_page p_tx mem_tx) ∗
       ▷ (p -@E> false)
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  i -@{q}A> sacc ∗
@@ -217,7 +169,7 @@ Lemma hvc_mem_send_not_excl {i wi r0 r1 r2 hvcf p_tx tt q sacc} ai p mem_tx tran
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai p mem_tx tran:
+Lemma mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai p mem_tx tran:
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -226,7 +178,7 @@ Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai p mem_tx tran:
   hvcf_to_tt hvcf = Some tt ->
   (len <= page_size)%Z ->
   parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some tran ->
-  validate_transaction_descriptor i tt tran = true ->
+  validate_transaction_descriptor i tran = true ->
   p ∈ tran.2 ->
   p ∉ sacc ->
   {SS{{ ▷(PC @@ i ->r ai) ∗
@@ -238,7 +190,7 @@ Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai p mem_tx tran:
       ▷ (memory_page p_tx mem_tx) ∗
       ▷ (i -@A> sacc)
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  R0 @@ i ->r (encode_hvc_ret_code Error) ∗
@@ -251,7 +203,7 @@ Lemma hvc_mem_send_not_acc {i wi r0 r1 r2 hvcf p_tx tt sacc} ai p mem_tx tran:
 Proof.
 Admitted.
 
-Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt tran q tran' q' sacc} ai p wh mem_tx:
+Lemma mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt tran q tran' q' sacc} ai p wh mem_tx:
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
@@ -260,7 +212,7 @@ Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt tran q tran' q' sacc} ai
   hvcf_to_tt hvcf = Some tt ->
   (len <= page_size)%Z ->
   parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some tran ->
-  validate_transaction_descriptor i tt tran = true ->
+  validate_transaction_descriptor i tran = true ->
   p ∈ tran.2 ->
   p ∈ tran'.1.2 ->
   {SS{{ ▷(PC @@ i ->r ai) ∗
@@ -273,7 +225,7 @@ Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt tran q tran' q' sacc} ai
       ▷ (memory_page p_tx mem_tx) ∗
       ▷ (wh -{q}>t tran')
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  i -@{q'}A> sacc ∗
@@ -287,16 +239,15 @@ Lemma hvc_mem_send_in_trans {i wi r0 r1 r2 hvcf p_tx tt tran q tran' q' sacc} ai
 Proof.
 Admitted.
 
-
-Lemma hvc_mem_share_no_fresh_handles {i wi r0 r1 r2 hvcf p_tx sacc} ai sh j mem_tx (ps: gset PID):
+Lemma mem_send_no_fresh_handles {i wi r0 r1 r2 hvcf tt p_tx sacc} ai sh j mem_tx (ps: gset PID):
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
   let len := (Z.to_nat (finz.to_z r1)) in
   decode_instruction wi = Some(Hvc) ->
   decode_hvc_func r0 = Some(hvcf) ->
-  hvcf_to_tt hvcf = Some Sharing ->
+  hvcf_to_tt hvcf = Some tt ->
   (len <= page_size)%Z ->
-  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i,None,W0,j,ps) ->
+  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i, None, j, ps) ->
   i ≠ j ->
   ps ⊆ sacc ->
   sh = ∅ ->
@@ -311,7 +262,7 @@ Lemma hvc_mem_share_no_fresh_handles {i wi r0 r1 r2 hvcf p_tx sacc} ai sh j mem_
       ▷ TX@ i := p_tx ∗
       ▷ memory_page p_tx mem_tx
        }}}
-   ExecI @ i {{{ RET (false,ExecI) ;
+   ExecI @ i {{{ RET (false, ExecI) ;
                  PC @@ i ->r (ai ^+ 1)%f ∗
                  ai ->a wi ∗
                  ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
@@ -325,6 +276,148 @@ Lemma hvc_mem_share_no_fresh_handles {i wi r0 r1 r2 hvcf p_tx sacc} ai sh j mem_
 Proof.
 Admitted.
 
+Lemma mem_share {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :
+  (tpa ai) ∈ sacc ->
+  (tpa ai) ≠ p_tx ->
+  (* len is the length of the msg *)
+  let len := (Z.to_nat (finz.to_z r1)) in
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the decoding of R0 is a FFA mem_share *)
+  decode_hvc_func r0 = Some(hvcf) ->
+  hvcf_to_tt hvcf = Some Sharing ->
+  (* the whole descriptor resides in the TX page *)
+  (len <= page_size)%Z ->
+  (* the descriptor *)
+  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i, None, j, ps) ->
+  (* caller is not the receiver *)
+  i ≠ j ->
+  ps ⊆ sacc ->
+  (* there is at least one free handle in the hpool *)
+  sh ≠ ∅ ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗
+      ▷ ai ->a wi ∗
+      (* VM i exclusively owns pages in ps *)
+      ▷ ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
+      ▷ (i -@A> sacc) ∗
+      ▷ (R0 @@ i ->r r0) ∗
+      ▷ (R1 @@ i ->r r1) ∗
+      ▷ (R2 @@i ->r r2) ∗
+      ▷ (fresh_handles 1 sh) ∗
+      ▷ TX@ i := p_tx ∗
+      ▷ memory_page p_tx mem_tx
+       }}}
+   ExecI @ i {{{ RET (false, ExecI) ;
+                 PC @@ i ->r (ai ^+ 1)%f ∗
+                 ai ->a wi ∗
+                 ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> false) ∗
+                 i -@A> sacc ∗
+                 R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+                 R1 @@ i ->r r1 ∗
+                 (∃ (wh: Word), ⌜wh ∈ sh⌝ ∗
+                 R2 @@ i ->r wh ∗
+                 wh ->t (i, j, ps, Sharing) ∗
+                 wh ->re false ∗
+                 fresh_handles 1 (sh∖{[wh]})) ∗
+                 TX@ i := p_tx ∗
+                 memory_page p_tx mem_tx}}}.
+Proof.
+Admitted.
 
-End mem_share.
+Lemma mem_lend {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :
+  (tpa ai) ∈ sacc ->
+  (tpa ai) ≠ p_tx ->
+  (* len is the length of the msg *)
+  let len := (Z.to_nat (finz.to_z r1)) in
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the decoding of R0 is a FFA mem_share *)
+  decode_hvc_func r0 = Some(hvcf) ->
+  hvcf_to_tt hvcf = Some Lending ->
+  (* the whole descriptor resides in the TX page *)
+  (len <= page_size)%Z ->
+  (* the descriptor *)
+  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i, None, j, ps) ->
+  (* caller is not the receiver *)
+  i ≠ j ->
+  ps ⊆ sacc ->
+  (* there is at least one free handle in the hpool *)
+  sh ≠ ∅ ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗
+      ▷ ai ->a wi ∗
+      (* VM i exclusively owns pages in ps *)
+      ▷ ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
+      ▷ (i -@A> sacc) ∗
+      ▷ (R0 @@ i ->r r0) ∗
+      ▷ (R1 @@ i ->r r1) ∗
+      ▷ (R2 @@i ->r r2) ∗
+      ▷ (fresh_handles 1 sh) ∗
+      ▷ TX@ i := p_tx ∗
+      ▷ memory_page p_tx mem_tx
+       }}}
+   ExecI @ i {{{ RET (false, ExecI) ;
+                 PC @@ i ->r (ai ^+ 1)%f ∗
+                 ai ->a wi ∗
+                 ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
+                 i -@A> (sacc ∖ ps) ∗
+                 R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+                 R1 @@ i ->r r1 ∗
+                 (∃ (wh: Word), ⌜wh ∈ sh⌝ ∗
+                 R2 @@ i ->r wh ∗
+                 wh ->t (i, j, ps, Lending) ∗
+                 wh ->re false ∗
+                 fresh_handles 1 (sh∖{[wh]})) ∗
+                 TX@ i := p_tx ∗
+                 memory_page p_tx mem_tx}}}.
+Proof.
+Admitted.
 
+Lemma mem_donate {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :
+  (tpa ai) ∈ sacc ->
+  (tpa ai) ≠ p_tx ->
+  (* len is the length of the msg *)
+  let len := (Z.to_nat (finz.to_z r1)) in
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the decoding of R0 is a FFA mem_share *)
+  decode_hvc_func r0 = Some(hvcf) ->
+  hvcf_to_tt hvcf = Some Donation ->
+  (* the whole descriptor resides in the TX page *)
+  (len <= page_size)%Z ->
+  (* the descriptor *)
+  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i, None, j, ps) ->
+  (* caller is not the receiver *)
+  i ≠ j ->
+  ps ⊆ sacc ->
+  (* there is at least one free handle in the hpool *)
+  sh ≠ ∅ ->
+  {SS{{ ▷(PC @@ i ->r ai) ∗
+      ▷ ai ->a wi ∗
+      (* VM i exclusively owns pages in ps *)
+      ▷ ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
+      ▷ (i -@A> sacc) ∗
+      ▷ (R0 @@ i ->r r0) ∗
+      ▷ (R1 @@ i ->r r1) ∗
+      ▷ (R2 @@i ->r r2) ∗
+      ▷ (fresh_handles 1 sh) ∗
+      ▷ TX@ i := p_tx ∗
+      ▷ memory_page p_tx mem_tx
+       }}}
+   ExecI @ i {{{ RET (false, ExecI) ;
+                 PC @@ i ->r (ai ^+ 1)%f ∗
+                 ai ->a wi ∗
+                 ([∗ set] p ∈ ps, p -@O> i ∗ p -@E> true) ∗
+                 i -@A> (sacc ∖ ps) ∗
+                 R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+                 R1 @@ i ->r r1 ∗
+                 (∃ (wh: Word), ⌜wh ∈ sh⌝ ∗
+                 R2 @@ i ->r wh ∗
+                 wh ->t (i, j, ps, Donation) ∗
+                 wh ->re false ∗
+                 fresh_handles 1 (sh∖{[wh]})) ∗
+                 TX@ i := p_tx ∗
+                 memory_page p_tx mem_tx}}}.
+Proof.
+Admitted.
+
+End mem_send.

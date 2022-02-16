@@ -194,6 +194,7 @@ Lemma not_valid_instr {q s p_tx} i a wi :
   {{{ RET (false, FailI);
     PC @@ i ->r a
     ∗ i -@{q}A> s
+    ∗ TX@i := p_tx
     ∗ a ->a wi
   }}}.
 Proof.
@@ -245,5 +246,28 @@ Proof.
       rewrite H1 //in Hdecode_none.
       rewrite H // in Hneq.
 Qed.
+
+Lemma invalid_hvc_func {q s r0 r2 p_tx} i a wi :
+  (tpa a) ≠ p_tx ->
+  (tpa a) ∈ s ->
+  decode_instruction wi = Some Hvc ->
+  decode_hvc_func r0 = None ->
+  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ a ->a wi
+        ∗ ▷ i -@{q}A> s
+        ∗ ▷ TX@i := p_tx
+        ∗ ▷ (R0 @@ i ->r r0)
+        ∗ ▷ (R2 @@ i ->r r2)
+        }}}
+  ExecI @ i
+  {{{ RET (false, ExecI);
+    PC @@ i ->r (a ^+ 1)%f
+    ∗ a ->a wi
+    ∗ i -@{q}A> s
+    ∗ TX@i := p_tx
+    ∗ R0 @@ i ->r encode_hvc_ret_code Error
+    ∗ R2 @@ i ->r encode_hvc_error InvParam
+  }}}.
+Proof.
+Admitted.
 
 End rules_base.

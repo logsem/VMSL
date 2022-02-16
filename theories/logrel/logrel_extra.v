@@ -3,7 +3,7 @@ From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base base_extra.
 From HypVeri.logrel Require Import logrel.
-From HypVeri Require Import proofmode.
+From HypVeri Require Import proofmode stdpp_extra.
 From stdpp Require fin_map_dom.
 Import uPred.
 
@@ -178,7 +178,7 @@ Section big_sep.
       inversion Hlookup_some.
   Qed.
 
-    Lemma big_sepM_union_acc_singleton k v m (Φ: K → A → PROP) `{!∀ m m'', Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
+  Lemma big_sepM_union_acc_singleton k v m (Φ: K → A → PROP) `{!∀ m m'', Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
               -∗ [∗ map] k↦y ∈ (m'' ∪  m) , Φ k y)} :
     m !! k = Some v ->
     ([∗ map] k↦y ∈ m, Φ k y) ⊢
@@ -229,7 +229,35 @@ Section big_sep.
     done.
   Qed.
 
-   Lemma big_sepFM_lookup_Some{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+  Lemma big_sepFM_delete_acc_True {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} (v' :A):
+    P (k,v') ->
+    (big_sepFM (delete k m) P Φ) ⊢
+    Φ k v' -∗ big_sepFM (<[k := v']>m) P Φ .
+  Proof.
+    intro HP.
+    iIntros "delete Φ".
+    rewrite /big_sepFM.
+    rewrite map_filter_insert_True;auto.
+    rewrite big_sepM_insert_delete.
+    iFrame "Φ".
+    rewrite map_filter_delete.
+    done.
+  Qed.
+
+  Lemma big_sepFM_delete_acc_False {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} (v' :A):
+    ¬P (k,v') ->
+    (big_sepFM (delete k m) P Φ) ⊢
+    big_sepFM (<[k := v']>m) P Φ .
+  Proof.
+    intro HP.
+    iIntros "delete".
+    rewrite /big_sepFM.
+    rewrite map_filter_insert_False;auto.
+  Qed.
+
+  Lemma big_sepFM_lookup_Some{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
         {Φ : K -> A -> PROP} {k : K} {v : A} :
     m !! k = Some v ->
     P (k,v) ->
@@ -313,6 +341,37 @@ Section big_sep.
     done.
   Qed.
 
+  Lemma big_sepFM_update_True{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} {v : A} (v': A) :
+    m !! k = Some v ->
+    P (k,v) ->
+    P (k,v') ->
+    ⊢ (Φ k v -∗ Φ k v') -∗ big_sepFM m P Φ -∗ big_sepFM (<[k := v']>m) P Φ.
+  Proof.
+    iIntros (Hlk HP HP') "imp fm".
+    rewrite /big_sepFM.
+    iDestruct (big_sepM_delete _ _ k v with "fm") as "[Φ Hacc]".
+    rewrite map_filter_lookup_Some.
+    split;auto.
+    iDestruct ("imp" with "Φ") as "Φ".
+    rewrite map_filter_insert_True;auto.
+    rewrite big_sepM_insert_delete.
+    iFrame.
+  Qed.
+
+  Lemma big_sepFM_update_False{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+        {Φ : K -> A -> PROP} {k : K} {v : A} (v': A) :
+    m !! k = Some v ->
+    ¬P (k,v) ->
+    ¬P (k,v') ->
+    ⊢ big_sepFM m P Φ -∗ big_sepFM (<[k := v']>m) P Φ.
+  Proof.
+    iIntros (Hlk HP HP') "fm".
+    rewrite big_sepFM_delete_False //.
+    rewrite /big_sepFM.
+    rewrite map_filter_insert_False //.
+  Qed.
+
   Lemma big_sepS_union_acc s s' (Φ: K → PROP) `{!∀ s s' s'', Absorbing (([∗ set] x ∈ s'', Φ x)
               -∗ [∗ set] x ∈ (s ∖ s' ∪ s'') , Φ x)}:
     s' ⊆ s ->
@@ -336,16 +395,16 @@ Section big_sep.
     iFrame.
   Qed.
 
-  Lemma big_sepS_disj`{Countable K} (s1 s2: gset K) (Φ: K -> PROP) :
-    (∀ x, Φ x ∗ Φ x -∗ False) ⊢
-    ([∗ set] x ∈ s1, Φ x) ∗ ([∗ set] x ∈ s2, Φ x) -∗ ⌜s1 ## s2⌝.
-  Proof.
-    iIntros "Hexcl [s1 s2]".
-    destruct (decide (s1 ## s2)).
-    done.
-    iExFalso.
-    rewrite elem_of_disjoint in n.
-  Admitted.
+  (* Lemma big_sepS_disj`{Countable K} (s1 s2: gset K) (Φ: K -> PROP) : *)
+  (*   (∀ x, Φ x ∗ Φ x -∗ False) ⊢ *)
+  (*   ([∗ set] x ∈ s1, Φ x) ∗ ([∗ set] x ∈ s2, Φ x) -∗ ⌜s1 ## s2⌝. *)
+  (* Proof. *)
+  (*   iIntros "Hexcl [s1 s2]". *)
+  (*   destruct (decide (s1 ## s2)). *)
+  (*   done. *)
+  (*   iExFalso. *)
+  (*   rewrite elem_of_disjoint in n. *)
+  (* Admitted. *)
 
 
 
@@ -1067,6 +1126,63 @@ Section logrel_extra.
     done.
   Qed.
 
+  Lemma pages_in_trans_insert'{h tran tran' trans}:
+    trans !! h = Some tran ->
+    tran.1 = tran'.1 ->
+    pages_in_trans (<[h := tran']> trans) = pages_in_trans trans.
+  Proof.
+    intros Hlk.
+    rewrite /pages_in_trans.
+    induction trans using map_ind.
+    {
+      rewrite map_fold_empty //.
+    }
+    {
+      intro Heq.
+      destruct (decide (i = h)).
+
+      subst i.
+      rewrite insert_insert.
+
+      rewrite lookup_insert_Some in Hlk.
+      destruct Hlk as [[_ ->]|[? _]].
+      2: done.
+      rewrite map_fold_insert_L;auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      rewrite map_fold_insert_L;auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      rewrite Heq //.
+      rewrite lookup_insert_Some in Hlk.
+      destruct Hlk as [[? _]|[_ Hlk]].
+      contradiction.
+      rewrite map_insert_swap //.
+
+      specialize (IHtrans Hlk Heq).
+      rewrite (map_fold_insert_L _ _ _ _ (<[h:=tran']> m));auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      rewrite (map_fold_insert_L _ _ i _ );auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        set_solver +.
+      }
+      2: rewrite lookup_insert_ne //.
+      rewrite IHtrans //.
+    }
+Qed.
+
   Lemma trans_ps_disj_subseteq m m':
     trans_ps_disj m -> m' ⊆ m -> trans_ps_disj m'.
   Proof.
@@ -1189,5 +1305,31 @@ Section logrel_extra.
     }
   Qed.
 
+  Lemma trans_ps_disj_update{trans h tran tran'}:
+    trans_ps_disj trans ->
+    trans !! h = Some tran->
+    tran.1 = tran'.1 ->
+    trans_ps_disj (<[h:=tran']> trans).
+  Proof.
+    intros Hdisj Hlk Heq.
+    intros k v Hlk'.
+    destruct (decide (k = h)).
+    {
+      subst.
+      rewrite delete_insert_delete;auto.
+      rewrite lookup_insert in Hlk'.
+      inversion Hlk'.
+      subst v.
+      rewrite -Heq.
+      apply Hdisj.
+      done.
+    }
+    {
+      rewrite delete_insert_ne;auto.
+      rewrite (pages_in_trans_insert' (tran:=tran));auto.
+      rewrite lookup_insert_ne in Hlk';auto.
+      rewrite lookup_delete_ne //.
+    }
+  Qed.
 
 End logrel_extra.

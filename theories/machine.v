@@ -217,6 +217,7 @@ Inductive transaction_type : Type :=
 | Sharing
 | Lending.
 
+
 Global Instance eq_decision_transaction_type : EqDecision transaction_type.
 Proof.
   solve_decision.
@@ -375,4 +376,7 @@ Class HypervisorParameters := {
   decode_encode_transaction_type : forall (ty : transaction_type),
       decode_transaction_type (encode_transaction_type ty) = Some ty
 }.
+
+
+
 End hyp_def.

@@ -46,7 +46,7 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   gen_own_preG_inG :> gen_heapGpreS P (option V) Σ;
   gen_access_preG_inG :> inG Σ (authR (gmapUR V (dfrac_agreeR (gsetO P))));
   gen_excl_preG_inG :> gen_heapGpreS P boolO Σ;
-  gen_trans_preG_inG :> gen_heapGpreS W (option (V * W * V * (gset P) * F)) Σ;
+  gen_trans_preG_inG :> gen_heapGpreS W (option (V * V * (gset P) * F)) Σ;
   gen_hpool_preG_inG :> inG Σ (frac_authR (agreeR (gsetR W)));
   gen_retri_preG_inG :> gen_heapGpreS W (option bool) Σ;
   gen_lower_bound_preG_inG :> inG Σ (authR (gmapUR V (exclR (gsetR (leibnizO P)))))
@@ -100,7 +100,7 @@ Section gen_vmG.
            gen_heapΣ (VMID* MailBox) PID;
            GFunctor (authUR (gmapUR VMID (dfrac_agreeR (gsetO PID))));
            gen_heapΣ PID boolO;
-           gen_heapΣ Word (option (VMID * Word * VMID * (gset PID) * transaction_type));
+           gen_heapΣ Word (option (VMID * VMID * (gset PID) * transaction_type));
            GFunctor (frac_authR (agreeR (gsetR Word)));
            gen_heapΣ Word (option bool);
            GFunctor (authR (gmapUR VMID (exclR (gsetR (leibnizO PID)))))
@@ -166,13 +166,13 @@ Section definitions.
     map_Forall (λ _ v,
                  match v with
                  |Some tran =>
-                 (Z.of_nat ((size tran.1.1.2) + 5) <? page_size)%Z = true
+                 (Z.of_nat ((size tran.1.1.2) + 4) <? page_size)%Z = true
                  |None => True
                end) trans.
 
   Definition inv_trans_sndr_rcvr_neq (trans: gmap Word (option transaction)) :=
     map_Forall (λ h otran, match otran with
-                           |Some tran => tran.1.1.1.1.1 ≠ tran.1.1.1.2
+                           |Some tran => tran.1.1.1.1 ≠ tran.1.1.1.2
                            |None => True
                            end) trans.
 
@@ -191,7 +191,7 @@ Section definitions.
            (λ (k:Word) otran,
              match otran with
              | Some tran =>
-                 let sender := tran.1.1.1.1.1 in
+                 let sender := tran.1.1.1.1 in
                  let receiver := tran.1.1.1.2 in
                  ∀ p, p ∈ tran.1.1.2 ->
                       match tran.1.2(* type *), tran.2(*retrieved*) with
@@ -237,14 +237,14 @@ Section definitions.
   Definition reg_mapsto := reg_mapsto_aux.(unseal).
   Definition reg_mapsto_eq : @reg_mapsto = @reg_mapsto_def := reg_mapsto_aux.(seal_eq).
 
-  Definition mb_mapsto_def (i:VMID) (mb: MailBox) q (p: PID) : iProp Σ :=
-    ghost_map_elem gen_mb_name (i,mb) (DfracOwn q) p.
+  Definition mb_mapsto_def (i:VMID) (mb: MailBox) (p: PID) : iProp Σ :=
+    ghost_map_elem gen_mb_name (i,mb) (DfracDiscarded) p.
   Definition mb_mapsto_aux : seal (@mb_mapsto_def). Proof. by eexists. Qed.
   Definition mb_mapsto := mb_mapsto_aux.(unseal).
   Definition mb_mapsto_eq : @mb_mapsto = @mb_mapsto_def := mb_mapsto_aux.(seal_eq).
 
-  Definition rx_state_mapsto_def (i:VMID) (nr : option (Word * VMID)) : iProp Σ :=
-    ghost_map_elem gen_rx_state_name i (DfracOwn 1) nr.
+  Definition rx_state_mapsto_def (i:VMID) (q: frac) (nr : option (Word * VMID)) : iProp Σ :=
+    ghost_map_elem gen_rx_state_name i (DfracOwn q) nr.
   Definition rx_state_mapsto_aux : seal (@rx_state_mapsto_def). Proof. by eexists. Qed.
   Definition rx_state_mapsto := rx_state_mapsto_aux.(unseal).
   Definition rx_state_mapsto_eq : @rx_state_mapsto = @rx_state_mapsto_def :=
@@ -268,7 +268,7 @@ Section definitions.
   Definition excl_mapsto := excl_mapsto_aux.(unseal).
   Definition excl_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
 
-  Definition trans_mapsto_def(wh : Word) dq (meta :option (VMID * Word * VMID  * gset PID  * transaction_type)) : iProp Σ :=
+  Definition trans_mapsto_def(wh : Word) dq (meta :option (VMID * VMID  * gset PID  * transaction_type)) : iProp Σ :=
     wh ↪[ gen_trans_name ]{ dq } meta.
   Definition trans_mapsto_aux : seal (@trans_mapsto_def). Proof. by eexists. Qed.
   Definition trans_mapsto := trans_mapsto_aux.(unseal).
@@ -309,11 +309,13 @@ Notation "r @@ i ->r w" :=
 Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 
 (* predicates for TX and RX *)
-Notation "TX@ i := p" := (mb_mapsto i TX 1%Qp p)
+Notation "TX@ i := p" := (mb_mapsto i TX p)
                               (at level 20, format "TX@ i := p"): bi_scope.
-Notation "RX_state@ i := o" := ((rx_state_mapsto i (o)))%I
+Notation "RX_state{ q }@ i := o" := ((rx_state_mapsto i q o))%I
+                                        (at level 20, format "RX_state{ q }@ i :=  o"):bi_scope.
+Notation "RX_state@ i := o" := (RX_state{1}@i := o)%I
                                         (at level 20, format "RX_state@ i :=  o"):bi_scope.
-Notation "RX@ i := p " := (mb_mapsto i RX 1%Qp p)
+Notation "RX@ i := p " := (mb_mapsto i RX p)
                                         (at level 20, format "RX@ i := p"):bi_scope.
 
 (* predicates for pagetables *)
@@ -498,10 +500,16 @@ Section timeless.
   Global Instance tx_mapsto_timeless i p : Timeless (TX@ i := p).
   Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
 
+  Global Instance tx_mapsto_persistent i p : Persistent (TX@ i := p).
+  Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
+
   Global Instance rx_mapsto_timeless i p : Timeless (RX@ i := p).
   Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
 
-  Global Instance rx_state_mapsto_timeless i o : Timeless (RX_state@ i := o).
+  Global Instance rx_mapsto_persistent i p : Persistent (RX@ i := p).
+  Proof. rewrite mb_mapsto_eq /mb_mapsto_def. apply _. Qed.
+
+  Global Instance rx_state_mapsto_timeless i q o : Timeless (RX_state{q}@ i := o).
   Proof. rewrite rx_state_mapsto_eq /rx_state_mapsto_def. apply _. Qed.
 
   Global Instance trans_mapsto_timeless_Some w q me : Timeless (w -{q}>t me).
