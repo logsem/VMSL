@@ -98,13 +98,13 @@ Section lang_extra.
 
 (** lemmas about transactions *)
 
-  Definition serialized_transaction_descriptor (v r:VMID) (wf  l : Word) (ps: list PID) (h : Word): list Word :=
-    [(of_imm (encode_vmid v)); wf; h;l; (of_imm (encode_vmid r))] ++ (map (λ pid, (of_pid pid)) ps).
+  Definition serialized_transaction_descriptor (v r:VMID) (l : Word) (ps: list PID) (h : Word): list Word :=
+    [(of_imm (encode_vmid v)); h;l; (of_imm (encode_vmid r))] ++ (map (λ pid, (of_pid pid)) ps).
 
-  Lemma trans_desc_length{i j wf l ps wh} des :
-    des = serialized_transaction_descriptor i j wf  l ps wh ->
+  Lemma trans_desc_length{i j l ps wh} des :
+    des = serialized_transaction_descriptor i j l ps wh ->
     (finz.to_z l) = (Z.of_nat (length ps)) ->
-    ((Z.of_nat (length des)) = 5 + (finz.to_z l))%Z.
+    ((Z.of_nat (length des)) = 4 + (finz.to_z l))%Z.
   Proof.
     intros.
     rewrite H /serialized_transaction_descriptor H0.
@@ -179,13 +179,13 @@ Section lang_extra.
   Qed.
 
   (* TODO: reprove this *)
-  Lemma transaction_descriptor_valid{i j wf l psd mem} des p :
+  Lemma transaction_descriptor_valid{i j l psd mem} des p :
     (finz.to_z l) = (Z.of_nat (length psd)) ->
-    des = serialized_transaction_descriptor i j wf l psd W0 ->
+    des = serialized_transaction_descriptor i j l psd W0 ->
     seq_in_page (of_pid p) (length des) p ->
     (∀ (k : nat) (y1 y2 : Addr),
        finz.seq (of_pid p) (length des) !! k = Some y1 → des !! k = Some y2 → mem !! y1 = Some y2) ->
-    parse_transaction_descriptor mem p (length des) = Some (i, None, wf, j, list_to_set psd).
+    parse_transaction_descriptor mem p (length des) = Some (i, None, j, list_to_set psd).
   Proof.
     Admitted.
   (*   intros. *)

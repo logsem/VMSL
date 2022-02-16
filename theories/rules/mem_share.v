@@ -21,7 +21,7 @@ Lemma hvc_mem_share_nz {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset P
   (* the whole descriptor resides in the TX page *)
   (len <= page_size)%Z ->
   (* the descriptor *)
-  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i,None,W0,j,ps) ->
+  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i,None,j,ps) ->
   (* caller is not the receiver *)
   i ≠ j ->
   ps ⊆ sacc ->
@@ -48,7 +48,7 @@ Lemma hvc_mem_share_nz {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset P
                  R1 @@ i ->r r1 ∗
                  (∃ (wh: Word), ⌜wh ∈ sh⌝ ∗
                  R2 @@ i ->r wh ∗
-                 wh ->t (i,W0,j,ps,Sharing) ∗
+                 wh ->t (i,j,ps,Sharing) ∗
                  wh ->re false ∗
                  fresh_handles 1 (sh∖{[wh]})) ∗
                  TX@ i := p_tx ∗
@@ -296,7 +296,7 @@ Lemma hvc_mem_share_no_fresh_handles {i wi r0 r1 r2 hvcf p_tx sacc} ai sh j mem_
   decode_hvc_func r0 = Some(hvcf) ->
   hvcf_to_tt hvcf = Some Sharing ->
   (len <= page_size)%Z ->
-  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i,None,W0,j,ps) ->
+  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some (i,None,j,ps) ->
   i ≠ j ->
   ps ⊆ sacc ->
   sh = ∅ ->

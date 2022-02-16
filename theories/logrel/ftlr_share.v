@@ -326,7 +326,7 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
       (* we will specialize IH with the new [trans'] *)
-      pose (<[wh := (i, W0, j, ps_share, Sharing, false)]>trans) as trans''.
+      pose (<[wh := (i, j, ps_share, Sharing, false)]>trans) as trans''.
       assert (Hlookup_wh_None: trans !! wh = None).
       rewrite -not_elem_of_dom.
       set_solver + Hin_wh Hdisj_hpool.

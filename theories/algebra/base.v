@@ -48,7 +48,7 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   gen_excl_preG_inG :> gen_heapGpreS P boolO Σ;
   gen_trans_preG_inG :> gen_heapGpreS W (option (V * V * (gset P) * F)) Σ;
   gen_hpool_preG_inG :> inG Σ (frac_authR (agreeR (gsetR W)));
-  gen_retri_preG_inG :> gen_heapGpreS W (option (W * bool)) Σ;
+  gen_retri_preG_inG :> gen_heapGpreS W (option bool) Σ;
   gen_lower_bound_preG_inG :> inG Σ (authR (gmapUR V (exclR (gsetR (leibnizO P)))))
   }.
 
@@ -102,7 +102,7 @@ Section gen_vmG.
            gen_heapΣ PID boolO;
            gen_heapΣ Word (option (VMID * VMID * (gset PID) * transaction_type));
            GFunctor (frac_authR (agreeR (gsetR Word)));
-           gen_heapΣ Word (option (Word * bool));
+           gen_heapΣ Word (option bool);
            GFunctor (authR (gmapUR VMID (exclR (gsetR (leibnizO PID)))))
       ].
 
@@ -156,11 +156,11 @@ Section definitions.
                            end
                            ) <$> ((get_transactions σ):gmap Word (option transaction)).
 
-  Definition get_trans_gmap σ := get_transactions_gmap σ (λ tran, (tran.1.1.1.1.1, tran.1.1.1.2, tran.1.1.2, tran.1.2)).
+  Definition get_trans_gmap σ := get_transactions_gmap σ (λ tran, tran.1).
 
   Definition get_hpool_gset σ := (get_fresh_handles (get_transactions σ)).
 
-  Definition get_retri_gmap σ := get_transactions_gmap σ (λ tran, (tran.1.1.1.1.2, tran.2)).
+  Definition get_retri_gmap σ := get_transactions_gmap σ (λ tran, tran.2).
 
   Definition inv_trans_pg_num_ub (trans: gmap Word (option transaction)) :=
     map_Forall (λ _ v,
@@ -172,7 +172,7 @@ Section definitions.
 
   Definition inv_trans_sndr_rcvr_neq (trans: gmap Word (option transaction)) :=
     map_Forall (λ h otran, match otran with
-                           |Some tran => tran.1.1.1.1.1 ≠ tran.1.1.1.2
+                           |Some tran => tran.1.1.1.1 ≠ tran.1.1.1.2
                            |None => True
                            end) trans.
 
@@ -191,7 +191,7 @@ Section definitions.
            (λ (k:Word) otran,
              match otran with
              | Some tran =>
-                 let sender := tran.1.1.1.1.1 in
+                 let sender := tran.1.1.1.1 in
                  let receiver := tran.1.1.1.2 in
                  ∀ p, p ∈ tran.1.1.2 ->
                       match tran.1.2(* type *), tran.2(*retrieved*) with
@@ -280,7 +280,7 @@ Section definitions.
   Definition hpool_mapsto := hpool_mapsto_aux.(unseal).
   Definition hpool_mapsto_eq : @hpool_mapsto = @hpool_mapsto_def := hpool_mapsto_aux.(seal_eq).
 
-  Definition retri_mapsto_def (w:Word) dq (b: option (Word*bool)) : iProp Σ :=
+  Definition retri_mapsto_def (w:Word) dq (b: option bool) : iProp Σ :=
     w ↪[ gen_retri_name ]{dq} b.
   Definition retri_mapsto_aux : seal (@retri_mapsto_def). Proof. by eexists. Qed.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).

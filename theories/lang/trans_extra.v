@@ -9,11 +9,11 @@ Implicit Type h : Word.
 
 Lemma validate_descriptor_share i tran:
   validate_transaction_descriptor i Sharing tran = true ->
-  ∃ j ps, tran = (i,None,W0,j,ps) ∧ j ≠ i.
+  ∃ j ps, tran = (i,None,j,ps) ∧ j ≠ i.
 Proof.
   intro Hvalid.
   rewrite /validate_transaction_descriptor in Hvalid.
-  destruct tran as  [[[[v wh] wf]  r]  ps'].
+  destruct tran as  [[[v wh] r]  ps'].
   exists r, ps'.
   symmetry in Hvalid.
   repeat (apply andb_true_eq in Hvalid;destruct Hvalid as [? Hvalid]).
@@ -26,19 +26,8 @@ Proof.
   rewrite Nat.eqb_neq in H0.
   split.
   2: {intro H'; apply H0; symmetry in H'.  rewrite H'. done. }
-  symmetry in H2.
-  rewrite negb_true_iff in H2.
-  simpl in H2.
   destruct wh.
   inversion Hvalid.
-  symmetry in H1.
-  apply orb_prop in H1.
-  destruct H1.
-  rewrite H2  // in H.
-  assert (wf = W0) as <-.
-  {
-    solve_finz.
-  }
   done.
 Qed.
 

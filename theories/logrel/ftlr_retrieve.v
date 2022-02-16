@@ -99,10 +99,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
     iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & %Htrans_ps_disj & trans)".
     destruct (decide (r1 ∈ hs_all)) as [Hin_hs_all |Hnotin_hs_all].
-    2: { (* apply [hvc_mem_retrieve_invalid_handle] *)
+    2: { (* apply [mem_retrieve_invalid_handle] *)
         iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-        iApply (hvc_mem_retrieve_invalid_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc]").
+        iApply (mem_retrieve_invalid_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc]").
         set_solver + Hin_ps_acc_tx.
         done.
         done.
@@ -131,10 +131,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         }
     }
     destruct (decide (r1 ∈ hpool)) as [Hin_hpool | Hnotin_hpool].
-    { (* apply [hvc_mem_retrieve_fresh_handle] *)
+    { (* apply [mem_retrieve_fresh_handle] *)
       iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-      iApply (hvc_mem_retrieve_fresh_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $fresh_handles]").
+      iApply (mem_retrieve_fresh_handle ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $fresh_handles]").
       set_solver + Hin_ps_acc_tx.
       done.
       done.
@@ -173,10 +173,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     iDestruct (big_sepM_delete _ trans _  _ Hlookup_tran with "trans") as "(tran & trans)".
 
     destruct(decide (tran.1.1.1.2 = i)) as [Heq_tran | Hneq_tran].
-    2: { (*apply [hvc_mem_retrieve_invalid_trans]*)
+    2: { (*apply [mem_retrieve_invalid_trans]*)
       iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-      iApply (hvc_mem_retrieve_invalid_trans ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tran]").
+      iApply (mem_retrieve_invalid_trans ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $tran]").
       set_solver + Hin_ps_acc_tx.
       done.
       done.
@@ -215,10 +215,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
     simpl;left;done.
 
     destruct (tran.2) eqn:Heq_retri.
-    { (* apply [hvc_mem_retrieve_retrieved] *)
+    { (* apply [mem_retrieve_retrieved] *)
      iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
-     iApply (hvc_mem_retrieve_retrieved ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re]").
+     iApply (mem_retrieve_retrieved ai with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re]").
      set_solver + Hin_ps_acc_tx.
      done.
      done.
@@ -260,7 +260,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
      }
     }
 
-    assert(tran.1 = (tran.1.1.1.1.1, tran.1.1.1.1.2, i, tran.1.1.2, tran.1.2)) as Hrw_tran.
+    assert(tran.1 = (tran.1.1.1.1, i, tran.1.1.2, tran.1.2)) as Hrw_tran.
     {
       rewrite -Heq_tran.
       repeat destruct tran as [tran ?]. simpl. done.
@@ -269,9 +269,9 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
 
 
     destruct (rx_state)  eqn: Heq_rxstate.
-    { (* apply [hvc_mem_retrieve_rx_full] *)
+    { (* apply [mem_retrieve_rx_full] *)
      iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
-     iApply (hvc_mem_retrieve_rx_full ai r1 with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re $tran $rx_state]").
+     iApply (mem_retrieve_rx_full ai r1 with "[$PC $mem_instr $R0 $R1 $R2 $pgt_acc $re $tran $rx_state]").
      set_solver + Hin_ps_acc_tx.
      done.
      done.
@@ -378,10 +378,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       }
 
       destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
-      { (* apply [hvc_mem_retrieve_donate]*)
+      { (* apply [mem_retrieve_donate]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
 
-        iApply (hvc_mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $re $tran $rx $rx_state $mem_rx $fresh_handles]").
+        iApply (mem_retrieve_donate ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $re $tran $rx $rx_state $mem_rx $fresh_handles]").
         set_solver + Hin_ps_acc_tx.
         done.
         done.
@@ -520,7 +520,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           iApply (memory_pages_split_singleton' p_tx with "[$mem_acc_tx $mem_tx]"). set_solver + Hsubset_mb.
         }
       }
-      { (* apply [hvc_mem_retrieve_donate_rx]*)
+      { (* apply [mem_retrieve_donate_rx]*)
         iDestruct (mem_big_sepM_split mem_rx Hlookup_mem_ai with "[mem_rx]") as "[mem_instr Hacc_mem_rx]".
         iDestruct "mem_rx" as "[? $]".
         rewrite set_of_addr_singleton in Hdom_mem_rx.
@@ -534,7 +534,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           done.
         }
 
-        iApply (hvc_mem_retrieve_donate_rx ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx $fresh_handles]").
+        iApply (mem_retrieve_donate_rx ai r1 with "[$PC $mem_instr $R0 $R1 $own_tran $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx $fresh_handles]").
         done.
         done.
         iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
@@ -684,10 +684,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       split;auto.
 
       destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
-      { (* apply [hvc_mem_retrieve_share]*)
+      { (* apply [mem_retrieve_share]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
 
-        iApply (hvc_mem_retrieve_share ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state $mem_rx]").
+        iApply (mem_retrieve_share ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state $mem_rx]").
         set_solver + Hin_ps_acc_tx.
         done. done.
         iNext. simpl.
@@ -759,7 +759,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         }
         {
           rewrite /transaction_pagetable_entries_owned.
-          destruct (decide (tran.1.1.1.1.1 = i)).
+          destruct (decide (tran.1.1.1.1 = i)).
           iApply (big_sepFM_update_True _ Hlookup_tran).
           simpl. split. done. rewrite Heq_tran_tt;done.
           simpl. split. done. rewrite Heq_tran_tt;done.
@@ -817,7 +817,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           iApply (memory_pages_split_singleton' p_tx with "[$mem_acc_tx $mem_tx]"). set_solver + Hsubset_mb.
         }
       }
-      { (* apply [hvc_mem_retrieve_sharing_rx]*)
+      { (* apply [mem_retrieve_sharing_rx]*)
         iDestruct (mem_big_sepM_split mem_rx Hlookup_mem_ai with "[mem_rx]") as "[mem_instr Hacc_mem_rx]".
         iDestruct "mem_rx" as "[? $]".
         rewrite set_of_addr_singleton in Hdom_mem_rx.
@@ -831,7 +831,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           done.
         }
 
-        iApply (hvc_mem_retrieve_share_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx]").
+        iApply (mem_retrieve_share_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx]").
         done.
         done.
         iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
@@ -905,7 +905,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         }
         {
           rewrite /transaction_pagetable_entries_owned.
-          destruct (decide (tran.1.1.1.1.1 = i)).
+          destruct (decide (tran.1.1.1.1 = i)).
           iApply (big_sepFM_update_True _ Hlookup_tran).
           simpl. split. done. rewrite Heq_tran_tt;done.
           simpl. split. done. rewrite Heq_tran_tt;done.
@@ -982,10 +982,10 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
       split;auto.
 
       destruct Hlookup_mem_ai as [Hlookup_mem_ai|Hlookup_mem_ai].
-      { (* apply [hvc_mem_retrieve_lend]*)
+      { (* apply [mem_retrieve_lend]*)
         iDestruct (mem_big_sepM_split mem_acc_tx_rx Hlookup_mem_ai with "mem_acc_tx_rx") as "[mem_instr Hacc_mem_acc_tx_rx]".
 
-        iApply (hvc_mem_retrieve_lend ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state $mem_rx]").
+        iApply (mem_retrieve_lend ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state $mem_rx]").
         set_solver + Hin_ps_acc_tx.
         done. done.
         iNext. simpl.
@@ -1057,7 +1057,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         }
         {
           rewrite /transaction_pagetable_entries_owned.
-          destruct (decide (tran.1.1.1.1.1 = i)).
+          destruct (decide (tran.1.1.1.1 = i)).
           iApply (big_sepFM_update_True _ Hlookup_tran).
           simpl. split. done. rewrite Heq_tran_tt;done.
           simpl. split. done. rewrite Heq_tran_tt;done.
@@ -1122,7 +1122,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           iApply (memory_pages_split_singleton' p_tx with "[$mem_acc_tx $mem_tx]"). set_solver + Hsubset_mb.
         }
       }
-      { (* apply [hvc_mem_retrieve_lend_rx]*)
+      { (* apply [mem_retrieve_lend_rx]*)
         iDestruct (mem_big_sepM_split mem_rx Hlookup_mem_ai with "[mem_rx]") as "[mem_instr Hacc_mem_rx]".
         iDestruct "mem_rx" as "[? $]".
         rewrite set_of_addr_singleton in Hdom_mem_rx.
@@ -1136,7 +1136,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
           done.
         }
 
-        iApply (hvc_mem_retrieve_lend_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx]").
+        iApply (mem_retrieve_lend_rx ai r1 with "[$PC $mem_instr $R0 $R1 $pgt_acc $re $tran $rx $rx_state Hacc_mem_rx]").
         done.
         done.
         iNext. iIntros "ai". iDestruct ("Hacc_mem_rx" with "ai") as "rx".
@@ -1210,7 +1210,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         }
         {
           rewrite /transaction_pagetable_entries_owned.
-          destruct (decide (tran.1.1.1.1.1 = i)).
+          destruct (decide (tran.1.1.1.1 = i)).
           iApply (big_sepFM_update_True _ Hlookup_tran).
           simpl. split. done. rewrite Heq_tran_tt;done.
           simpl. split. done. rewrite Heq_tran_tt;done.
