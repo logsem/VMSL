@@ -42,3 +42,35 @@ Proof.
   destruct Hlk;done.
   rewrite lookup_delete_ne in Hlk;auto.
 Qed.
+
+Lemma map_insert_swap `{Countable K}  {V: Type} (m :gmap K V) k1 k2 v1 v2:
+  k1 ≠ k2 ->
+  (<[k1:=v1]> (<[k2:=v2]> m) = <[k2:=v2]> (<[k1:=v1]> m)).
+Proof.
+  intro Hneq.
+  revert k1 k2 v1 v2 Hneq.
+  induction m using map_ind.
+  intros.
+  apply map_eq.
+  intro.
+  destruct (decide (i = k1));
+    destruct (decide (i = k2));simplify_map_eq /=;auto.
+  intros.
+  destruct (decide (i = k1));
+    destruct (decide (i = k2));simplify_map_eq /=;auto.
+  rewrite IHm. intro; done.
+  rewrite 2!insert_insert.
+  apply IHm.
+  done.
+  rewrite insert_insert.
+  set X := (Y in Y = _).
+  rewrite IHm. auto.
+  rewrite insert_insert.
+  rewrite /X IHm //.
+  apply map_eq.
+  intro.
+  destruct (decide (i0 = k1));
+    destruct (decide (i0 = k2));simplify_map_eq /=;auto.
+  rewrite (lookup_insert_ne _ k2) //.
+  rewrite (lookup_insert_ne _ k1) //.
+Qed.
