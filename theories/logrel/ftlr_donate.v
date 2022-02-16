@@ -7,12 +7,12 @@ From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
 
-Section ftlr_share.
+Section ftlr_donate.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans rx_state r0}:
+Lemma ftlr_donate {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans rx_state r0}:
   base_extra.is_total_gmap regs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
   i ≠ V0 ->
@@ -27,7 +27,7 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
   mem_acc_tx !! ai = Some instr ->
   decode_instruction instr = Some Hvc ->
   regs !! R0 = Some r0 ->
-  decode_hvc_func r0 = Some Share ->
+  decode_hvc_func r0 = Some Donate ->
   p_tx ≠ p_rx ->
   ⊢
   ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : option (Addr * VMID)),
@@ -166,9 +166,9 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       }
     }
     pose proof (Hvalid_tran_des) as Hvalid_trans_des'.
-    apply validate_descriptor_share in Hvalid_tran_des as [j [ps_share [-> Hneq_sr]]].
-    destruct (decide (ps_share ⊆ ps_acc)) as [Hsubseteq_share | Hnsubseteq_share].
-    2:{ (* no access to at least one page in ps_share, apply [mem_send_not_acc] *)
+    apply validate_descriptor_share in Hvalid_tran_des as [j [ps_donate [-> Hneq_sr]]].
+    destruct (decide (ps_donate ⊆ ps_acc)) as [Hsubseteq_share | Hnsubseteq_share].
+    2:{ (* no access to at least one page in ps_donate, apply [mem_send_not_acc] *)
       apply not_subseteq in Hnsubseteq_share as [p [Hin_p_share Hnin_p_acc]].
       iDestruct (access_split with "[$ pgt_acc $ pgt_acc' ]") as "pgt_acc".
       iApply (mem_send_not_acc ai p with "[PC mem_instr pgt_acc R0 R1 R2 tx mem_tx]");iFrameAutoSolve.
@@ -196,7 +196,7 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
         set_solver +.
       }
     }
-    destruct (decide (p_tx ∈ ps_share)) as [Hin_ptx_share | Hnin_ptx_share].
+    destruct (decide (p_tx ∈ ps_donate)) as [Hin_ptx_share | Hnin_ptx_share].
     { (* tx is not owned by i, apply [mem_send_not_owned] *)
       iDestruct "pgt_tx" as "[own_tx excl_tx]".
       iApply (mem_send_not_owned ai _ (p_tx -@O> -)%I with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_tx]");iFrameAutoSolve.
@@ -227,7 +227,7 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       }
     }
 
-    destruct (decide (p_rx ∈ ps_share)) as [Hin_prx_share | Hnin_prx_share].
+    destruct (decide (p_rx ∈ ps_donate)) as [Hin_prx_share | Hnin_prx_share].
     { (* rx is not owned by i, apply [mem_send_not_owned] *)
       iDestruct "rx" as "[rx [own_rx excl_rx]]".
       iApply (mem_send_not_owned ai _ (p_rx -@O> -)%I with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_rx]");iFrameAutoSolve.
@@ -258,14 +258,14 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       }
     }
 
-    assert (Hsubseteq_share' : ps_share ⊆ ps_acc ∖ {[p_rx;p_tx]}).
+    assert (Hsubseteq_share' : ps_donate ⊆ ps_acc ∖ {[p_rx;p_tx]}).
     { set_solver + Hsubseteq_share Hnin_ptx_share Hnin_prx_share. }
     clear Hsubseteq_share Hnin_ptx_share Hnin_prx_share.
 
     iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & %Htrans_ps_disj & trans)".
-    destruct (decide (ps_share ⊆ ps_acc ∖ {[p_rx; p_tx]} ∖ (pages_in_trans trans))) as [Hsubseteq_share'' | Hnsubseteq_share].
+    destruct (decide (ps_donate ⊆ ps_acc ∖ {[p_rx; p_tx]} ∖ (pages_in_trans trans))) as [Hsubseteq_share'' | Hnsubseteq_share].
     { (* all pages are exclusively owned, ok to perceed *)
-      assert (ps_share ⊆ ps_acc ∖ {[p_rx; p_tx]} ∖ ps_mem_in_trans) as Hsubseteq.
+      assert (ps_donate ⊆ ps_acc ∖ {[p_rx; p_tx]} ∖ ps_mem_in_trans) as Hsubseteq.
       {
         assert (ps_mem_in_trans ⊆ (pages_in_trans trans)).
         {
@@ -278,10 +278,10 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       iDestruct (fresh_handles_disj with "[$fresh_handles $trans]") as "%Hdisj_hpool".
       iDestruct (access_split with "[$ pgt_acc $ pgt_acc' ]") as "pgt_acc".
       iDestruct (big_sepS_sep with "pgt_owned") as "pgt_owned".
-      iDestruct (big_sepS_union_acc _ ps_share with "pgt_owned") as "[pgt_oe_share Hacc_pgt_oe]";auto.
+      iDestruct (big_sepS_union_acc _ ps_donate with "pgt_owned") as "[pgt_oe_share Hacc_pgt_oe]";auto.
       destruct (decide (hpool = ∅)).
-      { (* no avaiable fresh handles, apply [mem_share_no_fresh_handles] *)
-        iApply (mem_send_no_fresh_handles ai hpool j mem_tx ps_share with "[PC mem_instr pgt_acc pgt_oe_share R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
+      { (* no avaiable fresh handles, apply [mem_send_no_fresh_handles] *)
+        iApply (mem_send_no_fresh_handles ai hpool j mem_tx ps_donate with "[PC mem_instr pgt_acc pgt_oe_share R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
         exact Hdecode_hvc.
         simpl; reflexivity.
         lia.
@@ -289,7 +289,7 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
         set_solver + Hsubseteq_share'.
         iFrame.
         iNext. iIntros "(PC & mem_instr & pgt_oe_share & pgt_acc & R0 & R1 & R2 & fresh_handles & tx & mem_tx ) _".
-        iDestruct ("Hacc_pgt_oe" $! ps_share with "[] pgt_oe_share") as "pgt_owned".
+        iDestruct ("Hacc_pgt_oe" $! ps_donate with "[] pgt_oe_share") as "pgt_owned".
         { iPureIntro;set_solver +. }
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f _ _ _ with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
@@ -309,14 +309,14 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
           set_solver +.
         }
       }
-      iApply (mem_share ai j mem_tx hpool ps_share with "[PC mem_instr pgt_acc pgt_oe_share R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
+      iApply (mem_donate ai j mem_tx hpool ps_donate with "[PC mem_instr pgt_acc pgt_oe_share R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
       exact Hdecode_hvc.
       simpl; reflexivity.
       lia.
       intro;apply Hneq_sr,symmetry;done.
       set_solver + Hsubseteq_share'.
       iFrame.
-      iNext. iIntros "(PC & mem_instr & pgt_oe_share & pgt_acc & R0 & R1 & (%wh & %Hin_wh & R2 & tran_share & retri_share & fresh_handles) & tx & mem_tx ) _".
+      iNext. iIntros "(PC & mem_instr & pgt_oe_donate & pgt_acc & R0 & R1 & (%wh & %Hin_wh & R2 & tran_donate & retri_donate & fresh_handles) & tx & mem_tx ) _".
       iDestruct ("Hacc_pgt_oe" $! ∅ with "[] []") as "pgt_owned".
       { iPureIntro. set_solver +. }
       { rewrite big_sepS_empty //. }
@@ -326,59 +326,46 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
 
       (* we will specialize IH with the new [trans'] *)
-      pose (<[wh := (i, j, ps_share, Sharing, false)]>trans) as trans''.
+      pose (<[wh := (i, j, ps_donate, Donation, false)]>trans) as trans''.
       assert (Hlookup_wh_None: trans !! wh = None).
       rewrite -not_elem_of_dom.
       set_solver + Hin_wh Hdisj_hpool.
 
-      assert (ps_share ∪ pages_in_trans (trans_memory_in_trans i trans) = pages_in_trans (trans_memory_in_trans i trans'')) as Hrewrite.
+      assert (ps_donate ∪ pages_in_trans (trans_memory_in_trans i trans) = pages_in_trans (trans_memory_in_trans i trans'')) as Hrewrite.
       {
         rewrite /trans'' /trans_memory_in_trans.
         rewrite map_filter_insert_True.
         rewrite /pages_in_trans map_fold_insert_L /=.
         f_equal.
-        intros.
-        set_solver +.
-        rewrite map_filter_lookup_None.
-        eauto.
-        simpl.
-        left.
-        split;auto.
-        intro.
-        destruct H as [H []].
-        inversion H.
+        intros. set_solver +.
+        rewrite map_filter_lookup_None. eauto.
+        simpl. left. split;auto.
+        intro. destruct H as [H []]. inversion H.
       }
 
-      iDestruct (trans_split with "tran_share") as "[tran_share tran_share']".
+      iDestruct (trans_split with "tran_donate") as "[tran_donate tran_donate']".
 
-      iApply ("IH" $! _ ps_acc trans'' _ Htotal_regs' Hsubset_mb with "[] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
-                [fresh_handles tran_share trans] [tran_pgt_transferred] [retri retri_share] R0z R1z R2z
-                rx_state rx other_rx prop0 propi [tran_pgt_owned tran_share' pgt_oe_share] [pgt_owned] [retri_owned] [mem_rest mem_acc_tx mem_tx]").
+      iApply ("IH" $! _ (ps_acc∖ ps_donate) trans'' _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_acc' LB
+                [fresh_handles tran_donate trans] [tran_pgt_transferred tran_donate' pgt_oe_donate] [retri retri_donate] R0z R1z R2z
+                rx_state rx other_rx prop0 propi [tran_pgt_owned] [pgt_owned] [retri_owned] [mem_rest mem_acc_tx mem_tx]").
       {
-        rewrite -Hrewrite.
-        rewrite union_assoc_L.
-        assert (ps_acc ∪ ps_share = ps_acc) as ->.
-        symmetry.
-        rewrite union_comm_L.
-        rewrite subseteq_union_1_L;auto.
-        set_solver + Hsubseteq_share'.
-        done.
+        iPureIntro.
+        set_solver + Hsubset_mb Hsubseteq_share'.
       }
       {
+        iPureIntro.
         rewrite -Hrewrite.
-        rewrite union_assoc_L.
-        assert (ps_acc ∖ {[p_rx; p_tx]} ∪ ps_share = ps_acc ∖ {[p_rx; p_tx]}) as ->.
-        rewrite union_comm_L.
-        rewrite subseteq_union_1_L;auto.
-        done.
+        set_solver + Hdisj_na Hsubseteq.
       }
       {
+        iPureIntro.
         rewrite -Hrewrite.
-        rewrite union_assoc_L.
-        assert (ps_acc ∖ {[p_rx; p_tx]} ∪ ps_share = ps_acc ∖ {[p_rx; p_tx]}) as ->.
-        rewrite union_comm_L.
-        rewrite subseteq_union_1_L;auto.
-        done.
+        set_solver + Hdisj_na Hsubseteq Hnin_rx.
+      }
+      {
+        iPureIntro.
+        rewrite -Hrewrite.
+        set_solver + Hdisj_na Hsubseteq Hnin_tx.
       }
       {
         iExists (hpool ∖ {[wh]}).
@@ -400,15 +387,18 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       }
       {
         rewrite /transaction_pagetable_entries_transferred.
-        iApply (big_sepFM_lookup_None_False with "tran_pgt_transferred"); auto.
-        simpl.
-        intros [H _];inversion H.
+        iApply (big_sepFM_lookup_None_True with "tran_pgt_transferred"); auto.
+        simpl. split;eauto.
+        iFrame.
+        rewrite big_sepS_sep.
+        rewrite /pgt.
+        iFrame.
       }
       {
         rewrite /retrieval_entries_transferred.
-        iDestruct (retri_split with "retri_share") as "[retri_share retri_share']".
+        iDestruct (retri_split with "retri_donate") as "[retri_donate retri_donate']".
         iDestruct "retri" as "[retri1 retri2]".
-        iSplitL "retri1 retri_share".
+        iSplitL "retri1 retri_donate".
         iApply (big_sepFM_lookup_None_True with "retri1"); auto.
         simpl;eauto.
         iApply (big_sepFM_lookup_None_True with "retri2"); auto.
@@ -416,36 +406,48 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       }
       {
         rewrite /transaction_pagetable_entries_owned.
-        iApply (big_sepFM_lookup_None_True with "tran_pgt_owned"); auto.
+        iApply (big_sepFM_lookup_None_False with "tran_pgt_owned"); auto.
         simpl;eauto.
-        case_bool_decide.
-        simpl in H. done.
-        iFrame.
-        iApply (big_sepS_sep with "pgt_oe_share").
+        intros [_ ?];contradiction.
       }
       {
         rewrite union_empty_r_L.
         rewrite /pagetable_entries_excl_owned /pgt.
-        rewrite (pages_in_trans_insert Hlookup_wh_None) /=.
-        rewrite (union_comm_L ps_share).
-        rewrite difference_difference_L.
-        iApply (big_sepS_sep with "pgt_owned").
+        (* rewrite (pages_in_trans_insert Hlookup_wh_None) /=. *)
+        (* rewrite (union_comm_L ps_donate). *)
+        rewrite !difference_difference_L.
+        assert ((pages_in_trans trans ∪ ps_donate) = (ps_donate ∪ pages_in_trans trans'')) as ->.
+        {
+          rewrite pages_in_trans_insert //.
+          simpl. set_solver +.
+        }
+        rewrite 2!union_assoc_L.
+        rewrite (union_comm_L _ ps_donate).
+        rewrite big_sepS_sep.
+        iFrame "pgt_owned".
       }
       {
         rewrite /retrieval_entries_owned.
         rewrite -big_sepFM_lookup_None_False;auto.
-        simpl.
-        intro. destruct H;contradiction.
+        simpl. intro. destruct H;contradiction.
       }
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
         iSplitL "mem_acc_tx".
         iExists mem_acc_tx;by iFrame "mem_acc_tx".
         iExists mem_tx;by iFrame "mem_tx".
+        assert ((ps_acc ∖ ps_donate ∪ pages_in_trans (trans_memory_in_trans i trans'')) = ps_acc ∪ pages_in_trans (trans_memory_in_trans i trans'')) as ->.
+        {
+          rewrite -Hrewrite.
+          rewrite union_assoc_L.
+          rewrite difference_union_L.
+          set_solver +.
+        }
         iApply (memory_pages_split_diff' _ ps_acc with "[mem_rest $mem_acc]").
         set_solver +.
         (* TODO: simplify *)
-        assert ((ps_acc ∪ pages_in_trans (trans_memory_in_trans i trans'') ) ∖ ps_acc = pages_in_trans (trans_memory_in_trans i trans'')∖ (ps_acc∖ {[p_tx]})) as ->.
+        assert ((ps_acc ∪ pages_in_trans (trans_memory_in_trans i trans'') ) ∖ ps_acc
+                = pages_in_trans (trans_memory_in_trans i trans'') ∖ (ps_acc ∖ {[p_tx]})) as ->.
         {
           assert ((ps_acc ∪ pages_in_trans (trans_memory_in_trans i trans'') ) ∖ ps_acc = pages_in_trans (trans_memory_in_trans i trans'') ∖ ps_acc) as ->.
           set_solver +.
@@ -460,13 +462,13 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
         }
         rewrite -Hrewrite.
         rewrite difference_union_distr_l_L.
-        assert (ps_share ∖ (ps_acc ∖ {[p_tx]}) = ∅) as ->.
+        assert (ps_donate ∖ (ps_acc ∖ {[p_tx]}) = ∅) as ->.
         set_solver + Hsubseteq_share'.
         rewrite union_empty_l_L //.
       }
     }
     { (* at least one page is not exclusively owned by i (i.e. is involved in a transaction) *)
-      assert (∃ p, p ∈ ps_share ∧ p ∈ pages_in_trans trans) as [p [Hin_p_share Hin_p_mem_in_trans]].
+      assert (∃ p, p ∈ ps_donate ∧ p ∈ pages_in_trans trans) as [p [Hin_p_share Hin_p_mem_in_trans]].
       { apply (not_subseteq_diff _ (ps_acc ∖ {[p_rx; p_tx]}));auto. }
       apply elem_of_pages_in_trans in  Hin_p_mem_in_trans as [h [tran [Hlookup_tran Hin_p_tran]]].
       iDestruct (big_sepM_lookup_acc with "trans") as "[tran_tran Hacc_trans]";first exact Hlookup_tran.
@@ -498,4 +500,4 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
     }
   Qed.
 
-End ftlr_share.
+End ftlr_donate.

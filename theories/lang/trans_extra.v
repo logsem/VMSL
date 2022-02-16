@@ -8,7 +8,7 @@ Implicit Type σ : state.
 Implicit Type h : Word.
 
 Lemma validate_descriptor_share i tran:
-  validate_transaction_descriptor i Sharing tran = true ->
+  validate_transaction_descriptor i tran = true ->
   ∃ j ps, tran = (i,None,j,ps) ∧ j ≠ i.
 Proof.
   intro Hvalid.

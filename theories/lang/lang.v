@@ -557,8 +557,7 @@ Definition parse_transaction_descriptor (mem : mem) (b: Addr) (len: nat) : optio
   ps <- parse_list_of_pids (drop 4 raw_descriptor) wl ;;;
   unit (vs, (if (finz.to_z wh =? 0)%Z then None else Some wh), vr, list_to_set ps).
 
-Definition validate_transaction_descriptor (i:VMID) (ty : transaction_type)
-           (t : transaction_descriptor) : bool  :=
+Definition validate_transaction_descriptor (i:VMID) (t : transaction_descriptor) : bool  :=
   match t with
   | (s, h, r, ps) =>
              (* sender is the caller *)
@@ -623,7 +622,7 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
             else
               td <- lift_option_with_err (parse_transaction_descriptor (get_mem s)
                                                (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) InvParam ;;;
-              _ <- (if (validate_transaction_descriptor (get_current_vm s) ty td) then unit () else throw InvParam) ;;;
+              _ <- (if (validate_transaction_descriptor (get_current_vm s) td) then unit () else throw InvParam) ;;;
               if (check_transition_transaction s td)
               then bind (new_transaction_from_descriptor s ty td)
                         (fun x => unit (x, td))
