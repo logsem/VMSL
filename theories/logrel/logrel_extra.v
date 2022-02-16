@@ -677,6 +677,54 @@ Section logrel_extra.
     }
   Qed.
 
+  Lemma ra_big_sepM_split_upd2' `{Countable K} { V :Type} (map : gmap K V) (k1 k2: K) (v1 v2:V)
+        (f: K -> V -> iProp Σ):
+    k1 ≠ k2 ->
+    map !! k1 = Some v1 ->
+    map !! k2 = Some v2 ->
+    (([∗ map] k↦y ∈ map, f k y)%I
+     ⊢  (f k1 v1) ∗ (f k2 v2) ∗
+          (∀ v1' v2', f k1 v1' ∗ f k2 v2'-∗ ([∗ map] k↦y ∈ <[k1 := v1']>(<[k2 := v2']>map), f k y)))%I.
+  Proof.
+    iIntros (Hneq Hlookup1 Hlookup2) "Hmaps".
+    simplify_map_eq.
+    iDestruct (big_sepM_union_acc map {[k1 := v1 ; k2 := v2 ]} f with "Hmaps")
+      as "[Hsingle Hrestore]".
+    {
+      apply insert_subseteq_l ;first done.
+      apply insert_subseteq_l ;first done.
+      apply map_empty_subseteq.
+    }
+    rewrite !big_opM_insert.
+    2: {
+      done.
+    }
+    2: {
+      apply lookup_singleton_None.
+      done.
+    }
+    iDestruct "Hsingle" as "(Hsingle1 & Hsingle2 & _)".
+    iFrame "Hsingle1 Hsingle2".
+    iIntros (v1' v2') "Hsingle_upd".
+    assert (<[k1:=v1']> (<[k2:=v2']> map) = ({[k1 := v1'; k2:= v2']} ∪ map)) as ->.
+    {      
+      rewrite insert_union_singleton_l.
+      rewrite insert_union_singleton_l.      
+      rewrite <-insert_union_l.
+      rewrite <-insert_union_singleton_l.
+      reflexivity.
+    }
+    iApply "Hrestore".
+    iPureIntro. set_solver +.
+    rewrite !big_opM_insert.
+    iDestruct "Hsingle_upd" as "[Hsingle_upd1 Hsingle_upd2]".
+    iFrame.
+    done.
+    done.
+    apply lookup_insert_None.
+    split;done.
+  Qed.
+
   Lemma ra_big_sepM_split_upd3 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3: K) (v1 v2 v3:V)
         (total:= (λ m, (∀ k, is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ):
     k1 ≠ k2 ->
@@ -882,6 +930,32 @@ Section logrel_extra.
     iIntros (Hlookup).
     iApply (ra_big_sepM_split_upd mem a w f Hlookup).
   Qed.
+
+  Lemma mem_big_sepM_split2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}:
+    a1 ≠ a2 ->
+    mem !! a1 = Some w1->
+    mem !! a2 = Some w2->
+    (([∗ map] k↦y ∈ mem, f k y)
+     ⊢  f a1 w1 ∗ f a2 w2 ∗ ((f a1 w1 ∗ f a2 w2) -∗
+                            ( [∗ map] k↦y ∈ mem, f k y)))%I.
+  Proof.
+    iIntros (Hne Hlookup1 Hlookup2).
+    iApply (ra_big_sepM_split2 mem a1 a2 w1 w2 f); auto.
+  Qed.
+
+  Lemma mem_big_sepM_split_upd2 (mem: gmap Addr Word) {a1 a2 w1 w2} {f: _ -> _ -> iProp Σ}:
+    a1 ≠ a2 ->
+    mem !! a1 = Some w1->
+    mem !! a2 = Some w2->
+    (([∗ map] k↦y ∈ mem, f k y)%I
+     ⊢  f a1 w1 ∗ f a2 w2 ∗ (∀ (w1' w2' : Word) , (f a1 w1' ∗ f a2 w2') -∗
+                          ([∗ map] k↦y ∈ <[a1 := w1']>(<[a2 := w2']>mem), f k y)))%I.
+  Proof.
+    iIntros (Hne Hlookup1 Hlookup2).
+    iApply (ra_big_sepM_split_upd2' mem a1 a2 w1 w2 f Hne Hlookup1 Hlookup2).
+  Qed.
+
+  (* TODO: For memory chunks *)
 
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:

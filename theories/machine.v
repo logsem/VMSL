@@ -270,9 +270,11 @@ Inductive valid_instruction : instruction -> Prop :=
                       valid_instruction (Cmp dst (inr src))
 | valid_add src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
+                      dst ≠ src ->
                       valid_instruction (Add src dst)
 | valid_sub src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
+                      dst ≠ src ->
                       valid_instruction (Sub src dst)
 | valid_mult src dst : reg_valid_cond dst ->
                       valid_instruction (Mult dst src)
