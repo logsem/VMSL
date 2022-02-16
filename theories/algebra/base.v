@@ -46,9 +46,9 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   gen_own_preG_inG :> gen_heapGpreS P (option V) Σ;
   gen_access_preG_inG :> inG Σ (authR (gmapUR V (dfrac_agreeR (gsetO P))));
   gen_excl_preG_inG :> gen_heapGpreS P boolO Σ;
-  gen_trans_preG_inG :> gen_heapGpreS W (option (V * W * V * (gset P) * F)) Σ;
+  gen_trans_preG_inG :> gen_heapGpreS W (option (V * V * (gset P) * F)) Σ;
   gen_hpool_preG_inG :> inG Σ (frac_authR (agreeR (gsetR W)));
-  gen_retri_preG_inG :> gen_heapGpreS W (option bool) Σ;
+  gen_retri_preG_inG :> gen_heapGpreS W (option (W * bool)) Σ;
   gen_lower_bound_preG_inG :> inG Σ (authR (gmapUR V (exclR (gsetR (leibnizO P)))))
   }.
 
@@ -100,9 +100,9 @@ Section gen_vmG.
            gen_heapΣ (VMID* MailBox) PID;
            GFunctor (authUR (gmapUR VMID (dfrac_agreeR (gsetO PID))));
            gen_heapΣ PID boolO;
-           gen_heapΣ Word (option (VMID * Word * VMID * (gset PID) * transaction_type));
+           gen_heapΣ Word (option (VMID * VMID * (gset PID) * transaction_type));
            GFunctor (frac_authR (agreeR (gsetR Word)));
-           gen_heapΣ Word (option bool);
+           gen_heapΣ Word (option (Word * bool));
            GFunctor (authR (gmapUR VMID (exclR (gsetR (leibnizO PID)))))
       ].
 
@@ -156,11 +156,11 @@ Section definitions.
                            end
                            ) <$> ((get_transactions σ):gmap Word (option transaction)).
 
-  Definition get_trans_gmap σ := get_transactions_gmap σ (λ tran, tran.1).
+  Definition get_trans_gmap σ := get_transactions_gmap σ (λ tran, (tran.1.1.1.1.1, tran.1.1.1.2, tran.1.1.2, tran.1.2)).
 
   Definition get_hpool_gset σ := (get_fresh_handles (get_transactions σ)).
 
-  Definition get_retri_gmap σ := get_transactions_gmap σ (λ tran, tran.2).
+  Definition get_retri_gmap σ := get_transactions_gmap σ (λ tran, (tran.1.1.1.1.2, tran.2)).
 
   Definition inv_trans_pg_num_ub (trans: gmap Word (option transaction)) :=
     map_Forall (λ _ v,
@@ -268,7 +268,7 @@ Section definitions.
   Definition excl_mapsto := excl_mapsto_aux.(unseal).
   Definition excl_mapsto_eq : @excl_mapsto = @excl_mapsto_def := excl_mapsto_aux.(seal_eq).
 
-  Definition trans_mapsto_def(wh : Word) dq (meta :option (VMID * Word * VMID  * gset PID  * transaction_type)) : iProp Σ :=
+  Definition trans_mapsto_def(wh : Word) dq (meta :option (VMID * VMID  * gset PID  * transaction_type)) : iProp Σ :=
     wh ↪[ gen_trans_name ]{ dq } meta.
   Definition trans_mapsto_aux : seal (@trans_mapsto_def). Proof. by eexists. Qed.
   Definition trans_mapsto := trans_mapsto_aux.(unseal).
@@ -280,7 +280,7 @@ Section definitions.
   Definition hpool_mapsto := hpool_mapsto_aux.(unseal).
   Definition hpool_mapsto_eq : @hpool_mapsto = @hpool_mapsto_def := hpool_mapsto_aux.(seal_eq).
 
-  Definition retri_mapsto_def (w:Word) dq (b: option bool) : iProp Σ :=
+  Definition retri_mapsto_def (w:Word) dq (b: option (Word*bool)) : iProp Σ :=
     w ↪[ gen_retri_name ]{dq} b.
   Definition retri_mapsto_aux : seal (@retri_mapsto_def). Proof. by eexists. Qed.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
