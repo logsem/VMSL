@@ -1,6 +1,6 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri Require Import lifting rules.rules_base.
-From HypVeri.algebra Require Import base reg mem pagetable.
+From HypVeri Require Import lifting rules.rules_base machine_extra.
+From HypVeri.algebra Require Import base reg mem pagetable mailbox base_extra.
 From HypVeri.lang Require Import lang_extra reg_extra.
 
 Section br.
@@ -8,56 +8,116 @@ Section br.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
   
-Lemma br {instr i w1 w2 q} ai  ra :
-  instr = Br ra ->
-  decode_instruction w1 = Some(instr) ->
-  addr_in_page ai (to_pid_aligned ai) ->
-  {SS{{  ▷ (PC @@ i ->r ai) ∗ ▷ (ai ->a w1) ∗ ▷ (ra @@ i ->r w2) ∗ ▷ (A@i:={q} (to_pid_aligned ai))}}} ExecI @ i
-                                  {{{ RET ExecI;  PC @@ i ->r  w2  ∗ ai ->a w1 ∗ ra @@ i ->r w2
-                       ∗ A@i:={q} (to_pid_aligned ai) }}}.
+Lemma br {E i w1 w2 q s p} ai  ra :
+  decode_instruction w1 = Some(Br ra) ->
+  tpa ai ∈ s ->
+  tpa ai ≠ p ->
+    {SS{{  ▷ (PC @@ i ->r ai)
+           ∗ ▷ (ai ->a w1)
+           ∗ ▷ (ra @@ i ->r w2)
+           ∗ ▷ (i -@{q}A> s)
+           ∗ ▷ (TX@ i := p) }}} ExecI @ i; E
+    {{{ RET (false, ExecI);  (PC @@ i ->r  w2)
+                    ∗ (ai ->a w1 ∗ ra @@ i ->r w2)
+                    ∗ (i -@{q}A> s)
+                    ∗ (TX@ i := p)}}}.
 Proof.
-  iIntros (Hinstr Hdecode HIn ϕ) "( >Hpc & >Hapc & >Hra & >Hacc) Hϕ".
+  iIntros (Hdecode Hin Hne ϕ) "( >Hpc & >Hapc & >Hra & >Hacc & >HTX) Hϕ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
-  iIntros (σ1) "%Hsche Hσ".
-  inversion Hsche as [ Hcur ]; clear Hsche.
+  iIntros (n σ1) "%Hsche Hσ".
+  rewrite /scheduled in Hsche.
+  simpl in Hsche.
+  rewrite /scheduler in Hsche.
+  apply bool_decide_unpack in Hsche as Hcur.
+  clear Hsche.
   apply fin_to_nat_inj in Hcur.
   iModIntro.
-  iDestruct "Hσ" as "(Htok & Hmem & Hreg & Htx & Hrxagree & Hrxoption & Howned & Haccess & Hres)".
-  pose proof (decode_instruction_valid w1 instr Hdecode) as Hvalidinstr.
-  rewrite Hinstr in Hvalidinstr.
+  iDestruct "Hσ" as "(#Hneq & Hmem & Hreg & Hmb & Hrx & Hown & Haccess & Hrest)".
+  pose proof (decode_instruction_valid w1 (Br ra) Hdecode) as Hvalidinstr.
   inversion Hvalidinstr as [ | | | | | | | | | |src Hvalidra |] .
   subst src .
   inversion Hvalidra as [ HneqPCa HneqNZa ].
   (* valid regs *)
   iDestruct ((gen_reg_valid2 i PC ai ra w2 Hcur) with "Hreg Hpc Hra") as "[%HPC %Hra]";eauto.
   (* valid pt *)
-  iDestruct ((gen_access_valid_addr_Set ai {[to_pid_aligned ai]}) with "Haccess Hacc") as %Hacc;eauto.
-  by apply elem_of_singleton_2.
+  iDestruct (access_agree_check_true (tpa ai) i with "Haccess Hacc") as %Hacc;first set_solver + Hin.
   (* valid mem *)
   iDestruct (gen_mem_valid ai w1  with "Hmem Hapc") as %Hmem.
+  iDestruct (mb_valid_tx i p with "Hmb HTX") as %Htx.
   iSplit.
   - (* reducible *)
     iPureIntro.
-    apply (reducible_normal i instr ai w1);eauto.
+    apply (reducible_normal i (Br ra) ai w1);eauto.
+    by rewrite Htx.
   - (* step *)
     iModIntro.
-    iIntros (m2 σ2) "%HstepP".
-    apply (step_ExecI_normal i instr ai w1 ) in HstepP;eauto.
-    remember (exec instr σ1) as c2 eqn:Heqc2.
-    rewrite /exec Hinstr (br_ExecI σ1 ra w2 ) /update_incr_PC /update_reg in Heqc2;eauto.
+    iIntros (m2 σ2) "[%P PAuth] %HstepP".
+    apply (step_ExecI_normal i (Br ra) ai w1 ) in HstepP;eauto.
+    remember (exec (Br ra) σ1) as c2 eqn:Heqc2.
+    rewrite /exec /br /update_incr_PC in Heqc2;eauto.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
-    rewrite_reg_pc.
-    rewrite_reg_global.
-    rewrite Hcur.
-    iFrame "Htok Hmem Htx Hrxagree Hrxoption Howned Haccess Hres".
+    rewrite (preserve_get_mb_gmap σ1).
+    rewrite (preserve_get_rx_gmap σ1).
+    rewrite (preserve_get_own_gmap σ1).
+    rewrite (preserve_get_access_gmap σ1).
+    rewrite (preserve_get_excl_gmap σ1).
+    rewrite (preserve_get_trans_gmap σ1).
+    rewrite (preserve_get_hpool_gset σ1).
+    rewrite (preserve_get_retri_gmap σ1).
+    rewrite (preserve_inv_trans_pgt_consistent σ1).
+    rewrite (preserve_inv_trans_wellformed σ1).
+    2-12: destruct ra; try rewrite Hra //; done.
+    iFrame.
     (* updated part *)
-    rewrite ->update_reg_global_update_reg;[|solve_reg_lookup].
-    iDestruct ((gen_reg_update1_global PC i ai w2 ) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
+    iDestruct ((gen_reg_update1_global PC i ai w2) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     iModIntro.
+    rewrite /update_reg Hra //.
+    destruct ra; try done.
+    simpl.
+    rewrite ->update_reg_global_update_reg;[|solve_reg_lookup].
+    rewrite Hcur.
     iFrame "Hreg".
-    iApply "Hϕ".
-    by iFrame "Hapc Hra Hacc Hpc".
+    iSplitL "PAuth".
+    by iExists P.
+    rewrite /just_scheduled_vms.
+    rewrite /just_scheduled.
+    assert (filter
+              (λ id : vmid,
+                      base.negb (scheduled σ1 id) && scheduled (update_reg_global σ1 i PC w2) id = true)
+              (seq 0 n) = []) as ->.
+    {
+      rewrite /scheduled /machine.scheduler //= /scheduler Hcur.
+      rewrite p_upd_reg_current_vm.
+      rewrite Hcur.
+      induction n.
+      - simpl.
+        rewrite filter_nil //=.
+      - rewrite seq_S.
+        rewrite filter_app.
+        rewrite IHn.
+        simpl.
+        rewrite filter_cons_False //=.
+        rewrite andb_negb_l.
+        done.
+    }
+    iSimpl.
+    iSplitL "Hmem".
+    iFrame.
+    iFrame "Hneq".
+    iSplit; first done.
+    assert ((scheduled (update_reg_global σ1 i PC w2) i) = true) as ->.
+    rewrite /scheduled.
+    simpl.
+    rewrite /scheduler.
+    rewrite p_upd_reg_current_vm.
+    rewrite Hcur.
+    rewrite bool_decide_eq_true.
+    reflexivity.
+    simpl.
+    iApply ("Hϕ" with "[Hpc Hapc Hacc Hra HTX]").
+    iFrame.
+    by rewrite Htx.
 Qed.
 End br.

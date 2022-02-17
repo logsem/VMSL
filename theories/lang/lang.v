@@ -7,7 +7,15 @@ Import Option.
 Import Sum.
 Open Scope monad_scope.
 
-Notation handle := Word.
+(* Getters *)
+Notation "'get_current_vm' st" := (snd (fst (fst st))) (at level 70, only parsing).
+Notation "'get_mem' st" := (snd (fst st)) (at level 18, only parsing).
+Notation "'get_transactions' st" := (snd st) (at level 70, only parsing).
+Notation "'get_reg_files' st" := (fst (fst (fst (fst (fst st))))) (at level 18, only parsing).
+Notation "'get_mail_boxes' st" := (snd (fst (fst (fst (fst st))))) (at level 18, only parsing).
+Notation "'get_page_table' st" := (snd (fst (fst (fst st)))) (at level 18, only parsing).
+Notation "'get_reg_file' st @ v" := (get_reg_files st !!! v) (at level 18, st as ident, only parsing).
+Notation "'get_mail_box' st @ v" := (get_mail_boxes st !!! v) (at level 18, only parsing).
 
 Section lang.
 Context `{HyperConst : !HypervisorConstants}.
@@ -20,8 +28,11 @@ Definition mem : Type :=
 Definition reg_file : Type :=
   gmap reg_name Word.
 
+Definition permission : Type :=
+  option VMID * bool * gset VMID.
+
 Definition page_table : Type :=
-  gmap PID ownership * gmap PID access.
+  gmap PID permission.
 
 Definition tx_buffer : Type :=
   PID.
@@ -32,54 +43,28 @@ Definition rx_buffer : Type :=
 Definition mail_box : Type :=
   (tx_buffer * rx_buffer).
 
-Definition transaction : Type :=
-  VMID (* sender *)
-  * Word (*flag *)
-  * bool (* if retrieved *)
+Definition meta_info : Type :=
+   VMID (* sender *)
   * VMID (* receiver *)
-  * list PID (* PIDs *)
+  * gset PID (* PIDs *)
   * transaction_type.
 
-Definition hpool := gset handle.
+Definition transaction : Type :=
+   meta_info * bool (* if retrieved *).
 
 Definition transactions : Type :=
-  gmap handle transaction  * hpool.
+  gmap Word (option transaction).
 
 Definition state : Type :=
   vec reg_file vm_count
   * vec mail_box vm_count
-  * vec page_table vm_count
+  * page_table
   * VMID
   * mem
   * transactions.
 
-(* Getters *)
-Definition get_current_vm (st : state) : VMID :=
-  snd (fst (fst st)).
-
-Definition get_mem (st : state) : mem :=
-  snd (fst st).
-
-Definition get_transactions (st : state) : transactions :=
-  snd st.
-
-Definition get_reg_files (st : state) : vec reg_file vm_count :=
-  fst (fst (fst (fst (fst st)))).
-
-Definition get_vm_reg_file (st : state) (v : VMID) : reg_file :=
-  (get_reg_files st) !!! v.
-
-Definition get_mail_boxes (st : state) : vec mail_box vm_count :=
-  snd (fst (fst (fst (fst st)))).
-
-Definition get_vm_mail_box (st : state) (v : VMID) : mail_box :=
-  (get_mail_boxes st) !!! v.
-
-Definition get_page_tables (st : state) : vec page_table vm_count :=
-  snd (fst (fst (fst st))).
-
-Definition get_vm_page_table (st : state) (v : VMID) : page_table :=
-  (get_page_tables st) !!! v.
+Notation "'get_tx_pid' st @ v" := (((get_mail_box st @ v):mail_box).1) (at level 199).
+Notation "'get_rx_pid' st @ v" := (((get_mail_box st @ v):mail_box).2.1) (at level 199).
 
 (* Conf *)
 Inductive exec_mode : Type :=
@@ -89,10 +74,10 @@ Inductive exec_mode : Type :=
 | FailPageFaultI.
 
 (* Aux funcs *)
-Definition check_ownership_page (st : state) (v : VMID) (p : PID) (pm : ownership ) : bool :=
-  match (get_vm_page_table st v).1 !! p  with
-  | Some p' =>
-    match (decide (pm = p')) with
+Definition check_ownership_page (st : state) (v : VMID) (p : PID) : bool :=
+  match (get_page_table st !! p)  with
+  | Some (Some p', _ , _) =>
+    match (decide (v = p')) with
     | left _ => true
     | right _ => false
     end
@@ -100,46 +85,46 @@ Definition check_ownership_page (st : state) (v : VMID) (p : PID) (pm : ownershi
   | _ => false
   end.
 
-Definition check_access_page (st : state) (v : VMID) (p : PID) (pm : access) : bool :=
-  match (get_vm_page_table st v).2 !! p  with
-  | Some p' =>
-    match (decide (pm = p')) with
+Definition check_access_page (st : state) (v : VMID) (p : PID) : bool :=
+  match (get_page_table st !! p)  with
+  | Some (_, s) =>
+    match (decide (v ∈ s)) with
     | left _ => true
     | right _ => false
     end
   | _ => false
   end.
 
-Definition check_perm_page (st : state) (v : VMID) (p:PID) (pm : ownership* access) : bool :=
-  andb (check_ownership_page st v p pm.1)
-  (check_access_page st v p pm.2).
+Definition check_read_access_page (st : state) (v : VMID) (p : PID) : bool :=
+  check_access_page st v p && (bool_decide ((get_mail_box st @ v).1 ≠ p)).
 
+Definition check_write_access_page (st : state) (v :VMID) (p : PID) : bool :=
+  check_access_page st v p && (bool_decide ((get_mail_box st @ v).2.1 ≠ p)).
 
-Definition check_perm_addr (st : state) (v : VMID) (a : Addr) (p : ownership* access) : bool :=
-  check_perm_page st v (to_pid_aligned a) p.
-
-Definition check_ownership_page' (st : state) (v : VMID) (p : PID)  : bool :=
-  match (get_vm_page_table st v).1 !! p  with
-  | Some p' => is_owned p'
+Definition check_excl_page (st: state) (p: PID) : bool :=
+  match (get_page_table st !! p)  with
+  | Some (_, b, _) => b
   | _ => false
   end.
 
-
-Definition check_access_page' (st : state) (v : VMID) (p : PID) : bool :=
-  match (get_vm_page_table st v).2 !! p with
-  | Some p' => is_accessible p'
-  | _ => false
-  end.
+Definition check_excl_access_page (st : state) (v : VMID) (p : PID) : bool :=
+  check_access_page st v p && check_excl_page st p.
 
 Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
-  check_access_page' st v (to_pid_aligned a).
+  check_access_page st v (to_pid_aligned a).
+
+Definition check_read_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
+  check_read_access_page st v (to_pid_aligned a).
+
+Definition check_write_access_addr (st : state) (v :VMID) (a : Addr) : bool :=
+  check_write_access_page st v (to_pid_aligned a).
 
 Definition check_ownership_addr (st : state) (v : VMID) (a : Addr) : bool :=
-  check_ownership_page' st v (to_pid_aligned a).
+  check_ownership_page st v (to_pid_aligned a).
 
 Definition update_reg_global (st : state) (v : VMID) (r : reg_name) (w : Word) : state :=
-  (vinsert v (<[r:=w]>(get_vm_reg_file st v)) (get_reg_files st),
-   (get_mail_boxes st), (get_page_tables st),
+  (vinsert v (<[r:=w]>(get_reg_file st @ v)) (get_reg_files st),
+   (get_mail_boxes st), (get_page_table st),
    get_current_vm st,
    get_mem st, get_transactions st).
 
@@ -147,71 +132,56 @@ Definition update_reg (st : state) (r : reg_name) (w : Word) : state :=
   update_reg_global st (get_current_vm st) r w.
 
 Definition get_reg_global (st : state) (v : VMID) (r : reg_name) : option Word :=
-  (get_vm_reg_file st v) !! r.
+  (get_reg_file st @ v) !! r.
 
 Definition get_reg (st : state) (r : reg_name) : option Word :=
   get_reg_global st (get_current_vm st) r.
 
-Definition update_ownership_global (st : state) (v : VMID) (p : PID) (pm : ownership) : state :=
+Definition update_ownership (perm: permission) (v:VMID) : permission:=
+  match perm with
+  | (Some o, b, s) => (Some v, b, s)
+  | _ => perm
+  end.
+
+Definition grant_access (perm: permission) (v:VMID) : permission :=
+  match perm with
+  | (o, s) => (o, {[v]} ∪ s)
+  end.
+
+Definition revoke_access (perm: permission) (v:VMID)  : permission :=
+  match perm with
+  | (o, s) => (o, s ∖ {[v]})
+  end.
+
+Definition flip_excl (perm:permission) (v: VMID) : permission :=
+  match perm with
+  | (o, b, s) => (o, negb b, s)
+  end.
+
+Definition update_page_table_global (upd: permission -> VMID -> permission) (st:state) (v:VMID) (ps: gset PID) : state :=
   (get_reg_files st, get_mail_boxes st,
-   vinsert v (<[p:=pm]>(get_vm_page_table st v).1, (get_vm_page_table st v).2) (get_page_tables st),
+   (set_fold (λ p acc, match (acc !! p) with
+                       | Some perm => <[p:= (upd perm v)]>acc
+                       | None => acc
+                       end) (get_page_table st) ps),
    get_current_vm st,
    get_mem st, get_transactions st).
 
-Definition update_ownership (st : state) (p : PID) (pm : ownership) : state :=
-  update_ownership_global st (get_current_vm st) p pm.
+Definition update_memory_global_batch (st : state) (m : mem) : state :=
+  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, m ∪ (get_mem st), get_transactions st).
 
-Definition update_access_global (st : state) (v : VMID) (p : PID) (pm : access) : state :=
-  (get_reg_files st, get_mail_boxes st,
-   vinsert v ((get_vm_page_table st v).1, <[p:=pm]>(get_vm_page_table st v).2) (get_page_tables st),
-   get_current_vm st,
-   get_mem st, get_transactions st).
-
-Definition update_access(st : state) (p : PID) (pm : access) : state :=
-  update_access_global st (get_current_vm st) p pm.
-
-Definition update_ownership_global_batch st (v:VMID) (ps : list PID) (pm: ownership): state :=
-   (get_reg_files st, get_mail_boxes st,
-   vinsert v ((foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v).1 ps),
-              (get_vm_page_table st v).2) (get_page_tables st),
-   get_current_vm st,
-   get_mem st, get_transactions st).
-
-Definition update_access_global_batch st (v:VMID) (ps : list PID) (pm: access): state :=
-   (get_reg_files st, get_mail_boxes st,
-   vinsert v ((get_vm_page_table st v).1,
-              (foldr (λ p acc, <[p:=pm]>acc)(get_vm_page_table st v).2 ps)) (get_page_tables st),
-   get_current_vm st,
-   get_mem st, get_transactions st).
-
-Definition update_memory_global_batch (st : state) (l : list (Addr * Word)) : state :=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, (list_to_map l) ∪ (get_mem st), get_transactions st).
-
-Definition update_ownership_batch st (ps : list PID) (pm: ownership): state :=
-  update_ownership_global_batch st (get_current_vm st) ps pm.
-
-Definition update_access_batch st (ps : list PID) (pm: access): state :=
-  update_access_global_batch st (get_current_vm st) ps pm.
-
-Definition update_memory_unsafe (st : state) (a : Addr) (w : Word) : state :=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st,
+Definition update_memory (st : state) (a : Addr) (w : Word) : state :=
+  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st,
    <[a:=w]>(get_mem st), get_transactions st).
 
-Definition get_memory_unsafe (st : state) (a : Addr) : option Word :=
-  (get_mem st) !! a.
-
 Program Definition update_offset_PC (st : state) (offset : Z) :  state :=
-  match ((get_vm_reg_file st (get_current_vm st)) !! PC) with
+  match ((get_reg_file st @ (get_current_vm st)) !! PC) with
    | Some v => (update_reg st PC (v ^+ offset)%f)
    | None => st
    end.
 
 Definition update_incr_PC (st : state) : state :=
   update_offset_PC st 1.
-
-Definition is_valid_PC (st : state) : option bool :=
-  w <- get_reg st PC ;;;
-  Some (check_access_addr st (get_current_vm st) w).
 
 Definition option_state_unpack (oldSt : state) (newSt : option state) : exec_mode * state :=
   match newSt with
@@ -244,15 +214,18 @@ Definition mov_reg (s : state) (dst : reg_name) (src : reg_name) : exec_mode * s
     in
   (option_state_unpack s comp).
 
-Definition update_memory (st : state) (a : Addr) (w : Word) : exec_mode * state :=
-  if check_access_addr st (get_current_vm st) a
-  then (ExecI, update_memory_unsafe st a w)
+Definition write_memory (st : state) (a : Addr) (w : Word) : exec_mode * state :=
+  if check_write_access_addr st (get_current_vm st) a
+  then (ExecI, update_memory st a w)
   else (FailPageFaultI, st).
 
-Definition get_memory (st : state) (a : Addr) : option Word :=
-  if check_access_addr st (get_current_vm st) a
-  then get_memory_unsafe st a
+Definition read_memory (st : state) (a : Addr) : option Word :=
+  if check_read_access_addr st (get_current_vm st) a
+  then (get_mem st !! a)
   else None.
+
+Definition get_memory (st : state) (a : Addr) : option Word :=
+  (get_mem st !! a).
 
 Definition get_memory_with_offset (st : state) (base : Addr) (offset : Z) : option Word :=
   a <- (base + offset)%f ;;;
@@ -263,17 +236,10 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
   | (R _ _, R _ _) =>
     match get_reg s src with
     | Some src' =>
-      match (get_mail_boxes s) !!! (get_current_vm s) with
-      | (tx, _) =>
-        match decide (to_pid_aligned src' = tx) with
-        | right _ =>
-          match get_memory s src' with
+          match read_memory s src' with
           | Some v => (ExecI, update_incr_PC (update_reg s dst v))
           | _ => (FailPageFaultI, s)
           end
-        | left _ => (FailPageFaultI, s)
-        end
-      end
     | _ => (FailI, s)
     end
   | _ => (FailI, s)
@@ -281,29 +247,27 @@ Definition ldr (s : state) (dst : reg_name) (src : reg_name) : exec_mode * state
 
 Definition str (s : state) (src : reg_name) (dst : reg_name) : exec_mode * state :=
   let comp :=
-      src' <- get_reg s src ;;;
-      dst' <- get_reg s dst ;;;
-      Some (src', dst')
+     match (dst, src) with
+     | (R _ _, R _ _) =>
+         src' <- get_reg s src ;;;
+         dst' <- get_reg s dst ;;;
+         Some (src', dst')
+     | _ => None
+     end
   in
   match comp with
   | Some (src', dst') =>
-    match (get_mail_boxes s) !!! (get_current_vm s) with
-    | (_, (rx, _)) =>
-      match decide (to_pid_aligned dst' = rx) with
-      | right _ =>
-        match update_memory s dst' src' with
+        match write_memory s dst' src' with
         | (ExecI, s') => (ExecI, update_incr_PC s')
         | _ => (FailPageFaultI, s)
         end
-      | left _ => (FailPageFaultI, s)
-      end
-    end
   | _ => (FailI, s)
   end.
 
-
 Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : Word) : exec_mode * state :=
   let comp :=
+    match arg1 with
+     | R _ _ =>
       arg1' <- get_reg s arg1 ;;;
       m <- (if (arg1' <? arg2)%f then
            Some (update_reg s NZ W2)
@@ -311,11 +275,15 @@ Definition cmp_word (s : state) (arg1 : reg_name) (arg2 : Word) : exec_mode * st
               Some (update_reg s NZ W0)
              else Some (update_reg s NZ W1)) ;;;
       Some(update_incr_PC m)
+    | _ => None
+    end
   in
   (option_state_unpack s comp).
 
 Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
+     match (arg1, arg2) with
+     | (R _ _, R _ _) =>
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       m <- (if (arg1' <? arg2')%f then
@@ -324,46 +292,63 @@ Definition cmp_reg (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode *
               Some (update_reg s NZ W0)
              else Some (update_reg s NZ W1)) ;;;
       Some(update_incr_PC m)
+     | _ => None
+     end
   in
   (option_state_unpack s comp).
 
-
-
-
 Definition add (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
+     match (arg1, arg2) with
+     | (R _ _, R _ _) =>
       arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^+ (finz.to_z (arg2':Word)))%f))
+     | _ => None
+     end
   in
   (option_state_unpack s comp).
 
 Definition sub (s : state) (arg1 : reg_name) (arg2 : reg_name) : exec_mode * state :=
   let comp :=
-      arg1' <- get_reg s arg1 ;;;
+  match (arg1, arg2) with
+     | (R _ _, R _ _) =>
+     arg1' <- get_reg s arg1 ;;;
       arg2' <- get_reg s arg2 ;;;
       Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^- (finz.to_z (arg2':Word)))%f))
+     | _ => None
+     end
   in
   (option_state_unpack s comp).
 
 Definition mult (s : state) (arg1 : reg_name) (arg2 : Imm) : exec_mode * state :=
   let comp :=
+    match arg1 with
+      | R _ _ =>
       arg1' <- get_reg s arg1 ;;;
       Some(update_incr_PC (update_reg s arg1 ((arg1': Word) ^* (finz.to_z (arg2:Word)))%f))
+      | _ => None
+    end
   in
   (option_state_unpack s comp).
 
 Definition bne (s : state) (arg : reg_name) : exec_mode * state :=
   let comp :=
-      arg' <- get_reg s arg ;;;
+    match arg with
+    | R _ _ => arg' <- get_reg s arg ;;;
       nz <- get_reg s NZ ;;;
       if (nz =? W1)%f then  Some(update_incr_PC s)
       else Some (update_reg s PC arg')
+    | _ => None
+    end
   in
   (option_state_unpack s comp).
 
 Definition br (s : state) (arg : reg_name) : exec_mode * state :=
-  let comp := (fun x => update_reg s PC x) <$> (get_reg s arg)
+  let comp := match arg with
+              | R _ _ => (fun x => update_reg s PC x) <$> (get_reg s arg)
+              | _ => None
+              end
   in
   (option_state_unpack s comp).
 
@@ -408,7 +393,7 @@ Definition unpack_hvc_result_normal (o : state) (q : hvc_result state) : exec_mo
   end.
 
 Definition update_current_vmid (st : state) (v : VMID) : state :=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, v, get_mem st, get_transactions st).
+  (get_reg_files st, get_mail_boxes st, get_page_table st, v, get_mem st, get_transactions st).
 
 Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * VMID)) : exec_mode * state :=
   match q with
@@ -424,14 +409,9 @@ Definition unpack_hvc_result_yield (o : state) (q : hvc_result (state * VMID)) :
   | inr (o', id) => (ExecI, (update_current_vmid  (update_incr_PC o') id))
   end.
 
-Definition get_tx_pid_global (st : state) (v : VMID) : PID:=
-   (get_vm_mail_box st v).1.
 
-Definition get_rx_pid_global (st : state) (v : VMID) : PID :=
-  (get_vm_mail_box st v).2.1.
-                       
 Definition is_rx_ready_global (st : state) (v : VMID) : bool :=
-  match get_vm_mail_box st v with
+  match get_mail_box st @ v with
   | (_, (_, Some _)) => true
   | _ => false
   end.
@@ -440,13 +420,13 @@ Definition is_rx_ready (st : state) : bool :=
   is_rx_ready_global st (get_current_vm st).
 
 Definition get_rx_sender_global (st : state) (v : VMID) : option VMID:=
-  match get_vm_mail_box st v with
+  match get_mail_box st @ v with
   | (_, (_, Some (_, v'))) => Some v'
   | _ => None
   end.
 
 Definition get_rx_length_global (st : state) (v : VMID) : option Word :=
-  match get_vm_mail_box st v with
+  match get_mail_box st @ v with
   | (_, (_, Some (v', _))) => Some v'
   | _ => None
   end.
@@ -457,72 +437,63 @@ Definition get_rx_sender (st : state) : option VMID:=
 Definition get_rx_length (st : state) : option Word :=
   get_rx_length_global st (get_current_vm st).
 
-Definition empty_rx_global (st : state) (v : VMID) : state :=
-  match get_vm_mail_box st v with
+Definition empty_rx(st : state) : state :=
+  match get_mail_box st @ (get_current_vm st) with
   | (txAddr, (rxAddr, _)) =>
     (get_reg_files st,
-     vinsert v (txAddr, (rxAddr,  None)) (get_mail_boxes st),
-     get_page_tables st,
+     vinsert (get_current_vm st) (txAddr, (rxAddr,  None)) (get_mail_boxes st),
+     get_page_table st,
      get_current_vm st,
      get_mem st, get_transactions st)
   end.
 
-Definition empty_rx (st : state) : state :=
-  empty_rx_global st (get_current_vm st).
+Definition write_mem_segment (st: state) (dst : Addr) (ws : list Word) : state :=
+  let m := list_to_map (zip (finz.seq dst (length ws)) ws) in
+  update_memory_global_batch st m.
 
-Definition write_mem_segment_unsafe (st : state) (dst : Addr) (segment : list Word) : state :=
-  update_memory_global_batch st (zip (finz.seq dst (Z.to_nat page_size)) segment).
+Definition read_mem_segment (m:mem) (src : Addr) (l : nat) : option (list Word) :=
+  @sequence_a list _ _ _ Word option _ _ ((λ a, (m !! a)) <$> (finz.seq src l)).
 
-Definition read_mem_segment_unsafe (st : state) (src : Addr) (l : Word) : list Word :=
-  foldr (fun x s => match get_memory_unsafe st x with | Some x' => x' :: s | None => s end) [] (finz.seq src (Z.to_nat (finz.to_z l))).
-
-Definition copy_from_addr_to_addr_unsafe (st : state) (src dst : Addr) (l : Word) : state :=
-  write_mem_segment_unsafe st dst (read_mem_segment_unsafe st src l).
-
-Definition copy_page_segment_unsafe (st : state) (src dst : PID) (l : Word) : state :=
-  copy_from_addr_to_addr_unsafe st (of_pid src) (of_pid dst) l.
-
+Definition copy_page_segment (st:state) (src dst : PID) (l : nat) : state :=
+    match (read_mem_segment (get_mem st) (of_pid src) l) with
+      Some wl => write_mem_segment st (of_pid dst) wl
+      |None => st
+    end.
 
 Definition fill_rx_unsafe (st : state) (l : Word) (v r : VMID) (tx rx : PID) : state :=
-  (get_reg_files st, vinsert r (tx, (rx, Some(l, v))) (get_mail_boxes st), get_page_tables st, get_current_vm st, get_mem st, get_transactions st).
+  (get_reg_files st, vinsert r (tx, (rx, Some(l, v))) (get_mail_boxes st), get_page_table st, get_current_vm st, get_mem st, get_transactions st).
 
 Definition fill_rx (st : state) (l : Word) (v r : VMID) : hvc_result state :=
-  match get_vm_mail_box st r with
+  match get_mail_box st @ r with
   | (tx, (rx, None)) =>
     unit (fill_rx_unsafe st l v r tx rx)
   | _ => throw Busy
   end.
 
-Definition write_retrieve_msg (st:state) (dst: Addr) (wh:handle) (trn: transaction): hvc_result state:=
+Definition write_retrieve_msg (st:state) (dst: Addr) (wh:Word) (trn: transaction): hvc_result state:=
  match trn with
-  | (vs, f, _ ,vr, ls, t) =>
-    match finz.of_z (Z.of_nat (length ls)) with
+  | (vs, vr, ls, t, _) =>
+    match finz.of_z (Z.of_nat ((size ls) + 4)) with
     | Some l =>
-      let des := ([of_imm (encode_vmid vs); f; wh; encode_transaction_type t ;l]
-                    ++ map of_pid ls) in
-      match finz.of_z (Z.of_nat (length des)) with
-      | Some l' => fill_rx (write_mem_segment_unsafe st dst des) l' vr vr
-      | None => throw InvParam
-      end
+      let des := ([of_imm (encode_vmid vs); wh; encode_transaction_type t ;l]
+                    ++ map of_pid (elements ls)) in
+      fill_rx (write_mem_segment st dst des) l vr vr
     | None => throw InvParam
     end
  end.
 
-Definition transfer_msg_unsafe (st : state) (l : Word) (v : VMID) (r : VMID) : hvc_result state :=
+Definition transfer_msg (st : state) (v : VMID) (r : VMID) (l : Word) : hvc_result state :=
   if (page_size <? l)%Z
   then throw InvParam
   else
-    let st' := copy_page_segment_unsafe st (get_tx_pid_global st v) (get_rx_pid_global st r) l
+    let st' := copy_page_segment st (get_tx_pid st @ v) (get_rx_pid st @ r) (Z.to_nat l)
     in fill_rx st' l v r.
 
-Definition transfer_msg (st : state) (l : Word) (r : VMID) : hvc_result state :=
-  transfer_msg_unsafe st l (get_current_vm st) r.
+Definition get_fresh_handles (trans: transactions): gset Word:=
+  (dom (gset _) (filter (λ kv, kv.2 = None) trans)).
 
-Definition get_fresh_handles (trans: transactions): list handle:=
-  (elements trans.2).
-
-Definition fresh_handle (trans : transactions) : hvc_result handle :=
-    let hds := (get_fresh_handles trans) in
+Definition fresh_handle (trans : transactions) : hvc_result Word:=
+    let hds := elements (get_fresh_handles trans) in
     match hds with
     | [] => throw NoMem
     | hd :: hds' => unit hd
@@ -533,129 +504,108 @@ Definition memory_region_descriptor : Type :=
 
 Definition transaction_descriptor : Type :=
   VMID (* Sender *)
-  * option handle (* Handle *)
-  * Word(* Flag *)
+  * option Word(* Handle *)
   * VMID (* Receiver *)
-  * list PID.
+  * gset PID.
 
-Definition transaction_to_transaction_descriptor (t : transaction) (h : handle) : transaction_descriptor :=
+Definition transaction_to_transaction_descriptor (t : transaction) (h : Word) : transaction_descriptor :=
   match t with
-  | (vs, f, _, vr, ls, _) => (vs, Some h, f, vr, ls)
+  | (vs, vr, ls, _, _) => (vs, Some h, vr, ls)
   end.
 
-Definition transaction_to_list_words (t : transaction) (h : handle) : option (list Word) :=
+Definition transaction_to_list_words (t : transaction) (h : Word) : option (list Word) :=
   match transaction_to_transaction_descriptor t h with
-  | (vs, Some h, f, vr, ls) =>
-    match finz.of_z (Z.of_nat (length ls)) with
+  | (vs, Some h, vr, ls) =>
+    match finz.of_z (Z.of_nat (size ls)) with
     | Some l =>
-      Some ([of_imm (encode_vmid vs); f; h; l; of_imm (encode_vmid vr)] ++ map of_pid ls)
+      Some ([of_imm (encode_vmid vs); h; l; of_imm (encode_vmid vr)] ++ map of_pid (elements ls))
     | None => None
     end
-  | (vs, None, f, vr, ls) =>
-    match finz.of_z (Z.of_nat (length ls)) with
+  | (vs, None, vr, ls) =>
+    match finz.of_z (Z.of_nat (size ls)) with
     | Some l =>
-      Some ([of_imm (encode_vmid vs); f; W0; l; of_imm (encode_vmid vr)] ++ map of_pid ls)
+      Some ([of_imm (encode_vmid vs); W0; l; of_imm (encode_vmid vr)] ++ map of_pid (elements ls))
     | None => None
     end
   end.
 
-Definition transaction_write_rx (st : state) (t : transaction) (h : handle) : option state :=
+Definition transaction_write_rx (st : state) (t : transaction) (h : Word) : option state :=
   match transaction_to_list_words t h with
-  | Some ls => Some (write_mem_segment_unsafe st (get_rx_pid_global st (get_current_vm st)) ls)
+  | Some ls => Some (write_mem_segment st (get_rx_pid st @ (get_current_vm st)) ls)
   | None => None
   end.
 
-Definition parse_list_of_pids st (b : Addr) l : option (list PID) :=
-   @sequence_a list _ _ _ PID option _ _ (map (λ v, (w <- ((get_mem st) !! v) ;;; (to_pid w) ))
+Definition parse_list_of_pids (ws: list Word) (wl: Word): option (list PID) :=
+  _ <- @bool_check_option True ((Z.to_nat (finz.to_z wl)) =? length ws);;;
+   @sequence_a list _ _ _ PID option _ _ (map to_pid ws).
+
+Definition parse_list_of_Word (mem : mem) (b : Addr) l : option (list Word) :=
+   @sequence_a list _ _ _ Word option _ _ (map (λ v, (mem !! v))
                       (finz.seq b l)).
-
-Definition parse_memory_region_descriptor (st : state) (b:Addr) : option memory_region_descriptor :=
-  l <- get_memory_with_offset st b 0 ;;;
-  r <- get_memory_with_offset st b 1 ;;;
-  r' <- decode_vmid r ;;;
-  ls' <- parse_list_of_pids st (b^+2)%f (Z.to_nat (finz.to_z l));;;
-  unit (r', ls').
-
-Definition parse_transaction_descriptor_retrieve (st : state) (b : Addr) : option transaction_descriptor :=
-  vs <- get_memory_with_offset st b 0 ;;;
-  wf <- get_memory_with_offset st b 1 ;;;
-  wh <- get_memory_with_offset st b 2 ;;;
-  vs' <- decode_vmid vs ;;;
-  unit (vs', Some wh, wf, (get_current_vm st), []).
 
 (* TODO: Prop version, reflection *)
 
-Definition parse_transaction_descriptor (st : state) (b: Addr) : option transaction_descriptor :=
+Definition parse_transaction_descriptor (mem : mem) (b: Addr) (len: nat) : option transaction_descriptor :=
   (* Main fields *)
-  vs <- get_memory_with_offset st b 0 ;;;
-  wf <- get_memory_with_offset st b 1 ;;;
-  wh <- get_memory_with_offset st b 2 ;;;
-  md <- parse_memory_region_descriptor st (b^+3)%f;;;
-  vs' <- decode_vmid vs ;;;
-  unit (vs', (if (finz.to_z wh =? 0)%Z then None else Some wh), wf, md.1, md.2).
+  raw_descriptor <- parse_list_of_Word mem b len;;;
+  vs_raw <- raw_descriptor !! 0 ;;;
+  vs <- decode_vmid vs_raw ;;;
+  wh <- raw_descriptor !! 1 ;;;
+  wl <- raw_descriptor !! 2 ;;;
+  vr_raw <- raw_descriptor !! 3 ;;;
+  vr <- decode_vmid vr_raw ;;;
+  ps <- parse_list_of_pids (drop 4 raw_descriptor) wl ;;;
+  unit (vs, (if (finz.to_z wh =? 0)%Z then None else Some wh), vr, list_to_set ps).
 
-(*TODO: validate length*)
-
-Definition validate_transaction_descriptor (st : state) (wl : Word) (ty : transaction_type)
-           (t : transaction_descriptor) : hvc_result () :=
+Definition validate_transaction_descriptor (i:VMID) (t : transaction_descriptor) : bool  :=
   match t with
-  | (s, h, wf, r ,ps) =>
-    _ <- lift_option_with_err (
+  | (s, h, r, ps) =>
              (* sender is the caller *)
-        _ <- @bool_check_option True ((get_current_vm st) =? s);;;
+         (andb (i =? s)
              (* none of the receivers is the caller  *)
-        _ <- @bool_check_option True  (negb (s =? r));;;
-             (* no other flags are supported *)
-        _ <- @bool_check_option True (wf <=? W1)%f;;;
-             (* clearing is not allowed for mem sharing *)
-        _ <- @bool_check_option True (match ty with
-                                     | Sharing => (negb (wf =? W1)%f)
-                                     | _ => true
-                                 end);;;
+          (andb (negb (s =? r))
              (* h equals 0*)
-        @bool_check_option True (match h with
+                    (match h with
                                       | None => true
                                       | Some _ => false
-                                     end)
-           ) InvParam ;;;
-    unit tt
+                                     end)))
   end.
 
-Definition insert_transaction (st : state) (h : handle) (t : transaction) (shp: gset handle):=
-  (get_reg_files st, get_mail_boxes st, get_page_tables st, get_current_vm st, get_mem st,
-   (<[h:=t]>(get_transactions st).1 ,shp)).
+Definition insert_transaction (st : state) (h : Word) (t : transaction):=
+  (get_reg_files st, get_mail_boxes st, get_page_table st, get_current_vm st, get_mem st,
+   <[h:= Some t]>(get_transactions st)).
 
-Definition alloc_transaction (st : state) (h : handle) (t : transaction) : state :=
-  (insert_transaction st h t ((get_transactions st).2 ∖ {[h]})).
-
-Definition update_transaction (st : state) (h : handle) (t : transaction) : state :=
-  (insert_transaction st h t (get_transactions st).2).
+Definition alloc_transaction := insert_transaction.
+Definition update_transaction := insert_transaction.
 
 Definition new_transaction (st : state) (v r : VMID)
-           (tt : transaction_type) (flag : Word) (ps:(list PID))  : hvc_result (state * handle) :=
+           (tt : transaction_type) (ps:(gset PID))  : hvc_result (state * Word) :=
   h <- fresh_handle (get_transactions st) ;;;
-  unit (alloc_transaction st h (v, flag, false, r, ps, tt), h).
+  unit (alloc_transaction st h (v, r, ps, tt, false), h).
 
-Definition get_transaction (st : state) (h : handle) : option transaction :=
-  ((get_transactions st).1) !! h.
+Definition get_transaction (st : state) (h : Word) : option transaction:=
+  match (get_transactions st) !! h with
+    |Some o => o
+    |None => None
+  end.
 
-Definition remove_transaction (s : state) (h : handle) : state :=
-  (get_reg_files s, get_mail_boxes s, get_page_tables s, get_current_vm s, get_mem s,
-    (delete h (get_transactions s).1, union (get_transactions s).2 {[h]})).
+Definition remove_transaction (s : state) (h : Word) : state :=
+  (get_reg_files s, get_mail_boxes s, get_page_table s, get_current_vm s, get_mem s,
+    <[h := None]>(get_transactions s)).
 
 Definition new_transaction_from_descriptor (st : state) (ty : transaction_type)
-           (td : transaction_descriptor) : hvc_result (state * handle) :=
+           (td : transaction_descriptor) : hvc_result (state * Word) :=
   match td with
-  | (s, None, f, r, ps) => new_transaction st s r ty f ps
+  | (s, None, r, ps) => new_transaction st s r ty ps
   | _ => throw InvParam
   end.
 
 (* all pages have the same required permission *)
 Definition check_transition_transaction (s : state) (td : transaction_descriptor) : bool :=
-  let p := (Owned, ExclusiveAccess) in
   match td with
-  | (_, _, _, _, m) => forallb (fun v' =>
-                           (check_perm_page s (get_current_vm s) v' p))  m
+  | (_, _, _, m) => bool_decide (set_Forall (fun v' =>
+                                 (check_excl_access_page s (get_current_vm s) v')
+                                 && check_ownership_page s (get_current_vm s) v' = true) m)
   end.
 
 Definition list_pid_to_addr (ps: list PID):=
@@ -664,40 +614,30 @@ Definition list_pid_to_addr (ps: list PID):=
 Definition flat_list_list_word (wss: list (list Word)):=
   (foldr (++) [] wss).
 
-Definition zero_pages (st: state) (ps: list PID):=
-   (get_reg_files st, get_mail_boxes st,
-  get_page_tables st, get_current_vm st,
-  (list_to_map (zip (list_pid_to_addr ps) (flat_list_list_word (pages_of_W0 (length ps))))) ∪ (get_mem st),
-   get_transactions st).
-
 Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   let comp :=
       len <- lift_option (get_reg s R1) ;;;
       m <- (if (page_size <? len)%Z
             then throw InvParam
             else
-              td <- lift_option (parse_transaction_descriptor s
-                                              (of_pid (get_tx_pid_global s (get_current_vm s)))) ;;;
-              _ <- validate_transaction_descriptor s len ty td ;;;
+              td <- lift_option_with_err (parse_transaction_descriptor (get_mem s)
+                                               (get_tx_pid s @ (get_current_vm s)) (Z.to_nat (finz.to_z len))) InvParam ;;;
+              _ <- (if (validate_transaction_descriptor (get_current_vm s) td) then unit () else throw InvParam) ;;;
               if (check_transition_transaction s td)
               then bind (new_transaction_from_descriptor s ty td)
                         (fun x => unit (x, td))
               else throw Denied) ;;;
         match m with
-        | (st,hd, (_, _ ,wf,_,ps)) =>
-           let st':= (if (wf =? W1)%f
-                      then (zero_pages st ps)
-                      else st)
-           in
+        | (st,hd, (_, _, _, ps)) =>
            match ty with
            | Sharing =>
              unit(update_reg (update_reg
-                                (update_access_batch st' ps SharedAccess)
+                                (update_page_table_global flip_excl st (get_current_vm st) ps)
                                 R0 (encode_hvc_ret_code Succ))
                              R2 hd)
            | _ => 
              unit(update_reg (update_reg
-                                (update_access_batch st' ps NoAccess)
+                                (update_page_table_global revoke_access st (get_current_vm st) ps)
                                 R0 (encode_hvc_ret_code Succ))
                              R2 hd)
            end
@@ -705,119 +645,87 @@ Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   in
   unpack_hvc_result_normal s comp.
 
-Definition toggle_transaction_retrieve (s : state) (h : handle) (trn: transaction)
-  : hvc_result state :=
-  let v := (get_current_vm s) in
-  match trn with
-   (vs, w1, b,r, ps, ty) =>
-      match (v =? r) with
-      | false => throw Denied
-      | _ => if b
-             then throw Denied
-             else unit (update_transaction s h (vs, w1, true, r, ps, ty))
-      end
-  end.
 
-Definition toggle_transaction_relinquish (s : state) (h : handle) (v : VMID) : hvc_result state :=
-  match get_transaction s h with
-  | Some (vs, w1, b,r, ps, ty) =>
-    match (v =? r) with
-      | false => throw Denied
-      | _ => if b
-             then unit (update_transaction s h (vs, w1, false ,r, ps, ty))
-             else throw Denied
-    end
-  | _ => throw InvParam
-  end.
-
-Definition relinquish_transaction (s : state)
-           (h : handle) (f : Word) (t : transaction) : hvc_result state :=
-  let ps := t.1.2 in
-  s' <- toggle_transaction_relinquish s h (get_current_vm s) ;;;
-  if (f =? W1)%Z then
-    unit (update_access_batch (update_reg (zero_pages s' ps) R0 (encode_hvc_ret_code Succ)) ps NoAccess)
-  else
-  unit (update_access_batch (update_reg s' R0 (encode_hvc_ret_code Succ)) ps NoAccess).
-
-Definition get_memory_descriptor (t : transaction) : VMID * (list PID) :=
+Definition get_memory_descriptor (t : transaction) : VMID * (gset PID) :=
   match t with
-  | (_, _, _, r, m, _) =>(r, m)
+  | (_, r, m, _, _) =>(r, m)
   end.
 
 Definition get_transaction_type (t : transaction) : transaction_type :=
   match t with
-  | (_, _, _, _,  _, ty) => ty
+  | (_, _, _, ty, _) => ty
   end.
 
 Definition retrieve (s : state) : exec_mode * state :=
   let comp :=
-      len <- lift_option (get_reg s R1) ;;;
-      m <- (if (page_size <? len)%Z
-            then throw InvParam
-            else
-              lift_option (parse_transaction_descriptor_retrieve s
-                             (of_pid (get_tx_pid_global s (get_current_vm s))))) ;;;
-      match m with
-      | (vs, Some handle, _, _, _) =>
-        trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-        match get_transaction s handle with
-         | Some (vs, w1, b,r, ps, ty) =>
-           match ((get_current_vm s) =? r) , b  with
+      handle <- lift_option (get_reg s R1) ;;;
+      trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
+      match trn with
+         | (vs, vr, ps, ty, b) =>
+           let v := (get_current_vm s) in
+           match (v =? vr), b with
            | true, false =>
-             s' <- (write_retrieve_msg s (get_rx_pid_global s (get_current_vm s)) handle trn) ;;;
+             s' <- (write_retrieve_msg s (get_rx_pid s @ v) handle trn) ;;;
+             let upd := match ty with
+               | Sharing | Lending => grant_access
+               | Donation => (λ perm v, update_ownership (grant_access perm v) v)
+               end in
              match ty with
-             | Sharing =>
-               unit (update_access_batch (update_reg (update_transaction s' handle (vs, w1, true ,r, ps, ty))
-                                                     R0 (encode_hvc_ret_code Succ)) ps SharedAccess)
-             | Lending =>
-               (* it is fine because we only allow at most one receiver *)
-               unit (update_access_batch (update_reg (update_transaction s' handle (vs, w1, true ,r, ps, ty))
-                                                     R0 (encode_hvc_ret_code Succ)) ps ExclusiveAccess)
+             | Sharing | Lending =>
+                 unit  (update_reg
+                          (update_page_table_global upd (update_transaction s' handle (vs, vr, ps, ty, true)) v ps)
+                          R0 (encode_hvc_ret_code Succ))
              | Donation =>
-               unit (update_access_batch (update_ownership_batch (update_reg (remove_transaction s' handle)
-                                                R0 (encode_hvc_ret_code Succ)) ps Owned) ps ExclusiveAccess)
+                 unit  (update_reg
+                          (update_page_table_global upd (remove_transaction s' handle) v ps)
+                          R0 (encode_hvc_ret_code Succ))
              end
            | _ , _ => throw Denied
            end
-         | None => throw InvParam
-         end
-      | _ => throw InvParam
       end
   in
   unpack_hvc_result_normal s comp.
 
 Definition relinquish (s : state) : exec_mode * state :=
-  let b := (of_pid (get_tx_pid_global s (get_current_vm s))) in
   let comp :=
-      h <- lift_option (get_memory_with_offset s b 0) ;;;
-      f <- lift_option (get_memory_with_offset s b 1) ;;;
-      trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
-      if (f >? W1)%Z then throw InvParam else
-       relinquish_transaction s h f trn
+    h <- lift_option (get_reg s R1) ;;;
+    trn <- lift_option_with_err (get_transaction s h) InvParam ;;;
+    let ps := trn.1.1.2 in
+    let v := (get_current_vm s) in
+      s' <- (match trn with
+             | (vs, r, ps, ty, b) =>
+                 if b && (v =? r)
+                 then unit (update_transaction s h (vs, r, ps, ty, false))
+                 else throw Denied
+             end) ;;;
+      unit (update_page_table_global revoke_access (update_reg s' R0 (encode_hvc_ret_code Succ)) v ps)
   in
   unpack_hvc_result_normal s comp.
-
-Definition no_borrowers (s : state) (h : handle) (v : VMID) : bool :=
-  match (get_transaction s h) with
-  | None => false
-  | Some (vs, w1, b, r, ps, ty) => negb b
-  end.
 
 Definition reclaim (s : state) : exec_mode * state :=
   let comp :=
       handle <- lift_option (get_reg s R1) ;;;
       trn <- lift_option_with_err (get_transaction s handle) InvParam ;;;
-      l <- unit ((get_memory_descriptor trn).2 );;;
-      if no_borrowers s handle (get_current_vm s)
+      ps <- unit ((get_memory_descriptor trn).2);;;
+      v <- unit (get_current_vm s) ;;;
+      if bool_decide (trn.1.1.1.1 = v) && (negb trn.2)
       then
-        unit (update_reg  (update_access_batch
-                             (remove_transaction s handle) l ExclusiveAccess) R0 (encode_hvc_ret_code Succ))
+        match trn.1.2 with
+        | Sharing =>
+            unit (update_reg
+                    (update_page_table_global flip_excl (remove_transaction s handle) v ps)
+                    R0 (encode_hvc_ret_code Succ))
+        | Lending | Donation =>
+            unit (update_reg
+                    (update_page_table_global grant_access (remove_transaction s handle) v ps)
+                    R0 (encode_hvc_ret_code Succ))
+        end
       else throw Denied
   in
   unpack_hvc_result_normal s comp.
 
 Definition is_primary (st : state) : bool :=
-  (get_current_vm st) =? 0.
+  bool_decide ((get_current_vm st) = V0).
 
 Definition is_secondary (st : state) : bool :=
   negb (is_primary st).
@@ -830,49 +738,49 @@ Definition run (s : state) : exec_mode * state :=
       then
         unit (s, id)
       else
-        throw InvParam
+        throw Denied
   in
   unpack_hvc_result_yield s comp.
 
 Program Definition yield (s : state) : exec_mode * state :=
   let comp :=
-      let s' := (update_reg_global s (@nat_to_fin 0 vm_count vm_count_pos) R0
+      let s' := (update_reg_global s V0 R0
                                    (encode_hvc_func Yield))
       in
-      if is_primary s'
+      if is_primary s
       then
-        unit (s', (@nat_to_fin 0 vm_count vm_count_pos))
+        unit (s', V0)
       else
-        unit ((update_reg_global s'
-                      (@nat_to_fin 0 vm_count vm_count_pos) R1
-                      (encode_vmid (get_current_vm s'))),
-              (@nat_to_fin 0 vm_count vm_count_pos))
+        unit ((update_reg_global s' V0 R1
+                      (encode_vmid (get_current_vm s'))), V0)
   in
   unpack_hvc_result_yield s comp.
 
 Definition send (s : state) : exec_mode * state :=
   let comp :=
-      let prim := @nat_to_fin 0 vm_count vm_count_pos in
       receiver <- lift_option (get_reg s R1) ;;;
       receiver' <- lift_option_with_err (decode_vmid receiver) InvParam ;;;
+      _ <- (if bool_decide (receiver' = (get_current_vm s)) then throw InvParam else unit ()) ;;;
       l <- lift_option (get_reg s R2) ;;;
-      st <- transfer_msg s l receiver' ;;;
+      st <- transfer_msg s (get_current_vm s) receiver' l ;;;
       if is_primary st
       then
-        unit (st, prim)
+        unit (st, V0)
       else    
-        unit (update_reg_global (update_reg_global (update_reg_global st prim R0 (encode_hvc_func Send))
-                                                   prim R1 receiver) prim R2 l, prim)
+        unit (update_reg_global (update_reg_global (update_reg_global st V0 R0 (encode_hvc_func Send))
+                                                   V0 R1 receiver) V0 R2 l, V0)
   in
   unpack_hvc_result_yield s comp.
 
 Definition wait (s : state) : exec_mode * state :=
   let comp :=
       if is_rx_ready s
-      then unit (s, get_current_vm s)
-      else unit ((update_reg_global s
-                      (@nat_to_fin 0 vm_count vm_count_pos) R1
-                      (encode_vmid (get_current_vm s))), (@nat_to_fin 0 _ vm_count_pos))
+      then
+        l <- lift_option (get_rx_length s) ;;;
+        n <- lift_option (get_rx_sender s) ;;;
+        unit ((update_reg (update_reg (update_reg (empty_rx s) R0 (encode_hvc_func Send)) R1 l) R2 (encode_vmid n)), (get_current_vm s))
+      else unit ((update_reg_global (update_reg_global s V0 R0 (encode_hvc_func Wait)) V0 R1
+                      (encode_vmid (get_current_vm s))), V0)
   in
   unpack_hvc_result_yield s comp.
 
@@ -888,13 +796,10 @@ Definition poll (s : state) : exec_mode * state :=
   unpack_hvc_result_normal s comp.
 
 Definition hvc (s : state) : exec_mode * state :=
-  match get_reg s R0 with
-  | None => fail s
-  | Some r0 =>
-    match decode_hvc_func r0 with
-    | None => fail s
-    | Some func =>
-      match func with
+  let comp :=
+    r0 <- lift_option (get_reg s R0) ;;;
+  func <- lift_option_with_err (decode_hvc_func r0) InvParam ;;;
+  unit (match func with
       | Run => run s
       | Yield => yield s
       | Share => mem_send s Sharing
@@ -906,8 +811,17 @@ Definition hvc (s : state) : exec_mode * state :=
       | Send => send s
       | Wait => wait s
       | Poll => poll s
-      end
-    end
+      end) in
+    match comp with
+    | inl err =>
+        match err with
+        | inl () => (FailI, s)
+        | inr err' =>
+            (ExecI, (update_incr_PC (update_reg
+                                       (update_reg s R0 (encode_hvc_ret_code Error))
+                                       R2 (encode_hvc_error err'))))
+        end
+    | inr o' => o'
   end.
 
 Definition exec (i : instruction) (s : state) : exec_mode * state :=
@@ -932,15 +846,21 @@ Definition exec (i : instruction) (s : state) : exec_mode * state :=
 Arguments exec !_ _.
 
 Inductive step : exec_mode -> state -> exec_mode -> state -> Prop :=
-| step_exec_fail:
-    forall st,
-      not (is_valid_PC st = Some true) ->
+| step_exec_fail_invalid_pc:
+    forall st a,
+      get_reg st PC = Some a ->
+      read_memory st a = None ->
+      step ExecI st FailI st
+| step_exec_fail_invalid_instr:
+    forall st a w,
+      get_reg st PC = Some a ->
+      read_memory st a = Some w ->
+      decode_instruction w = None ->
       step ExecI st FailI st
 | step_exec_normal:
     forall st a w i c,
-      is_valid_PC st = Some true ->
       get_reg st PC = Some a ->
-      get_memory st a = Some w ->
+      read_memory st a = Some w ->
       decode_instruction w = Some i ->
       exec i st = c ->
       step ExecI st c.1 c.2.
@@ -957,7 +877,7 @@ Proof.
   intros st; destruct st; reflexivity.
 Qed.
 
-Definition scheduler : state → nat → Prop :=
-λ σ i,  (fin_to_nat (get_current_vm σ)) = i.
+Definition scheduler : state → nat → bool:=
+λ σ i,  bool_decide ((fin_to_nat (get_current_vm σ)) = i).
 
 End lang.

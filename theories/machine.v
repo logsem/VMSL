@@ -114,6 +114,8 @@ exists (w / page_size)%Z.
 lia.
 Defined.
 
+Notation tpa := to_pid_aligned.
+
 Global Instance pid_eq_dec: EqDecision PID.
 intros x y.
 destruct x,y .
@@ -209,41 +211,12 @@ Proof.
   solve_decision.
 Qed.
 
-(* if a VM has access to a page. SharedAccess means at least two VMs can access this page. *)
-Inductive access : Type :=
-| NoAccess
-| SharedAccess
-| ExclusiveAccess.
-
-Global Instance eq_decision_access : EqDecision access.
-Proof.
-  solve_decision.
-Qed.
-
-Definition is_accessible (p : access) : bool :=
-  match p with
-  | SharedAccess => true
-  | ExclusiveAccess => true
-  | _ => false
-  end.
-
-Definition is_exclusive (p : access) : bool :=
-  match p with
-  | ExclusiveAccess => true
-  | _ => false
-  end.
-
-Definition is_owned (p : ownership) : bool :=
-  match p with
-  | Owned => true
-  | _ => false
-  end.
-
 (* by the FFA specs, a VM has the following three ways to share memory *)
 Inductive transaction_type : Type :=
 | Donation
 | Sharing
 | Lending.
+
 
 Global Instance eq_decision_transaction_type : EqDecision transaction_type.
 Proof.
@@ -297,9 +270,11 @@ Inductive valid_instruction : instruction -> Prop :=
                       valid_instruction (Cmp dst (inr src))
 | valid_add src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
+                      dst ≠ src ->
                       valid_instruction (Add src dst)
 | valid_sub src dst : reg_valid_cond dst ->
                       reg_valid_cond src ->
+                      dst ≠ src ->
                       valid_instruction (Sub src dst)
 | valid_mult src dst : reg_valid_cond dst ->
                       valid_instruction (Mult dst src)
@@ -308,6 +283,7 @@ Inductive valid_instruction : instruction -> Prop :=
 | valid_br r : reg_valid_cond r ->
                 valid_instruction (Br r)
 | valid_nop : valid_instruction Nop.
+
 
 (* the decoding instruction is always valid,
 so that we can avoid considering the invalid instruction exceptions  *)
@@ -338,11 +314,14 @@ Proof.
   apply decode_encode_instruction.
 Qed.
 
+Section hyp_config.
 (* there are only fixed number of VMs in the machine *)
 Class HypervisorConstants := {
   vm_count : nat;
   vm_count_pos : 0 < vm_count;
 }.
+
+End hyp_config.
 
 Section hyp_def.
 Context `{_: HypervisorConstants}.
@@ -397,4 +376,7 @@ Class HypervisorParameters := {
   decode_encode_transaction_type : forall (ty : transaction_type),
       decode_transaction_type (encode_transaction_type ty) = Some ty
 }.
+
+
+
 End hyp_def.

@@ -19,10 +19,13 @@ Context `{_ : !irisG hyp_machine Σ}.
 
 Lemma sswp_lift_step_fupd {i E Φ} m1 :
   machine.terminated m1 = false →
-  (∀ σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp σ1 ={E,∅}=∗
+  (∀ n σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp n σ1 ={E,∅}=∗
     ⌜reducible m1 σ1⌝ ∗
-    ∀ m2 σ2 , ⌜step m1 σ1 m2 σ2 ⌝ ={∅}=∗ ▷ |={∅,E}=>
-      state_interp σ2 ∗  Φ m2 )
+    ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗
+    ⌜step m1 σ1 m2 σ2⌝ ={∅}=∗ ▷ |={∅,E}=>
+    (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
+    Φ (negb (scheduled σ2 i) && negb (terminated m2), m2))
   ⊢ SSWP m1 @ i; E {{ Φ }}.
 Proof.
   by rewrite sswp_eq /sswp_def=>->.
@@ -30,37 +33,42 @@ Qed.
 
 Lemma sswp_lift_step {i E Φ} m1 :
   machine.terminated m1 = false →
-  (∀ σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp σ1 ={E,∅}=∗
+  (∀ n σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp n σ1 ={E,∅}=∗
     ⌜reducible m1 σ1⌝ ∗
-    ▷∀ m2 σ2 , ⌜step m1 σ1 m2 σ2 ⌝ ={∅,E}=∗
-      state_interp σ2 ∗  Φ m2 )
+    ▷ ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗ ⌜step m1 σ1 m2 σ2 ⌝ ={∅,E}=∗
+      (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
+    Φ (negb (scheduled σ2 i) && negb (terminated m2), m2)) 
   ⊢ SSWP m1 @ i; E {{ Φ }}.
 Proof.
   iIntros (?) "H".
   iApply sswp_lift_step_fupd; [done |].
-  iIntros (?) "Hsche Hσ".
-  iMod ("H" $! σ1 with "Hsche Hσ") as "[ $ H]".
-  iIntros "!> * % !> !>".
-  by iApply "H".
+  iIntros (? ?) "Hsche Hσ".
+  iMod ("H" $! n σ1 with "Hsche Hσ") as "[ $ H]".
+  iIntros "!> * [% HpropA] % !> !>". 
+  iApply ("H" with "[HpropA]");auto.
 Qed.
-
 
 Lemma sswp_lift_atomic_step_fupd {i E1 E2 Φ} m1 :
   machine.terminated m1 = false →
-  (∀ σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp σ1 ={E1}=∗
+  (∀ n σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp n σ1 ={E1}=∗
     ⌜reducible m1 σ1⌝ ∗
-    ∀ m2 σ2 , ⌜step m1 σ1 m2 σ2 ⌝ ={E1} [E2]▷=∗
-      state_interp σ2 ∗  Φ m2 )
+    ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗ ⌜step m1 σ1 m2 σ2 ⌝ ={E1} [E2]▷=∗
+      (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
+    Φ (negb (scheduled σ2 i) && negb (terminated m2), m2)) 
   ⊢ SSWP m1 @ i; E1 {{ Φ }}.
 Proof.
   iIntros (?) "H".
   iApply (sswp_lift_step_fupd m1)=>//.
-  iIntros (?) "Hsche Hσ".
-  iMod ("H" $! σ1 with "Hsche Hσ") as "[$ H]".
+  iIntros (? ?) "Hsche Hσ".
+  iMod ("H" $! n σ1 with "Hsche Hσ") as "[$ H]".
   iApply fupd_mask_intro;first set_solver.
-  iIntros "Hclose" (m2 σ2 ?).
+  iIntros "Hclose" (m2 σ2).
   iMod "Hclose" as "_".
-  iMod ("H" $! m2 σ2 with "[#]") as "H";[done|].
+  iIntros "[% Hprop] %".
+  iDestruct ("H" $! m2 σ2 with "[Hprop]") as "H";[eauto|]. 
+  iMod ("H" $! H0) as "H". 
   iApply fupd_mask_intro;first set_solver.
   iIntros " Hclose !>".
   iMod "Hclose" as "_".
@@ -69,20 +77,21 @@ Qed.
 
 Lemma sswp_lift_atomic_step {i E Φ} m1 :
   machine.terminated m1 = false →
-  (∀ σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp σ1 ={E}=∗
+  (∀ n σ1 , ⌜scheduled σ1 i⌝ -∗  state_interp n σ1 ={E}=∗
     ⌜reducible m1 σ1⌝ ∗
-    ▷ ∀ m2 σ2 , ⌜step m1 σ1 m2 σ2 ⌝ ={E}=∗
-      state_interp σ2 ∗  Φ m2 )
+    ▷ ∀ m2 σ2 , (∃ P, VMPropAuth i P) -∗ ⌜step m1 σ1 m2 σ2 ⌝ ={E}=∗
+      (∃ P, VMPropAuth i P) ∗ state_interp n σ2 ∗
+    ([∗ list] vmid ∈ just_scheduled_vms n σ1 σ2, VMProp_holds vmid (1/2)%Qp) ∗
+    Φ (negb (scheduled σ2 i) && negb (terminated m2), m2))
   ⊢ SSWP m1 @ i; E {{ Φ }}.
 Proof.
   iIntros (?) "H".
   iApply (@sswp_lift_atomic_step_fupd i E E Φ);[done|].
-  iIntros (??) "Hσ".
-  iMod ("H" $! σ1 H0 with "Hσ") as "[$ H]".
-  iIntros "!> *".
-  iIntros (Hstep).
+  iIntros (? ? Hsche) "Hσ".
+  iMod ("H" $! n σ1 Hsche with "Hσ") as "[$ H]".
+  iIntros "!> * [% Hprop] %Hstep". 
   do 2 iModIntro.
-  by iApply "H".
+  iApply ("H" with "[Hprop]");auto.
 Qed.
 
 End lifting.

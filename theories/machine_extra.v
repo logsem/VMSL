@@ -1,9 +1,26 @@
 (* this file contains basic definitions and lemmas about registers and addresses *)
 From Coq Require Import ssreflect Eqdep_dec ZArith.
 From HypVeri Require Import machine monad stdpp_extra.
-From stdpp Require Import fin_maps list countable fin vector.
+From stdpp Require Import fin_maps list countable fin vector gmap.
 
 (* these definitions are frequently used *)
+
+Section VMID0.
+  Context `{hypconst:HypervisorConstants}.
+
+  Program Definition V0 : VMID := (@nat_to_fin 0 _ _).
+  Next Obligation.
+  destruct hypconst. simpl. lia.
+  Defined.
+
+  Lemma V0eq : (fin_to_nat V0) = 0.
+  Proof.
+    rewrite /V0.
+    apply fin_to_nat_to_fin.
+  Qed.
+
+End VMID0.
+
 Program Definition W0 : Word := (finz.FinZ 0 _ _).
 Solve Obligations with lia.
 
@@ -603,9 +620,6 @@ Proof.
   solve_finz.
 Qed.
 
-Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
-
-
 (* an alternative definition, not sure which is better *)
 (* Definition addr_of_page' (p: PID) := map (λ off, ((of_pid p) + off)%f) (seqZ 0%Z page_size). *)
 
@@ -648,6 +662,119 @@ Proof using.
       solve_finz. } }
 Qed.
 
+Lemma finz_seq_in_inv{b} (f f' : finz.finz b) n:
+    (f' <= f )%f -> (f <= f' ^+ (Z.of_nat n))%f ->
+    f ∈ finz.seq f' (n+1).
+ Proof.
+   revert f f'. induction n; cbn.
+   { intros.
+     assert (f = f')%f as ->.
+     {
+       solve_finz.
+     }
+     set_solver +.
+   }
+   {
+     intros.
+     destruct (decide (f = f')).
+     {
+       rewrite e.
+       apply elem_of_list_here.
+     }
+     apply elem_of_list_further.
+     apply IHn.
+     solve_finz.
+     solve_finz.
+   }
+ Qed.
+
+
+ Definition addr_of_page (p: PID) := (finz.seq (of_pid p) (Z.to_nat page_size)).
+
+ Lemma elem_of_addr_of_page_tpa (a:Addr) : a ∈ (addr_of_page (tpa a)).
+ Proof.
+   rewrite /addr_of_page.
+   pose proof (in_page_to_pid_aligned a) as [H1 H2].
+   assert ((Z.to_nat 1000) = (Z.to_nat 999) + 1) as ->.
+   { done. }
+   apply finz_seq_in_inv.
+   {
+     rewrite /Is_true in H1.
+     case_match;last done.
+     solve_finz.
+   }
+   {
+     rewrite /Is_true in H2.
+     case_match;last done.
+     solve_finz.
+   }
+ Qed.
+
+Lemma elem_of_addr_of_page_of_pid (a : Addr) : of_pid (tpa a) ∈ addr_of_page (tpa a).
+Proof.
+  unfold addr_of_page.
+  unfold tpa.
+  rewrite finz_seq_cons; first lia.
+  apply elem_of_list_here.            
+Qed.
+
+Lemma elem_of_addr_of_page_iff (a:Addr) (p : PID) : a ∈ (addr_of_page p) <-> p = (tpa a).
+Proof.
+  split.
+  {
+     rewrite /addr_of_page.
+     intro Hin.
+     symmetry.
+     apply to_pid_aligned_in_page.
+     rewrite /addr_in_page.
+     split.
+     apply finz_seq_in1 in Hin.
+     rewrite Is_true_true.
+     solve_finz.
+     apply finz_seq_in2 in Hin.
+     rewrite Is_true_true.
+     solve_finz.
+  }
+  intros ->.
+  apply elem_of_addr_of_page_tpa.
+Qed.
+
+Lemma addr_of_page_not_empty_exists (p : PID) : ∃a, a ∈ addr_of_page p.
+Proof.
+  exists (of_pid p).
+  apply elem_of_addr_of_page_iff.
+  rewrite to_pid_aligned_eq //.
+Qed.
+
+Lemma addr_of_page_not_empty_set (p : PID) : list_to_set (addr_of_page p) ≠ (∅: gset _) .
+Proof.
+  pose proof (addr_of_page_not_empty_exists p) as H.
+  destruct H as [a H].
+  intro Heq.
+  rewrite -(elem_of_list_to_set (C:= gset Addr) a (addr_of_page p)) in H.
+  rewrite Heq in H.
+  set_solver + H.
+Qed.
+
+Lemma addr_of_page_NoDup (p:PID) : NoDup (addr_of_page p).
+Proof.
+  rewrite /addr_of_page.
+  apply finz_seq_NoDup'.
+  apply last_addr_in_bound.
+Qed.
+
+Lemma addr_of_page_disj (p1 p2 :PID) :
+  p1 ≠ p2 ->
+  ((list_to_set (addr_of_page p1)) : gset Addr) ## list_to_set (addr_of_page p2).
+Proof.
+  intro Hneq.
+  apply elem_of_disjoint.
+  intros a.
+  rewrite !elem_of_list_to_set.
+  rewrite !elem_of_addr_of_page_iff.
+  intros -> Hin2.
+  done.
+Qed.
 
 Lemma pid_lt_lt (p1 p2:PID):
   ((of_pid p1) < (of_pid p2))%f -> (p1 ^+ (page_size - 1) < p2)%f.

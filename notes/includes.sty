@@ -1,0 +1,86 @@
+\usepackage{listings,comment}
+% \usepackage{amsfonts,amsmath,amssymb,stmaryrd,amsthm}
+\usepackage{amsfonts,amsmath,stmaryrd,amsthm}
+\PassOptionsToPackage{obeyspaces}{url}
+\usepackage{tikz,pgffor,mathtools}
+% \usetikzlibrary{calc,fadings,decorations.pathreplacing,arrows,shapes,matrix,
+% chains,fit,matrix}
+\usepackage{tikz-cd}
+\usepackage[tikz]{mdframed}
+\usepackage{mathpartir}
+\usepackage{\basedir pftools}
+
+\usepackage{stackengine}
+\usepackage{xcolor}
+\usepackage[T1]{fontenc}
+\usepackage{beramono}
+\usepackage{xfrac}
+\usepackage{calc}
+
+\newcommand{\Name}[1]{{#1}}
+\newcommand{\Coq}{\Name{Coq}}
+\newcommand{\OCaml}{\Name{OCaml}}
+\hyphenation{comp-cert}
+\newcommand{\Ssreflect}{\Name{Ssreflect}}
+\newcommand{\Linux}{\Name{Linux}}
+\newcommand{\C}{C}
+\newcommand{\etal}{\textit{et al.}}
+\newcommand{\ala}{\textit{\`a la}}
+\newcommand{\eg}{\textit{e.g.}}
+\newcommand{\cf}{\textit{cf.}}
+\newcommand{\ie}{\textit{i.e.}}
+\newcommand{\Ie}{\textit{I.e.}}
+\newcommand{\etc}{\textit{etc.}}
+\newcommand{\defacto}{\textit{de facto}}
+\newcommand{\viceversa}{\textit{vice versa}}
+\newcommand{\ARM}{ARM}
+\newcommand{\Iris}{Iris}
+\newcommand{\Proofgeneral}{Proof general}
+
+\newcommand{\IPM}{\textsf{IPM}}
+\newcommand{\IPMfull}{Interactive Proof Mode for embedded logics in \Coq}
+\newcommand{\TheLang}{\(\mathsf{F}^{\mu, \mathit{ref}}_{\mathit{conc}}\)}
+
+\newcommand{\inferref}[1]{\textsc{\ref{#1}}}
+
+% \newcommand{\trans}[1]{
+%   \color{red}
+%   \left\langle \! \left\langle
+%       \color{black}
+%       #1
+%       \color{red}
+%     \right\rangle \! \right\rangle \color{black}}
+
+% math
+\newcommand*{\defined}{\triangleq\ }
+
+\newcommand{\length}{\mathit{length}}
+\newcommand{\size}{\mathit{size}}
+
+% reference
+\renewcommand{\DefTirName}[1]{\hypertarget{#1}{\TirName {#1}}}
+\newcommand{\refr}[1]{\hyperlink{#1}{\TirName {#1}}}
+
+% SOME/NONE
+\newcommand{\SOME}{\mathtt{Some}}
+\newcommand{\NONE}{\mathtt{None}}
+
+
+% programming language
+\newcommand{\conf}{\mathit{c}}
+\newcommand{\updateconfstate}{\mathit{update_{st}}}
+\newcommand{\reducible}{\mathit{reducible}}
+
+% program logic
+
+\newcommand{\stateinterp}{\mathit{StateInterp}}
+
+\newcommand{\weakestpre}{\mathit{WP}}
+\newcommand{\VMPropholds}{\textsf{VMPropHolds}}
+\newcommand{\VMProp}{\textsf{VMProp}}
+\newcommand{\mempage}{\textsf{page}}
+
+% logical relation
+\newcommand{\InterpA}{\textsf{interp\_access}}
+\newcommand{\InterpE}{\textsf{interp\_execute}}
+\newcommand{\FTLR}{\textsf{FTLR}}
