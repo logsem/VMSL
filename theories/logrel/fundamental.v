@@ -156,7 +156,12 @@ Section fundamental.
               iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs'' tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-              admit.
+              {
+                iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                iExists mem_acc_tx;by iFrame "mem_acc_tx".
+                iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                set_solver +.
+              }
             }
           }
           { (* mov reg *)
@@ -195,12 +200,12 @@ Section fundamental.
               pose proof (Htotal_regs (R n0 fin0)) as [w' Hlookup_R0].
               (* getting regs *)
               iDestruct ((reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_R Hlookup_R0)
-                           with "[$regs]") as "(PC & R & R0 & Hacc_regs)"; [done | done | | done |].
+                          with "[$regs]") as "(PC & R & R0 & Hacc_regs)"; [done | done | | done |].
               {
                 apply decode_instruction_valid in Heqn.
                 inversion Heqn.
                 assumption.
-            }
+              }
               (* getting mem *)
               iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[mem_acc_tx]")
                 as "[mem_instr Hacc_mem_acc_tx]"; first done.
@@ -212,7 +217,12 @@ Section fundamental.
               iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs'' tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-              admit.
+              {
+                iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                iExists mem_acc_tx;by iFrame "mem_acc_tx".
+                iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                set_solver +.
+              }
             }
           }
         }
@@ -243,8 +253,8 @@ Section fundamental.
             { (* normal case *)
               destruct (decide (a_src = ai)) as [|Hneq''].
               { (* exact same addr *)
-              iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[mem_acc_tx]")
-                as "[mem_instr Hacc_mem_acc_tx]"; first done.
+                iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[mem_acc_tx]")
+                  as "[mem_instr Hacc_mem_acc_tx]"; first done.
                 iApply (ldr_same_addr (q := (1 / 2)) (s := ps_acc') ai a_src dst src with "[PC mem_instr r_src r_dst tx pgt_acc']"); iFrameAutoSolve.
                 { symmetry;done. }
                 iNext.
@@ -254,7 +264,12 @@ Section fundamental.
                 iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-              admit.
+                {
+                  iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                  iExists mem_acc_tx;by iFrame "mem_acc_tx".
+                  iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                  set_solver +.
+                }
               }
               { (* different addresses *)
                 destruct (decide ((tpa a_src) = (tpa ai))) as [Heqn'|].
@@ -272,11 +287,16 @@ Section fundamental.
                   iNext.
                   iIntros "(PC & mem_instr & r_src & a_src & r_dst & pgt_acc' & tx) _".
                   iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[%Htotal_regs' regs]";iFrame.
-                iDestruct ("Hacc_mem_acc_tx" with "[a_src mem_instr]") as "mem_acc_tx"; iFrame.
-                iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
+                  iDestruct ("Hacc_mem_acc_tx" with "[a_src mem_instr]") as "mem_acc_tx"; iFrame.
+                  iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-                  admit.
+                  {
+                    iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                    iExists mem_acc_tx;by iFrame "mem_acc_tx".
+                    iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                    set_solver +.
+                  }
                 }
                 { (* in difference pages *)
                   (* getting mem *)
@@ -291,10 +311,15 @@ Section fundamental.
                   iIntros "(PC & mem_instr & r_src & a_src & r_dst & pgt_acc' & tx) _".
                   iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[%Htotal_regs' regs]";iFrame.
                   iDestruct ("Hacc_mem_acc_tx" with "[a_src mem_instr]") as "mem_acc_tx"; iFrame.
-                iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
+                  iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-                  admit.
+                  {
+                    iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                    iExists mem_acc_tx;by iFrame "mem_acc_tx".
+                    iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                    set_solver +.
+                  }
                 }
               }
             }
@@ -302,8 +327,8 @@ Section fundamental.
           { (* no access to the page, apply ldr_error *)
             (* getting mem *)
             (* we don't update memory *)
-              iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[mem_acc_tx]")
-                as "[mem_instr Hacc_mem_acc_tx]"; first done.
+            iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[mem_acc_tx]")
+            as "[mem_instr Hacc_mem_acc_tx]"; first done.
             iDestruct (access_split with "[pgt_acc pgt_acc']") as "pgt_acc"; iFrame.
             iApply (ldr_no_access (s := ps_acc') ai a_src dst src with "[PC mem_instr r_src r_dst tx pgt_acc]"); iFrameAutoSolve.
             iNext.
@@ -339,8 +364,8 @@ Section fundamental.
             { (* normal case *)
               destruct (decide (w_dst = ai)) as [|Hneq''].
               { (* exact same addr *)
-              iDestruct (mem_big_sepM_split_upd mem_acc_tx Hlookup_mem_ai with "[mem_acc_tx]")
-                as "[mem_instr Hacc_mem_acc_tx]"; first done.
+                iDestruct (mem_big_sepM_split_upd mem_acc_tx Hlookup_mem_ai with "[mem_acc_tx]")
+                  as "[mem_instr Hacc_mem_acc_tx]"; first done.
                 iDestruct "rx" as "(rx & rx_own & rx_excl)".
                 iApply (str_same_addr (p := p_rx) (q := (1 / 2)) (s := ps_acc') ai w_dst src dst with "[PC mem_instr r_src r_dst tx rx pgt_acc']"); iFrameAutoSolve.
                 { symmetry;done. }
@@ -352,64 +377,97 @@ Section fundamental.
                 iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-              admit.
+                {
+                  iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                  iExists (<[ai:=a_src]> mem_acc_tx);iFrame "mem_acc_tx". iPureIntro. rewrite dom_insert_lookup_L. set_solver + Hdom_mem_acc_tx. eauto.
+                  iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                  set_solver +.
+                }
               }
               { (* different addresses *)
                 destruct (decide ((tpa w_dst)=(tpa ai))) as [Heqn'|].
                 { (* in same page *)
-                  pose proof Hin_ps_acc as Hin_ps_acc'.
-                  rewrite <-Heqn' in Hin_ps_acc'.
-                  (* assert (tpa w_dst ∈ ps_acc' ∖ {[p_tx]}) as Hin_ps_acc''. *)
-                  (* set_solver + Hin_ps_acc' n. *)
-                  admit.
-                (*   pose proof (elem_of_memory_pages_lookup _ _ _ Hin_ps_acc' Hdom_mem_acc_tx) as [w_src Hlookup_a_dst]. *)
-                (*   iDestruct (mem_big_sepM_split_upd2 mem_acc_tx Hneq'' Hlookup_a_dst Hlookup_mem_ai with "[$mem_acc_tx]") *)
-                (*     as "[a_dst [mem_instr Hacc_mem_acc_tx]]". *)
-                (*   iDestruct "rx" as "(rx & rxO & rxE)". *)
-                (*   iApply (str_same_page (s := ps_acc') (p := p_rx) ai w_dst src dst with "[PC a_instr rx a_dst r_src r_dst tx pgt_acc']"); iFrameAutoSolve. *)
-                (*   { done. } *)
-                (*   iNext. *)
-                (*   iIntros "(PC & a_instr & r_dst & a_dst & r_src & p_acc' & tx & rx) _". *)
-                (*   iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[#Htotal_regs' regs]";iFrame. *)
-                (*   iDestruct ("Hacc_mem" with "[a_dst a_instr]") as "mem"; iFrame. *)
-                (*   iAssert (memory_pages ps_acc' _)%I with "[mem]" as "mem_acc". *)
-                (*   { unfold memory_pages. *)
-                (*     iFrame "mem". *)
-                (*     iPureIntro. *)
-                (*     rewrite dom_insert_lookup_L; auto. *)
-                (*     rewrite dom_insert_lookup_L; auto. *)
-                (*     exists w_src. *)
-                (*     rewrite lookup_insert_ne; last done. *)
-                (*     auto. *)
-                (*   } *)
-                (* iCombine "rx rx_own rx_excl" as "rx". *)
-                (*   iApply ("IH" $! _ _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx with "regs tx pgt_tx pgt_acc p_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc Htotal_regs'"). *)
+                  pose proof Hin_ps_acc_tx as Hin_ps_acc_tx'.
+                  rewrite <-Heqn' in Hin_ps_acc_tx'.
+                  pose proof (elem_of_memory_pages_lookup _ _ _ Hin_ps_acc_tx' Hdom_mem_acc_tx) as [w_src Hlookup_a_dst].
+                  iDestruct (mem_big_sepM_split_upd2 mem_acc_tx Hneq'' Hlookup_a_dst Hlookup_mem_ai with "[$mem_acc_tx]")
+                    as "[a_dst [mem_instr Hacc_mem_acc_tx]]".
+                  iDestruct "rx" as "(rx & rx_own & rx_excl)".
+                  iApply (str_same_page (s := ps_acc') (p := p_rx) ai w_dst src dst with "[PC mem_instr rx a_dst r_src r_dst tx pgt_acc']"); iFrameAutoSolve.
+                  { done. }
+                  iNext.
+                  iIntros "(PC & mem_instr & r_dst & a_dst & r_src & pgt_acc' & tx & rx) _".
+                  iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[%Htotal_regs' regs]";iFrame.
+                  iDestruct ("Hacc_mem_acc_tx" with "[a_dst mem_instr]") as "mem_acc_tx"; iFrame.
+                  iCombine "rx rx_own rx_excl" as "rx".
+                  iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
+                       LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
+                           tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+                  {
+                    iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                    iExists (<[w_dst:=a_src]> (<[ai:=instr]>mem_acc_tx)); iFrame "mem_acc_tx".
+                    iPureIntro. rewrite !dom_insert_lookup_L;eauto. rewrite lookup_insert_is_Some. right;done.
+                    iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                    set_solver +.
+                  }
                 }
                 { (* in difference pages *)
                   (* getting mem *)
-                  admit.
-                  (* pose proof (elem_of_memory_pages_lookup _ _ _ Hin' Hdom_mem_acc_tx) as [w_src Hlookup_a_src]. *)
-                  (* iDestruct (mem_big_sepM_split_upd2 mem_acc Hneq'' Hlookup_a_src Hlookup_mem_ai with "[$mem_acc]") *)
-                  (*   as "[a_src [a_instr Hacc_mem]]". *)
-                  (* iDestruct "rx" as "(rx & rxO & rxE)". *)
-                  (* iApply (str (s := ps_acc') (p := p_rx) ai w_dst src dst with "[PC a_instr a_src r_src r_dst rx tx pgt_acc']"); iFrameAutoSolve. *)
-                  (* { set_solver. } *)
-                  (* iNext. *)
-                  (* iIntros "(PC & a_instr & r_dst & a_dst & r_src & pgt_acc' & tx & rx) _". *)
-                  (* iCombine "rx rxO rxE" as "rx". *)
-                  (* iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[#Htotal_regs' regs]";iFrame. *)
-                  (* iDestruct ("Hacc_mem" with "[a_dst a_instr]") as "mem"; iFrame. *)
-                  (* iAssert (memory_pages ps_acc' _)%I with "[mem]" as "mem_acc". *)
-                  (* { *)
-                  (*   unfold memory_pages. *)
-                  (*   iFrame "mem". *)
-                  (*   rewrite dom_insert_lookup_L; auto. *)
-                  (*   rewrite dom_insert_lookup_L; auto. *)
-                  (*   exists w_src. *)
-                  (*   rewrite lookup_insert_ne; last done. *)
-                  (*   auto. *)
-                  (* } *)
-                  (* iApply ("IH" $! _ _ ps_acc' Hsubset_mb trans' Hdisj_na Hnin_rx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z rx_state rx prop0 propi tran_pgt_owned pgt_owned mem_rest mem_acc Htotal_regs'"). *)
+                  destruct (decide (tpa w_dst = p_tx)).
+                  {
+                    iDestruct ("mem_tx") as "[%mem_tx [%Hdom_mem_tx mem_tx]]".
+                    rewrite -set_of_addr_singleton in Hdom_mem_tx.
+                    assert ( (tpa w_dst) ∈ ({[ p_tx ]}: gset _) ). set_solver + e.
+                    epose proof (elem_of_memory_pages_lookup _ w_dst _ H Hdom_mem_tx) as [w_src Hlookup_a_src];auto.
+                    iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]") as "[mem_instr Hacc_mem_acc_tx]".
+                    iDestruct (mem_big_sepM_split_upd mem_tx Hlookup_a_src with "[$mem_tx]") as "[a_src Hacc_mem_tx]".
+                    iDestruct "rx" as "(rx & rx_own & rx_excl)".
+                    iApply (str (s := ps_acc') (p := p_rx) ai w_dst src dst with "[PC mem_instr a_src r_src r_dst rx tx pgt_acc']"); iFrameAutoSolve.
+                    { set_solver. }
+                    iNext.
+                    iIntros "(PC & mem_instr & r_dst & a_dst & r_src & pgt_acc' & tx & rx) _".
+                    iCombine "rx rx_own rx_excl" as "rx".
+                    iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[%Htotal_regs' regs]";iFrame.
+                    iDestruct ("Hacc_mem_acc_tx" with "mem_instr") as "mem_acc_tx".
+                    iDestruct ("Hacc_mem_tx" with "a_dst") as "mem_tx".
+                    iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
+                       LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
+                           tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+                    {
+                      iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                      iSplitL "mem_acc_tx".
+                      iExists mem_acc_tx; iFrame "mem_acc_tx". done.
+                      iExists (<[w_dst := a_src]> mem_tx). iFrame "mem_tx".
+                      iPureIntro. rewrite !dom_insert_lookup_L;eauto. rewrite -set_of_addr_singleton //.
+                      iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                      set_solver +.
+                    }
+                  }
+                  {
+                    assert (tpa w_dst ∈ ps_acc' ∖ {[p_tx]}). set_solver + n1 Hin'.
+                    pose proof (elem_of_memory_pages_lookup _ _ _ H Hdom_mem_acc_tx) as [w_src Hlookup_a_src].
+                    iDestruct (mem_big_sepM_split_upd2 mem_acc_tx Hneq'' Hlookup_a_src Hlookup_mem_ai with "[$mem_acc_tx]")
+                      as "[a_src [mem_instr Hacc_mem_acc_tx]]".
+                    iDestruct "rx" as "(rx & rx_own & rx_excl)".
+                    iApply (str (s := ps_acc') (p := p_rx) ai w_dst src dst with "[PC mem_instr a_src r_src r_dst rx tx pgt_acc']"); iFrameAutoSolve.
+                    { set_solver. }
+                    iNext.
+                    iIntros "(PC & mem_instr & r_dst & a_dst & r_src & pgt_acc' & tx & rx) _".
+                    iCombine "rx rx_own rx_excl" as "rx".
+                    iDestruct ("Hacc_regs" with "[$PC $r_src $r_dst]") as (regs') "[%Htotal_regs' regs]";iFrame.
+                    iDestruct ("Hacc_mem_acc_tx" with "[a_dst mem_instr]") as "mem_acc_tx"; iFrame.
+
+                    iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
+                       LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
+                           tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+                    {
+                      iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+                      iExists (<[w_dst:=a_src]> (<[ai:=instr]>mem_acc_tx)); iFrame "mem_acc_tx".
+                      iPureIntro. rewrite !dom_insert_lookup_L;eauto. rewrite lookup_insert_is_Some. right;done.
+                      iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+                      set_solver +.
+                    }
+                  }
                 }
               }
             }
@@ -418,7 +476,7 @@ Section fundamental.
             (* getting mem *)
             (* we don't update memory *)
             iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
-              as "[mem_instr Hacc_mem_acc_tx]".
+            as "[mem_instr Hacc_mem_acc_tx]".
             iDestruct (access_split with "[pgt_acc pgt_acc']") as "pgt_acc"; iFrame.
             iApply (str_no_access (s := ps_acc') ai w_dst src dst with "[PC mem_instr r_src r_dst tx pgt_acc]"); iFrameAutoSolve.
             iNext.
@@ -449,19 +507,24 @@ Section fundamental.
             pose proof (Htotal_regs NZ) as [a_nz Hlookup_nz].
             (* getting registers *)
             iDestruct ((reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_arg Hlookup_nz)
-                         with "[$regs]") as "(PC & r_arg & r_nz & Hacc_regs)"; [done | done | done | done |].
+                        with "[$regs]") as "(PC & r_arg & r_nz & Hacc_regs)"; [done | done | done | done |].
             (* getting mem *)
             iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
-                as "[mem_instr Hacc_mem_acc_tx]".
+              as "[mem_instr Hacc_mem_acc_tx]".
             iApply (cmp_word (w2 := arg2) (s := ps_acc') (p := p_tx) _ (R n nle) with "[PC tx pgt_acc' mem_instr r_arg r_nz]"); iFrameAutoSolve.
             iNext.
             iIntros "(PC & mem_instr & r_arg & pgt_acc' & r_nz & tx) _".
             iDestruct ("Hacc_regs" with "[$PC $r_arg $r_nz]") as (regs') "[%Htotal_regs' regs]";iFrame.
             iDestruct ("Hacc_mem_acc_tx" with "mem_instr") as "mem_acc_tx".
-                iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
+            iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-              admit.
+            {
+              iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+              iExists mem_acc_tx;by iFrame "mem_acc_tx".
+              iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+              set_solver +.
+            }
           }
           {
             (* cmp reg *)
@@ -500,13 +563,13 @@ Section fundamental.
             pose proof (Htotal_regs NZ) as [a_nz Hlookup_nz].
             (* getting registers *)
             iDestruct ((reg_big_sepM_split_upd4 i Hlookup_PC Hlookup_arg1 Hlookup_arg2 Hlookup_nz)
-                         with "[$regs]") as "(PC & r_arg1 & r_arg2 & r_nz & Hacc_regs)"; [done | done | | done | done | done | done |].
+                        with "[$regs]") as "(PC & r_arg1 & r_arg2 & r_nz & Hacc_regs)"; [done | done | | done | done | done | done |].
             apply decode_instruction_valid in Heqn.
             inversion Heqn.
             assumption.
             (* getting mem *)
             iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
-                as "[mem_instr Hacc_mem_acc_tx]".
+              as "[mem_instr Hacc_mem_acc_tx]".
             iApply (cmp_reg (s := ps_acc') (p := p_tx)  _ (R n nle) (R n' nle') with "[PC tx pgt_acc' mem_instr r_arg1 r_arg2 r_nz]"); iFrameAutoSolve.
             iNext.
             iIntros "(PC & mem_instr & r_arg1 & r_arg2 & pgt_acc' & r_nz & tx) _".
@@ -515,7 +578,12 @@ Section fundamental.
             iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-            admit.
+            {
+              iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+              iExists mem_acc_tx;by iFrame "mem_acc_tx".
+              iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+              set_solver +.
+            }
           }
         }
         { (* add *)
@@ -553,22 +621,27 @@ Section fundamental.
           pose proof (Htotal_regs (R n' nle')) as [a_arg2 Hlookup_arg2].
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_arg1 Hlookup_arg2)
-                       with "[$regs]") as "(PC & r_arg1 & r_arg2 & Hacc_regs)"; [done | done | | done |].
+                      with "[$regs]") as "(PC & r_arg1 & r_arg2 & Hacc_regs)"; [done | done | | done |].
           apply decode_instruction_valid in Heqn.
           inversion Heqn.
           done.
           (* getting mem *)
-            iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
-                as "[mem_instr Hacc_mem_acc_tx]".
+          iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
+            as "[mem_instr Hacc_mem_acc_tx]".
           iApply (add (p := p_tx)  _ (R n nle) (R n' nle') with "[PC tx pgt_acc' mem_instr r_arg1 r_arg2]"); iFrameAutoSolve.
           iNext.
           iIntros "(PC & mem_instr & r_arg1 & r_arg2 & pgt_acc' & tx) _".
           iDestruct ("Hacc_regs" with "[$PC $r_arg1 $r_arg2]") as (regs') "[%Htotal_regs' regs]";iFrame.
           iDestruct ("Hacc_mem_acc_tx" with "mem_instr") as "mem_acc_tx".
-            iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
+          iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-            admit.
+          {
+            iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+            iExists mem_acc_tx;by iFrame "mem_acc_tx".
+            iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+            set_solver +.
+          }
         }
         { (* sub *)
           destruct op1 as [| | n nle].
@@ -605,7 +678,7 @@ Section fundamental.
           pose proof (Htotal_regs (R n' nle')) as [a_arg2 Hlookup_arg2].
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_arg1 Hlookup_arg2)
-                       with "[$regs]") as "(PC & r_arg1 & r_arg2 & Hacc_regs)"; [done | done | | done |].
+                      with "[$regs]") as "(PC & r_arg1 & r_arg2 & Hacc_regs)"; [done | done | | done |].
           apply decode_instruction_valid in Heqn.
           inversion Heqn.
           done.
@@ -620,7 +693,12 @@ Section fundamental.
           iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-          admit.
+          {
+            iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+            iExists mem_acc_tx;by iFrame "mem_acc_tx".
+            iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+            set_solver +.
+          }
         }
         { (* mult *)
           destruct op1 as [| | n nle].
@@ -641,7 +719,7 @@ Section fundamental.
           pose proof (Htotal_regs (R n nle)) as [a_arg1 Hlookup_arg1].
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_arg1)
-                       with "[$regs]") as "(PC & r_arg1 & Hacc_regs)"; [done | done |].
+                      with "[$regs]") as "(PC & r_arg1 & Hacc_regs)"; [done | done |].
           (* getting mem *)
           iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
             as "[mem_instr Hacc_mem_acc_tx]".
@@ -653,7 +731,12 @@ Section fundamental.
           iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-          admit.
+          {
+            iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+            iExists mem_acc_tx;by iFrame "mem_acc_tx".
+            iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+            set_solver +.
+          }
         }
         { (* bne *)
           destruct arg as [| | n nle].
@@ -675,7 +758,7 @@ Section fundamental.
           pose proof (Htotal_regs NZ) as [a_nz Hlookup_nz].
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_arg1 Hlookup_nz)
-                       with "[$regs]") as "(PC & r_arg1 & r_nz & Hacc_regs)"; [done | done | done | done |].
+                      with "[$regs]") as "(PC & r_arg1 & r_nz & Hacc_regs)"; [done | done | done | done |].
           (* getting mem *)
           iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
             as "[mem_instr Hacc_mem_acc_tx]".
@@ -687,7 +770,12 @@ Section fundamental.
           iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-          admit.
+          {
+            iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+            iExists mem_acc_tx;by iFrame "mem_acc_tx".
+            iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+            set_solver +.
+          }
         }
         { (* br *)
           destruct arg as [| | n nle].
@@ -708,7 +796,7 @@ Section fundamental.
           pose proof (Htotal_regs (R n nle)) as [a_arg1 Hlookup_arg1].
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_arg1)
-                       with "[$regs]") as "(PC & r_arg1 & Hacc_regs)"; [done | done |].
+                      with "[$regs]") as "(PC & r_arg1 & Hacc_regs)"; [done | done |].
           (* getting mem *)
           iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
             as "[mem_instr Hacc_mem_acc_tx]".
@@ -720,13 +808,18 @@ Section fundamental.
           iApply ("IH" $! _ ps_acc' trans' _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
                        LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
-          admit.
+          {
+            iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+            iExists mem_acc_tx;by iFrame "mem_acc_tx".
+            iApply (memory_pages_split_diff' _ ps_acc' with "[$mem_rest $mem_acc]").
+            set_solver +.
+          }
         }
         { (* halt *)
           pose proof Heqn as Hdecode.
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd i Hlookup_PC)
-                       with "[$regs]") as "(PC & Hacc_regs)"; [done|].
+                      with "[$regs]") as "(PC & Hacc_regs)"; [done|].
           (* we don't update memory *)
           iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
             as "[mem_instr Hacc_mem_acc_tx]".
@@ -739,7 +832,7 @@ Section fundamental.
           pose proof Heqn as Hdecode.
           (* getting registers *)
           iDestruct ((reg_big_sepM_split_upd i Hlookup_PC)
-                       with "[$regs]") as "(PC & Hacc_regs)"; [done|].
+                      with "[$regs]") as "(PC & Hacc_regs)"; [done|].
           (* we don't update memory *)
           iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
             as "[mem_instr Hacc_mem_acc_tx]".
@@ -847,6 +940,6 @@ Section fundamental.
       iIntros "? _".
       by iApply wp_terminated.
     }
-    Admitted.
+  Qed.
 
 End fundamental.
