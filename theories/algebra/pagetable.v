@@ -70,32 +70,6 @@ Section pagetable_rules.
   Qed.
 
   (* access *)
-  (* Lemma access_split_set_union {v} q1 q2 (s1 s2 : gset PID): *)
-  (*  s1 ## s2 -> *)
-  (*  v -@{(q1+q2)%Qp}A> [s1 ∪ s2] -∗ v -@{q1}A> [s1] ∗ v -@{q2}A> [s2]. *)
-  (* Proof using. *)
-  (*   iIntros (Hdisj) "HO". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iApply own_op. *)
-  (*   rewrite -auth_frag_op singleton_op. *)
-  (*   rewrite -pair_op. *)
-  (*   rewrite (gset_disj_union _ _ Hdisj). *)
-  (*   naive_solver. *)
-  (* Qed. *)
-
-  (* Lemma access_split_set_diff {v} q1 q2 (s1 s2 : gset PID): *)
-  (*  s2 ⊆ s1 -> v -@{(q1+q2)%Qp}A> [s1] -∗ v -@{q1}A> [s2] ∗ v -@{q2}A> [s1 ∖ s2]. *)
-  (* Proof using. *)
-  (*   iIntros (Hsub) "HO". *)
-  (*   rewrite access_mapsto_eq. *)
-  (*   iApply own_op. *)
-  (*   rewrite -auth_frag_op singleton_op. *)
-  (*   rewrite -pair_op. *)
-  (*   rewrite (gset_disj_union _ _); *)
-  (*   last set_solver+ . *)
-  (*   rewrite -(union_difference_L _ _ Hsub). *)
-  (*   naive_solver. *)
-  (* Qed. *)
 
   Lemma access_split {q} v (s : gset PID) :
     v -@{ q }A> s ⊣⊢
@@ -180,12 +154,13 @@ Section pagetable_rules.
 
   (* single pt *)
 
-  Lemma access_agree {σ γ} (v:VMID) q s:
-   own γ (● (get_access_gmap σ)) -∗
-   own γ (◯ {[v := to_frac_agree q s]}) -∗
+  Lemma access_agree {σ} (v:VMID) q s:
+   own gen_access_name (● (get_access_gmap σ)) -∗
+   (v -@{q}A> s) -∗
    ⌜(get_access_gmap σ) !! v = Some (to_frac_agree 1 s)⌝.
   Proof.
-    iIntros  "Hσ Hpt".
+    iIntros "Hσ Hpt".
+    rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (own_valid_2 with "Hσ Hpt") as "%Hvalid".
     setoid_rewrite auth_both_valid_discrete in Hvalid.
     destruct Hvalid as [Hvalid1 Hvalid2].
@@ -242,7 +217,6 @@ Section pagetable_rules.
    ⌜set_Forall (λ p, ∃ o b s, (get_page_table σ) !! p = Some (o,b,s) ∧ v ∈ s) s⌝.
   Proof.
     iIntros "Hauth Hfrag".
-    rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (access_agree with "Hauth Hfrag") as %Hvalid.
     iPureIntro.
     apply access_pgt_lookup in Hvalid as Hvalid.
@@ -256,7 +230,6 @@ Section pagetable_rules.
    ⌜(check_access_page σ v p)= false⌝.
   Proof.
     iIntros (Hnin) "Hauth Hfrag".
-     rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (access_agree with "Hauth Hfrag") as %Hlookup.
     iPureIntro.
     rewrite /get_access_gmap in Hlookup.
@@ -286,7 +259,6 @@ Section pagetable_rules.
     ⌜∀ p, p ∈ s -> check_access_page σ v p = true⌝.
   Proof.
     iIntros "Hσ Hacc".
-    rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (access_agree with "Hσ Hacc") as %Hvalid.
     apply access_pgt_lookup in Hvalid as Hvalid.
     iPureIntro.
@@ -444,21 +416,22 @@ Section pagetable_rules.
     iApply (excl_agree_Some_check_true with "Hexcl Hpgt").
   Qed.
 
-  (* Lemma access_update{gm x s} s': *)
-  (*   own (gen_access_name vmG) (● gm) -∗ x -@A> [s] ==∗ own (gen_access_name vmG) (● <[x := (1%Qp,GSet s')]>gm) ∗ x -@A> [s']. *)
-  (* Proof. *)
-  (*   iIntros "Hauth Hfrag". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iDestruct (access_agree_1 with "Hauth Hfrag") as %Hlookup. *)
-  (*   rewrite -own_op. *)
-  (*   iApply ((own_update _ (● gm ⋅ ◯ {[x := (1%Qp, GSet s)]}) _ ) with "[Hauth Hfrag]"). *)
-  (*   2: { rewrite own_op. iFrame. } *)
-  (*   apply auth_update. *)
-  (*   apply (singleton_local_update gm x (1%Qp,GSet s)). *)
-  (*   done. *)
-  (*   apply exclusive_local_update. *)
-  (*   done. *)
-  (* Qed. *)
+  Lemma access_update{gm x s} s':
+    gm !! x = Some (to_frac_agree 1 s) ->
+    own gen_access_name (● gm) -∗ x -@A> s ==∗ own gen_access_name (● <[x := (to_frac_agree 1 s')]>gm) ∗ x -@A> s'.
+  Proof.
+    iIntros (Hlookup) "Hauth Hfrag".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    (* iDestruct (access_agree with "Hauth Hfrag") as %Hlookup. *)
+    rewrite -own_op.
+    iApply ((own_update _ (● gm ⋅ ◯ {[x := (to_frac_agree 1 s)]}) _ ) with "[Hauth Hfrag]").
+    2: { rewrite own_op. iFrame. }
+    apply auth_update.
+    apply (singleton_local_update gm x (to_frac_agree 1 s)).
+    done.
+    apply exclusive_local_update.
+    done.
+  Qed.
 
   (* Lemma access_update_revoke {gm i s} sps: *)
   (*   i ∈ s -> *)

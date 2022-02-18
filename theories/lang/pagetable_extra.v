@@ -66,7 +66,7 @@ Lemma p_upd_own_trans σ i (ps: gset PID):
  get_transactions (update_page_table_global update_ownership σ i ps) = get_transactions σ.
 Proof. f_equal. Qed.
 
-Lemma p_upd_own_access σ i ps:
+Lemma p_upd_own_acc σ i ps:
 ((get_access_gmap (update_page_table_global update_ownership σ i ps)):gmap _ _) = ((get_access_gmap σ): gmap _ _).
 Proof.
   rewrite /get_access_gmap  /=.
@@ -128,7 +128,7 @@ Lemma p_grnt_acc_trans σ i (ps: gset PID):
  get_transactions (update_page_table_global grant_access σ i ps) = get_transactions σ.
 Proof. f_equal. Qed.
 
-Lemma p_grnt_acc_ownerships σ i ps:
+Lemma p_grnt_acc_own σ i ps:
  (get_own_gmap (update_page_table_global grant_access σ i ps)) = (get_own_gmap σ).
 Proof.
   rewrite /get_own_gmap /=.
@@ -157,6 +157,36 @@ Proof.
   apply upd_is_strong_assoc_comm.
   { set_solver + H. }
   Qed.
+
+Lemma p_grnt_acc_excl σ i ps:
+ (get_excl_gmap (update_page_table_global grant_access σ i ps)) = (get_excl_gmap σ).
+Proof.
+  rewrite /get_excl_gmap /=.
+  generalize dependent σ.1.1.1.2.
+  induction ps as [|p ps] using set_ind_L.
+  done.
+  intro.
+  rewrite set_fold_disj_union_strong.
+  {
+    rewrite set_fold_singleton /=.
+  set pgt' := (X in X !! p).
+  destruct (pgt' !! p) eqn:Hlookup.
+  { destruct p1.
+    rewrite IHps /=.
+    rewrite fmap_insert /=.
+    apply map_eq.
+    intro.
+    destruct (decide (i0=p)).
+    rewrite e.
+    rewrite lookup_insert.
+    rewrite lookup_fmap  Hlookup //.
+    rewrite lookup_insert_ne;[done|eauto].
+  }
+  rewrite IHps //.
+  }
+  apply upd_is_strong_assoc_comm.
+  { set_solver + H. }
+Qed.
 
 Lemma p_rvk_acc_current_vm σ i l:
   get_current_vm (update_page_table_global revoke_access σ i l) = get_current_vm σ.
@@ -207,6 +237,45 @@ Proof.
   apply upd_is_strong_assoc_comm.
   { set_solver + H. }
 Qed.
+
+Lemma u_grnt_acc_acc σ ps v sacc:
+  get_access_gmap σ !! v = Some (to_dfrac_agree (DfracOwn 1) sacc) ->
+  get_access_gmap (update_page_table_global grant_access σ v ps)
+  =  <[v := to_dfrac_agree (DfracOwn 1) (ps ∪ sacc)]>(get_access_gmap σ).
+Proof.
+Admitted.
+  (* rewrite /get_access_gmap. *)
+  (* rewrite /revoke_access_global /update_page_table_global /=. *)
+  (* rewrite /revoke_acc_gmap /update_acc_gmap /=. *)
+  (* generalize  σ.1.1.1.2. *)
+  (* induction ps as [|p ps] using set_ind_L. *)
+  (* intros. *)
+  (* rewrite !set_fold_empty //. *)
+  (* intro pgt. *)
+  (* rewrite !set_fold_disj_union_strong /=. *)
+  (* rewrite !set_fold_singleton. *)
+  (* rewrite IHps. *)
+  (* rewrite lookup_fmap. *)
+  (* destruct (pgt!! p) eqn:Hlookup. *)
+  (* { rewrite Hlookup /=. *)
+  (*   destruct p0. *)
+  (*   simpl. *)
+  (*   f_equal. *)
+  (*   rewrite fmap_insert //=. *)
+  (* } *)
+  (* { rewrite Hlookup //=. } *)
+  (* 2,4 : set_solver + H. *)
+  (* { *)
+  (*   intros. *)
+  (*   destruct (b' !! x2) as [p2|] eqn: Hlookup2, (b' !! x1) as [p1|] eqn:Hlookup1; *)
+  (*     try destruct p1 as [q1 []]; try destruct p2 as [q2 []]; rewrite ?lookup_insert_ne ?Hlookup1 ?Hlookup2 //;last eauto. *)
+  (*   apply insert_commute. *)
+  (*   done. *)
+  (* } *)
+  (* apply upd_is_strong_assoc_comm. *)
+(* Qed. *)
+
+
 
 (*--- prove having mappings in gmap implies owership/access to pages in opsem ---*)
 

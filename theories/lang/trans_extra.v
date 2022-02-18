@@ -7,7 +7,7 @@ Context `{HyperConst : HypervisorConstants}.
 Implicit Type σ : state.
 Implicit Type h : Word.
 
-Lemma validate_descriptor_share i tran:
+Lemma validate_descriptor i tran:
   validate_transaction_descriptor i tran = true ->
   ∃ j ps, tran = (i,None,j,ps) ∧ j ≠ i.
 Proof.
@@ -146,7 +146,6 @@ Proof.
 Qed.
 
 (* TODO *)
-
 Lemma update_transaction_preserve_current_vm σ h trans:
   get_current_vm (update_transaction σ h trans) = get_current_vm σ.
 Proof. f_equal. Qed.
@@ -171,10 +170,6 @@ Lemma update_transaction_preserve_owned σ h trans:
   get_own_gmap (update_transaction σ h trans) = get_own_gmap σ.
 Proof. f_equal. Qed.
 
-Lemma update_transaction_preserve_access σ h trans:
-  get_access_gmap (update_transaction σ h trans) = get_access_gmap σ.
-Proof. f_equal. Qed.
-
 Lemma update_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h tran:
   (get_transactions_gmap (update_transaction σ h tran) proj)
   = <[h:= Some (proj tran)]>(get_transactions_gmap σ proj).
@@ -195,53 +190,51 @@ Proof.
   apply (update_transaction_update_transactions (λ tran, tran.2)).
 Qed.
 
-Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info):
-  dom (gset Word) (get_transactions_gmap σ proj) = dom (gset Word) (get_transactions σ).
-Proof.
-  rewrite /get_transactions_gmap.
-  rewrite dom_fmap_L //.
-Qed.
+(* Lemma get_transactions_gmap_preserve_dom {Info:Type} {σ} (proj : transaction->Info): *)
+(*   dom (gset Word) (get_transactions_gmap σ proj) = dom (gset Word) (get_transactions σ). *)
+(* Proof. *)
+(*   rewrite /get_transactions_gmap. *)
+(*   rewrite dom_fmap_L //. *)
+(* Qed. *)
 
-Lemma get_trans_gmap_preserve_dom {σ}:
-  dom (gset Word) (get_trans_gmap σ) = dom (gset Word) (get_transactions σ).
-Proof.
-  apply get_transactions_gmap_preserve_dom.
-Qed.
+(* Lemma get_trans_gmap_preserve_dom {σ}: *)
+(*   dom (gset Word) (get_trans_gmap σ) = dom (gset Word) (get_transactions σ). *)
+(* Proof. *)
+(*   apply get_transactions_gmap_preserve_dom. *)
+(* Qed. *)
 
-Lemma get_retri_gmap_preserve_dom {σ}:
-  dom (gset Word) (get_retri_gmap σ) = dom (gset Word) (get_transactions σ).
-Proof.
-  apply get_transactions_gmap_preserve_dom.
-Qed.
+(* Lemma get_retri_gmap_preserve_dom {σ}: *)
+(*   dom (gset Word) (get_retri_gmap σ) = dom (gset Word) (get_transactions σ). *)
+(* Proof. *)
+(*   apply get_transactions_gmap_preserve_dom. *)
+(* Qed. *)
 
-Lemma remove_transaction_preserve_current_vm σ h:
+Lemma p_rm_tran_current_vm σ h:
   get_current_vm (remove_transaction σ h) = get_current_vm σ.
 Proof. f_equal. Qed.
 
-Lemma remove_transaction_preserve_regs σ h :
-  get_reg_gmap (remove_transaction σ h ) = get_reg_gmap σ.
+Lemma p_rm_tran_regs σ h :
+  get_reg_files (remove_transaction σ h ) = get_reg_files σ.
 Proof. f_equal. Qed.
 
-Lemma remove_transaction_preserve_mem σ h :
+Lemma p_rm_tran_mem σ h :
   get_mem (remove_transaction σ h ) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma remove_transaction_preserve_mb σ h :
-  get_mb_gmap (remove_transaction σ h ) = get_mb_gmap σ.
+Lemma p_rm_tran_mb σ h :
+ get_mail_boxes (remove_transaction σ h ) = get_mail_boxes σ.
 Proof. f_equal. Qed.
 
-Lemma remove_transaction_preserve_rx σ h :
-  get_rx_gmap(remove_transaction σ h ) = get_rx_gmap σ.
+Lemma p_rm_tran_pgt σ h :
+  get_page_table (remove_transaction σ h ) = get_page_table σ.
 Proof. f_equal. Qed.
 
-Lemma remove_transaction_preserve_owned σ h :
-  get_own_gmap (remove_transaction σ h ) = get_own_gmap σ.
-Proof. f_equal. Qed.
-Lemma remove_transaction_preserve_access σ h :
-  get_access_gmap (remove_transaction σ h ) = get_access_gmap σ.
-Proof. f_equal. Qed.
+Lemma p_rm_tran_inv_wf σ h :
+  inv_trans_wellformed σ -> inv_trans_wellformed (remove_transaction σ h).
+Proof.
+  Admitted.
 
-Lemma remove_transaction_update_transactions{Info:Type}{σ} (proj: transaction -> Info) h :
+Lemma u_rm_tran_tran' {Info:Type}{σ} (proj: transaction -> Info) h :
   (get_transactions_gmap (remove_transaction σ h) proj)
   = (<[h:= None]> (get_transactions_gmap σ proj)).
 Proof.
@@ -251,7 +244,7 @@ Proof.
   rewrite fmap_insert //.
 Qed.
 
-Lemma remove_transaction_update_hpool {σ} h :
+Lemma u_rm_tran_hp {σ} h :
   (get_hpool_gset (remove_transaction σ h))
   = ({[h]} ∪ (get_hpool_gset σ) ).
 Proof.
@@ -261,28 +254,29 @@ Proof.
   rewrite dom_insert_L //.
 Qed.
 
-Lemma remove_transaction_update_trans σ h :
+Lemma u_rm_tran_tran σ h :
   (get_trans_gmap (remove_transaction σ h ))
   = (<[h:= None]>(get_trans_gmap σ)).
 Proof.
-  apply (remove_transaction_update_transactions (λ tran, tran.1)).
+  apply (u_rm_tran_tran' (λ tran, tran.1)).
 Qed.
 
-Lemma remove_transaction_update_retri σ h :
+Lemma u_rm_tran_retri σ h :
   (get_retri_gmap (remove_transaction σ h )) = (<[h := None]> (get_retri_gmap σ)).
 Proof.
-  apply (remove_transaction_update_transactions (λ tran, tran.2)).
+  apply (u_rm_tran_tran' (λ tran, tran.2)).
 Qed.
 
-Lemma get_retri_gmap_lookup {σ meta} wh b:
-(get_transactions σ) !! wh = Some (Some (meta,b))->
-get_retri_gmap σ !! wh = Some (Some b).
-Proof.
-  intros Hlk.
-  rewrite /get_retri_gmap /get_transactions_gmap.
-  rewrite lookup_fmap_Some.
-  exists (Some (meta,b)).
-  split;auto.
-Qed.
+
+(* Lemma get_retri_gmap_lookup {σ meta} wh b: *)
+(* (get_transactions σ) !! wh = Some (Some (meta,b))-> *)
+(* get_retri_gmap σ !! wh = Some (Some b). *)
+(* Proof. *)
+(*   intros Hlk. *)
+(*   rewrite /get_retri_gmap /get_transactions_gmap. *)
+(*   rewrite lookup_fmap_Some. *)
+(*   exists (Some (meta,b)). *)
+(*   split;auto. *)
+(* Qed. *)
 
 End trans_extra.

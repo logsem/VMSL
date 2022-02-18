@@ -395,18 +395,6 @@ Section big_sep.
     iFrame.
   Qed.
 
-  (* Lemma big_sepS_disj`{Countable K} (s1 s2: gset K) (Φ: K -> PROP) : *)
-  (*   (∀ x, Φ x ∗ Φ x -∗ False) ⊢ *)
-  (*   ([∗ set] x ∈ s1, Φ x) ∗ ([∗ set] x ∈ s2, Φ x) -∗ ⌜s1 ## s2⌝. *)
-  (* Proof. *)
-  (*   iIntros "Hexcl [s1 s2]". *)
-  (*   destruct (decide (s1 ## s2)). *)
-  (*   done. *)
-  (*   iExFalso. *)
-  (*   rewrite elem_of_disjoint in n. *)
-  (* Admitted. *)
-
-
 
 End big_sep.
 
@@ -415,10 +403,6 @@ Section logrel_extra.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
-
-  Lemma pgt_split {q} s o b:
-    pgt s q o b ⊣⊢ pgt s (q/2) o b ∗ pgt s (q/2) o b.
-  Admitted.
 
   Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
          (f: K -> V -> iProp Σ)
