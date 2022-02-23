@@ -76,7 +76,7 @@ Proof.
     rewrite /update_reg Hra //.
     destruct ra; try done.
     simpl.
-    rewrite ->update_reg_global_update_reg;[|solve_reg_lookup].
+    rewrite ->u_upd_reg_regs.
     rewrite Hcur.
     iFrame "Hreg".
     iSplitL "PAuth".

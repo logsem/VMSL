@@ -84,8 +84,8 @@ Proof.
     iFrame.
     rewrite Hcur.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-    + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
+    + rewrite u_upd_reg_regs.
       iDestruct ((gen_reg_update2_global PC i ai (ai ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
       iModIntro.
@@ -100,7 +100,7 @@ Proof.
       rewrite scheduled_true /=;last done.
       iApply "Hϕ".
       iFrame "Hreg Hapc Harb Hra Hrb Hacc Htx".
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    + rewrite u_upd_reg_regs.
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
@@ -187,8 +187,8 @@ Proof.
     iFrame.
     rewrite Hcur.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-    + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
+    + rewrite u_upd_reg_regs.
       iDestruct ((gen_reg_update2_global PC i ai (ai ^+ 1)%f ra i w3 w2 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
       iModIntro.
@@ -203,7 +203,7 @@ Proof.
       rewrite scheduled_true /=;last done.
       iApply "Hϕ".
       iFrame "Hreg Hapc Harb Hra Hrb Hacc Htx".
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    + rewrite u_upd_reg_regs.
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
@@ -295,8 +295,8 @@ Proof.
     iFrame.
     rewrite Hcur.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-    + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].      
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
+    + rewrite u_upd_reg_regs.
       iDestruct ((gen_reg_update2_global PC i ai (ai ^+ 1)%f ra i w2 w1 ) with "Hreg Hpc Hra") as ">[Hσ [Hreg Hra]]";eauto.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in Hra;eauto.
       iModIntro.
@@ -311,7 +311,7 @@ Proof.
       rewrite scheduled_true /=;last done.
       iApply "Hϕ".
       iFrame "Hreg Hapc Hra Hrb Hacc Htx".
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    + rewrite u_upd_reg_regs.
       repeat solve_reg_lookup.
       intros P; symmetry in P;inversion P; contradiction.
 Qed.
@@ -489,6 +489,5 @@ Proof.
     apply Hneq.
     done.
 Qed.
-
 
 End ldr.

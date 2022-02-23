@@ -71,7 +71,7 @@ Proof.
     iFrame.
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
     iModIntro.
     iFrame "Hreg".
     iSplitL "PAuth".

@@ -99,7 +99,7 @@ Proof.
     iFrame.
     iDestruct ((gen_reg_update1_global PC V0 ai (ai ^+ 1)%f) with "Hreg Hpc") as "HpcUpd".
     rewrite (preserve_get_reg_gmap (update_offset_PC σ1 1) (update_current_vmid _ _));last rewrite p_upd_id_reg //.
-    rewrite ->(update_offset_PC_update_PC1 _ V0 ai 1); auto.
+    rewrite ->(u_upd_pc_regs _ V0 ai 1); auto.
     + iDestruct (VMProp_update V0 U P P' with "PAuth HPropz") as "HTemp".
       iMod "HpcUpd".
       iMod "HTemp".

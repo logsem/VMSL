@@ -92,7 +92,7 @@ Proof.
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     iDestruct ((gen_mem_update1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
     iModIntro.
     iFrame "Hmem Hreg".
     iSplitL "".
@@ -196,7 +196,7 @@ Proof.
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     iDestruct ((gen_mem_update1 a w3 w2) with "Hmem Harb") as ">[Hmem Harb]";eauto.
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
     iModIntro.
     iFrame "Hmem Hreg".
     iSplitL "".
@@ -303,7 +303,7 @@ Proof.
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     iDestruct ((gen_mem_update1 ai w1 w2) with "Hmem Hapc") as ">[Hmem Harb]";eauto.
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
     iModIntro.
     subst a.
     iFrame "Hmem Hreg".

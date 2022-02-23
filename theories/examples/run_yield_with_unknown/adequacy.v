@@ -408,8 +408,6 @@ Section rywu_adequacy.
     clear Hdisj.
     iDestruct ((big_sepM_union _ _) with "Hmem") as "(Hmem1 & mem_p_prog1)";auto.
 
-
-
     pose proof (logrel_extra.union_split_difference_intersection_subseteq_L ({[p_prog1; p_prog2; p_prog3; p_tx3; p_rx3]} ∖ {[p_prog1]}) {[p_prog2]}) as [Heq Hdisj].
     set_solver.
     rewrite Heq in Hdom_mem1.

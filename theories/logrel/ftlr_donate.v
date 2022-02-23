@@ -166,7 +166,7 @@ Lemma ftlr_donate {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tran
       }
     }
     pose proof (Hvalid_tran_des) as Hvalid_trans_des'.
-    apply validate_descriptor_share in Hvalid_tran_des as [j [ps_donate [-> Hneq_sr]]].
+    apply validate_descriptor in Hvalid_tran_des as [j [ps_donate [-> Hneq_sr]]].
     destruct (decide (ps_donate ⊆ ps_acc)) as [Hsubseteq_donate | Hnsubseteq_donate].
     2:{ (* no access to at least one page in ps_donate, apply [mem_send_not_acc] *)
       apply not_subseteq in Hnsubseteq_donate as [p [Hin_p_share Hnin_p_acc]].

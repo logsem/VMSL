@@ -208,7 +208,7 @@ Proof.
         set σ1' := (X in (update_current_vmid X V0)).
         rewrite (preserve_get_reg_gmap σ1' (update_current_vmid _ _)); last rewrite p_upd_id_reg //.
         rewrite /σ1'.
-        rewrite ->(update_offset_PC_update_PC1 _ (get_current_vm σ1) ai 1); auto.
+        rewrite ->(u_upd_pc_regs _ (get_current_vm σ1) ai 1); auto.
         -- iDestruct (VMProp_update σ1.1.1.2 U P P' with "PAuth HPropi") as "HTemp".
            iMod "HTemp".
            iDestruct "HTemp" as "[PAuth HPropi]".
@@ -218,7 +218,7 @@ Proof.
            by iExists P'.
            iSplitL "Hreg".
            iSplit; first done.
-           rewrite 2!update_reg_global_update_reg.
+           rewrite 2!u_upd_reg_regs.
            rewrite !insert_union_singleton_l.
            rewrite (map_union_comm {[(R1, V0) := of_imm (encode_vmid σ1.1.1.2)]} {[(PC, σ1.1.1.2) := (ai ^+ 1)%f]}).
            rewrite map_union_assoc.
@@ -233,10 +233,6 @@ Proof.
            by rewrite map_disjoint_singleton_r lookup_singleton_None.
            by rewrite map_disjoint_singleton_r lookup_singleton_None.
            by rewrite map_disjoint_singleton_r lookup_singleton_None.
-           eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
-           eapply mk_is_Some; rewrite lookup_insert_Some;
-             right; split; [done | rewrite get_reg_gmap_lookup_Some; eauto].
-           eapply mk_is_Some; rewrite get_reg_gmap_lookup_Some; eauto.
            iDestruct (VMProp_split with "HPropi") as "[HPropi1 HPropi2]".
            iDestruct ("Himpl" with "[Hpc' Hapc Hacc Hr0 Hr0' Hr1' HR HPropi1 tx]") as "[Q R']".
            iFrame.

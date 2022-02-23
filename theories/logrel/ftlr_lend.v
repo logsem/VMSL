@@ -166,7 +166,7 @@ Lemma ftlr_lend {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans 
       }
     }
     pose proof (Hvalid_tran_des) as Hvalid_trans_des'.
-    apply validate_descriptor_share in Hvalid_tran_des as [j [ps_lend [-> Hneq_sr]]].
+    apply validate_descriptor in Hvalid_tran_des as [j [ps_lend [-> Hneq_sr]]].
     destruct (decide (ps_lend ⊆ ps_acc)) as [Hsubseteq_lend | Hnsubseteq_lend].
     2:{ (* no access to at least one page in ps_lend, apply [mem_send_not_acc] *)
       apply not_subseteq in Hnsubseteq_lend as [p [Hin_p_share Hnin_p_acc]].
