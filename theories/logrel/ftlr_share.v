@@ -335,18 +335,11 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       {
         rewrite /trans'' /trans_memory_in_trans.
         rewrite map_filter_insert_True.
-        rewrite /pages_in_trans map_fold_insert_L /=.
-        f_equal.
-        intros.
-        set_solver +.
+        rewrite pages_in_trans_insert //.
         rewrite map_filter_lookup_None.
-        eauto.
-        simpl.
-        left.
+        eauto. simpl. left.
         split;auto.
-        intro.
-        destruct H as [H []].
-        inversion H.
+        intro. destruct H as [H []]. inversion H.
       }
 
       iDestruct (trans_split with "tran_share") as "[tran_share tran_share']".

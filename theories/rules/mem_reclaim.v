@@ -48,7 +48,7 @@ Proof.
       rewrite lookup_delete_ne //.
     }
     set_solver + Hinv_disj H0.
-  }.
+  }
   destruct tt,b;auto;try apply p_upd_pgt_pgt_not_elem;auto.
 Qed.
 
