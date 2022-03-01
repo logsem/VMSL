@@ -1,5 +1,5 @@
 From HypVeri Require Import machine machine_extra tactics.
-From HypVeri.algebra Require Import base.
+From HypVeri.algebra Require Import base base_extra.
 
 Section trans_extra.
 
@@ -267,6 +267,14 @@ Proof.
   apply (u_rm_tran_tran' (λ tran, tran.2)).
 Qed.
 
+Lemma p_rm_tran_inv_disj σ h :
+  inv_trans_ps_disj σ ->
+  inv_trans_ps_disj (remove_transaction σ h).
+Proof.
+  rewrite /inv_trans_ps_disj /remove_transaction /=.
+  intro.
+  by apply trans_ps_disj_delete'.
+Qed.
 
 (* Lemma get_retri_gmap_lookup {σ meta} wh b: *)
 (* (get_transactions σ) !! wh = Some (Some (meta,b))-> *)

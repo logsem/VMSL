@@ -54,7 +54,8 @@ Proof.
     iIntros (m2 σ2) "[%P PAuth] %HstepP".
     apply (step_ExecI_normal i (Br ra) ai w1 ) in HstepP;eauto.
     remember (exec (Br ra) σ1) as c2 eqn:Heqc2.
-    rewrite /exec /br /update_incr_PC in Heqc2;eauto.
+    rewrite /exec  /br Hra /= /update_incr_PC /update_reg in Heqc2;eauto.
+    destruct ra. contradiction. contradiction.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
     (* unchanged part *)
@@ -68,14 +69,13 @@ Proof.
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
-    2-12: destruct ra; try rewrite Hra //; done.
+    rewrite (preserve_inv_trans_ps_disj σ1).
+    all: eauto.
     iFrame.
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai w2) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
     iModIntro.
-    rewrite /update_reg Hra //.
-    destruct ra; try done.
-    simpl.
+    rewrite /update_reg /=.
     rewrite ->u_upd_reg_regs.
     rewrite Hcur.
     iFrame "Hreg".
@@ -103,10 +103,8 @@ Proof.
         done.
     }
     iSimpl.
-    iSplitL "Hmem".
-    iFrame.
     iFrame "Hneq".
-    iSplit; first done.
+    iSplitL "";first done.
     assert ((scheduled (update_reg_global σ1 i PC w2) i) = true) as ->.
     rewrite /scheduled.
     simpl.

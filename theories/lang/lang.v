@@ -713,11 +713,11 @@ Definition reclaim (s : state) : exec_mode * state :=
         match trn.1.2 with
         | Sharing =>
             unit (update_reg
-                    (update_page_table_global flip_excl (remove_transaction s handle) v ps)
+                    (remove_transaction (update_page_table_global flip_excl s v ps) handle)
                     R0 (encode_hvc_ret_code Succ))
         | Lending | Donation =>
             unit (update_reg
-                    (update_page_table_global grant_access (remove_transaction s handle) v ps)
+                    (remove_transaction (update_page_table_global grant_access s v ps) handle)
                     R0 (encode_hvc_ret_code Succ))
         end
       else throw Denied

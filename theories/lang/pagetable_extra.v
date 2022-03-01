@@ -238,6 +238,10 @@ Proof.
   { set_solver + H. }
 Qed.
 
+
+
+
+
 Lemma u_grnt_acc_acc σ ps v sacc:
   get_access_gmap σ !! v = Some (to_dfrac_agree (DfracOwn 1) sacc) ->
   get_access_gmap (update_page_table_global grant_access σ v ps)
@@ -314,7 +318,7 @@ Admitted.
 (*   apply upd_is_strong_assoc_comm. *)
 (* Qed. *)
 
-Lemma update_page_table_lookup_not_elem_of {i:VMID} {perm : permission} pgt upd (sps: gset PID) (p:PID) :
+Lemma p_upd_pgt_pgt_not_elem {i:VMID} {perm : permission} pgt upd (sps: gset PID) (p:PID) :
   p ∉ sps ->
   pgt !! p = Some perm ->
   set_fold (λ (p0 : PID) (acc : page_table), match acc !! p0 with
@@ -347,7 +351,7 @@ Proof.
   set_solver + H.
 Qed.
 
-Lemma update_page_table_lookup_elem_of {σ} {i:VMID} {perm : permission} upd (sps: gset PID) (p:PID) :
+Lemma  u_upd_pgt_elem_of {σ} {i:VMID} {perm : permission} upd (sps: gset PID) (p:PID) :
   p ∈ sps ->
   (get_page_table σ) !! p = Some perm ->
   set_fold (λ (p0 : PID) (acc : page_table), match acc !! p0 with
@@ -365,7 +369,7 @@ Proof.
     destruct (decide (p = p')).
     subst p'.
     rewrite set_fold_singleton.
-    apply update_page_table_lookup_not_elem_of.
+    apply p_upd_pgt_pgt_not_elem.
     done.
     rewrite  Hlookup lookup_insert //.
     apply IHsps.

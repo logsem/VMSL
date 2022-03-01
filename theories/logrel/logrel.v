@@ -11,10 +11,11 @@ Section logrel.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
+  Definition lift_option_gmap`{Countable K} {V: Type} (m: gmap K V) := (λ v, Some v) <$> m.
   Definition pages_in_trans (trans: gmap Word transaction) : gset PID :=
-    map_fold (λ (k:Addr) v acc, v.1.1.2 ∪ acc) (∅: gset PID) trans.
+    pages_in_trans' (lift_option_gmap trans).
 
-  Definition trans_ps_disj trans := map_Forall (λ h tran, tran.1.1.2 ## pages_in_trans (delete h trans)) trans.
+  Definition trans_ps_disj trans := inv_trans_ps_disj' (lift_option_gmap trans).
 
   Definition pgt (ps: gset PID) q (vo: VMID) (be: bool) : iProp Σ :=
     ([∗ set] p ∈ ps, p -@{q}O> vo) ∗ [∗ set] p ∈ ps, p -@{q}E> be.
@@ -171,12 +172,7 @@ Section logrel.
     )%I.
 
   (* Things we haven't really considerred:
-   - [] the zero flag (it seems unnecessary,
-                       unless we want to reason about examples in which zeroing memory is important.
-                       I assume such examples would be about confidentiality? )
-   - [x] message passing (seems we need RXs of all VMs?
-                           - Yes, now the question is, do we need to provide full rx_state and memory_page if the rx is full)
-   - [?] if we need more pure propositions to relate trans'' and other stuff
+   - [ ] if we need more pure propositions to relate trans'' and other stuff
    *)
 
 End logrel.

@@ -186,6 +186,19 @@ Section definitions.
 
   Definition inv_trans_wellformed σ := inv_trans_wellformed' (get_transactions σ).
 
+  Definition pages_in_trans' (trans: gmap Word (option transaction)) : gset PID :=
+    map_fold (λ (k:Addr) v acc, match v with
+                                  Some v => v.1.1.2 ∪ acc
+                                | None => acc
+             end) (∅: gset PID) trans.
+
+  Definition inv_trans_ps_disj' (trans : gmap Word (option transaction))  := map_Forall (λ h tran, match tran with
+                                                             Some tran => tran.1.1.2 ## pages_in_trans' (delete h trans)
+                                                           | None => True
+                                                end) trans.
+
+  Definition inv_trans_ps_disj σ:= inv_trans_ps_disj' (get_transactions σ).
+
   Definition inv_trans_pgt_consistent' (trans: gmap Word (option transaction)) (pgt: gmap PID permission) :=
     map_Forall
            (λ (k:Word) otran,
@@ -222,6 +235,7 @@ Section definitions.
       ∗ own gen_hpool_name (frac_auth_auth (to_agree (get_hpool_gset σ)))
       ∗ ghost_map_auth gen_retri_name 1 (get_retri_gmap σ)
       ∗ ⌜inv_trans_wellformed σ⌝
+      ∗ ⌜inv_trans_ps_disj σ⌝
       ∗ ⌜inv_trans_pgt_consistent σ⌝
   .
 
