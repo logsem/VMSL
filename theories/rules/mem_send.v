@@ -28,6 +28,140 @@ Proof.
   done.
 Qed.
 
+Lemma parse_list_of_Word_length mem p len l:
+  parse_list_of_Word mem p len = Some l ->
+length l = len.
+Proof.
+  rewrite /parse_list_of_Word.
+  revert p l.
+  induction len.
+  -  intros p l H0. simpl in H0.
+     rewrite /monad.List.sequence_a_list /= in H0.
+     inversion H0.
+     done.
+  -  intros p l H0. simpl in H0.
+     destruct (mem !! p).
+     {
+     rewrite /monad.List.sequence_a_list /= in H0.
+     destruct (list.foldr _) eqn:Heqn.
+     inversion H0.
+     simpl.
+     rewrite (IHlen (p ^+ 1)%f) //.
+     rewrite /sequence_a /= /monad.List.sequence_a_list /=.
+     done.
+     }
+     rewrite /monad.List.sequence_a_list /= in H0.
+     done.
+Qed.
+Lemma parse_list_of_pids_length l f3 l0:
+  parse_list_of_pids l f3 = Some l0->
+  length l = length l0.
+Proof.
+  revert l0 f3.
+  induction l.
+  - intros l0 f3 Hparse.
+    rewrite /parse_list_of_pids /=in Hparse.
+    destruct (Option.bool_check_option (Z.to_nat f3 =? 0)%nat).
+    2: done.
+    rewrite /monad.List.sequence_a_list /= in Hparse.
+    inversion Hparse.
+    done.
+  - intros l0 f3 Hparse.
+    rewrite /parse_list_of_pids /=in Hparse.
+    destruct (Option.bool_check_option (Z.to_nat f3 =? S (length l))%nat) eqn:Heq_f3.
+    2: done.
+    rewrite /monad.List.sequence_a_list /= in Hparse.
+    destruct (to_pid a).
+    2: done.
+    destruct ( list.foldr
+                 (λ (val : option PID) (acc : option (list PID)),
+                   match match val with
+                         | Some x' => Some (cons x')
+                         | None => None
+                         end with
+                   | Some f' => match acc with
+                                | Some a' => Some (f' a')
+                                | None => None
+                                end
+                   | None => None
+                   end)) eqn:Heq_fold.
+    inversion Hparse.
+    simpl.
+    erewrite (IHl l1 (f3 ^- 1)%f).
+    done.
+    rewrite /parse_list_of_pids.
+    destruct ((Option.bool_check_option (Z.to_nat (f3 ^- 1)%f =? length l)%nat)) eqn:Heq_f3'.
+    simpl.
+    rewrite /monad.List.sequence_a_list /=.
+    rewrite Heq_fold //.
+    assert ((Z.to_nat (f3 ^- 1)%f =? length l)%nat = true).
+    {
+      rewrite Nat.eqb_eq.
+      destruct ((Z.to_nat f3 =? S (length l))%nat) eqn: Heq_f3''.
+      2: { simpl in Heq_f3. done. }
+      rewrite Nat.eqb_eq in Heq_f3''.
+      solve_finz.
+    }
+    rewrite H0 in Heq_f3'.
+    done.
+    done.
+Qed.
+
+Lemma size_list_to_set' `{Countable A} (l: list A):
+  size (list_to_set (C:= gset _) l) <= length l.
+Proof.
+  unfold size, set_size. simpl.
+  induction l.
+  simpl.
+  rewrite elements_empty.
+  rewrite nil_length.
+  lia.
+  simpl.
+  destruct (decide (a ∈(list_to_set (C:= gset _) l))).
+  {
+    assert ({[a]} ∪ list_to_set l = list_to_set (C:= gset _) l) as ->.
+    set_solver +e.
+    lia.
+  }
+  rewrite elements_union_singleton //.
+  simpl.
+  lia.
+Qed.
+
+Lemma parse_transaction_descriptor_length mem p_tx len tran:
+ parse_transaction_descriptor mem (of_pid p_tx) len = Some tran ->
+ (size (tran.2) + 4 <= len)%Z.
+Proof.
+  rewrite /parse_transaction_descriptor.
+  intros Hparse.
+  destruct (parse_list_of_Word mem p_tx len) eqn:Heqn.
+  simpl in Hparse.
+  2:{ rewrite //= in Hparse. }
+  destruct (l !! 0) as [f1|];
+  destruct (l !! 1) as [f2|];
+  destruct (l !! 2) as [f3|];
+  destruct (l !! 3) as [f4|] eqn:Hlk4; try destruct (decode_vmid f1);rewrite //= in Hparse;
+  destruct (decode_vmid f4);rewrite //= in Hparse.
+  destruct (parse_list_of_pids (drop 4 l) f3) eqn:Hl0.
+  inversion Hparse.
+  simpl.
+  apply parse_list_of_pids_length in Hl0.
+  rewrite drop_length in Hl0.
+  pose proof (size_list_to_set' l0).
+  rewrite -Hl0 in H0.
+  apply parse_list_of_Word_length in Heqn.
+  rewrite -Heqn.
+  assert (length l >= 4).
+  { pose proof (lookup_lt_is_Some_1 l 3).
+    feed specialize H2.
+    eauto.
+    lia.
+  }
+  lia.
+  done.
+Qed.
+
+
 Lemma mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
   (tpa ai) ∈ sacc ->
   (tpa ai) ≠ p_tx ->
@@ -383,6 +517,7 @@ Proof.
     destruct hvcf; inversion Htt.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /mem_send Hlookup_R1 /= in Heqc2.
     case_bool_decide;first lia.
+    pose proof (parse_transaction_descriptor_length _ _ _ _ Hparse) as Hlt_pg.
     rewrite -Heq_tx -Heq_cur /len in Hparse.
     apply (parse_transaction_descriptor_tx _ σ1.1.2) in Hparse;last done.
     rewrite Hparse //= in Heqc2.
@@ -467,7 +602,7 @@ Proof.
     iAssert (⌜inv_trans_wellformed (alloc_transaction σ1 h (i, j, ps, Sharing, false))⌝%I) as "$".
     iPureIntro.
     apply (p_alloc_tran_inv_wf h (i, j, ps, Sharing, false));auto.
-    simpl. (*TODO try to get it from Hparse *) admit.
+    simpl. simpl in Hlt_pg. rewrite Z.leb_le. lia.
     (* TODO *)
     (* (* inv_trans_pgt_consistent *) *)
     (* rewrite (preserve_inv_trans_pgt_consistent (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh) (update_incr_PC _)). *)

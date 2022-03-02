@@ -127,7 +127,7 @@ Qed.
 
 Lemma p_alloc_tran_inv_wf {σ} h tran:
   inv_trans_wellformed σ ->
-  ((size tran.1.1.2 + 4)%nat <? 1000)%Z = true ->
+  ((size tran.1.1.2 + 4)%nat <=? 1000)%Z = true ->
   tran.1.1.1.1 ≠ tran.1.1.1.2 ->
   is_Some (σ.2 !! h) ->
   inv_trans_wellformed (alloc_transaction σ h tran).
