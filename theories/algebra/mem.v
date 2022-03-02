@@ -45,7 +45,7 @@ Section mem_rules.
   Lemma gen_mem_valid_SepM {σ} mem:
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ map] a↦w ∈ mem, a ->a w)-∗
-    ([∗ map] a↦w ∈ mem, ⌜(get_mem σ) !! a = Some w⌝).
+    (⌜map_Forall (λ k v, (get_mem σ) !! k = Some v) mem⌝).
   Proof.
     iIntros "Hσ Hmem".
     rewrite mem_mapsto_eq /mem_mapsto_def.
@@ -56,34 +56,34 @@ Section mem_rules.
     apply (lookup_weaken mem (get_mem σ) _ _ H Hincl) .
   Qed.
 
-  Lemma gen_mem_valid_SepL {σ} al ml:
-    NoDup al ->
-    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
-    ([∗ list] a;w ∈ al;ml, a ->a w)-∗
-    ([∗ list] a;w ∈ al;ml, ⌜(get_mem σ) !! a = Some w⌝).
-  Proof.
-    iIntros (Hnodup) "Hσ Hmem".
-    iDestruct (big_sepL2_alt with "Hmem") as "[%Heqlen Hmem]".
-    iApply big_sepL2_alt.
-    iSplitR;eauto.
-    rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word (zip al ml)).
-    2: { rewrite fst_zip;[eauto|lia].  }
-    rewrite -(big_opM_map_to_list (λ a w, ⌜(get_mem σ) !! a = Some w ⌝%I)).
-    rewrite -(big_opM_map_to_list (λ a w, (a ->a w)%I)).
-    iApply (gen_mem_valid_SepM with "Hσ Hmem").
-  Qed.
+  (* Lemma gen_mem_valid_SepL {σ} al ml: *)
+  (*   NoDup al -> *)
+  (*   ghost_map_auth gen_mem_name 1 (get_mem σ) -∗ *)
+  (*   ([∗ list] a;w ∈ al;ml, a ->a w)-∗ *)
+  (*   ([∗ list] a;w ∈ al;ml, ⌜(get_mem σ) !! a = Some w⌝). *)
+  (* Proof. *)
+  (*   iIntros (Hnodup) "Hσ Hmem". *)
+  (*   iDestruct (big_sepL2_alt with "Hmem") as "[%Heqlen Hmem]". *)
+  (*   iApply big_sepL2_alt. *)
+  (*   iSplitR;eauto. *)
+  (*   rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word (zip al ml)). *)
+  (*   2: { rewrite fst_zip;[eauto|lia].  } *)
+  (*   rewrite -(big_opM_map_to_list (λ a w, ⌜(get_mem σ) !! a = Some w ⌝%I)). *)
+  (*   rewrite -(big_opM_map_to_list (λ a w, (a ->a w)%I)). *)
+  (*   iApply (gen_mem_valid_SepM with "Hσ Hmem"). *)
+  (* Qed. *)
 
-  Lemma gen_mem_valid_SepL_pure {σ} al ml:
-    NoDup al ->
-    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
-    ([∗ list] a;w ∈ al;ml,  a ->a w) -∗
-    ⌜∀ (k : nat) (y1 y2 : Addr),
-      al !! k = Some y1 → ml !! k = Some y2 → get_mem σ !! y1 = Some y2⌝.
-  Proof.
-    iIntros (Hnodup) "Hσ Hmem".
-    iDestruct (gen_mem_valid_SepL with "Hσ Hmem") as "H";eauto.
-    iApply (big_sepL2_pure_1 with "H").
-  Qed.
+  (* Lemma gen_mem_valid_SepL_pure {σ} al ml: *)
+  (*   NoDup al -> *)
+  (*   ghost_map_auth gen_mem_name 1 (get_mem σ) -∗ *)
+  (*   ([∗ list] a;w ∈ al;ml,  a ->a w) -∗ *)
+  (*   ⌜∀ (k : nat) (y1 y2 : Addr), *)
+  (*     al !! k = Some y1 → ml !! k = Some y2 → get_mem σ !! y1 = Some y2⌝. *)
+  (* Proof. *)
+  (*   iIntros (Hnodup) "Hσ Hmem". *)
+  (*   iDestruct (gen_mem_valid_SepL with "Hσ Hmem") as "H";eauto. *)
+  (*   iApply (big_sepL2_pure_1 with "H"). *)
+  (* Qed. *)
 
   Lemma gen_mem_valid2 {σ} a1 w1 a2 w2:
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗

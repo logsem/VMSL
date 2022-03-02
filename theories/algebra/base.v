@@ -140,8 +140,8 @@ Section definitions.
 
   Definition get_access_gmap σ : gmap VMID (dfrac_agreeR (gsetO PID)):=
     let pt := (get_page_table σ) in
-    list_to_map (map (λ i, (i,(to_frac_agree 1 (dom (gset PID) (map_filter
-                                          (λ (kv: PID * gset VMID), i ∈ kv.2) _ ((λ (p: ( _ * gset VMID)), p.2) <$> pt)))))) (list_of_vmids)).
+    list_to_map (map (λ i, (i,(to_frac_agree 1 (dom (gset PID) (filter
+                                          (λ (kv: PID * gset VMID), i ∈ kv.2) ((λ (p: ( _ * gset VMID)), p.2) <$> pt)))))) (list_of_vmids)).
 
   Definition get_excl_gmap σ : gmap PID bool:=
     let pt := (get_page_table σ) in

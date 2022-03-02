@@ -153,7 +153,16 @@ Proof.
     rewrite (preserve_get_access_gmap (update_page_table_global grant_access (remove_transaction σ1 wh) i spsd) (update_incr_PC _)).
     2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     iDestruct (access_agree with "pgt_acc acc") as %Hlookup_pgt_acc.
-    rewrite (u_grnt_acc_acc _ _ _ sacc ). 2: rewrite (preserve_get_access_gmap σ1) //.
+    rewrite (u_grnt_acc_acc _ _ _ sacc).
+    2: {
+      rewrite p_rm_tran_pgt.
+      intros p Hin_p.
+      specialize (Hdisj wh _ Hlookup_tran p Hin_p).
+      simpl in Hdisj.
+      exists (Some i, true, ∅).
+      done.
+    }
+    2: rewrite (preserve_get_access_gmap σ1) //.
     rewrite (preserve_get_access_gmap σ1) //.
     iDestruct (access_update (spsd ∪ sacc) with "pgt_acc acc") as ">[pgt_acc acc]". done.
     iFrame "pgt_acc".

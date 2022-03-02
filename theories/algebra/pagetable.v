@@ -256,7 +256,7 @@ Section pagetable_rules.
   Lemma access_agree_check_true_forall {q} σ v s :
     own gen_access_name (●(get_access_gmap σ)) -∗
     v -@{ q }A> s -∗
-    ⌜∀ p, p ∈ s -> check_access_page σ v p = true⌝.
+    ⌜set_Forall (λ p, check_access_page σ v p = true) s⌝.
   Proof.
     iIntros "Hσ Hacc".
     iDestruct (access_agree with "Hσ Hacc") as %Hvalid.
@@ -371,7 +371,7 @@ Section pagetable_rules.
   (* Qed. *)
 
   (* own *)
-  Lemma owne_agree_Some_lookup_bigS {σ i} (s:gset PID):
+  Lemma own_agree_Some_lookup_bigS {σ i} (s:gset PID):
    ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
    ([∗ set] p ∈ s, p -@O> i) -∗
    ⌜set_Forall (λ p, ∃ b s,  get_page_table σ !! p = Some (Some i,b,s) ) s⌝.
@@ -394,7 +394,7 @@ Section pagetable_rules.
   Qed.
 
   (* excl *)
-  Lemma excle_agree_Some_lookup_bigS {σ b} (s:gset PID):
+  Lemma excl_agree_Some_lookup_bigS {σ b} (s:gset PID):
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
    ([∗ set] p ∈ s, p -@E> b) -∗
    ⌜set_Forall (λ p, ∃ o s,  get_page_table σ !! p = Some (o,b,s)) s⌝.

@@ -178,6 +178,73 @@ Section lang_extra.
     rewrite IHl //.
   Qed.
 
+  Lemma sequence_a_map_subseteq {A: Type} (l:list A) len p (m1 m2 :gmap _ A):
+    sequence_a (map (λ v : Addr, m1 !! v) (finz.seq p len)) = Some l ->
+    m1 ⊆ m2 ->
+    sequence_a (map (λ v : Addr, m2 !! v) (finz.seq p len)) = Some l.
+  Proof.
+    unfold sequence_a. simpl.
+    unfold monad.List.sequence_a_list.
+    intros.
+    generalize dependent p.
+    generalize dependent l.
+    induction len.
+    done.
+    destruct l.
+    simpl.
+    simpl in IHlen.
+    intros.
+    destruct (m1 !! p)  eqn:Hlk.
+    2 : {
+      rewrite //= in H.
+    }
+    destruct ( foldr
+                 (λ (val : option A) (acc : option (list A)),
+                   match match val with
+                         | Some x' => Some (cons x')
+                         | None => None
+                         end with
+                   | Some f' => match acc with
+                                | Some a' => Some (f' a')
+                                | None => None
+                                end
+                   | None => None
+                   end) (Some []) (map (λ v : Addr, m1 !! v) (finz.seq (p ^+ 1)%f len))
+             );
+      inversion H.
+    simpl.
+    simpl in IHlen.
+    intros.
+    destruct (m1 !! p)  eqn:Hlk.
+    2 : {
+      rewrite //= in H.
+    }
+    rewrite /= in H.
+    rewrite /=.
+    destruct ( foldr
+                 (λ (val : option A) (acc : option (list A)),
+                   match match val with
+                         | Some x' => Some (cons x')
+                         | None => None
+                         end with
+                   | Some f' => match acc with
+                                | Some a' => Some (f' a')
+                                | None => None
+                                end
+                   | None => None
+                   end) (Some []) (map (λ v : Addr, m1 !! v) (finz.seq (p ^+ 1)%f len))
+             ) eqn:Heqn;
+      inversion H.
+    subst.
+    assert (m2 !! p = Some a) as ->.
+    {
+      rewrite map_subseteq_spec in H0.
+      apply H0.
+      apply Hlk.
+    }
+    rewrite (IHlen l) //.
+  Qed.
+
   (* TODO: reprove this *)
   Lemma transaction_descriptor_valid{i j l psd mem} des p :
     (finz.to_z l) = (Z.of_nat (length psd)) ->

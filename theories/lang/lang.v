@@ -483,7 +483,7 @@ Definition write_retrieve_msg (st:state) (dst: Addr) (wh:Word) (trn: transaction
  end.
 
 Definition transfer_msg (st : state) (v : VMID) (r : VMID) (l : Word) : hvc_result state :=
-  if (page_size <? l)%Z
+  if bool_decide (page_size < l)%Z
   then throw InvParam
   else
     let st' := copy_page_segment st (get_tx_pid st @ v) (get_rx_pid st @ r) (Z.to_nat l)
@@ -555,20 +555,14 @@ Definition parse_transaction_descriptor (mem : mem) (b: Addr) (len: nat) : optio
   vr_raw <- raw_descriptor !! 3 ;;;
   vr <- decode_vmid vr_raw ;;;
   ps <- parse_list_of_pids (drop 4 raw_descriptor) wl ;;;
-  unit (vs, (if (finz.to_z wh =? 0)%Z then None else Some wh), vr, list_to_set ps).
+  unit (vs, (if bool_decide (finz.to_z wh = 0)%Z then None else Some wh), vr, list_to_set ps).
 
 Definition validate_transaction_descriptor (i:VMID) (t : transaction_descriptor) : bool  :=
   match t with
-  | (s, h, r, ps) =>
+  | (s, h, r, ps) => bool_decide (i = s ∧ s ≠ r ∧ ¬ is_Some(h))
              (* sender is the caller *)
-         (andb (i =? s)
              (* none of the receivers is the caller  *)
-          (andb (negb (s =? r))
              (* h equals 0*)
-                    (match h with
-                                      | None => true
-                                      | Some _ => false
-                                     end)))
   end.
 
 Definition insert_transaction (st : state) (h : Word) (t : transaction):=
@@ -617,7 +611,7 @@ Definition flat_list_list_word (wss: list (list Word)):=
 Definition mem_send (s : state) (ty: transaction_type) : exec_mode * state :=
   let comp :=
       len <- lift_option (get_reg s R1) ;;;
-      m <- (if (page_size <? len)%Z
+      m <- (if bool_decide (page_size < len)%Z
             then throw InvParam
             else
               td <- lift_option_with_err (parse_transaction_descriptor (get_mem s)
@@ -663,7 +657,7 @@ Definition retrieve (s : state) : exec_mode * state :=
       match trn with
          | (vs, vr, ps, ty, b) =>
            let v := (get_current_vm s) in
-           match (v =? vr), b with
+           match bool_decide (v = vr), b with
            | true, false =>
              s' <- (write_retrieve_msg s (get_rx_pid s @ v) handle trn) ;;;
              let upd := match ty with
@@ -694,7 +688,7 @@ Definition relinquish (s : state) : exec_mode * state :=
     let v := (get_current_vm s) in
       s' <- (match trn with
              | (vs, r, ps, ty, b) =>
-                 if b && (v =? r)
+                 if b && bool_decide (v = r)
                  then unit (update_transaction s h (vs, r, ps, ty, false))
                  else throw Denied
              end) ;;;

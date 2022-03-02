@@ -15,19 +15,13 @@ Proof.
   rewrite /validate_transaction_descriptor in Hvalid.
   destruct tran as  [[[v wh] r]  ps'].
   exists r, ps'.
-  symmetry in Hvalid.
-  repeat (apply andb_true_eq in Hvalid;destruct Hvalid as [? Hvalid]).
-  symmetry in H.
-  rewrite Nat.eqb_eq in H.
-  apply fin_to_nat_inj in H.
+  case_bool_decide;last done.
+  destruct H as [? [? ?]].
   subst.
-  symmetry in H0.
-  rewrite negb_true_iff in H0.
-  rewrite Nat.eqb_neq in H0.
   split.
-  2: {intro H'; apply H0; symmetry in H'.  rewrite H'. done. }
   destruct wh.
-  inversion Hvalid.
+  rewrite is_Some_alt // in H1.
+  done.
   done.
 Qed.
 
