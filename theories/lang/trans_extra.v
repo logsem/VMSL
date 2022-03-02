@@ -25,23 +25,23 @@ Proof.
   done.
 Qed.
 
-Lemma p_alloc_trans_current_vm σ h trans:
+Lemma p_alloc_tran_current_vm σ h trans:
   get_current_vm (alloc_transaction σ h trans) = get_current_vm σ.
 Proof. f_equal. Qed.
 
-Lemma p_alloc_trans_regs σ h trans:
+Lemma p_alloc_tran_regs σ h trans:
   get_reg_files (alloc_transaction σ h trans) = get_reg_files σ.
 Proof. f_equal. Qed.
 
-Lemma p_alloc_trans_mem σ h trans:
+Lemma p_alloc_tran_mem σ h trans:
   get_mem (alloc_transaction σ h trans) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma p_alloc_trans_mb σ h trans:
+Lemma p_alloc_tran_mb σ h trans:
   get_mail_boxes (alloc_transaction σ h trans) = get_mail_boxes σ.
 Proof. f_equal. Qed.
 
-Lemma p_alloc_trans_pgt σ h trans:
+Lemma p_alloc_tran_pgt σ h trans:
   get_page_table (alloc_transaction σ h trans) = get_page_table σ.
 Proof. f_equal. Qed.
 
@@ -125,7 +125,39 @@ Proof.
   rewrite fmap_insert //=.
 Qed.
 
-Lemma u_alloc_trans_trans σ h tran:
+Lemma p_alloc_tran_inv_wf {σ} h tran:
+  inv_trans_wellformed σ ->
+  ((size tran.1.1.2 + 4)%nat <? 1000)%Z = true ->
+  tran.1.1.1.1 ≠ tran.1.1.1.2 ->
+  is_Some (σ.2 !! h) ->
+  inv_trans_wellformed (alloc_transaction σ h tran).
+  Proof.
+    rewrite /inv_trans_wellformed /inv_trans_wellformed'.
+    intros.
+    rewrite /alloc_transaction.
+    rewrite /insert_transaction /=.
+    destruct H.
+    split.
+    rewrite /inv_trans_pg_num_ub.
+    apply (map_Forall_insert_2 _ σ.2).
+    done.
+    done.
+    destruct H3.
+    split.
+    rewrite /inv_trans_sndr_rcvr_neq.
+    apply (map_Forall_insert_2 _ σ.2).
+    done.
+    done.
+    rewrite /inv_finite_handles.
+    rewrite dom_insert_L.
+    rewrite /inv_finite_handles in H1.
+    rewrite -elem_of_dom in H2.
+    rewrite /inv_finite_handles in H4.
+    rewrite H4.
+    set_solver + H2.
+  Qed.
+
+Lemma u_alloc_tran_trans σ h tran:
   (get_trans_gmap (alloc_transaction σ h tran))
   = <[h:= Some (tran.1)]>(get_trans_gmap σ).
 Proof.
@@ -133,12 +165,17 @@ Proof.
   apply (alloc_transaction_update_transactions (λ tran, (tran.1))).
 Qed.
 
-Lemma u_alloc_trans_retri σ h tran:
+Lemma u_alloc_tran_retri σ h tran:
   (get_retri_gmap (alloc_transaction σ h tran)) = <[h:= Some tran.2]>(get_retri_gmap σ).
 Proof.
   apply (alloc_transaction_update_transactions (λ tran, tran.2)).
 Qed.
 
+Lemma u_alloc_tran_hpool σ h tran:
+(get_hpool_gset (alloc_transaction σ h tran)) = (get_hpool_gset σ) ∖ {[h]}.
+Proof.
+  apply update_transaction_update_hpool.
+Qed.
 (* TODO *)
 Lemma update_transaction_preserve_current_vm σ h trans:
   get_current_vm (update_transaction σ h trans) = get_current_vm σ.

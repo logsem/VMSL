@@ -409,7 +409,7 @@ Proof.
     rewrite (preserve_get_mb_gmap σ1).
     rewrite (preserve_get_rx_gmap σ1).
     all: try rewrite p_upd_pc_mb //.
-    rewrite p_upd_pc_mem 2!p_upd_reg_mem p_flip_excl_mem p_alloc_trans_mem.
+    rewrite p_upd_pc_mem 2!p_upd_reg_mem p_flip_excl_mem p_alloc_tran_mem.
     iFrame "Hnum mem rx_state mb".
     (* upd regs *)
     rewrite Heq_cur.
@@ -417,8 +417,8 @@ Proof.
     2: { rewrite 2!u_upd_reg_regs.
          rewrite (preserve_get_reg_gmap σ1). rewrite lookup_insert_ne //.  rewrite lookup_insert_ne //. solve_reg_lookup. done.
     }
-    rewrite u_upd_reg_regs p_upd_reg_current_vm p_flip_excl_current_vm p_alloc_trans_current_vm  Heq_cur.
-    rewrite u_upd_reg_regs p_flip_excl_current_vm p_alloc_trans_current_vm  Heq_cur.
+    rewrite u_upd_reg_regs p_upd_reg_current_vm p_flip_excl_current_vm p_alloc_tran_current_vm  Heq_cur.
+    rewrite u_upd_reg_regs p_flip_excl_current_vm p_alloc_tran_current_vm  Heq_cur.
     rewrite (preserve_get_reg_gmap σ1) //.
     iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i h R0 i (encode_hvc_ret_code Succ)) with "regs PC R2 R0")
       as ">[$ [PC [R2 R0]]]";eauto.
@@ -433,9 +433,57 @@ Proof.
     iFrame "pgt_acc".
     rewrite (preserve_get_excl_gmap (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps) (update_incr_PC _)).
     2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
-
-    (* rewrite (preserve_get_excl_gmap σ1) //. *)
-    (* iFrame "pgt_excl". *)
+    rewrite u_flip_excl_excl.
+    iDestruct (excl_update_flip with "pgt_excl excl") as ">[$ excl]".
+    (* upd tran *)
+    rewrite (preserve_get_trans_gmap (alloc_transaction σ1 h (i, j, ps, Sharing, false)) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans  //.
+    rewrite u_alloc_tran_trans.
+    assert (sh = {[h]} ∪ sh ∖ {[h]}) as Heq_sh.
+    { assert (h ∈ sh).
+      rewrite -elem_of_elements. rewrite Hfhs. set_solver +.
+      rewrite union_comm_L.
+      rewrite difference_union_L.
+      set_solver + H3.
+    }
+    iPoseProof (big_sepS_union _ {[h]} (sh ∖ {[h]})) as "[H _]".
+    set_solver +.
+    iDestruct ("H" with "[handles]") as "[h handles]".
+    rewrite -Heq_sh. iExact "handles".
+    rewrite big_sepS_singleton. iDestruct "h" as "[tran re]". iClear "H".
+    iDestruct (trans_valid_None with "trans tran") as %Hlookup_tran.
+    iDestruct (trans_update_insert h (i, j, ps, Sharing) with "trans tran") as ">[$ tran]".
+    (* upd hp *)
+    rewrite (preserve_get_hpool_gset (alloc_transaction σ1 h (i, j, ps, Sharing, false)) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_alloc_tran_hpool.
+    iDestruct (hpool_update_diff h with "hpool hp") as ">[$ hp]".
+    (* upd retri *)
+    rewrite (preserve_get_retri_gmap (alloc_transaction σ1 h (i, j, ps, Sharing, false)) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_alloc_tran_retri.
+    iDestruct (retri_update_insert with "retri re") as ">[$ re]".
+    (* inv_trans_wellformed *)
+    rewrite (preserve_inv_trans_wellformed (alloc_transaction σ1 h (i, j, ps, Sharing, false))).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //.
+    iAssert (⌜inv_trans_wellformed (alloc_transaction σ1 h (i, j, ps, Sharing, false))⌝%I) as "$".
+    iPureIntro.
+    apply (p_alloc_tran_inv_wf h (i, j, ps, Sharing, false));auto.
+    simpl. (*TODO try to get it from Hparse *) admit.
+    (* TODO *)
+    (* (* inv_trans_pgt_consistent *) *)
+    (* rewrite (preserve_inv_trans_pgt_consistent (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh) (update_incr_PC _)). *)
+    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
+    (* 2: rewrite p_upd_pc_pgt p_upd_reg_pgt //. *)
+    (* iAssert (⌜inv_trans_pgt_consistent (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh)⌝%I) as "$". iPureIntro. *)
+    (* apply p_reclaim_inv_consist;auto. *)
+    (* exists (i, j, spsd, Lending). split;auto. *)
+    (* rewrite /get_trans_gmap /get_transactions_gmap. *)
+    (* rewrite lookup_fmap Hlookup_tran //. *)
+    (* (* inv_trans_ps_disj *) *)
+    (* rewrite (preserve_inv_trans_ps_disj (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh)). *)
+    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
+    (* iAssert (⌜inv_trans_ps_disj (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh)⌝%I) as "$". iPureIntro. *)
+    (* apply p_rm_tran_inv_disj. *)
+    (* rewrite (preserve_inv_trans_ps_disj σ1) //. *)
 Admitted.
 
 Lemma mem_lend {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :

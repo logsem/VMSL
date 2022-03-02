@@ -111,15 +111,14 @@ Section helpers.
 
   Context `{hypconst : !HypervisorConstants}.
 
-  Definition  update_acc_gmap upd (gm:gmap PID (frac * (gset_disj VMID)))  (v: VMID) (sps: gset PID):=
-    (set_fold (λ p acc, upd acc v p) gm sps).
+  Definition  update_pgt_gmap {A : Type } upd (gm:gmap PID A) (sps: gset PID):=
+    (set_fold (λ p acc, upd acc p) gm sps).
 
-  Definition revoke_acc_gmap :=
-    update_acc_gmap (λ (gm: gmap _ (frac * (gset_disj VMID))) (v:VMID) (p:PID),  match (gm !! p) with
-                                | Some (q, GSet s) => <[p:= (q, GSet (s ∖ {[v]}))]>gm
+  Definition flip_excl_gmap :=
+    update_pgt_gmap (λ (gm: gmap _ bool) (p:PID), match (gm !! p) with
+                                | Some (b) => <[p:= negb b]>gm
                                 | _ => gm
-                                end
-                    ).
+                                end).
 
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans' p trans:
