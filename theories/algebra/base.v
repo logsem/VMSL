@@ -145,7 +145,7 @@ Section definitions.
 
   Definition get_excl_gmap σ : gmap PID bool:=
     let pt := (get_page_table σ) in
-    ((λ (p: (_ * bool * _)), p.1.2) <$> pt).
+    ((λ (p: (_ * bool * gset _)), p.1.2 && bool_decide (size p.2 <= 1)) <$> pt).
 
   Definition get_transactions_gmap{Info: Type} σ (proj : transaction -> Info):
    gmap Word (option Info) :=

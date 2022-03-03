@@ -109,10 +109,7 @@ Proof.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
   (* valid hpool *)
   iDestruct (hpool_valid with "hpool hp") as %Heq_hp.
-  iAssert ( ⌜wh ∉ sh⌝)%I as %Hnin.
-  {
-    iApply not_elem_of_fresh_handles. iFrame.
-  }
+  iAssert ( ⌜wh ∉ sh⌝)%I as %Hnin. { iApply not_elem_of_fresh_handles. iFrame. }
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -168,7 +165,15 @@ Proof.
     iFrame "pgt_acc".
     rewrite (preserve_get_excl_gmap (update_page_table_global grant_access (remove_transaction σ1 wh) i spsd) (update_incr_PC _)).
     2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
-    rewrite p_grnt_acc_excl. rewrite (preserve_get_excl_gmap σ1) //.
+    rewrite p_grnt_acc_excl.
+    2: { rewrite p_rm_tran_pgt. specialize (Hdisj wh _ Hlookup_tran).
+         intros p Hin.
+         specialize (Hdisj p Hin).
+         simpl in Hdisj.
+         exists (Some i, true, ∅).
+         split;done.
+    }
+    rewrite (preserve_get_excl_gmap σ1) //.
     iFrame "pgt_excl".
     (* upd tran *)
     rewrite (preserve_get_trans_gmap (remove_transaction σ1 wh) (update_incr_PC _)).

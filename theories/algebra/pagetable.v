@@ -140,13 +140,13 @@ Section pagetable_rules.
 
   Lemma excl_pgt_lookup {σ} {b:bool} (p:PID):
   (get_excl_gmap σ) !! p = Some b ->
-  ∃ o s, (get_page_table σ) !! p = Some(o, b, s).
+  ∃ o b' s, (get_page_table σ) !! p = Some(o, b', s) ∧ b = b' && bool_decide (size s <= 1).
   Proof.
     rewrite /get_excl_gmap.
     rewrite lookup_fmap_Some.
     intros [? [Helem Hlookup]].
     subst.
-    exists x.1.1, x.2.
+    exists x.1.1, x.1.2,  x.2.
     destruct x; destruct p0;done.
   Qed.
 
@@ -311,7 +311,7 @@ Section pagetable_rules.
   Lemma excl_agree_Some_lookup {σ} p b:
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
    (p -@E> b) -∗
-   ⌜∃ o s, (get_page_table σ) !! p= Some (o,b,s)⌝.
+   ⌜∃ o b' s, (get_page_table σ) !! p= Some (o,b',s) ∧ b = b' && bool_decide (size s <= 1)⌝.
   Proof.
     iIntros  "Hσ Hexcl".
     rewrite excl_mapsto_eq /excl_mapsto_def.
@@ -322,16 +322,19 @@ Section pagetable_rules.
     done.
   Qed.
 
-  Lemma excl_agree_Some_check_true {σ} p b:
+  Lemma excl_agree_Some_check_true {σ} p:
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
-   (p -@E> b) -∗
-   ⌜(check_excl_page σ p)= b⌝.
+   (p -@E> true) -∗
+   ⌜(check_excl_page σ p)= true⌝.
   Proof.
     iIntros  "Hσ Hexcl".
-    iDestruct (excl_agree_Some_lookup with "Hσ Hexcl") as %[o [s Hlookup]].
+    iDestruct (excl_agree_Some_lookup with "Hσ Hexcl") as %[o [b [s [Hlookup Heq]]]].
     iPureIntro.
     rewrite /check_excl_page.
-    rewrite Hlookup //.
+    rewrite Hlookup.
+    symmetry in Heq.
+    rewrite andb_true_iff in Heq.
+    destruct Heq;done.
   Qed.
 
   (* bigS *)
@@ -397,18 +400,18 @@ Section pagetable_rules.
   Lemma excl_agree_Some_lookup_bigS {σ b} (s:gset PID):
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
    ([∗ set] p ∈ s, p -@E> b) -∗
-   ⌜set_Forall (λ p, ∃ o s,  get_page_table σ !! p = Some (o,b,s)) s⌝.
+   ⌜set_Forall (λ p, ∃ o b' s,  get_page_table σ !! p = Some (o,b',s) ∧ b = b' && bool_decide(size s <= 1)) s⌝.
   Proof.
     iIntros "Hexcl Hpgt".
     iIntros (p Hin_p).
     iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt".
-    iApply (excl_agree_Some_lookup with "Hexcl Hpgt").
+    iApply  (excl_agree_Some_lookup with "Hexcl Hpgt").
   Qed.
 
-  Lemma excl_agree_Some_check_true_bigS {σ b} (s:gset PID):
+  Lemma excl_agree_Some_check_true_bigS {σ} (s:gset PID):
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
-   ([∗ set] p ∈ s, p -@E> b) -∗
-   ⌜set_Forall (λ p, check_excl_page σ p = b) s⌝.
+   ([∗ set] p ∈ s, p -@E> true) -∗
+   ⌜set_Forall (λ p, check_excl_page σ p = true) s⌝.
   Proof.
     iIntros "Hexcl Hpgt".
     iIntros (p Hin_p).

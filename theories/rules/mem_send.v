@@ -161,6 +161,58 @@ Proof.
   done.
 Qed.
 
+Lemma p_share_inv_cosist σ1 h i j ps:
+inv_trans_pgt_consistent σ1->
+inv_trans_ps_disj σ1 ->
+σ1.2 !! h = Some None ->
+set_Forall (λ p, check_excl_page σ1 p = true) ps ->
+inv_trans_pgt_consistent (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps).
+Proof.
+  intros Hinv_con Hdisj Hlk Hforall.
+  rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /=.
+  rewrite map_Forall_lookup.
+  intros h' meta Hlookup'.
+  rewrite lookup_insert_Some in Hlookup'.
+  destruct Hlookup' as [[<- <-]|[Hneq Hlookup']].
+  {
+    intros p Hin.
+    simpl.
+    (* FIXME: cannot prove access is a singleton set. *)
+    (* 1. change the excl RA to size acc && excl *)
+    (* 2. add a new invariant: excl = true -> size acc= 1 ∧ size acc <= 2  *)
+    admit.
+  }
+  rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /= in Hinv_con.
+  specialize (Hinv_con h' meta Hlookup').
+  simpl in Hinv_con.
+  destruct meta as [[[[[sv rv] ps'] tt] b]|];last done.
+  intros p Hin.
+  admit.
+  (* specialize (Hinv_con p Hin). *)
+  (* rewrite /inv_trans_ps_disj /inv_trans_ps_disj' /= in Hinv_disj. *)
+  (* simpl in *. *)
+  (* assert (p ∉ x.1.2). *)
+  (* { *)
+  (*   rewrite /get_trans_gmap /get_transactions_gmap in Hlookup. *)
+  (*   rewrite lookup_fmap_Some in Hlookup. *)
+  (*   destruct Hlookup as [otrans [Heq Hlookup]]. *)
+  (*   destruct otrans;last inversion Heq. *)
+  (*   inversion_clear Heq. *)
+  (*   specialize (Hinv_disj h (Some t) Hlookup). *)
+  (*   simpl in Hinv_disj. *)
+  (*   assert (p ∈ pages_in_trans' (delete h σ.2)). *)
+  (*   { *)
+  (*     rewrite elem_of_pages_in_trans'. *)
+  (*     exists h' , (sv, rv, ps, tt, b). *)
+  (*     split;last done. *)
+  (*     rewrite lookup_delete_ne //. *)
+  (*   } *)
+  (*   set_solver + Hinv_disj H0. *)
+  (* } *)
+  (* destruct tt,b;auto;try apply p_upd_pgt_pgt_not_elem;auto. *)
+Admitted.
+
+
 
 Lemma mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
   (tpa ai) ∈ sacc ->
@@ -603,12 +655,13 @@ Proof.
     iPureIntro.
     apply (p_alloc_tran_inv_wf h (i, j, ps, Sharing, false));auto.
     simpl. simpl in Hlt_pg. rewrite Z.leb_le. lia.
+    (* inv_trans_pgt_consistent *)
+    rewrite (preserve_inv_trans_pgt_consistent (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //.
+    2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
+    iAssert (⌜inv_trans_pgt_consistent (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps)⌝%I) as "$".
+    iPureIntro.
     (* TODO *)
-    (* (* inv_trans_pgt_consistent *) *)
-    (* rewrite (preserve_inv_trans_pgt_consistent (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
-    (* 2: rewrite p_upd_pc_pgt p_upd_reg_pgt //. *)
-    (* iAssert (⌜inv_trans_pgt_consistent (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh)⌝%I) as "$". iPureIntro. *)
     (* apply p_reclaim_inv_consist;auto. *)
     (* exists (i, j, spsd, Lending). split;auto. *)
     (* rewrite /get_trans_gmap /get_transactions_gmap. *)

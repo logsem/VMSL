@@ -155,33 +155,57 @@ Proof.
   }
   apply upd_is_strong_assoc_comm.
   { set_solver + H. }
-  Qed.
+Qed.
 
 Lemma p_grnt_acc_excl σ i ps:
+  set_Forall (λ p, ∃ e, (get_page_table σ) !! p = Some e ∧ e.2 = ∅) ps ->
  (get_excl_gmap (update_page_table_global grant_access σ i ps)) = (get_excl_gmap σ).
 Proof.
   rewrite /get_excl_gmap /=.
   generalize dependent σ.1.1.1.2.
   induction ps as [|p ps] using set_ind_L.
   done.
-  intro.
+  intros ? Hforall.
   rewrite set_fold_disj_union_strong.
   {
     rewrite set_fold_singleton /=.
-  set pgt' := (X in X !! p).
-  destruct (pgt' !! p) eqn:Hlookup.
-  { destruct p1.
-    rewrite IHps /=.
-    rewrite fmap_insert /=.
-    apply map_eq.
-    intro.
-    destruct (decide (i0=p)).
-    rewrite e.
-    rewrite lookup_insert.
-    rewrite lookup_fmap  Hlookup //.
-    rewrite lookup_insert_ne;[done|eauto].
-  }
-  rewrite IHps //.
+    set pgt' := (X in X !! p).
+    destruct (pgt' !! p) eqn:Hlookup.
+    { destruct p1.
+      rewrite IHps /=.
+      rewrite fmap_insert /=.
+      apply map_eq.
+      intro.
+      destruct (decide (i0=p)).
+      rewrite e.
+      rewrite lookup_insert.
+      rewrite lookup_fmap Hlookup /=.
+      do 2 f_equal.
+      specialize (Hforall p).
+      feed specialize Hforall. set_solver +.
+      destruct Hforall as [? [? ?]].
+      rewrite /pgt' in Hlookup.
+      rewrite H0 in Hlookup.
+      inversion Hlookup. subst x. simpl in H1. subst g.
+      rewrite union_empty_r_L.
+      rewrite size_singleton size_empty.
+      case_bool_decide;done.
+      rewrite lookup_insert_ne;[done|eauto].
+      intros p2 Hin.
+      specialize (Hforall p2).
+      feed specialize Hforall.
+      set_solver + Hin.
+      destruct Hforall.
+      exists x.
+      assert (p ≠ p2). set_solver + H Hin.
+      rewrite lookup_insert_ne //.
+    }
+    rewrite IHps //.
+      intros p2 Hin.
+      specialize (Hforall p2).
+      feed specialize Hforall.
+      set_solver + Hin.
+    apply Hforall.
   }
   apply upd_is_strong_assoc_comm.
   { set_solver + H. }
@@ -534,6 +558,7 @@ Proof.
 Qed.
 
 Lemma u_flip_excl_excl σ ps v :
+  set_Forall (λ p, ∃ e, (get_page_table σ) !! p = Some e ∧ e.2 = {[v]}) ps ->
  (get_excl_gmap (update_page_table_global flip_excl σ v ps)) = flip_excl_gmap (get_excl_gmap σ) ps.
 Proof.
   rewrite /get_excl_gmap.
@@ -543,7 +568,7 @@ Proof.
   induction ps as [|p ps] using set_ind_L.
   intros.
   rewrite !set_fold_empty //.
-  intro pgt.
+  intros pgt Hforall.
   rewrite !set_fold_disj_union_strong /=.
   rewrite !set_fold_singleton.
   rewrite IHps.
@@ -555,8 +580,30 @@ Proof.
     f_equal.
     destruct p0.
     rewrite fmap_insert //=.
+    assert (bool_decide (size g ≤ 1) = true) as ->.
+    {
+      specialize (Hforall p).
+      feed specialize Hforall. set_solver +.
+      destruct Hforall as [? [? ?]].
+      rewrite H0 in Hlookup.
+      inversion Hlookup. subst x. simpl in H1. subst g.
+      rewrite size_singleton.
+      case_bool_decide;done.
+    }
+    rewrite 2!andb_true_r //.
   }
   { rewrite Hlookup //=. }
+  {
+    intros p1 Hin.
+    specialize (Hforall p1).
+    feed specialize Hforall. set_solver + Hin.
+    destruct Hforall as [? [? ?]].
+    destruct (pgt !! p).
+    exists x.
+    assert (p ≠ p1). set_solver + Hin H.
+    rewrite lookup_insert_ne //.
+    exists x. done.
+  }
   2,4 : set_solver + H.
   {
     intros.
