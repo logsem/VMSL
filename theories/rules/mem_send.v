@@ -162,56 +162,84 @@ Proof.
 Qed.
 
 Lemma p_share_inv_cosist σ1 h i j ps:
-inv_trans_pgt_consistent σ1->
-inv_trans_ps_disj σ1 ->
-σ1.2 !! h = Some None ->
-set_Forall (λ p, check_excl_page σ1 p = true) ps ->
-inv_trans_pgt_consistent (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps).
+  inv_trans_pgt_consistent σ1->
+  inv_trans_sndr_rcvr_neq σ1.2 ->
+  σ1.2 !! h = Some None ->
+  set_Forall (λ p, get_page_table σ1 !! p = Some (Some i, true, {[i]})) ps ->
+  inv_trans_pgt_consistent (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps).
 Proof.
-  intros Hinv_con Hdisj Hlk Hforall.
+  intros Hinv_con Hinv_neq Hlk Hforall.
   rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /=.
   rewrite map_Forall_lookup.
   intros h' meta Hlookup'.
   rewrite lookup_insert_Some in Hlookup'.
   destruct Hlookup' as [[<- <-]|[Hneq Hlookup']].
-  {
+  { (* FIXED: cannot prove access is a singleton set. changed the excl RA to size acc && excl *)
     intros p Hin.
-    simpl.
-    (* FIXME: cannot prove access is a singleton set. *)
-    (* 1. change the excl RA to size acc && excl *)
-    (* 2. add a new invariant: excl = true -> size acc= 1 ∧ size acc <= 2  *)
-    admit.
+    simpl in *.
+    generalize dependent σ1.1.1.1.2.
+    induction ps using set_ind_L.
+    - set_solver + Hin.
+    - intros pgt Hforall.
+      rewrite set_fold_disj_union_strong.
+      {
+        rewrite set_fold_singleton.
+        destruct (decide (x = p)).
+        {
+          subst.
+          specialize (Hforall  p).
+          feed specialize Hforall. set_solver +.
+          rewrite Hforall /=.
+          apply p_upd_pgt_pgt_not_elem.
+          done.
+          rewrite lookup_insert_Some.
+          left;done.
+        }
+        {
+          destruct ( pgt !! x).
+          {
+            rewrite IHps //.
+            set_solver + n Hin.
+            intros p' Hin'.
+            rewrite lookup_insert_ne.
+            apply Hforall.
+            set_solver + Hin'.
+            set_solver + Hin' H0.
+          }
+          {
+            rewrite IHps //.
+            set_solver + n Hin.
+            intros p' Hin'.
+            apply Hforall.
+            set_solver + Hin'.
+          }
+        }
+      }
+      apply upd_is_strong_assoc_comm.
+      set_solver + H0.
   }
+  {
   rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /= in Hinv_con.
   specialize (Hinv_con h' meta Hlookup').
   simpl in Hinv_con.
   destruct meta as [[[[[sv rv] ps'] tt] b]|];last done.
+  simpl in *.
   intros p Hin.
-  admit.
-  (* specialize (Hinv_con p Hin). *)
-  (* rewrite /inv_trans_ps_disj /inv_trans_ps_disj' /= in Hinv_disj. *)
-  (* simpl in *. *)
-  (* assert (p ∉ x.1.2). *)
-  (* { *)
-  (*   rewrite /get_trans_gmap /get_transactions_gmap in Hlookup. *)
-  (*   rewrite lookup_fmap_Some in Hlookup. *)
-  (*   destruct Hlookup as [otrans [Heq Hlookup]]. *)
-  (*   destruct otrans;last inversion Heq. *)
-  (*   inversion_clear Heq. *)
-  (*   specialize (Hinv_disj h (Some t) Hlookup). *)
-  (*   simpl in Hinv_disj. *)
-  (*   assert (p ∈ pages_in_trans' (delete h σ.2)). *)
-  (*   { *)
-  (*     rewrite elem_of_pages_in_trans'. *)
-  (*     exists h' , (sv, rv, ps, tt, b). *)
-  (*     split;last done. *)
-  (*     rewrite lookup_delete_ne //. *)
-  (*   } *)
-  (*   set_solver + Hinv_disj H0. *)
-  (* } *)
-  (* destruct tt,b;auto;try apply p_upd_pgt_pgt_not_elem;auto. *)
-Admitted.
-
+  specialize (Hinv_con p Hin).
+  assert (p ∉ ps).
+  {
+    intro.
+    specialize (Hforall p H0).
+    rewrite Hforall in Hinv_con.
+    destruct tt; destruct b;auto;
+      try set_solver + Hinv_con.
+    specialize (Hinv_neq h' _ Hlookup').
+    simpl in Hinv_neq.
+    set_solver.
+  }
+  destruct tt,b;auto; try apply p_upd_pgt_pgt_not_elem;auto.
+  }
+Qed.
 
 
 Lemma mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
