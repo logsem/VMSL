@@ -8,6 +8,33 @@ Section mem_send.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
+Lemma size_singleton_le `{Countable K}  (i:K) (s: gset K):
+  i ∈ s -> size s ≤ 1 -> s = {[i]}.
+Proof.
+  intros Hin Hle.
+  assert (size s = 1) as Hsize.
+  {
+    assert (size s ≠ 0).
+    intro.
+    destruct (decide (s = ∅)).
+    set_solver.
+    apply size_empty_inv in H1.
+    set_solver + H1 n.
+    lia.
+  }
+  assert (s = {[i]}) as ->.
+  {
+    rewrite set_eq.
+    intro. split. intros.
+    apply (size_singleton_inv _ i x) in Hsize.
+    subst x. set_solver +.
+    done. done. intro.
+    rewrite elem_of_singleton in H1.
+    subst x. done.
+  }
+  done.
+Qed.
+
 Lemma parse_transaction_descriptor_tx mem_tx mem p_tx len tran:
  parse_transaction_descriptor mem_tx (of_pid p_tx) len = Some tran ->
  map_Forall (λ k v, mem !! k = Some v) mem_tx ->
@@ -161,7 +188,7 @@ Proof.
   done.
 Qed.
 
-Lemma p_share_inv_cosist σ1 h i j ps:
+Lemma p_share_inv_consist σ1 h i j ps:
   inv_trans_pgt_consistent σ1->
   inv_trans_sndr_rcvr_neq σ1.2 ->
   σ1.2 !! h = Some None ->
@@ -565,7 +592,7 @@ Proof.
   clear Hsche.
   iModIntro.
   iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
-                            trans & hpool & retri & %Hwf & %Hconsis & %Hdisj)".
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
   (* valid regs *)
   iDestruct ((gen_reg_valid4 i PC ai R0 r0 R1 r1 R2 r2 Heq_cur) with "regs PC R0 R1 R2")
     as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1 & %Hlookup_R2)";eauto.
@@ -574,6 +601,7 @@ Proof.
   iDestruct (access_agree_check_true_forall with "pgt_acc acc") as %Hcheckpg_acc;eauto.
   iDestruct (big_sepS_sep with "oe") as "[own excl]".
   iDestruct (excl_agree_Some_check_true_bigS with "pgt_excl excl") as %Hcheckpg_excl;eauto.
+  iDestruct (excl_agree_Some_lookup_bigS with "pgt_excl excl") as %Hvalid_excl;eauto.
   iDestruct (own_agree_Some_check_true_bigS with "pgt_owned own") as %Hcheckpg_own;eauto.
   (* valid mem *)
   iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
@@ -614,6 +642,7 @@ Proof.
          by apply Hcheckpg_excl.
          by apply Hcheckpg_own.
     }
+    clear H1 H2.
     rewrite /new_transaction /= /fresh_handle /= -Heq_hp in Heqc2.
     destruct (elements sh) as [| h fhs] eqn:Hfhs.
     { exfalso. rewrite -elements_empty in Hfhs.  apply Hneq_hp. apply set_eq.
@@ -648,7 +677,25 @@ Proof.
     iFrame "pgt_acc".
     rewrite (preserve_get_excl_gmap (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps) (update_incr_PC _)).
     2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
-    rewrite u_flip_excl_excl.
+    assert (Hvalid_acc: set_Forall (λ p : PID,
+      ∃ e : option VMID * bool * gset VMID, σ1.1.1.1.2 !! p = Some e ∧ e.2 = {[i]}) ps).
+    {
+      intros p Hin.
+      specialize (Hcheckpg_acc p).
+      feed specialize Hcheckpg_acc. set_solver + Hin Hsubseteq_acc.
+      specialize (Hvalid_excl p Hin).
+      destruct Hvalid_excl as [o [b [s [Hlk Htrue]]]].
+      symmetry in Htrue.
+      rewrite andb_true_iff in Htrue.
+      destruct Htrue as [-> Hsize].
+      rewrite /check_access_page /= in Hcheckpg_acc.
+      rewrite Hlk in Hcheckpg_acc.
+      destruct (decide (i ∈ s)); last done.
+      case_bool_decide;last done.
+      exists (o, true, s). split;auto.
+      apply size_singleton_le;auto.
+    }
+    rewrite u_flip_excl_excl //.
     iDestruct (excl_update_flip with "pgt_excl excl") as ">[$ excl]".
     (* upd tran *)
     rewrite (preserve_get_trans_gmap (alloc_transaction σ1 h (i, j, ps, Sharing, false)) (update_incr_PC _)).
@@ -659,7 +706,7 @@ Proof.
       rewrite -elem_of_elements. rewrite Hfhs. set_solver +.
       rewrite union_comm_L.
       rewrite difference_union_L.
-      set_solver + H3.
+      set_solver + H1.
     }
     iPoseProof (big_sepS_union _ {[h]} (sh ∖ {[h]})) as "[H _]".
     set_solver +.
@@ -689,6 +736,27 @@ Proof.
     2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     iAssert (⌜inv_trans_pgt_consistent (update_page_table_global flip_excl (alloc_transaction σ1 h (i, j, ps, Sharing, false)) i ps)⌝%I) as "$".
     iPureIntro.
+    apply p_share_inv_consist;auto.
+    { destruct Hwf as [_ [? _]]. done. }
+    {
+      intros p Hin.
+      specialize (Hvalid_excl p Hin).
+      specialize (Hcheckpg_own p Hin).
+      specialize (Hvalid_acc p Hin).
+      destruct Hvalid_excl as [o [b [s [Hlk Htrue]]]].
+      symmetry in Htrue.
+      rewrite andb_true_iff in Htrue.
+      destruct Htrue as [-> Hsize].
+      rewrite /check_ownership_page /= in Hcheckpg_own.
+      rewrite Hlk in Hcheckpg_own.
+      destruct o;last done.
+      destruct (decide (i = v));last done.
+      subst v.
+      rewrite Hlk in Hvalid_acc.
+      destruct Hvalid_acc as [? [? ?]].
+      inversion H1. subst x.
+      rewrite /= in H2. subst s. done.
+    }
     (* TODO *)
     (* apply p_reclaim_inv_consist;auto. *)
     (* exists (i, j, spsd, Lending). split;auto. *)
