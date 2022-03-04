@@ -762,9 +762,76 @@ Proof.
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
     iAssert (⌜inv_trans_ps_disj (alloc_transaction σ1 h (i, j, ps, Sharing, false))⌝%I) as "$". iPureIntro.
     apply p_alloc_tran_inv_disj;auto.
-    {  admit. }
-    (* TODO *)
-Admitted.
+    {
+      rewrite /= elem_of_disjoint.
+      intros.
+      apply elem_of_pages_in_trans' in H2.
+      destruct H2 as [h' [tran' [Hlk Hin_h']]].
+      specialize (Hconsis h' (Some tran') Hlk x Hin_h').
+      specialize (Hvalid_acc x H1).
+      destruct Hvalid_acc as [e [Hlk' He]].
+      destruct Hwf as [_ [Hneq _]].
+      specialize (Hneq h' _ Hlk).
+      destruct (tran'.1.2);destruct tran'.2;auto.
+      - rewrite Hlk' in Hconsis.
+        inversion Hconsis.
+        subst e. set_solver + He.
+      - rewrite Hlk' in Hconsis.
+        inversion Hconsis.
+        subst e. simpl in He.
+        set_solver + He Hneq.
+      - specialize (Hvalid_excl x H1).
+        destruct Hvalid_excl as [? [? [? [Hlk'' Htrue]]]].
+        symmetry in Htrue.
+        rewrite andb_true_iff in Htrue.
+        destruct Htrue  as [-> _].
+        rewrite Hlk'' in Hconsis.
+        inversion Hconsis.
+      - specialize (Hcheckpg_own x H1).
+        rewrite /check_ownership_page /= in Hcheckpg_own.
+        rewrite Hlk' in Hcheckpg_own.
+        rewrite Hlk' in Hconsis.
+        inversion Hconsis.
+        subst e.
+        destruct (decide (i = tran'.1.1.1.1));last done.
+        set_solver + e He Hneq.
+      - rewrite Hlk' in Hconsis.
+        inversion Hconsis.
+        subst e. set_solver + He.
+    }
+    (* just_scheduled *)
+    iModIntro.
+    rewrite /just_scheduled_vms /just_scheduled.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm p_flip_excl_current_vm  p_alloc_tran_current_vm.
+    rewrite Heq_cur.
+    iSplitL "".
+    set fl := (filter _ _).
+    assert (fl = []) as ->.
+    {
+      rewrite /fl.
+      induction n.
+      - simpl.
+        rewrite filter_nil //=.
+      - rewrite seq_S.
+        rewrite filter_app.
+        rewrite IHn.
+        simpl.
+        rewrite filter_cons_False //=.
+        rewrite andb_negb_l.
+        done.
+    }
+    by iSimpl.
+    (* Φ *)
+    case_bool_decide;last done.
+    simpl. iApply "HΦ".
+    rewrite /fresh_handles. iFrame.
+    iSplitL "own excl".
+    rewrite big_sepS_sep. iFrame.
+    iExists h. iFrame.
+    rewrite Heq_sh.
+    iPureIntro. set_solver +.
+Qed.
 
 Lemma mem_lend {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :
   (tpa ai) ∈ sacc ->
