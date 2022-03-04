@@ -5,7 +5,7 @@ Section mem_extra.
 
 Context `{HyperConst : HypervisorConstants}.
 
-(* lemmas about update_mem_unsafe *)
+(* TODO *)
 Lemma update_memory_preserve_current_vm σ a w :
   (get_current_vm (update_memory σ a w)) = (get_current_vm σ).
 Proof. f_equal. Qed.
@@ -81,241 +81,63 @@ Lemma copy_page_segment_preserve_receivers σ src dst l:
   get_retri_gmap (copy_page_segment σ src dst l) = get_retri_gmap σ.
 Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
 
-Lemma write_mem_segment_preserve_current_vm σ dst ws:
+Lemma p_wr_mem_current_vm σ dst ws:
   get_current_vm (write_mem_segment σ dst ws) = get_current_vm σ.
 Proof. f_equal. Qed.
 
-Lemma write_mem_segment_preserve_regs σ dst ws:
-  get_reg_gmap (write_mem_segment σ dst ws) = get_reg_gmap σ.
+Lemma p_wr_mem_regs σ dst ws:
+  get_reg_files (write_mem_segment σ dst ws) = get_reg_files σ.
 Proof. f_equal. Qed.
 
-Lemma write_mem_segment_preserve_mb σ dst ws:
-  get_mb_gmap (write_mem_segment σ dst ws) = get_mb_gmap σ.
+Lemma p_wr_mem_mb σ dst ws:
+  get_mail_boxes (write_mem_segment σ dst ws) = get_mail_boxes σ.
 Proof. f_equal. Qed.
 
-Lemma write_mem_segment_preserve_rx σ dst ws:
-  get_rx_gmap (write_mem_segment σ dst ws) = get_rx_gmap σ.
+Lemma p_wr_mem_pgt σ dst ws:
+  get_page_table (write_mem_segment σ dst ws) = get_page_table σ.
 Proof. f_equal. Qed.
 
-Lemma write_mem_segment_preserve_owned σ dst ws:
-  get_own_gmap (write_mem_segment σ dst ws) = get_own_gmap σ.
+Lemma p_wr_mem_trans σ dst ws:
+  get_transactions (write_mem_segment σ dst ws) = get_transactions σ.
 Proof. f_equal. Qed.
 
-Lemma write_mem_segment_preserve_access σ dst ws:
-  get_access_gmap (write_mem_segment σ dst ws) = get_access_gmap σ.
-Proof. f_equal. Qed.
+Lemma u_wr_mem_mem σ dst ws:
+  get_mem (write_mem_segment σ dst ws) = list_to_map (zip (finz.seq dst (length ws)) ws) ∪ get_mem σ.
+Proof. done. Qed.
 
-Lemma write_mem_segment_preserve_trans σ dst ws:
-  (get_trans_gmap (write_mem_segment σ dst ws))
-  = get_trans_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma write_mem_segment_preserve_receivers σ dst ws:
-  get_retri_gmap (write_mem_segment σ dst ws) = get_retri_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_current_vm σ v r l tx rx :
-  get_current_vm (fill_rx_unsafe σ l v r tx rx) = get_current_vm σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_mem σ l v r tx rx :
-  get_mem (fill_rx_unsafe σ l v r tx rx) = get_mem σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_regs σ l v r tx rx :
-  get_reg_gmap (fill_rx_unsafe σ l v r tx rx) = get_reg_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_mb σ l v r tx rx :
-  tx = (get_mail_box σ @ r).1 ->
-  get_mb_gmap (fill_rx_unsafe σ l v r tx rx) = get_mb_gmap σ.
+Lemma dom_wr_mem_subseteq (mem: gmap Addr Word) (dst: PID) ws:
+  (length ws) <= (Z.to_nat page_size) ->
+  (length ws) >= 4 ->
+  dom (gset _) mem = list_to_set (addr_of_page dst) ->
+  dom (gset _) (list_to_map (zip (finz.seq dst (length ws)) ws) ∪ mem) = dom (gset _) mem.
 Proof.
-  Admitted.
-(*   intros H. *)
-(*   rewrite /fill_rx /get_mb_gmap H *)
-(*           /get_tx_pid_global /get_vm_mail_box /get_mail_boxes. *)
-(*   simpl. *)
-(*   f_equal. *)
-(*   induction list_of_vmids as [|? ? IH]. *)
-(*   - reflexivity. *)
-(*   - simpl. *)
-(*     f_equal. *)
-(*     + f_equal. *)
-(*       f_equal. *)
-(*       destruct (decide (a = r)) as [p|p]. *)
-(*       * rewrite p. *)
-(*         rewrite vlookup_insert. *)
-(*         reflexivity. *)
-(*       * rewrite vlookup_insert_ne; auto. *)
-(*     + rewrite IH. *)
-(*       reflexivity. *)
-(* Qed. *)
-
-Lemma fill_rx_unsafe_preserve_owned σ l v r tx rx :
-  get_own_gmap (fill_rx_unsafe σ l v r tx rx) = get_own_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_access σ l v r tx rx :
-  get_access_gmap (fill_rx_unsafe σ l v r tx rx) = get_access_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_trans σ l v r tx rx :
-  (get_trans_gmap (fill_rx_unsafe σ l v r tx rx))
-  = get_trans_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_preserve_receivers σ l v r tx rx :
-  get_retri_gmap (fill_rx_unsafe σ l v r tx rx) = get_retri_gmap σ.
-Proof. f_equal. Qed.
-
-Lemma fill_rx_unsafe_update_mailbox σ l v r tx rx :
-  get_rx_gmap (fill_rx_unsafe σ l v r tx rx) = <[r := Some (l, v)]>(get_rx_gmap σ).
-Proof.
-  rewrite /get_rx_gmap.
-  apply map_eq.
-  intros i.
-  destruct (list_to_map
-    (map
-       (λ v0 : VMID,
-          match get_transactions (get_transactions get_mail_boxes fill_rx_unsafe σ l v r tx rx !!! v0) with
-          | Some (l0, j) => (v0, Some (l0, j))
-          | None => (v0, None)
-          end) list_of_vmids) !! i) eqn:Heqn.
-  - apply elem_of_list_to_map_2 in Heqn.
-    apply elem_of_list_In in Heqn.
-    apply in_map_iff in Heqn.
-    destruct Heqn as [y [Heqn1 Heqn2]].
-    apply elem_of_list_In in Heqn2.
-    rewrite /fill_rx_unsafe //= in Heqn1.
-    destruct (decide (r = y)).
-    + subst.
-      rewrite vlookup_insert in Heqn1.
-      simpl in Heqn1.
-      inversion Heqn1; subst; clear Heqn1.
-      rewrite lookup_insert.
-      reflexivity.
-    + symmetry.
-      rewrite lookup_insert_Some.
-      rewrite vlookup_insert_ne in Heqn1; auto.
-      destruct (σ.1.1.1.1.2 !!! y) as [a b] eqn:Heqn3.
-      destruct b as [c d] eqn:Heqn4.
-      simpl in Heqn1.
-      destruct d as [e|] eqn:Heqn5.
-      * destruct e as [f g] eqn:Heqn6.
-        inversion Heqn1; subst; clear Heqn1.
-        right.
-        split; auto.
-        apply elem_of_list_to_map_1'.
-        -- intros y H.
-           apply elem_of_list_In in H.
-           apply in_map_iff in H.
-           destruct H as [x [H1 H2]].
-           destruct (decide (x = i)).
-           ++ subst.
-              rewrite Heqn3 //= in H1.
-              inversion H1; subst; reflexivity.
-           ++ destruct (σ.1.1.1.1.2 !!! x) as [a' b'] eqn:Heqn3'.
-              destruct b' as [c' d'] eqn:Heqn4'.
-              simpl in H1.
-              destruct d' as [e'|] eqn:Heqn5'.
-              ** destruct e' as [f' g'] eqn:Heqn6'.
-                 simplify_eq.
-              ** simplify_eq.
-        -- apply elem_of_list_In.
-           apply in_map_iff.
-           exists i.
-           rewrite Heqn3 //=.
-           apply elem_of_list_In in Heqn2.
-           split; auto.
-      * simplify_eq.
-        right.
-        split; auto.
-        apply elem_of_list_to_map_1'.
-        -- intros y H.
-           apply elem_of_list_In in H.
-           apply in_map_iff in H.
-           destruct H as [x [H1 H2]].
-           destruct (decide (x = i)).
-           ++ subst.
-              rewrite Heqn3 //= in H1.
-              inversion H1; subst; reflexivity.
-           ++ destruct (σ.1.1.1.1.2 !!! x) as [a' b'] eqn:Heqn3'.
-              destruct b' as [c' d'] eqn:Heqn4'.
-              simpl in H1.
-              destruct d' as [e'|] eqn:Heqn5'.
-              ** destruct e' as [f' g'] eqn:Heqn6'.
-                 simplify_eq.
-              ** simplify_eq.
-        -- apply elem_of_list_In.
-           apply in_map_iff.
-           exists i.
-           rewrite Heqn3 //=.
-           apply elem_of_list_In in Heqn2.
-           split; auto.
-  - symmetry.
-    rewrite <-not_elem_of_list_to_map in Heqn.
-    destruct (decide (r = i)).
-    + subst.
-      exfalso.
-      apply Heqn.
-      rewrite <-list_fmap_compose.
-      rewrite /compose.
-      rewrite /fill_rx_unsafe //=.
-      apply elem_of_list_In.
-      apply in_map_iff.
-      exists i.
-      split; auto using in_list_of_vmids.
-      rewrite vlookup_insert //=.
-    + rewrite /fill_rx_unsafe //=.
-      rewrite lookup_insert_None.
-      split; auto.
-      rewrite <-not_elem_of_list_to_map.
-      rewrite  /fill_rx_unsafe //= in Heqn.
-      intros H.
-      apply Heqn.
-      apply elem_of_list_In.
-      apply in_map_iff.
-      apply elem_of_list_In in H.
-      apply in_map_iff in H.
-      destruct H as [x [H1 H2]]; subst.
-      apply in_map_iff in H2.
-      destruct H2 as [x' [H1 H2]].
-      destruct (σ.1.1.1.1.2 !!! x') as [a b] eqn:Heqn3.
-      destruct b as [c d] eqn:Heqn4.
-      simpl in H1.
-      destruct d as [e|] eqn:Heqn5.
-      * destruct e as [f g] eqn:Heqn6.
-        exists (x.1, Some (f, g)).
-        split; auto.
-        apply in_map_iff.
-        exists x.1.
-        rewrite vlookup_insert_ne //=; auto.
-        split; auto using in_list_of_vmids.
-        simplify_eq.
-        rewrite // Heqn3 //=.
-      * simplify_eq.
-        exists (x', None).
-        split; auto.
-        apply in_map_iff.
-        exists x'.
-        simpl in n.
-        rewrite vlookup_insert_ne //=; auto.
-        split; auto using in_list_of_vmids.
-        rewrite Heqn3 //=.
+  intros Hle Hge Hdom.
+  rewrite dom_union_L.
+  apply subseteq_union_1_L.
+  rewrite dom_list_to_map_L.
+  rewrite fst_zip.
+  2:{
+    rewrite finz_seq_length. lia.
+  }
+  rewrite Hdom.
+  intros a.
+  rewrite 2!elem_of_list_to_set.
+  intro Hin.
+  rewrite /addr_of_page.
+  rewrite elem_of_addr_of_page_iff.
+  symmetry.
+  apply to_pid_aligned_in_page.
+  rewrite /addr_in_page.
+  pose proof (finz_seq_in1 _ _ _ Hin).
+  pose proof (finz_seq_in2 _ _ _ Hin).
+  split.
+  rewrite /finz.leb /Is_true.
+  destruct (dst <=? a)%Z eqn:Heqn;first done.
+  solve_finz.
+  rewrite /finz.leb /Is_true.
+  destruct (a <=? (dst ^+ (1000 - 1))%f)%Z eqn:Heqn;first done.
+  rewrite Z.leb_gt in Heqn.
+  solve_finz.
 Qed.
 
 End mem_extra.
-
-Ltac rewrite_mem :=
-  match goal with
-  | |- _ =>
-    try rewrite -> update_memory_preserve_current_vm;
-    try rewrite -> update_memory_preserve_reg;
-    try rewrite -> update_memory_preserve_mb;
-    try rewrite -> update_memory_preserve_rx;
-    try rewrite -> update_memory_preserve_owned;
-    try rewrite -> update_memory_preserve_access;
-    try rewrite -> update_memory_preserve_trans;
-    try rewrite -> update_memory_preserve_trans';
-    try rewrite -> update_memory_preserve_retri
-  end.

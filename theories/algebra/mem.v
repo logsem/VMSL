@@ -56,6 +56,17 @@ Section mem_rules.
     apply (lookup_weaken mem (get_mem σ) _ _ H Hincl) .
   Qed.
 
+  Lemma gen_mem_valid_SepM_subseteq {σ} mem:
+    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
+    ([∗ map] a↦w ∈ mem, a ->a w)-∗
+    ⌜ mem ⊆ (get_mem σ)⌝.
+  Proof.
+    iIntros "Hσ Hmem".
+    rewrite mem_mapsto_eq /mem_mapsto_def.
+    iDestruct ((ghost_map_lookup_big mem) with "Hσ Hmem") as "%Hincl".
+    done.
+  Qed.
+
   (* Lemma gen_mem_valid_SepL {σ} al ml: *)
   (*   NoDup al -> *)
   (*   ghost_map_auth gen_mem_name 1 (get_mem σ) -∗ *)
@@ -115,29 +126,18 @@ Section mem_rules.
     by iFrame.
   Qed.
 
-  Lemma gen_mem_update_SepM {σ} (mem mem': mem):
+  Lemma gen_mem_update_SepM {σ} (mem mem': gmap Addr Word):
     dom (gset _) mem = dom (gset _) mem' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ map] a↦w ∈ mem, a ->a w) ==∗
     ghost_map_auth gen_mem_name 1 (mem' ∪ (get_mem σ)) ∗
     [∗ map] a↦w ∈ mem', a ->a w.
   Proof.
-    Admitted.
-    (* iIntros (Hnodup Hlen) "Hσ Hmm". *)
-    (* iDestruct (big_sepL2_alt with "Hmm") as "[% Hmm]". *)
-    (* rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word _). *)
-    (* 2: { rewrite fst_zip //;lia. } *)
-    (* rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ). *)
-    (* rewrite  mem_mapsto_eq /mem_mapsto_def. *)
-    (* iDestruct ((ghost_map_update_big _  (list_to_map (zip ads wl'))) with "Hσ Hmm") as ">[Hσ Hmm]". *)
-    (* { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. lia. lia. } *)
-    (* rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name] w)%I) _ ). *)
-    (* rewrite map_to_list_to_map. *)
-    (* 2 : { rewrite fst_zip //. lia. } *)
-    (* rewrite big_sepL2_alt. *)
-    (* iFrame "Hσ Hmm". rewrite -Hlen H //. *)
-  (* Qed. *)
-
+    iIntros (Hdom) "Hσ Hmm".
+    rewrite mem_mapsto_eq /mem_mapsto_def.
+    iApply (ghost_map_update_big with "Hσ Hmm").
+    done.
+  Qed.
 
   Definition memory_page_l (p: PID) (ws: list Word): iProp Σ:=
     ([∗ list] a;w ∈ (addr_of_page p);ws, (a ->a w))%I.
@@ -145,10 +145,10 @@ Section mem_rules.
   Definition memory_page (p : PID) (mem: mem): iProp Σ:=
     ⌜dom (gset Addr) mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
 
-  Lemma memory_page_m_to_l {p : PID} (m: mem):
-    memory_page p m ⊢ ∃ l, memory_page_l p l ∗
-                             ⌜l = l⌝.
-  Admitted.
+  (* Lemma memory_page_m_to_l {p : PID} (m: mem): *)
+  (*   memory_page p m ⊢ ∃ l, memory_page_l p l ∗ *)
+  (*                            ⌜l = l⌝. *)
+  (* Admitted. *)
 
   Lemma memory_page_l_to_m {p : PID} (l: list Word):
     memory_page_l p l ⊢ memory_page p (list_to_map (zip (addr_of_page p) l)).

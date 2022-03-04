@@ -28,11 +28,11 @@ Section mailbox_rules.
   Admitted.
 
   Lemma rx_state_valid {σ q} i x :
-    RX_state{q}@i := x-∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
+    RX_state{q}@i := x-∗
     ⌜(get_mail_box σ @ i).2.2 = x⌝.
   Proof.
-    iIntros "Hrx Hrxown".
+    iIntros "Hrxown Hrx".
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
     iDestruct (ghost_map_lookup with "Hrxown Hrx") as "%Hsome".
     iPureIntro.
@@ -57,8 +57,8 @@ Section mailbox_rules.
   Qed.
 
   Lemma rx_state_valid_None {σ q} i :
-    (RX_state{q}@i := None) -∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
+    (RX_state{q}@i := None) -∗
     ⌜(get_mail_box σ @ i).2.2 = None⌝.
   Proof.
     iIntros "H1 H2".
@@ -66,8 +66,8 @@ Section mailbox_rules.
   Qed.
 
   Lemma rx_state_valid_Some {σ q} i a b :
-    (RX_state{q}@i := Some (a, b)) -∗
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
+    (RX_state{q}@i := Some (a, b)) -∗
     ⌜(get_mail_box σ @ i).2.2 = Some (a, b)⌝.
   Proof.
     iIntros "H1 H2".

@@ -8,7 +8,6 @@ Section mem_reclaim.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-
 Lemma p_reclaim_inv_consist σ h v ps :
   inv_trans_pgt_consistent σ ->
   inv_trans_ps_disj σ ->
@@ -194,7 +193,7 @@ Proof.
     (* inv_trans_wellformed *)
     rewrite (preserve_inv_trans_wellformed (remove_transaction σ1 wh)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
-    iAssert (⌜inv_trans_wellformed (remove_transaction σ1 wh)⌝%I) as "$". iPureIntro. by apply (p_rm_tran_inv_wf σ1 wh).
+    iAssert (⌜inv_trans_wellformed (remove_transaction σ1 wh)⌝%I) as "$". iPureIntro. apply (p_rm_tran_inv_wf σ1 wh);eauto.
     (* inv_trans_pgt_consistent *)
     rewrite (preserve_inv_trans_pgt_consistent (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.

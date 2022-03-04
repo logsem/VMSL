@@ -225,6 +225,25 @@ Proof.
 Qed.
 
 (* complementing lemmas for finz *)
+Lemma finz_of_z_is_Some {fb} (z : Z):
+  (z >= 0)%Z ->
+  (z < fb)%Z ->
+  is_Some (finz.of_z (finz_bound := fb) z).
+Proof.
+  intros.
+  unfold finz.of_z.
+  destruct (Z_lt_dec z fb).
+  2: lia.
+  destruct (Z_le_dec 0%Z z).
+  2: lia.
+  exists (finz.FinZ z (match Z.ltb_lt z fb with
+                              | conj _ H2 => H2
+                              end l) (match Z.leb_le 0 z with
+                                      | conj _ H2 => H2
+                                      end l0)).
+  done.
+Qed.
+
 Lemma incr_default_incr{fb} (f1 f2: finz.finz fb) z :
   (f1 + z)%f = Some f2 -> (f1 ^+ z)%f = f2.
 Proof.
