@@ -757,17 +757,13 @@ Proof.
       inversion H1. subst x.
       rewrite /= in H2. subst s. done.
     }
+    (* inv_trans_ps_disj *)
+    rewrite (preserve_inv_trans_ps_disj (alloc_transaction σ1 h (i, j, ps, Sharing, false))).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //.
+    iAssert (⌜inv_trans_ps_disj (alloc_transaction σ1 h (i, j, ps, Sharing, false))⌝%I) as "$". iPureIntro.
+    apply p_alloc_tran_inv_disj;auto.
+    {  admit. }
     (* TODO *)
-    (* apply p_reclaim_inv_consist;auto. *)
-    (* exists (i, j, spsd, Lending). split;auto. *)
-    (* rewrite /get_trans_gmap /get_transactions_gmap. *)
-    (* rewrite lookup_fmap Hlookup_tran //. *)
-    (* (* inv_trans_ps_disj *) *)
-    (* rewrite (preserve_inv_trans_ps_disj (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh)). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
-    (* iAssert (⌜inv_trans_ps_disj (remove_transaction (update_page_table_global grant_access σ1 i spsd) wh)⌝%I) as "$". iPureIntro. *)
-    (* apply p_rm_tran_inv_disj. *)
-    (* rewrite (preserve_inv_trans_ps_disj σ1) //. *)
 Admitted.
 
 Lemma mem_lend {i wi r0 r1 r2 hvcf p_tx sacc} ai j mem_tx sh (ps: gset PID) :

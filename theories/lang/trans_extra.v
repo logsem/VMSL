@@ -307,6 +307,17 @@ Proof.
   by apply trans_ps_disj_delete'.
 Qed.
 
+Lemma p_alloc_tran_inv_disj σ h tran:
+  inv_trans_ps_disj σ ->
+  σ.2 !! h = Some None ->
+  tran.1.1.2 ## pages_in_trans' σ.2->
+  inv_trans_ps_disj (alloc_transaction σ h tran).
+Proof.
+  rewrite /inv_trans_ps_disj /alloc_transaction /=.
+  intros.
+  apply trans_ps_disj_update_None';auto.
+Qed.
+
 (* Lemma get_retri_gmap_lookup {σ meta} wh b: *)
 (* (get_transactions σ) !! wh = Some (Some (meta,b))-> *)
 (* get_retri_gmap σ !! wh = Some (Some b). *)
