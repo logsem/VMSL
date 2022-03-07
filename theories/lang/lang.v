@@ -692,7 +692,7 @@ Definition relinquish (s : state) : exec_mode * state :=
                  then unit (update_transaction s h (vs, r, ps, ty, false))
                  else throw Denied
              end) ;;;
-      unit (update_page_table_global revoke_access (update_reg s' R0 (encode_hvc_ret_code Succ)) v ps)
+      unit (update_reg (update_page_table_global revoke_access s' v ps) R0 (encode_hvc_ret_code Succ))
   in
   unpack_hvc_result_normal s comp.
 
