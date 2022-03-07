@@ -238,6 +238,50 @@ Proof.
   subst x. done.
 Qed.
 
+Lemma p_upd_tran_inv_wf σ h tran:
+  inv_trans_wellformed σ ->
+  (∃t, σ.2 !! h = Some (Some t) ∧ t.1 = tran.1) ->
+  inv_trans_wellformed (update_transaction σ h tran).
+Proof.
+  intros Hinv Hlk.
+  destruct Hlk as [? [Hlk Heq]].
+  rewrite /inv_trans_wellformed /inv_trans_wellformed' /update_transaction /insert_transaction /=.
+  destruct Hinv as [Hub [Hneq Hfin]].
+  split.
+  apply (map_Forall_insert_2 _ σ.2).
+  specialize (Hub h _ Hlk).
+  simpl in Hub.
+  rewrite -Heq //.
+  done.
+  split.
+  apply (map_Forall_insert_2 _ σ.2).
+  specialize (Hneq h _ Hlk).
+  simpl in Hneq.
+  rewrite -Heq //.
+  done.
+  rewrite /inv_finite_handles.
+  rewrite dom_insert_L.
+  rewrite /inv_finite_handles in Hfin.
+  assert (is_Some (σ.2 !! h)).
+  exists (Some x).
+  done.
+  rewrite -elem_of_dom in H.
+  rewrite Hfin.
+  set_solver + H.
+Qed.
+
+Lemma p_upd_tran_inv_disj σ h (tran tran': transaction):
+  inv_trans_ps_disj σ ->
+  σ.2 !! h = Some (Some tran) ->
+  tran.1 = tran'.1 ->
+  inv_trans_ps_disj (update_transaction σ h tran').
+Proof.
+  rewrite /inv_trans_ps_disj /update_transaction /=.
+  intros.
+  eapply trans_ps_disj_update'.
+  done. exact H0. done.
+Qed.
+
 Lemma p_rm_tran_current_vm σ h:
   get_current_vm (remove_transaction σ h) = get_current_vm σ.
 Proof. f_equal. Qed.
