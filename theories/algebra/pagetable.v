@@ -125,6 +125,27 @@ Section pagetable_rules.
     split;eauto.
   Qed.
 
+  Lemma access_pgt_elem_of {σ} {s:gset PID} (v:VMID) p:
+    (get_access_gmap σ) !! v = Some (to_frac_agree 1 s) ->
+    (∃ (o:permission), (get_page_table σ) !! p = Some o ∧ v ∈ o.2) ->
+    p ∈ s.
+  Proof.
+    intros Hlookup [? [Hlookup_pgt Hin]].
+    rewrite /get_access_gmap in Hlookup.
+    apply (elem_of_list_to_map_2 _ v) in Hlookup.
+    apply elem_of_list_In in Hlookup.
+    apply in_map_iff in Hlookup.
+    destruct Hlookup as [? [Heqp _]].
+    inversion Heqp;subst;clear Heqp.
+    rewrite elem_of_dom.
+    exists x.2.
+    rewrite map_filter_lookup_Some.
+    split;auto.
+    apply lookup_fmap_Some.
+    exists x.
+    split;done.
+  Qed.
+
   Lemma own_pgt_lookup {σ} {i:option VMID} (p:PID):
   (get_own_gmap σ) !! p = Some i ->
   ∃ b s, (get_page_table σ) !! p = Some(i, b, s).
@@ -221,6 +242,18 @@ Section pagetable_rules.
     iPureIntro.
     apply access_pgt_lookup in Hvalid as Hvalid.
     done.
+  Qed.
+
+  Lemma access_agree_elem_of {σ} v s p:
+    (∃ (o:permission), (get_page_table σ) !! p = Some o ∧ v ∈ o.2) ->
+   own gen_access_name (●(get_access_gmap σ)) -∗
+   (v -@A> s) -∗
+   ⌜p ∈ s⌝.
+  Proof.
+    iIntros (H) "Hauth Hfrag".
+    iDestruct (access_agree with "Hauth Hfrag") as %Hvalid.
+    iPureIntro.
+    eapply (access_pgt_elem_of);eauto.
   Qed.
 
   Lemma access_agree_check_false {σ v} p s:
