@@ -8,13 +8,14 @@ Section retrieve.
 Context `{hypparams: HypervisorParameters}.
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma p_retrieve_lend_inv_consist σ i j ps h:
+Lemma p_retrieve_inv_consist_not_donate tt σ i j ps h:
+  tt ≠ Donation ->
   inv_trans_pgt_consistent σ ->
   inv_trans_ps_disj σ ->
-  σ.2 !! h = Some (Some (j, i, ps, Lending, false)) ->
-  inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ h (j, i, ps, Lending, true)) i ps).
+  σ.2 !! h = Some (Some (j, i, ps, tt, false)) ->
+  inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ h (j, i, ps, tt, true)) i ps).
 Proof.
-  intros Hinv_con Hinv_disj Hlk.
+  intros Htt Hinv_con Hinv_disj Hlk.
   rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /=.
   rewrite map_Forall_lookup.
   intros h' meta Hlookup'.
@@ -36,7 +37,14 @@ Proof.
         destruct (decide (x = p)).
         {
           subst.
+          destruct tt;first done.
           rewrite Hpgt.
+          apply p_upd_pgt_pgt_not_elem.
+          done.
+          rewrite lookup_insert_Some.
+          left. split;auto.
+          rewrite /grant_access union_comm_L //.
+                    rewrite Hpgt.
           apply p_upd_pgt_pgt_not_elem.
           done.
           rewrite lookup_insert_Some.
@@ -46,14 +54,16 @@ Proof.
         {
           destruct (pgt !! x).
           {
-            rewrite (IHps _ (<[h := Some (j, i, X, Lending, false)]>tran));eauto.
+            feed specialize IHps.
             set_solver + Hin n.
+            apply (IHps (<[h := Some (j, i, X, tt, false)]>tran));eauto.
             rewrite lookup_insert //.
             rewrite lookup_insert_ne //.
           }
           {
-            rewrite (IHps _ (<[h := Some (j, i, X, Lending, false)]>tran)) //.
-            set_solver + n Hin.
+            feed specialize IHps.
+            set_solver + Hin n.
+            apply (IHps (<[h := Some (j, i, X, tt, false)]>tran));eauto.
             rewrite lookup_insert //.
           }
         }
@@ -62,28 +72,28 @@ Proof.
       set_solver + H0.
   }
   {
-  rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /= in Hinv_con.
-  specialize (Hinv_con h' meta Hlookup').
-  simpl in Hinv_con.
-  destruct meta as [[[[[sv rv] ps'] tt] b]|];last done.
-  simpl in *.
-  intros p Hin.
-  specialize (Hinv_con p Hin).
-  assert (p ∉ ps).
-  {
-    intro.
-    specialize (Hinv_disj h' _ Hlookup').
-    simpl in Hinv_disj.
-    pose proof (elem_of_pages_in_trans' p (delete h' σ.2)) as [_ Hin'].
-    feed specialize Hin'.
-    exists h.
-    eexists.
-    split.
-    rewrite lookup_delete_ne //.
-    done.
-    set_solver + Hin H0 Hin' Hinv_disj.
-  }
-  destruct tt,b;auto; try apply p_upd_pgt_pgt_not_elem;auto.
+    rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /= in Hinv_con.
+    specialize (Hinv_con h' meta Hlookup').
+    simpl in Hinv_con.
+    destruct meta as [[[[[sv rv] ps'] tt'] b]|];last done.
+    simpl in *.
+    intros p Hin.
+    specialize (Hinv_con p Hin).
+    assert (p ∉ ps).
+    {
+      intro.
+      specialize (Hinv_disj h' _ Hlookup').
+      simpl in Hinv_disj.
+      pose proof (elem_of_pages_in_trans' p (delete h' σ.2)) as [_ Hin'].
+      feed specialize Hin'.
+      exists h.
+      eexists.
+      split.
+      rewrite lookup_delete_ne //.
+      done.
+      set_solver + Hin H0 Hin' Hinv_disj.
+    }
+    destruct tt',b;auto; try apply p_upd_pgt_pgt_not_elem;auto.
   }
 Qed.
 
@@ -321,7 +331,8 @@ Lemma mem_retrieve_rx_full{E i wi sacc r0 r2 q1 q2 j tt rx_state p_tx} {ps: gset
 Proof.
 Admitted.
 
-Lemma mem_retrieve_lend{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai wh:
+Lemma mem_retrieve_not_donate{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} tt ai wh:
+  tt ≠ Donation ->
   (* has access to the page which the instruction is in *)
   tpa ai ≠ p_tx ->
   (tpa ai) ∈ sacc ->
@@ -339,7 +350,7 @@ Lemma mem_retrieve_lend{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai w
        ▷ i -@A> sacc ∗
        ▷ TX@i := p_tx ∗
        (* the transaction hasn't been retrieved *)
-       ▷ wh ->re false ∗ ▷ wh -{q}>t (j,  i, ps, Lending) ∗
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, i, ps, tt) ∗
        (* the rx page and locations that the rx descriptor will be at *)
        ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
        ▷ memory_page p_rx mem_rx}}}
@@ -353,16 +364,16 @@ Lemma mem_retrieve_lend{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai w
        (* gain exclusive access and ownership *)
        i -@A> (ps ∪ sacc) ∗
        TX@i := p_tx ∗
-       wh ->re true ∗ wh -{q}>t (j, i, ps, Lending) ∗
+       wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
        (* new descriptor in rx *)
        RX@ i := p_rx ∗
        (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
-       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Lending ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type tt ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
         }}}.
 Proof.
-  iIntros (Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
+  iIntros (Hneq_tt Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
           "(>PC & >mem_ins & >R0 & >R1 & >acc & >tx & >re & >tran & >rx & >rx_s & >mem_rx) HΦ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche state".
@@ -417,8 +428,23 @@ Proof.
     assert (Heq_mb: (σ1.1.1.1.1.2 !!! i) = (p_tx, (p_rx, None))).
     rewrite -Heq_tx -Heq_rx -Heq_rx_state. rewrite -2!surjective_pairing //.
     rewrite p_wr_mem_mb Heq_mb /= in Heqc2.
-    destruct HstepP;subst m2 σ2; subst c2; simpl.
-    rewrite /gen_vm_interp.
+    assert (Heq_c2: (m2, σ2) = (ExecI, (update_incr_PC
+         (update_reg
+                  (update_page_table_global grant_access
+                     (update_transaction
+                        (fill_rx_unsafe
+                           (write_mem_segment σ1 p_rx
+                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l i i
+                           p_tx p_rx) wh (j, i, ps, tt, true)) i ps) R0 (encode_hvc_ret_code Succ))))).
+    {
+      destruct tt.
+      done.
+      destruct HstepP;subst m2 σ2; subst c2; done.
+      destruct HstepP;subst m2 σ2; subst c2; done.
+    }
+    inversion Heq_c2.
+    clear Heqc2 Heq_c2 H1 H2.
+    rewrite /= /gen_vm_interp.
     (* unchanged part *)
     set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l i i p_tx p_rx).
     rewrite (preserve_get_mb_gmap σ_fill (update_incr_PC _)).
@@ -445,7 +471,7 @@ Proof.
     iDestruct (gen_mem_update_SepM _ (des ∪ mem_rx) with "mem mem_rx") as ">[mem mem_rx]";auto.
     rewrite -map_union_assoc.
     assert (mem_rx ∪ σ1.1.2 = σ1.1.2). apply map_subseteq_union. done.
-    iEval (rewrite H0) in "mem". clear H0. iFrame "mem". 
+    iEval (rewrite H0) in "mem". clear H0. iFrame "mem".
     (* upd regs *)
     rewrite (u_upd_pc_regs _ i ai). 2: done.
     2: { rewrite u_upd_reg_regs p_grnt_acc_current_vm p_upd_tran_current_vm /σ_fill.
@@ -469,8 +495,10 @@ Proof.
       intros p Hin_p.
       specialize (Hconsis wh _ Hlookup_tran p Hin_p).
       simpl in Hconsis.
-      exists (Some j, true, ∅).
+      destruct tt.
       done.
+      eexists;done.
+      eexists;done.
     }
     2: rewrite (preserve_get_access_gmap σ1);done.
     rewrite (preserve_get_access_gmap σ1);last done.
@@ -481,9 +509,11 @@ Proof.
     2: { rewrite p_upd_tran_pgt p_fill_rx_pgt p_wr_mem_pgt. specialize (Hconsis wh _ Hlookup_tran).
          intros p Hin.
          specialize (Hconsis p Hin).
-         simpl in Hdisj.
-         exists (Some j, true, ∅).
-         split;done.
+         simpl in Hconsis.
+         destruct tt.
+         contradiction.
+         eexists;split;eauto.
+         eexists;split;eauto.
     }
     rewrite (preserve_get_excl_gmap σ1);last done.
     iFrame "pgt_excl".
@@ -494,40 +524,37 @@ Proof.
     rewrite (preserve_get_rx_gmap σ1); last done.
     iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
     (* upd tran *)
-    rewrite (preserve_get_trans_gmap (update_transaction σ_fill wh (j, i, ps, Lending, true)) (update_incr_PC _)).
+    rewrite (preserve_get_trans_gmap (update_transaction σ_fill wh (j, i, ps, tt, true)) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
     rewrite u_upd_tran_trans (preserve_get_trans_gmap σ1);last done.
     rewrite insert_id.
     2: rewrite /get_trans_gmap /get_transactions_gmap lookup_fmap Hlookup_tran //=.
     iFrame "trans".
     (* upd hp *)
-    rewrite (preserve_get_hpool_gset (update_transaction σ_fill wh (j, i, ps, Lending, true)) (update_incr_PC _)).
+    rewrite (preserve_get_hpool_gset (update_transaction σ_fill wh (j, i, ps, tt, true)) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite p_upd_tran_hp.
     iFrame "hpool".
     (* upd retri *)
-    rewrite (preserve_get_retri_gmap (update_transaction σ_fill wh (j, i, ps, Lending, true)) (update_incr_PC _)).
+    rewrite (preserve_get_retri_gmap (update_transaction σ_fill wh (j, i, ps, tt, true)) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
-    2: { rewrite p_fill_rx_trans p_wr_mem_trans. exists (Some (j, i, ps, Lending, false)). split;eauto. }
+    2: { rewrite p_fill_rx_trans p_wr_mem_trans. exists (Some (j, i, ps, tt, false)). split;eauto. }
     rewrite u_upd_tran_retri.
     iDestruct (retri_update_flip with "retri re") as ">[$ re]".
     (* inv_trans_wellformed *)
-    rewrite (preserve_inv_trans_wellformed (update_transaction σ_fill wh (j, i, ps, Lending, true))).
+    rewrite (preserve_inv_trans_wellformed (update_transaction σ_fill wh (j, i, ps, tt, true))).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
-    iAssert (⌜inv_trans_wellformed (update_transaction σ_fill wh (j, i, ps, Lending, true))⌝%I) as "$". iPureIntro.
+    iAssert (⌜inv_trans_wellformed (update_transaction σ_fill wh (j, i, ps, tt, true))⌝%I) as "$". iPureIntro.
     apply (p_upd_tran_inv_wf σ1 wh);eauto.
     (* inv_trans_pgt_consistent *)
-    rewrite (preserve_inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, Lending, true)) i ps) (update_incr_PC _)).
+    rewrite (preserve_inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, tt, true)) i ps) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
     2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
-    iAssert (⌜inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, Lending, true)) i ps)⌝%I) as "$". iPureIntro.
-    apply p_retrieve_lend_inv_consist.
-    rewrite (preserve_inv_trans_pgt_consistent σ1) //.
-    rewrite (preserve_inv_trans_ps_disj σ1) //.
-    rewrite p_fill_rx_trans p_wr_mem_trans //.
+    iAssert (⌜inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, tt, true)) i ps)⌝%I) as "$". iPureIntro.
+    apply p_retrieve_inv_consist_not_donate;auto.
     (* inv_trans_ps_disj *)
-    rewrite (preserve_inv_trans_ps_disj (update_transaction σ_fill wh (j, i, ps, Lending, true))).
+    rewrite (preserve_inv_trans_ps_disj (update_transaction σ_fill wh (j, i, ps, tt, true))).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
-    iAssert (⌜inv_trans_ps_disj (update_transaction σ_fill wh (j, i, ps, Lending, true))⌝%I) as "$". iPureIntro.
+    iAssert (⌜inv_trans_ps_disj (update_transaction σ_fill wh (j, i, ps, tt, true))⌝%I) as "$". iPureIntro.
     eapply p_upd_tran_inv_disj.
     rewrite (preserve_inv_trans_ps_disj σ1) //.
     rewrite p_fill_rx_trans p_wr_mem_trans //.
@@ -559,7 +586,7 @@ Proof.
     simpl. iApply "HΦ".
     rewrite /fresh_handles. iFrame.
     iExists l.
-    iExists (of_imm (encode_vmid j) :: wh :: encode_transaction_type Lending :: (l ^- 4)%f :: map of_pid (elements ps)).
+    iExists (of_imm (encode_vmid j) :: wh :: encode_transaction_type tt :: (l ^- 4)%f :: map of_pid (elements ps)).
     iFrame.
     iSplit. iPureIntro.
     simpl. rewrite fmap_length.
@@ -567,6 +594,51 @@ Proof.
     solve_finz.
     iSplit. done.
     rewrite -Hdom_mem_rx Heq_dom //.
+Qed.
+
+
+Lemma mem_retrieve_lend{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai wh:
+  (* has access to the page which the instruction is in *)
+  tpa ai ≠ p_tx ->
+  (tpa ai) ∈ sacc ->
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ i -@A> sacc ∗
+       ▷ TX@i := p_tx ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, i, ps, Lending) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
+       ▷ memory_page p_rx mem_rx}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       i -@A> (ps ∪ sacc) ∗
+       TX@i := p_tx ∗
+       wh ->re true ∗ wh -{q}>t (j, i, ps, Lending) ∗
+       (* new descriptor in rx *)
+       RX@ i := p_rx ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Lending ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
+        }}}.
+Proof.
+  by apply (mem_retrieve_not_donate Lending).
 Qed.
 
 Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
@@ -650,11 +722,12 @@ Lemma mem_retrieve_share{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai 
        RX@ i := p_rx ∗
        (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
-       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Sharing ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
         }}}.
 Proof.
-Admitted.
+  by apply (mem_retrieve_not_donate Sharing).
+Qed.
 
 Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
   tpa ai ≠ p_tx ->
@@ -697,6 +770,5 @@ Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh
         }}}.
 Proof.
 Admitted.
-
 
 End retrieve.

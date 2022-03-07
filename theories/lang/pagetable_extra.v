@@ -158,7 +158,7 @@ Proof.
 Qed.
 
 Lemma p_grnt_acc_excl σ i ps:
-  set_Forall (λ p, ∃ e, (get_page_table σ) !! p = Some e ∧ e.2 = ∅) ps ->
+  set_Forall (λ p, ∃ e, (get_page_table σ) !! p = Some e ∧ (e.2 = ∅ ∨ e.1.2 = false)) ps ->
  (get_excl_gmap (update_page_table_global grant_access σ i ps)) = (get_excl_gmap σ).
 Proof.
   rewrite /get_excl_gmap /=.
@@ -180,16 +180,19 @@ Proof.
       rewrite e.
       rewrite lookup_insert.
       rewrite lookup_fmap Hlookup /=.
-      do 2 f_equal.
       specialize (Hforall p).
       feed specialize Hforall. set_solver +.
       destruct Hforall as [? [? ?]].
       rewrite /pgt' in Hlookup.
       rewrite H0 in Hlookup.
-      inversion Hlookup. subst x. simpl in H1. subst g.
+      inversion Hlookup. subst x. simpl in H1.
+      destruct H1.
+      do 2 f_equal.
+      subst g.
       rewrite union_empty_r_L.
       rewrite size_singleton size_empty.
       case_bool_decide;done.
+      rewrite H1 //.
       rewrite lookup_insert_ne;[done|eauto].
       intros p2 Hin.
       specialize (Hforall p2).
@@ -201,10 +204,10 @@ Proof.
       rewrite lookup_insert_ne //.
     }
     rewrite IHps //.
-      intros p2 Hin.
-      specialize (Hforall p2).
-      feed specialize Hforall.
-      set_solver + Hin.
+    intros p2 Hin.
+    specialize (Hforall p2).
+    feed specialize Hforall.
+    set_solver + Hin.
     apply Hforall.
   }
   apply upd_is_strong_assoc_comm.
