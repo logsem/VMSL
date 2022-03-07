@@ -97,6 +97,45 @@ Proof.
   }
 Qed.
 
+Lemma p_retrieve_inv_consist_donate σ i j ps h:
+  inv_trans_pgt_consistent σ ->
+  inv_trans_ps_disj σ ->
+  σ.2 !! h = Some (Some (j, i, ps, Donation, false)) ->
+  inv_trans_pgt_consistent (update_page_table_global update_ownership (update_page_table_global grant_access (remove_transaction σ h) i ps) i ps).
+Proof.
+  intros Hinv_con Hinv_disj Hlk.
+  rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /=.
+  rewrite map_Forall_lookup.
+  intros h' meta Hlookup'.
+  rewrite lookup_insert_Some in Hlookup'.
+  destruct Hlookup' as [[<- <-]|[Hneq Hlookup']].
+  done.
+  {
+    rewrite /inv_trans_pgt_consistent /inv_trans_pgt_consistent' /= in Hinv_con.
+    specialize (Hinv_con h' meta Hlookup').
+    simpl in Hinv_con.
+    destruct meta as [[[[[sv rv] ps'] tt'] b]|];last done.
+    simpl in *.
+    intros p Hin.
+    specialize (Hinv_con p Hin).
+    assert (p ∉ ps).
+    {
+      intro.
+      specialize (Hinv_disj h' _ Hlookup').
+      simpl in Hinv_disj.
+      pose proof (elem_of_pages_in_trans' p (delete h' σ.2)) as [_ Hin'].
+      feed specialize Hin'.
+      exists h.
+      eexists.
+      split.
+      rewrite lookup_delete_ne //.
+      done.
+      set_solver + Hin H0 Hin' Hinv_disj.
+    }
+    destruct tt',b;auto;apply p_upd_pgt_pgt_not_elem;auto;apply p_upd_pgt_pgt_not_elem;auto.
+  }
+Qed.
+
 Lemma mem_retrieve_donate {E i wi sacc p_tx r0 sh j mem_rx p_rx} {ps: gset PID} ai wh:
   (* has access to the page which the instruction is in *)
   tpa ai ≠ p_tx ->
@@ -172,7 +211,7 @@ Proof.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
   (* valid hpool *)
   iDestruct (hpool_valid with "hpool hp") as %Heq_hp.
-  (* iAssert ( ⌜wh ∉ sh⌝)%I as %Hnin. { iApply not_elem_of_fresh_handles. iFrame. } *)
+  iAssert ( ⌜wh ∉ sh⌝)%I as %Hnin. { iApply not_elem_of_fresh_handles. iFrame. }
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -205,13 +244,13 @@ Proof.
     (* unchanged part *)
     set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l i i p_tx p_rx).
     rewrite (preserve_get_mb_gmap σ_fill (update_incr_PC _)).
-    2: rewrite p_upd_pc_mb p_upd_reg_mb p_upd_own_mb p_grnt_acc_mb p_upd_tran_mb //.
+    2: rewrite p_upd_pc_mb p_upd_reg_mb p_upd_own_mb p_grnt_acc_mb p_rm_tran_mb //.
     rewrite p_fill_rx_mb. all : try rewrite p_wr_mem_mb //.
     rewrite (preserve_get_mb_gmap σ1).
     2: rewrite p_wr_mem_mb //.
     iFrame "Hnum mb".
     (* upd mem *)
-    rewrite p_upd_pc_mem p_upd_reg_mem p_upd_own_mem p_grnt_acc_mem p_upd_tran_mem.
+    rewrite p_upd_pc_mem p_upd_reg_mem p_upd_own_mem p_grnt_acc_mem p_rm_tran_mem.
     rewrite p_fill_rx_mem u_wr_mem_mem.
     iDestruct "mem_rx" as "[%Hdom_mem_rx mem_rx]".
     set des := (list_to_map _).
@@ -240,120 +279,126 @@ Proof.
     iDestruct ((gen_reg_update2_global PC i _ (ai ^+ 1)%f R0 i _ (encode_hvc_ret_code Succ)) with "regs PC R0")
       as ">[$ [PC R0]]";eauto.
     (* upd pgt *)
-    (* TODO *)
-    (* rewrite (preserve_get_own_gmap (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, Lending, true)) i ps) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_pgt p_upd_reg_pgt //. *)
-    (* rewrite p_grnt_acc_own. rewrite (preserve_get_own_gmap σ1);last done. *)
-    (* iFrame "pgt_owned". *)
-    (* rewrite (preserve_get_access_gmap (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, Lending, true)) i ps) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_pgt p_upd_reg_pgt //. *)
-    (* iDestruct (access_agree with "pgt_acc acc") as %Hlookup_pgt_acc. *)
-    (* rewrite (u_grnt_acc_acc _ _ _ sacc). *)
-    (* 2: { *)
-    (*   rewrite p_upd_tran_pgt p_fill_rx_pgt p_wr_mem_pgt. *)
-    (*   intros p Hin_p. *)
-    (*   specialize (Hconsis wh _ Hlookup_tran p Hin_p). *)
-    (*   simpl in Hconsis. *)
-    (*   destruct tt. *)
-    (*   done. *)
-    (*   eexists;done. *)
-    (*   eexists;done. *)
-    (* } *)
-    (* 2: rewrite (preserve_get_access_gmap σ1);done. *)
-    (* rewrite (preserve_get_access_gmap σ1);last done. *)
-    (* iDestruct (access_update (ps ∪ sacc) with "pgt_acc acc") as ">[$ acc]". done. *)
-    (* rewrite (preserve_get_excl_gmap (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, Lending, true)) i ps) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_pgt p_upd_reg_pgt //. *)
-    (* rewrite p_grnt_acc_excl. *)
-    (* 2: { rewrite p_upd_tran_pgt p_fill_rx_pgt p_wr_mem_pgt. specialize (Hconsis wh _ Hlookup_tran). *)
-    (*      intros p Hin. *)
-    (*      specialize (Hconsis p Hin). *)
-    (*      simpl in Hconsis. *)
-    (*      destruct tt. *)
-    (*      contradiction. *)
-    (*      eexists;split;eauto. *)
-    (*      eexists;split;eauto. *)
-    (* } *)
-    (* rewrite (preserve_get_excl_gmap σ1);last done. *)
-    (* iFrame "pgt_excl". *)
-    (* (* upd rx_state *) *)
-    (* rewrite (preserve_get_rx_gmap σ_fill (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_mb p_upd_reg_mb p_grnt_acc_mb //. *)
-    (* rewrite u_fill_rx_rx_state. *)
-    (* rewrite (preserve_get_rx_gmap σ1); last done. *)
-    (* iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]". *)
-    (* (* upd tran *) *)
-    (* rewrite (preserve_get_trans_gmap (update_transaction σ_fill wh (j, i, ps, tt, true)) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
-    (* rewrite u_upd_tran_trans (preserve_get_trans_gmap σ1);last done. *)
-    (* rewrite insert_id. *)
-    (* 2: rewrite /get_trans_gmap /get_transactions_gmap lookup_fmap Hlookup_tran //=. *)
-    (* iFrame "trans". *)
-    (* (* upd hp *) *)
-    (* rewrite (preserve_get_hpool_gset (update_transaction σ_fill wh (j, i, ps, tt, true)) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite p_upd_tran_hp. *)
-    (* iFrame "hpool". *)
-    (* (* upd retri *) *)
-    (* rewrite (preserve_get_retri_gmap (update_transaction σ_fill wh (j, i, ps, tt, true)) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
-    (* 2: { rewrite p_fill_rx_trans p_wr_mem_trans. exists (Some (j, i, ps, tt, false)). split;eauto. } *)
-    (* rewrite u_upd_tran_retri. *)
-    (* iDestruct (retri_update_flip with "retri re") as ">[$ re]". *)
-    (* (* inv_trans_wellformed *) *)
-    (* rewrite (preserve_inv_trans_wellformed (update_transaction σ_fill wh (j, i, ps, tt, true))). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
-    (* iAssert (⌜inv_trans_wellformed (update_transaction σ_fill wh (j, i, ps, tt, true))⌝%I) as "$". iPureIntro. *)
-    (* apply (p_upd_tran_inv_wf σ1 wh);eauto. *)
-    (* (* inv_trans_pgt_consistent *) *)
-    (* rewrite (preserve_inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, tt, true)) i ps) (update_incr_PC _)). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
-    (* 2: rewrite p_upd_pc_pgt p_upd_reg_pgt //. *)
-    (* iAssert (⌜inv_trans_pgt_consistent (update_page_table_global grant_access (update_transaction σ_fill wh (j, i, ps, tt, true)) i ps)⌝%I) as "$". iPureIntro. *)
-    (* apply p_retrieve_inv_consist_not_donate;auto. *)
-    (* (* inv_trans_ps_disj *) *)
-    (* rewrite (preserve_inv_trans_ps_disj (update_transaction σ_fill wh (j, i, ps, tt, true))). *)
-    (* 2: rewrite p_upd_pc_trans p_upd_reg_trans //. *)
-    (* iAssert (⌜inv_trans_ps_disj (update_transaction σ_fill wh (j, i, ps, tt, true))⌝%I) as "$". iPureIntro. *)
-    (* eapply p_upd_tran_inv_disj. *)
-    (* rewrite (preserve_inv_trans_ps_disj σ1) //. *)
-    (* rewrite p_fill_rx_trans p_wr_mem_trans //. *)
-    (* done. *)
-    (* (* just_scheduled *) *)
-    (* iModIntro. *)
-    (* rewrite /just_scheduled_vms /just_scheduled. *)
-    (* rewrite /scheduled /machine.scheduler /= /scheduler. *)
-    (* rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_grnt_acc_current_vm p_upd_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm. *)
-    (* rewrite Heq_cur. *)
-    (* iSplitL "". *)
-    (* set fl := (filter _ _). *)
-    (* assert (fl = []) as ->. *)
-    (* { *)
-    (*   rewrite /fl. *)
-    (*   induction n. *)
-    (*   - simpl. *)
-    (*     rewrite filter_nil //=. *)
-    (*   - rewrite seq_S. *)
-    (*     rewrite filter_app. *)
-    (*     rewrite IHn. *)
-    (*     simpl. *)
-    (*     rewrite filter_cons_False /=. rewrite filter_nil //. *)
-    (*     rewrite andb_negb_l //. *)
-    (* } *)
-    (* by iSimpl. *)
-    (* (* Φ *) *)
-    (* case_bool_decide;last contradiction. *)
-    (* simpl. iApply "HΦ". *)
-    (* rewrite /fresh_handles. iFrame. *)
-    (* iExists l. *)
-    (* iExists (of_imm (encode_vmid j) :: wh :: encode_transaction_type tt :: (l ^- 4)%f :: map of_pid (elements ps)). *)
-    (* iFrame. *)
-    (* iSplit. iPureIntro. *)
-    (* simpl. rewrite fmap_length. *)
-    (* rewrite /size /set_size /= in Heq_l. *)
-    (* solve_finz. *)
-    (* iSplit. done. *)
-    (* rewrite -Hdom_mem_rx Heq_dom //. *)
-Admitted.
+    rewrite (preserve_get_own_gmap (update_page_table_global update_ownership (update_page_table_global grant_access (remove_transaction σ_fill wh) i ps) i ps) (update_incr_PC _)).
+    2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
+    rewrite u_upd_own_own.
+    2: { intros p Hin.
+         specialize (Hconsis wh _ Hlookup_tran p Hin).
+         simpl in Hconsis.
+         exists (Some j, true, {[i]}).
+         rewrite /update_page_table_global /=.
+         split;auto.
+         rewrite (u_upd_pgt_elem_of (perm:= (Some j,true,∅)));auto.
+         rewrite /grant_access union_empty_r_L //.
+    }
+    rewrite p_grnt_acc_own. rewrite (preserve_get_own_gmap σ1);last done.
+    iDestruct (own_update_upd with "pgt_owned own") as ">[$ own]".
+    rewrite (preserve_get_access_gmap (update_page_table_global update_ownership (update_page_table_global grant_access (remove_transaction σ_fill wh) i ps) i ps) (update_incr_PC _)).
+    2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
+    iDestruct (access_agree with "pgt_acc acc") as %Hlookup_pgt_acc.
+    rewrite p_upd_own_acc (u_grnt_acc_acc _ _ _ sacc).
+    2: {
+      rewrite p_rm_tran_pgt p_fill_rx_pgt p_wr_mem_pgt.
+      intros p Hin_p.
+      specialize (Hconsis wh _ Hlookup_tran p Hin_p).
+      simpl in Hconsis.
+      eexists;done.
+    }
+    2: rewrite (preserve_get_access_gmap σ1);done.
+    rewrite (preserve_get_access_gmap σ1);last done.
+    iDestruct (access_update (ps ∪ sacc) with "pgt_acc acc") as ">[$ acc]". done.
+    rewrite (preserve_get_excl_gmap (update_page_table_global update_ownership (update_page_table_global grant_access (remove_transaction σ_fill wh) i ps) i ps) (update_incr_PC _)).
+    2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
+    rewrite p_upd_own_excl p_grnt_acc_excl.
+    2: { rewrite p_rm_tran_pgt p_fill_rx_pgt p_wr_mem_pgt. specialize (Hconsis wh _ Hlookup_tran).
+         intros p Hin.
+         specialize (Hconsis p Hin).
+         simpl in Hconsis.
+         eexists;split;eauto.
+    }
+    rewrite (preserve_get_excl_gmap σ1);last done.
+    iFrame "pgt_excl".
+    (* upd rx_state *)
+    rewrite (preserve_get_rx_gmap σ_fill (update_incr_PC _)).
+    2: rewrite p_upd_pc_mb p_upd_reg_mb p_upd_own_mb p_grnt_acc_mb //.
+    rewrite u_fill_rx_rx_state.
+    rewrite (preserve_get_rx_gmap σ1); last done.
+    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
+    (* upd tran *)
+    rewrite (preserve_get_trans_gmap (remove_transaction σ_fill wh) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //.
+    rewrite u_rm_tran_tran (preserve_get_trans_gmap σ1);last done.
+    iDestruct (trans_update_delete with "trans tran") as ">[$ tran]".
+    (* upd hp *)
+    rewrite (preserve_get_hpool_gset (remove_transaction σ1 wh) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_hp.
+    iDestruct (hpool_update_union wh with "hpool hp") as ">[$ hp]".
+    (* upd retri *)
+    rewrite (preserve_get_retri_gmap (remove_transaction σ1 wh) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_retri.
+    iDestruct (retri_update_delete with "retri re") as ">[$ re]".
+    (* inv_trans_wellformed *)
+    rewrite (preserve_inv_trans_wellformed (remove_transaction σ_fill wh)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //.
+    iAssert (⌜inv_trans_wellformed (remove_transaction σ_fill wh)⌝%I) as "$". iPureIntro.
+    apply (p_rm_tran_inv_wf σ1 wh);eauto.
+    (* inv_trans_pgt_consistent *)
+    rewrite (preserve_inv_trans_pgt_consistent (update_page_table_global update_ownership
+                 (update_page_table_global grant_access (remove_transaction σ_fill wh) i ps) i ps) (update_incr_PC _)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //.
+    2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
+    iAssert (⌜inv_trans_pgt_consistent (update_page_table_global update_ownership
+                 (update_page_table_global grant_access (remove_transaction σ_fill wh) i ps) i ps)⌝%I) as "$". iPureIntro.
+    eapply p_retrieve_inv_consist_donate;auto.
+    rewrite p_fill_rx_trans p_wr_mem_trans.
+    exact Hlookup_tran.
+    (* inv_trans_ps_disj *)
+    rewrite (preserve_inv_trans_ps_disj (remove_transaction σ_fill wh)).
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //.
+    iAssert (⌜inv_trans_ps_disj (remove_transaction σ_fill wh )⌝%I) as "$". iPureIntro.
+    eapply p_rm_tran_inv_disj.
+    rewrite (preserve_inv_trans_ps_disj σ1) //.
+    (* just_scheduled *)
+    iModIntro.
+    rewrite /just_scheduled_vms /just_scheduled.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_upd_own_current_vm p_grnt_acc_current_vm p_rm_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm.
+    rewrite Heq_cur.
+    iSplitL "".
+    set fl := (filter _ _).
+    assert (fl = []) as ->.
+    {
+      rewrite /fl.
+      induction n.
+      - simpl.
+        rewrite filter_nil //=.
+      - rewrite seq_S.
+        rewrite filter_app.
+        rewrite IHn.
+        simpl.
+        rewrite filter_cons_False /=. rewrite filter_nil //.
+        rewrite andb_negb_l //.
+    }
+    by iSimpl.
+    (* Φ *)
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    rewrite /fresh_handles. iFrame.
+    iSplitR "hp re tran handles".
+    iExists l.
+    iExists (of_imm (encode_vmid j) :: wh :: encode_transaction_type Donation :: (l ^- 4)%f :: map of_pid (elements ps)).
+    iFrame.
+    iSplit. iPureIntro.
+    simpl. rewrite fmap_length.
+    rewrite /size /set_size /= in Heq_l.
+    solve_finz.
+    iSplit. done.
+    rewrite -Hdom_mem_rx Heq_dom //.
+    rewrite union_comm_L.
+    iFrame.
+    rewrite big_sepS_union. rewrite big_sepS_singleton. iFrame.
+    set_solver + Hnin.
+Qed.
 
 Lemma mem_retrieve_donate_rx {E i wi sacc r0 sh j mem_rx p_tx} {ps: gset PID} ai wh:
   tpa ai ≠ p_tx ->

@@ -454,16 +454,28 @@ Section pagetable_rules.
 
   Lemma excl_update{gm x b} b':
     gm !! x = Some b ->
-    ghost_map_auth gen_excl_name 1 gm -∗ x -@E> b ==∗ ghost_map_auth gen_excl_name 1  (<[x := b']>gm) ∗ x -@E> b'.
+    ghost_map_auth gen_excl_name 1 gm -∗ x -@E> b ==∗
+    ghost_map_auth gen_excl_name 1  (<[x := b']>gm) ∗ x -@E> b'.
   Proof.
     iIntros (Hlookup) "Hauth Hfrag".
     rewrite excl_mapsto_eq /excl_mapsto_def.
     iApply ((ghost_map_update b') with "Hauth Hfrag").
   Qed.
 
+  Lemma owned_update{gm x i} j:
+    gm !! x = Some (Some i) ->
+    ghost_map_auth gen_own_name 1 gm -∗ x -@O> i ==∗
+    ghost_map_auth gen_own_name 1  (<[x := (Some j)]>gm) ∗ x -@O> j.
+  Proof.
+    iIntros (Hlookup) "Hauth Hfrag".
+    rewrite own_mapsto_eq /own_mapsto_def.
+    iApply ((ghost_map_update (Some j)) with "Hauth Hfrag").
+  Qed.
+
   Lemma access_update{gm x s} s':
     gm !! x = Some (to_frac_agree 1 s) ->
-    own gen_access_name (● gm) -∗ x -@A> s ==∗ own gen_access_name (● <[x := (to_frac_agree 1 s')]>gm) ∗ x -@A> s'.
+    own gen_access_name (● gm) -∗ x -@A> s ==∗
+    own gen_access_name (● <[x := (to_frac_agree 1 s')]>gm) ∗ x -@A> s'.
   Proof.
     iIntros (Hlookup) "Hauth Hfrag".
     rewrite access_mapsto_eq /access_mapsto_def.
@@ -499,6 +511,43 @@ Section pagetable_rules.
     rewrite Hlookup.
     {
       iDestruct (excl_update (negb b) with "Hauth Hsingle") as ">[Hauth Hsingle]";auto.
+      rewrite big_sepS_union;last set_solver + H.
+      rewrite big_sepS_singleton.
+      iFrame "Hsingle".
+      iApply ("IH" with "Hauth Hfrag").
+     }
+    {
+      intros.
+      destruct (b' !! x2) as [p2|] eqn: Hlookup2, (b' !! x1) as [p1|] eqn:Hlookup1;
+        try destruct p1 as [q1 []]; try destruct p2 as [q2 []]; rewrite ?lookup_insert_ne ?Hlookup1 ?Hlookup2 //;last eauto.
+      apply insert_commute.
+      done.
+    }
+    set_solver + H.
+  Qed.
+
+  Lemma own_update_upd {gm i} j ps:
+    ghost_map_auth gen_own_name 1 gm -∗
+    ([∗ set] p ∈ ps, p -@O> i)%I==∗
+    ghost_map_auth gen_own_name 1 (upd_own_gmap j gm ps) ∗
+    ([∗ set] p ∈ ps, p -@O> j)%I.
+  Proof.
+    iIntros "Hauth Hfrag".
+    rewrite /upd_own_gmap /update_pgt_gmap /=.
+    iInduction ps as [|] "IH" using set_ind_L forall (gm).
+    rewrite set_fold_empty.
+    rewrite !big_sepS_empty.
+    by iFrame.
+    rewrite set_fold_disj_union_strong.
+    rewrite set_fold_singleton.
+    iDestruct (big_sepS_union with "Hfrag") as "[Hsingle Hfrag]".
+    set_solver + H.
+    rewrite big_sepS_singleton.
+    iDestruct (own_agree with "Hauth [Hsingle]") as %Hlookup.
+    { rewrite own_mapsto_eq /own_mapsto_def. iFrame. }
+    rewrite Hlookup.
+    {
+      iDestruct (owned_update j with "Hauth Hsingle") as ">[Hauth Hsingle]";auto.
       rewrite big_sepS_union;last set_solver + H.
       rewrite big_sepS_singleton.
       iFrame "Hsingle".
