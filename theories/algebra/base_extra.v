@@ -120,6 +120,12 @@ Section helpers.
                                 | _ => gm
                                 end).
 
+  Definition upd_own_gmap (v:VMID) :=
+    update_pgt_gmap (λ (gm: gmap _ (option VMID)) (p:PID), match (gm !! p) with
+                                | Some (_) => <[p:= Some v]>gm
+                                | _ => gm
+                                end).
+
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans' p trans:
     p ∈ pages_in_trans' trans <-> ∃ h tran, trans !! h = Some (Some tran) ∧ p ∈ tran.1.1.2.

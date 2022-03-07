@@ -660,18 +660,15 @@ Definition retrieve (s : state) : exec_mode * state :=
            match bool_decide (v = vr), b with
            | true, false =>
              s' <- (write_retrieve_msg s (get_rx_pid s @ v) handle trn) ;;;
-             let upd := match ty with
-               | Sharing | Lending => grant_access
-               | Donation => (λ perm v, update_ownership (grant_access perm v) v)
-               end in
              match ty with
              | Sharing | Lending =>
                  unit  (update_reg
-                          (update_page_table_global upd (update_transaction s' handle (vs, vr, ps, ty, true)) v ps)
+                          (update_page_table_global grant_access (update_transaction s' handle (vs, vr, ps, ty, true)) v ps)
                           R0 (encode_hvc_ret_code Succ))
              | Donation =>
                  unit  (update_reg
-                          (update_page_table_global upd (remove_transaction s' handle) v ps)
+                          (update_page_table_global update_ownership
+                          (update_page_table_global grant_access (remove_transaction s' handle) v ps) v ps)
                           R0 (encode_hvc_ret_code Succ))
              end
            | _ , _ => throw Denied

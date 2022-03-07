@@ -58,7 +58,7 @@ Lemma p_upd_own_mem σ i (ps: gset PID):
  get_mem (update_page_table_global update_ownership σ i ps) = get_mem σ.
 Proof. f_equal. Qed.
 
-Lemma p_upd_pgt_mb σ i (ps: gset PID):
+Lemma p_upd_own_mb σ i (ps: gset PID):
  get_mail_boxes (update_page_table_global update_ownership σ i ps) = get_mail_boxes σ.
 Proof. f_equal. Qed.
 
@@ -77,8 +77,8 @@ Proof.
   rewrite set_fold_disj_union_strong.
   {
     rewrite set_fold_singleton /=.
-  set pgt' := (X in X !! p).
-  destruct (pgt' !! p) eqn:Hlookup.
+    set pgt' := (X in X !! p).
+    destruct (pgt' !! p) eqn:Hlookup.
   { destruct p1.
     rewrite IHps /=.
     f_equal.
@@ -105,6 +105,87 @@ Proof.
   }
   apply upd_is_strong_assoc_comm.
   { set_solver + H. }
+Qed.
+
+Lemma p_upd_own_excl σ i ps:
+((get_excl_gmap (update_page_table_global update_ownership σ i ps)):gmap _ _) = ((get_excl_gmap σ): gmap _ _).
+Proof.
+  rewrite /get_excl_gmap /=.
+  generalize dependent σ.1.1.1.2.
+  induction ps as [|p ps] using set_ind_L.
+  done.
+  intro.
+  rewrite set_fold_disj_union_strong.
+  {
+    rewrite set_fold_singleton /=.
+    set pgt' := (X in X !! p).
+    destruct (pgt' !! p) eqn:Hlookup.
+    { destruct p1.
+      rewrite IHps /=.
+      destruct p1.
+      destruct o;
+        rewrite fmap_insert insert_id //.
+      all: rewrite /= lookup_fmap Hlookup //.
+    }
+    rewrite IHps //.
+  }
+  apply upd_is_strong_assoc_comm.
+  { set_solver + H. }
+Qed.
+
+Lemma u_upd_own_own σ i ps:
+  set_Forall (λ p, ∃ e, (get_page_table σ) !! p = Some e ∧ is_Some e.1.1 ) ps ->
+  (get_own_gmap (update_page_table_global update_ownership σ i ps)) = upd_own_gmap i (get_own_gmap σ) ps.
+Proof.
+  rewrite /get_own_gmap.
+  rewrite /update_page_table_global /=.
+  rewrite /upd_own_gmap /update_pgt_gmap /=.
+  generalize σ.1.1.1.2.
+  induction ps as [|p ps] using set_ind_L.
+  intros.
+  rewrite !set_fold_empty //.
+  intros pgt Hforall.
+  rewrite !set_fold_disj_union_strong /=.
+  rewrite !set_fold_singleton.
+  rewrite IHps.
+  rewrite lookup_fmap.
+  destruct (pgt!! p) eqn:Hlookup.
+  { rewrite Hlookup /=.
+    destruct p0.
+    simpl.
+    f_equal.
+    destruct p0.
+    rewrite fmap_insert //=.
+    specialize (Hforall p).
+    feed specialize Hforall. set_solver +.
+    destruct Hforall as [? [? [? ?]]].
+    rewrite H0 in Hlookup.
+    inversion Hlookup.
+    subst x.
+    simpl in H1.
+    rewrite H1 //.
+  }
+  { rewrite Hlookup //=. }
+  {
+    intros p1 Hin.
+    specialize (Hforall p1).
+    feed specialize Hforall. set_solver + Hin.
+    destruct Hforall as [? [? ?]].
+    destruct (pgt !! p).
+    exists x.
+    assert (p ≠ p1). set_solver + Hin H.
+    rewrite lookup_insert_ne //.
+    exists x. done.
+  }
+  2,4 : set_solver + H.
+  {
+    intros.
+    destruct (b' !! x2) as [p2|] eqn: Hlookup2, (b' !! x1) as [p1|] eqn:Hlookup1;
+      try destruct p1 as [q1 []]; try destruct p2 as [q2 []]; rewrite ?lookup_insert_ne ?Hlookup1 ?Hlookup2 //;last eauto.
+    apply insert_commute.
+    done.
+  }
+  apply upd_is_strong_assoc_comm.
 Qed.
 
 Lemma p_grnt_acc_current_vm σ i (ps: gset PID) :
@@ -950,5 +1031,6 @@ Proof.
   apply upd_is_strong_assoc_comm.
   set_solver + H.
 Qed.
+
 
 End pagetable_extra.
