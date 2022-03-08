@@ -319,12 +319,26 @@ Section pagetable_rules.
    (p -@O> i) -∗
    ⌜∃ b s, (get_page_table σ) !! p= Some (Some i,b,s)⌝.
   Proof.
-    iIntros  "Hσ Hown".
+    iIntros "Hσ Hown".
     rewrite own_mapsto_eq /own_mapsto_def.
     iDestruct (own_agree with "Hσ Hown") as %Hvalid.
     iPureIntro.
     apply own_pgt_lookup in Hvalid as [? Hvalid].
     exists x.
+    done.
+  Qed.
+
+  Lemma own_agree_None_lookup {σ} p:
+   ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
+   (p -@O> -) -∗
+   ⌜∃ b s, (get_page_table σ) !! p= Some (None,b,s)⌝.
+  Proof.
+    iIntros "Hσ Hown".
+    rewrite own_mapsto_eq /own_mapsto_def.
+    iDestruct (own_agree with "Hσ Hown") as %Hvalid.
+    iPureIntro.
+    apply own_pgt_lookup in Hvalid as [? [? Hvalid]].
+    do 2 eexists.
     done.
   Qed.
 
@@ -339,6 +353,32 @@ Section pagetable_rules.
     rewrite /check_ownership_page.
     rewrite Hlookup.
     rewrite decide_True;eauto.
+  Qed.
+
+  Lemma own_agree_Some_check_false {σ} p i j:
+    j ≠ i ->
+    ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
+    (p -@O> j) -∗
+    ⌜(check_ownership_page σ i p)= false⌝.
+  Proof.
+    iIntros (Hneq) "Hσ Hown".
+    iDestruct (own_agree_Some_lookup with "Hσ Hown") as %[b [s Hlookup]].
+    iPureIntro.
+    rewrite /check_ownership_page.
+    rewrite Hlookup.
+    rewrite decide_False;eauto.
+  Qed.
+
+  Lemma own_agree_None_check {σ} p i:
+    ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
+    (p -@O> -) -∗
+    ⌜(check_ownership_page σ i p)= false⌝.
+  Proof.
+    iIntros "Hσ Hown".
+    iDestruct (own_agree_None_lookup with "Hσ Hown") as %[b [s Hlookup]].
+    iPureIntro.
+    rewrite /check_ownership_page.
+    rewrite Hlookup //.
   Qed.
 
   Lemma excl_agree_Some_lookup {σ} p b:

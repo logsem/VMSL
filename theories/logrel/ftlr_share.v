@@ -199,7 +199,7 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
     destruct (decide (p_tx ∈ ps_share)) as [Hin_ptx_share | Hnin_ptx_share].
     { (* tx is not owned by i, apply [mem_send_not_owned] *)
       iDestruct "pgt_tx" as "[own_tx excl_tx]".
-      iApply (mem_send_not_owned ai _ (p_tx -@O> -)%I with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_tx]");iFrameAutoSolve.
+      iApply (mem_send_not_owned1 ai with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_tx]");iFrameAutoSolve.
       exact Hdecode_hvc.
       simpl; reflexivity.
       lia.
@@ -207,9 +207,6 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       done.
       simpl; exact Hin_ptx_share.
       iFrame.
-      iNext.
-      iIntros "?".
-      iLeft;done.
       iNext.
       iIntros "(PC & mem_instr & pgt_acc' & R0 & R1 & R2 & tx & mem_tx & own_tx) _".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
@@ -230,7 +227,7 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
     destruct (decide (p_rx ∈ ps_share)) as [Hin_prx_share | Hnin_prx_share].
     { (* rx is not owned by i, apply [mem_send_not_owned] *)
       iDestruct "rx" as "[rx [own_rx excl_rx]]".
-      iApply (mem_send_not_owned ai _ (p_rx -@O> -)%I with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_rx]");iFrameAutoSolve.
+      iApply (mem_send_not_owned1 ai with "[PC mem_instr pgt_acc' R0 R1 R2 tx mem_tx own_rx]");iFrameAutoSolve.
       exact Hdecode_hvc.
       simpl; reflexivity.
       lia.
@@ -238,9 +235,6 @@ Lemma ftlr_share {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
       done.
       simpl; exact Hin_prx_share.
       iFrame.
-      iNext.
-      iIntros "?".
-      iLeft;done.
       iNext.
       iIntros "(PC & mem_instr & pgt_acc' & R0 & R1 & R2 & tx & mem_tx & own_rx) _".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".

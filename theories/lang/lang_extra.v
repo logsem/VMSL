@@ -245,6 +245,36 @@ Section lang_extra.
     rewrite (IHlen l) //.
   Qed.
 
+   Lemma sequence_a_map_Forall_Some {A: Type} len p (m1 :gmap _ A):
+     (list_to_set (finz.seq p len)) ⊆ dom (gset _) m1 ->
+     is_Some (sequence_a (map (λ v : Addr, m1 !! v) (finz.seq p len))).
+  Proof.
+    intros.
+    unfold sequence_a. simpl.
+    unfold monad.List.sequence_a_list.
+    intros.
+    generalize dependent p.
+    induction len.
+    intros.
+    exists [].
+    done.
+    simpl.
+    simpl in IHlen.
+    intros.
+    assert (p ∈ dom (gset _) m1). set_solver + H.
+    rewrite elem_of_dom in H0.
+    destruct H0 as [? ?].
+    rewrite H0.
+    specialize (IHlen (p^+1)%f ).
+    feed specialize IHlen.
+    {
+      set_solver + H.
+    }
+    destruct IHlen.
+    rewrite H1.
+    auto.
+  Qed.
+
   (* Lemma transaction_descriptor_valid{i j l psd mem} des p : *)
   (*   (finz.to_z l) = (Z.of_nat (length psd)) -> *)
   (*   des = serialized_transaction_descriptor i j l psd W0 -> *)
