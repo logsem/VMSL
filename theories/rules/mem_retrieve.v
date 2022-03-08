@@ -1153,6 +1153,134 @@ Proof.
   by apply (mem_retrieve_not_donate Sharing).
 Qed.
 
+Lemma mem_retrieve_not_donate_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} tt ai wh:
+  tt ≠ Donation ->
+  (* has access to the page which the instruction is in *)
+  tpa ai ≠ p_tx ->
+  (tpa ai) ∈ sacc ->
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+      ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ i -@A> sacc ∗
+       ▷ TX@i := p_tx ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, i, ps, tt) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := (tpa ai) ∗ ▷ RX_state@ i := None ∗
+       ▷ (ai ->a wi -∗ memory_page (tpa ai) mem_rx)}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       i -@A> (ps ∪ sacc) ∗
+       TX@i := p_tx ∗
+       wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
+       (* new descriptor in rx *)
+       RX@ i := (tpa ai) ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type tt ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
+        }}}.
+Proof.
+  iIntros (Hneq_tt Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
+          "(>PC & >mem_ins & >R0 & >R1 & >acc & >tx & >re & >tran & >rx & >rx_s & >mem_rx) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis )".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 wh Heq_cur) with "regs PC R0 R1")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  iDestruct ("mem_rx" with "mem_ins") as "mem_rx".
+  iDestruct (gen_mem_valid_SepM_subseteq with "mem [mem_rx]") as %Hsubseteq_mem_rx.
+  { iDestruct "mem_rx" as "[% mem_rx]". iExact "mem_rx". }
+  set p_rx := (tpa ai).
+  (* valid tx rx *)
+  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
+  iDestruct (mb_valid_rx i p_rx with "mb rx") as %Heq_rx.
+  iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
+  (* valid trans *)
+  iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
+  rewrite Hlookup_tran in Hlookup_tran'.
+  inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai wi);eauto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0.
+    assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
+    {
+      destruct Hwf as [Hub _].
+      specialize (Hub wh _ Hlookup_tran).
+      simpl in Hub.
+      rewrite Z.leb_le in Hub.
+      apply finz_of_z_is_Some.
+      lia. lia.
+    }
+    rewrite Heq_l Heq_rx in Heqc2.
+    rewrite /fill_rx in Heqc2.
+    assert (Heq_mb: (σ1.1.1.1.1.2 !!! i) = (p_tx, (p_rx, None))).
+    rewrite -Heq_tx -Heq_rx -Heq_rx_state. rewrite -2!surjective_pairing //.
+    rewrite p_wr_mem_mb Heq_mb /= in Heqc2.
+    assert (Heq_c2: (m2, σ2) = (ExecI, (update_incr_PC
+         (update_reg
+                  (update_page_table_global grant_access
+                     (update_transaction
+                        (fill_rx_unsafe
+                           (write_mem_segment σ1 p_rx
+                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l i i
+                           p_tx p_rx) wh (j, i, ps, tt, true)) i ps) R0 (encode_hvc_ret_code Succ))))).
+    {
+      destruct tt.
+      done.
+      destruct HstepP;subst m2 σ2; subst c2; done.
+      destruct HstepP;subst m2 σ2; subst c2; done.
+    }
+    inversion Heq_c2.
+    clear Heqc2 Heq_c2 H1 H2.
+    rewrite /=.
+    iDestruct (mem_retrieve_not_donate' (E:= E) (n:=n) (σ1 := σ1) tt p_rx with "PC R0 R1 acc re tran rx_s mem_rx [Hnum mem regs mb rx_state pgt_owned pgt_acc pgt_excl trans hpool retri]") as ">($ & $ & (?&?&?&?&?&?&?))".
+    done. done. done. done. done. eauto. eauto. eauto. done. eauto. iFrame. iPureIntro. done.
+    iModIntro.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_grnt_acc_current_vm p_upd_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm.
+    rewrite Heq_cur.
+    (* Φ *)
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    iFrame.
+Qed.
+
 Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
   tpa ai ≠ p_tx ->
   (tpa ai) ∈ sacc ->
@@ -1178,7 +1306,7 @@ Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
    ExecI @ i; E
    {{{ RET (false, ExecI) ;
        (* PC is incremented *)
-       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       PC @@ i ->r (ai ^+ 1)%f ∗
        (* return Succ to R0 *)
        R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
        R1 @@ i ->r wh ∗
@@ -1190,11 +1318,12 @@ Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
        RX@ i := (tpa ai) ∗
        (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
-       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Lending ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
         }}}.
 Proof.
-Admitted.
+  by apply (mem_retrieve_not_donate_rx Lending).
+Qed.
 
 
 Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
@@ -1222,7 +1351,7 @@ Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh
    ExecI @ i; E
    {{{ RET (false, ExecI) ;
        (* PC is incremented *)
-       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       PC @@ i ->r (ai ^+ 1)%f ∗
        (* return Succ to R0 *)
        R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
        R1 @@ i ->r wh ∗
@@ -1234,10 +1363,11 @@ Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh
        RX@ i := (tpa ai) ∗
        (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
-       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Sharing ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
         }}}.
 Proof.
-Admitted.
+  by apply (mem_retrieve_not_donate_rx Sharing).
+Qed.
 
 End retrieve.

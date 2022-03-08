@@ -805,7 +805,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iSplitL "". 2: iExact "rx". done.
         iNext.
         simpl.
-        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+        iIntros "(PC & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
@@ -1105,7 +1105,7 @@ Lemma ftlr_retrieve {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tr
         iSplitL "". 2: iExact "rx". done.
         iNext.
         simpl.
-        iIntros "(PC & mem_instr & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
+        iIntros "(PC & R0 & R1 & pgt_acc & tx & re & tran & rx & (%wl & %des & rx_state & _ & _ & mem_rx)) _".
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct (access_split with "pgt_acc") as "[pgt_acc pgt_acc']".
