@@ -181,10 +181,12 @@ Proof.
          intros p Hin.
          specialize (Hdisj p Hin).
          simpl in Hdisj.
-      destruct tt.
-      eexists;split;done.
-      done.
-      eexists;split;done.
+         destruct tt.
+         eexists;split. done.
+         eauto.
+         eexists;split;done.
+         eexists;split. done.
+         eauto.
     }
     rewrite (preserve_get_excl_gmap σ1) //.
     iFrame "pgt_excl".
