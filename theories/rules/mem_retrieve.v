@@ -136,110 +136,68 @@ Proof.
   }
 Qed.
 
-Lemma mem_retrieve_donate {E i wi sacc p_tx r0 sh j mem_rx p_rx} {ps: gset PID} ai wh:
-  (* has access to the page which the instruction is in *)
-  tpa ai ≠ p_tx ->
-  (tpa ai) ∈ sacc ->
-  (* the current instruction is hvc *)
-  (* the decoding of wi is correct *)
-  decode_instruction wi = Some(Hvc) ->
-  (* the hvc call to invoke is retrieve *)
-  decode_hvc_func r0 = Some(Retrieve) ->
-  {SS{{(* the encoding of instruction wi is stored in location ai *)
-       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
-       (* registers *)
-       ▷ (R0 @@ i ->r r0) ∗
-       ▷ (R1 @@ i ->r wh) ∗
-       (* the pagetable *)
-       ▷ ([∗ set] p ∈ ps, p -@O> j) ∗
-       ▷ i -@A> sacc ∗
-       ▷ TX@i := p_tx ∗
-       (* the transaction hasn't been retrieved *)
-       ▷ wh ->re false ∗ ▷ wh -{1}>t (j, i, ps, Donation) ∗
-       (* the rx page and locations that the rx descriptor will be at *)
-       ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
-       ▷ memory_page p_rx mem_rx ∗
-       (* the handle pool *)
-       ▷ fresh_handles 1 sh}}}
-   ExecI @ i; E
-   {{{ RET (false, ExecI) ;
-       (* PC is incremented *)
-       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
-       (* return Succ to R0 *)
-       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
-       R1 @@ i ->r wh ∗
-       (* gain exclusive access and ownership *)
-       ([∗ set] p ∈ ps, p -@O> i) ∗
-       i -@A> (ps ∪ sacc) ∗
-       TX@i := p_tx ∗
-       (* new descriptor in rx *)
-       RX@ i := p_rx ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
-       (* XXX: not sure if it is useful *)
-       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
-                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx))) ∗
-       (* the transaction is completed, deallocate it and release the handle *)
-       fresh_handles 1 (sh ∪ {[wh]}) }}}.
+Lemma mem_retrieve_donate' {E n i sacc r0 sh j mem_rx p_tx} {σ1: state} {ps: gset PID} p_rx ai wh l:
+  σ1.1.1.2 = i ->
+  get_reg σ1 PC = Some ai ->
+  get_reg σ1 R0 = Some r0 ->
+  get_reg σ1 R1 = Some wh ->
+  p_tx = (σ1.1.1.1.1.2 !!! i).1 ->
+  p_rx = (σ1.1.1.1.1.2 !!! i).2.1 ->
+  mem_rx ⊆ σ1.1.2 ->
+  σ1.2 !! wh = Some (Some (j, i, ps, Donation, false)) ->
+  finz.of_z (size ps + 4)%nat = Some l ->
+  wh ∉ sh ->
+  PC @@ i ->r ai -∗
+  R0 @@ i ->r r0 -∗
+  R1 @@ i ->r wh -∗
+  ([∗ set] p ∈ ps, p -@O> j) -∗
+  i -@A> sacc -∗
+  wh ->re false -∗
+  wh ->t (j, i, ps, Donation) -∗
+  RX_state@i:= None -∗
+  memory_page p_rx mem_rx -∗
+  hp [sh] -∗
+  ([∗ set] h ∈ sh, h ->t - ∗ h ->re -) -∗
+  gen_vm_interp n σ1 ={E}=∗
+    gen_vm_interp n
+      (update_incr_PC
+         (update_reg
+            (update_page_table_global update_ownership
+               (update_page_table_global grant_access
+                  (remove_transaction
+                     (fill_rx_unsafe
+                        (write_mem_segment σ1 p_rx
+                           (of_imm (encode_vmid j)
+                            :: wh
+                               :: encode_transaction_type Donation
+                                  :: (l ^- 4)%f :: map of_pid (elements ps))) l i i p_tx p_rx) wh)
+                  i ps) i ps) R0 (encode_hvc_ret_code Succ))) ∗
+                            ([∗ list] vmid ∈ just_scheduled_vms n σ1
+                       (update_incr_PC
+                          (update_reg
+                             (update_page_table_global update_ownership
+                                (update_page_table_global grant_access
+                                   (remove_transaction
+                                      (fill_rx_unsafe
+                                         (write_mem_segment σ1 p_rx
+                                            (of_imm (encode_vmid j)
+                                             :: wh
+                                                :: encode_transaction_type Donation
+                                                   :: (l ^- 4)%f :: map of_pid (elements ps))) l i
+                                         i p_tx p_rx) wh) i ps) i ps) R0
+                             (encode_hvc_ret_code Succ))), VMProp_holds vmid (1 / 2)) ∗
+      PC @@ i ->r (ai ^+ 1)%f ∗ R0 @@ i ->r encode_hvc_ret_code Succ ∗
+         R1 @@ i ->r wh ∗ ([∗ set] p ∈ ps, p -@O> i) ∗ i -@A> (ps ∪ sacc) ∗
+         (∃ (l0 : Addr) (des : list Addr), RX_state@i:= Some (l0, i) ∗ ⌜
+            Z.to_nat l0 = length des⌝ ∗
+            ⌜des =
+             of_imm (encode_vmid j)
+             :: wh :: encode_transaction_type Donation :: (l0 ^- 4)%f :: map of_pid (elements ps)⌝ ∗
+            memory_page p_rx (list_to_map (zip (finz.seq p_rx (length des)) des) ∪ mem_rx)) ∗
+         fresh_handles 1 (sh ∪ {[wh]}).
 Proof.
-  iIntros (Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
-          "(>PC & >mem_ins & >R0 & >R1 & >own &>acc & >tx & >re & >tran & >rx & >rx_s & >mem_rx & >[hp handles]) HΦ".
-  iApply (sswp_lift_atomic_step ExecI);[done|].
-  iIntros (n σ1) "%Hsche state".
-  rewrite /scheduled /= /scheduler in Hsche.
-  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
-  clear Hsche.
-  iModIntro.
-  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
-                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis )".
-  (* valid regs *)
-  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 wh Heq_cur) with "regs PC R0 R1")
-    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1)";eauto.
-  (* valid pt *)
-  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
-  (* valid mem *)
-  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
-  iDestruct (gen_mem_valid_SepM_subseteq with "mem [mem_rx]") as %Hsubseteq_mem_rx.
-  { iDestruct "mem_rx" as "[% mem_rx]". iExact "mem_rx". }
-  (* valid tx rx *)
-  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
-  iDestruct (mb_valid_rx i p_rx with "mb rx") as %Heq_rx.
-  iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
-  (* valid trans *)
-  iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
-  iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
-  rewrite Hlookup_tran in Hlookup_tran'.
-  inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
-  (* valid hpool *)
-  iDestruct (hpool_valid with "hpool hp") as %Heq_hp.
-  iAssert ( ⌜wh ∉ sh⌝)%I as %Hnin. { iApply not_elem_of_fresh_handles. iFrame. }
-  iSplit.
-  - (* reducible *)
-    iPureIntro.
-    apply (reducible_normal i Hvc ai wi);eauto.
-    rewrite Heq_tx //.
-  - iModIntro.
-    iIntros (m2 σ2) "vmprop_auth %HstepP".
-    iFrame "vmprop_auth".
-    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
-    2: rewrite Heq_tx //.
-    remember (exec Hvc σ1) as c2 eqn:Heqc2.
-    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
-    case_bool_decide;last done. clear H0.
-    assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
-    {
-      destruct Hwf as [Hub _].
-      specialize (Hub wh _ Hlookup_tran).
-      simpl in Hub.
-      rewrite Z.leb_le in Hub.
-      apply finz_of_z_is_Some.
-      lia. lia.
-    }
-    rewrite Heq_l Heq_rx in Heqc2.
-    rewrite /fill_rx in Heqc2.
-    assert (Heq_mb: (σ1.1.1.1.1.2 !!! i) = (p_tx, (p_rx, None))).
-    rewrite -Heq_tx -Heq_rx -Heq_rx_state. rewrite -2!surjective_pairing //.
-    rewrite p_wr_mem_mb Heq_mb /= in Heqc2.
-    destruct HstepP;subst m2 σ2; subst c2.
+  iIntros (Heq_cur Hlookup_PC Hlookup_R0 Hlookup_R1 Heq_tx Heq_rx Hsubseteq_mem Hlookup_tran Heq_l Hnin) "PC R0 R1 own acc re tran rx_s mem_rx hp handles (Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
     rewrite /= /gen_vm_interp.
     (* unchanged part *)
     set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l i i p_tx p_rx).
@@ -380,10 +338,7 @@ Proof.
         rewrite andb_negb_l //.
     }
     by iSimpl.
-    (* Φ *)
-    case_bool_decide;last contradiction.
-    simpl. iApply "HΦ".
-    rewrite /fresh_handles. iFrame.
+  iFrame.
     iSplitR "hp re tran handles".
     iExists l.
     iExists (of_imm (encode_vmid j) :: wh :: encode_transaction_type Donation :: (l ^- 4)%f :: map of_pid (elements ps)).
@@ -398,10 +353,128 @@ Proof.
     iFrame.
     rewrite big_sepS_union. rewrite big_sepS_singleton. iFrame.
     set_solver + Hnin.
+  Qed.
+
+Lemma mem_retrieve_donate {E i wi sacc p_tx r0 sh j mem_rx p_rx} {ps: gset PID} ai wh:
+  (* has access to the page which the instruction is in *)
+  tpa ai ≠ p_tx ->
+  (tpa ai) ∈ sacc ->
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ ([∗ set] p ∈ ps, p -@O> j) ∗
+       ▷ i -@A> sacc ∗
+       ▷ TX@i := p_tx ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{1}>t (j, i, ps, Donation) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
+       ▷ memory_page p_rx mem_rx ∗
+       (* the handle pool *)
+       ▷ fresh_handles 1 sh}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       ([∗ set] p ∈ ps, p -@O> i) ∗
+       i -@A> (ps ∪ sacc) ∗
+       TX@i := p_tx ∗
+       (* new descriptor in rx *)
+       RX@ i := p_rx ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx))) ∗
+       (* the transaction is completed, deallocate it and release the handle *)
+       fresh_handles 1 (sh ∪ {[wh]}) }}}.
+Proof.
+  iIntros (Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
+          "(>PC & >mem_ins & >R0 & >R1 & >own &>acc & >tx & >re & >tran & >rx & >rx_s & >mem_rx & >[hp handles]) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis )".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 wh Heq_cur) with "regs PC R0 R1")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  iDestruct (gen_mem_valid_SepM_subseteq with "mem [mem_rx]") as %Hsubseteq_mem_rx.
+  { iDestruct "mem_rx" as "[% mem_rx]". iExact "mem_rx". }
+  (* valid tx rx *)
+  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
+  iDestruct (mb_valid_rx i p_rx with "mb rx") as %Heq_rx.
+  iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
+  (* valid trans *)
+  iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
+  rewrite Hlookup_tran in Hlookup_tran'.
+  inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
+  (* valid hpool *)
+  iDestruct (hpool_valid with "hpool hp") as %Heq_hp.
+  iAssert ( ⌜wh ∉ sh⌝)%I as %Hnin. { iApply not_elem_of_fresh_handles. iFrame. }
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai wi);eauto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0.
+    assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
+    {
+      destruct Hwf as [Hub _].
+      specialize (Hub wh _ Hlookup_tran).
+      simpl in Hub.
+      rewrite Z.leb_le in Hub.
+      apply finz_of_z_is_Some.
+      lia. lia.
+    }
+    rewrite Heq_l Heq_rx in Heqc2.
+    rewrite /fill_rx in Heqc2.
+    assert (Heq_mb: (σ1.1.1.1.1.2 !!! i) = (p_tx, (p_rx, None))).
+    rewrite -Heq_tx -Heq_rx -Heq_rx_state. rewrite -2!surjective_pairing //.
+    rewrite p_wr_mem_mb Heq_mb /= in Heqc2.
+    destruct HstepP;subst m2 σ2; subst c2.
+    rewrite /=.
+    iDestruct (mem_retrieve_donate' (E:= E) (n:=n)(σ1 := σ1) with "PC R0 R1 own acc re tran rx_s mem_rx hp handles [Hnum mem regs mb rx_state pgt_owned pgt_acc pgt_excl trans hpool retri]") as ">($ & $ & (? & ? & ? & ? & ? & ?))".
+    done. done. done. done. eauto. eauto. eauto. done. eauto. done. iFrame. iPureIntro. done.
+    iModIntro.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_upd_own_current_vm p_grnt_acc_current_vm p_rm_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm.
+    rewrite Heq_cur.
+    (* Φ *)
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    iFrame.
 Qed.
 
 Lemma mem_retrieve_donate_rx {E i wi sacc r0 sh j mem_rx p_tx} {ps: gset PID} ai wh:
   tpa ai ≠ p_tx ->
+  (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
@@ -443,7 +516,79 @@ Lemma mem_retrieve_donate_rx {E i wi sacc r0 sh j mem_rx p_tx} {ps: gset PID} ai
        (* the transaction is completed, deallocate it and release the handle *)
        fresh_handles 1 (sh ∪ {[wh]}) }}}.
 Proof.
-Admitted.
+  iIntros (Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
+          "(>PC & >mem_ins & >R0 & >R1 & >own &>acc & >tx & >re & >tran & >rx & >rx_s & >mem_rx & >[hp handles]) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis )".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 wh Heq_cur) with "regs PC R0 R1")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  iDestruct ("mem_rx" with "mem_ins") as "mem_rx".
+  set p_rx := (tpa ai).
+  iDestruct (gen_mem_valid_SepM_subseteq with "mem [mem_rx]") as %Hsubseteq_mem_rx.
+  {  iDestruct "mem_rx" as "[% mem_rx]". iExact "mem_rx". }
+  (* valid tx rx *)
+  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
+  iDestruct (mb_valid_rx i p_rx with "mb rx") as %Heq_rx.
+  iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
+  (* valid trans *)
+  iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
+  rewrite Hlookup_tran in Hlookup_tran'.
+  inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
+  (* valid hpool *)
+  iDestruct (hpool_valid with "hpool hp") as %Heq_hp.
+  iAssert ( ⌜wh ∉ sh⌝)%I as %Hnin. { iApply not_elem_of_fresh_handles. iFrame. }
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai wi);eauto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0.
+    assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
+    {
+      destruct Hwf as [Hub _].
+      specialize (Hub wh _ Hlookup_tran).
+      simpl in Hub.
+      rewrite Z.leb_le in Hub.
+      apply finz_of_z_is_Some.
+      lia. lia.
+    }
+    rewrite Heq_l Heq_rx in Heqc2.
+    rewrite /fill_rx in Heqc2.
+    assert (Heq_mb: (σ1.1.1.1.1.2 !!! i) = (p_tx, (p_rx, None))).
+    rewrite -Heq_tx -Heq_rx -Heq_rx_state. rewrite -2!surjective_pairing //.
+    rewrite p_wr_mem_mb Heq_mb /= in Heqc2.
+    destruct HstepP;subst m2 σ2; subst c2.
+    rewrite /=.
+    iDestruct (mem_retrieve_donate' (E:= E) (n:=n) (σ1 := σ1) (tpa ai) with "PC R0 R1 own acc re tran rx_s mem_rx hp handles [Hnum mem regs mb rx_state pgt_owned pgt_acc pgt_excl trans hpool retri]") as ">($ & $ & (? & ? & ? & ? & ? & ?))".
+    done. done. done. done. eauto. eauto. eauto. done. eauto. done. iFrame. iPureIntro. done.
+    iModIntro.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_upd_own_current_vm p_grnt_acc_current_vm p_rm_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm.
+    rewrite Heq_cur.
+    (* Φ *)
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    iFrame.
+Qed.
 
 Lemma mem_retrieve_invalid_handle {E i wi sacc r0 r2 wh p_tx} ai:
   tpa ai ≠ p_tx ->
@@ -586,119 +731,63 @@ Lemma mem_retrieve_rx_full{E i wi sacc r0 r2 q1 q2 j tt rx_state p_tx} {ps: gset
 Proof.
 Admitted.
 
-Lemma mem_retrieve_not_donate{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} tt ai wh:
+Lemma mem_retrieve_not_donate' {E n q i sacc r0 j mem_rx p_tx} {σ1: state} {ps: gset PID} tt p_rx ai wh l:
   tt ≠ Donation ->
-  (* has access to the page which the instruction is in *)
-  tpa ai ≠ p_tx ->
-  (tpa ai) ∈ sacc ->
-  (* the current instruction is hvc *)
-  (* the decoding of wi is correct *)
-  decode_instruction wi = Some(Hvc) ->
-  (* the hvc call to invoke is retrieve *)
-  decode_hvc_func r0 = Some(Retrieve) ->
-  {SS{{(* the encoding of instruction wi is stored in location ai *)
-       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
-       (* registers *)
-       ▷ (R0 @@ i ->r r0) ∗
-       ▷ (R1 @@ i ->r wh) ∗
-       (* the pagetable *)
-       ▷ i -@A> sacc ∗
-       ▷ TX@i := p_tx ∗
-       (* the transaction hasn't been retrieved *)
-       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, i, ps, tt) ∗
-       (* the rx page and locations that the rx descriptor will be at *)
-       ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
-       ▷ memory_page p_rx mem_rx}}}
-   ExecI @ i; E
-   {{{ RET (false, ExecI) ;
-       (* PC is incremented *)
-       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
-       (* return Succ to R0 *)
-       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
-       R1 @@ i ->r wh ∗
-       (* gain exclusive access and ownership *)
-       i -@A> (ps ∪ sacc) ∗
-       TX@i := p_tx ∗
-       wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
-       (* new descriptor in rx *)
-       RX@ i := p_rx ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
-       (* XXX: not sure if it is useful *)
-       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type tt ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
-                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
-        }}}.
-Proof.
-  iIntros (Hneq_tt Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
-          "(>PC & >mem_ins & >R0 & >R1 & >acc & >tx & >re & >tran & >rx & >rx_s & >mem_rx) HΦ".
-  iApply (sswp_lift_atomic_step ExecI);[done|].
-  iIntros (n σ1) "%Hsche state".
-  rewrite /scheduled /= /scheduler in Hsche.
-  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
-  clear Hsche.
-  iModIntro.
-  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
-                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis )".
-  (* valid regs *)
-  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 wh Heq_cur) with "regs PC R0 R1")
-    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1)";eauto.
-  (* valid pt *)
-  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
-  (* valid mem *)
-  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
-  iDestruct (gen_mem_valid_SepM_subseteq with "mem [mem_rx]") as %Hsubseteq_mem_rx.
-  { iDestruct "mem_rx" as "[% mem_rx]". iExact "mem_rx". }
-  (* valid tx rx *)
-  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
-  iDestruct (mb_valid_rx i p_rx with "mb rx") as %Heq_rx.
-  iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
-  (* valid trans *)
-  iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
-  iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
-  rewrite Hlookup_tran in Hlookup_tran'.
-  inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
-  iSplit.
-  - (* reducible *)
-    iPureIntro.
-    apply (reducible_normal i Hvc ai wi);eauto.
-    rewrite Heq_tx //.
-  - iModIntro.
-    iIntros (m2 σ2) "vmprop_auth %HstepP".
-    iFrame "vmprop_auth".
-    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
-    2: rewrite Heq_tx //.
-    remember (exec Hvc σ1) as c2 eqn:Heqc2.
-    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
-    case_bool_decide;last done. clear H0.
-    assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
-    {
-      destruct Hwf as [Hub _].
-      specialize (Hub wh _ Hlookup_tran).
-      simpl in Hub.
-      rewrite Z.leb_le in Hub.
-      apply finz_of_z_is_Some.
-      lia. lia.
-    }
-    rewrite Heq_l Heq_rx in Heqc2.
-    rewrite /fill_rx in Heqc2.
-    assert (Heq_mb: (σ1.1.1.1.1.2 !!! i) = (p_tx, (p_rx, None))).
-    rewrite -Heq_tx -Heq_rx -Heq_rx_state. rewrite -2!surjective_pairing //.
-    rewrite p_wr_mem_mb Heq_mb /= in Heqc2.
-    assert (Heq_c2: (m2, σ2) = (ExecI, (update_incr_PC
+  σ1.1.1.2 = i ->
+  get_reg σ1 PC = Some ai ->
+  get_reg σ1 R0 = Some r0 ->
+  get_reg σ1 R1 = Some wh ->
+  p_tx = (σ1.1.1.1.1.2 !!! i).1 ->
+  p_rx = (σ1.1.1.1.1.2 !!! i).2.1 ->
+  mem_rx ⊆ σ1.1.2 ->
+  σ1.2 !! wh = Some (Some (j, i, ps, tt, false)) ->
+  finz.of_z (size ps + 4)%nat = Some l ->
+  PC @@ i ->r ai -∗
+  R0 @@ i ->r r0 -∗
+  R1 @@ i ->r wh -∗
+  i -@A> sacc -∗
+  wh ->re false -∗
+  wh -{q}>t (j, i, ps, tt) -∗
+  RX_state@i:= None -∗
+  memory_page p_rx mem_rx -∗
+  gen_vm_interp n σ1 ={E}=∗
+    gen_vm_interp n
+      (update_incr_PC
          (update_reg
-                  (update_page_table_global grant_access
-                     (update_transaction
-                        (fill_rx_unsafe
-                           (write_mem_segment σ1 p_rx
-                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l i i
-                           p_tx p_rx) wh (j, i, ps, tt, true)) i ps) R0 (encode_hvc_ret_code Succ))))).
-    {
-      destruct tt.
-      done.
-      destruct HstepP;subst m2 σ2; subst c2; done.
-      destruct HstepP;subst m2 σ2; subst c2; done.
-    }
-    inversion Heq_c2.
-    clear Heqc2 Heq_c2 H1 H2.
+            (update_page_table_global grant_access
+                  (update_transaction
+                     (fill_rx_unsafe
+                        (write_mem_segment σ1 p_rx
+                           (of_imm (encode_vmid j)
+                            :: wh
+                               :: encode_transaction_type tt
+                                  :: (l ^- 4)%f :: map of_pid (elements ps))) l i i p_tx p_rx) wh (j,i,ps,tt,true))
+                  i ps)  R0 (encode_hvc_ret_code Succ))) ∗
+                            ([∗ list] vmid ∈ just_scheduled_vms n σ1
+                       (update_incr_PC
+                          (update_reg
+                                (update_page_table_global grant_access
+                                   (update_transaction
+                                      (fill_rx_unsafe
+                                         (write_mem_segment σ1 p_rx
+                                            (of_imm (encode_vmid j)
+                                             :: wh
+                                                :: encode_transaction_type tt
+                                                   :: (l ^- 4)%f :: map of_pid (elements ps))) l i
+                                         i p_tx p_rx) wh (j,i,ps,tt,true)) i ps) R0
+                             (encode_hvc_ret_code Succ))), VMProp_holds vmid (1 / 2)) ∗
+      PC @@ i ->r (ai ^+ 1)%f ∗ R0 @@ i ->r encode_hvc_ret_code Succ ∗
+         R1 @@ i ->r wh ∗ i -@A> (ps ∪ sacc) ∗
+       wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
+         (∃ (l0 : Addr) (des : list Addr), RX_state@i:= Some (l0, i) ∗ ⌜
+            Z.to_nat l0 = length des⌝ ∗
+            ⌜des =
+             of_imm (encode_vmid j)
+             :: wh :: encode_transaction_type tt :: (l0 ^- 4)%f :: map of_pid (elements ps)⌝ ∗
+            memory_page p_rx (list_to_map (zip (finz.seq p_rx (length des)) des) ∪ mem_rx)).
+Proof.
+  iIntros (Htt Heq_cur Hlookup_PC Hlookup_R0 Hlookup_R1 Heq_tx Heq_rx Hsubseteq_mem Hlookup_tran Heq_l) "PC R0 R1 acc re tran rx_s mem_rx (Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
     rewrite /= /gen_vm_interp.
     (* unchanged part *)
     set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l i i p_tx p_rx).
@@ -814,7 +903,7 @@ Proof.
     rewrite (preserve_inv_trans_ps_disj σ1) //.
     rewrite p_fill_rx_trans p_wr_mem_trans //.
     done.
-    (* just_scheduled *)
+  (* just_schedule *)
     iModIntro.
     rewrite /just_scheduled_vms /just_scheduled.
     rewrite /scheduled /machine.scheduler /= /scheduler.
@@ -837,8 +926,6 @@ Proof.
     }
     by iSimpl.
     (* Φ *)
-    case_bool_decide;last contradiction.
-    simpl. iApply "HΦ".
     rewrite /fresh_handles. iFrame.
     iExists l.
     iExists (of_imm (encode_vmid j) :: wh :: encode_transaction_type tt :: (l ^- 4)%f :: map of_pid (elements ps)).
@@ -849,8 +936,133 @@ Proof.
     solve_finz.
     iSplit. done.
     rewrite -Hdom_mem_rx Heq_dom //.
-Qed.
+  Qed.
 
+Lemma mem_retrieve_not_donate{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} tt ai wh:
+  tt ≠ Donation ->
+  (* has access to the page which the instruction is in *)
+  tpa ai ≠ p_tx ->
+  (tpa ai) ∈ sacc ->
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ i -@A> sacc ∗
+       ▷ TX@i := p_tx ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, i, ps, tt) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := p_rx ∗ ▷ RX_state@ i := None ∗
+       ▷ memory_page p_rx mem_rx}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       i -@A> (ps ∪ sacc) ∗
+       TX@i := p_tx ∗
+       wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
+       (* new descriptor in rx *)
+       RX@ i := p_rx ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type tt ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
+        }}}.
+Proof.
+  iIntros (Hneq_tt Hneq_tx Hin_acc Hdecode_i Hdecode_f Φ)
+          "(>PC & >mem_ins & >R0 & >R1 & >acc & >tx & >re & >tran & >rx & >rx_s & >mem_rx) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis )".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R1 wh Heq_cur) with "regs PC R0 R1")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  iDestruct (gen_mem_valid_SepM_subseteq with "mem [mem_rx]") as %Hsubseteq_mem_rx.
+  { iDestruct "mem_rx" as "[% mem_rx]". iExact "mem_rx". }
+  (* valid tx rx *)
+  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
+  iDestruct (mb_valid_rx i p_rx with "mb rx") as %Heq_rx.
+  iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
+  (* valid trans *)
+  iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
+  rewrite Hlookup_tran in Hlookup_tran'.
+  inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai wi);eauto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0.
+    assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
+    {
+      destruct Hwf as [Hub _].
+      specialize (Hub wh _ Hlookup_tran).
+      simpl in Hub.
+      rewrite Z.leb_le in Hub.
+      apply finz_of_z_is_Some.
+      lia. lia.
+    }
+    rewrite Heq_l Heq_rx in Heqc2.
+    rewrite /fill_rx in Heqc2.
+    assert (Heq_mb: (σ1.1.1.1.1.2 !!! i) = (p_tx, (p_rx, None))).
+    rewrite -Heq_tx -Heq_rx -Heq_rx_state. rewrite -2!surjective_pairing //.
+    rewrite p_wr_mem_mb Heq_mb /= in Heqc2.
+    assert (Heq_c2: (m2, σ2) = (ExecI, (update_incr_PC
+         (update_reg
+                  (update_page_table_global grant_access
+                     (update_transaction
+                        (fill_rx_unsafe
+                           (write_mem_segment σ1 p_rx
+                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l i i
+                           p_tx p_rx) wh (j, i, ps, tt, true)) i ps) R0 (encode_hvc_ret_code Succ))))).
+    {
+      destruct tt.
+      done.
+      destruct HstepP;subst m2 σ2; subst c2; done.
+      destruct HstepP;subst m2 σ2; subst c2; done.
+    }
+    inversion Heq_c2.
+    clear Heqc2 Heq_c2 H1 H2.
+    rewrite /=.
+    iDestruct (mem_retrieve_not_donate' (E:= E) (n:=n) (σ1 := σ1) tt p_rx with "PC R0 R1 acc re tran rx_s mem_rx [Hnum mem regs mb rx_state pgt_owned pgt_acc pgt_excl trans hpool retri]") as ">($ & $ & (?&?&?&?&?&?&?))".
+    done. done. done. done. done. eauto. eauto. eauto. done. eauto. iFrame. iPureIntro. done.
+    iModIntro.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_grnt_acc_current_vm p_upd_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm.
+    rewrite Heq_cur.
+    (* Φ *)
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    iFrame.
+Qed.
 
 Lemma mem_retrieve_lend{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai wh:
   (* has access to the page which the instruction is in *)
@@ -895,49 +1107,6 @@ Lemma mem_retrieve_lend{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai w
 Proof.
   by apply (mem_retrieve_not_donate Lending).
 Qed.
-
-Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
-  tpa ai ≠ p_tx ->
-  (* the current instruction is hvc *)
-  (* the decoding of wi is correct *)
-  decode_instruction wi = Some(Hvc) ->
-  (* the hvc call to invoke is retrieve *)
-  decode_hvc_func r0 = Some(Retrieve) ->
-  (* l is the number of involved pages, of type word *)
-  {SS{{(* the encoding of instruction wi is stored in location ai *)
-       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
-       (* registers *)
-       ▷ (R0 @@ i ->r r0) ∗
-       ▷ (R1 @@ i ->r wh) ∗
-       (* the pagetable *)
-       ▷ i -@A> sacc ∗
-       ▷ TX@i := p_tx ∗
-       (* the transaction hasn't been retrieved *)
-       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, i, ps, Lending) ∗
-       (* the rx page and locations that the rx descriptor will be at *)
-       ▷ RX@ i := (tpa ai) ∗ ▷ RX_state@ i := None ∗
-       ▷ (ai ->a wi -∗ memory_page (tpa ai) mem_rx)}}}
-   ExecI @ i; E
-   {{{ RET (false, ExecI) ;
-       (* PC is incremented *)
-       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
-       (* return Succ to R0 *)
-       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
-       R1 @@ i ->r wh ∗
-       (* gain exclusive access and ownership *)
-       i -@A> (ps ∪ sacc) ∗
-       TX@i := p_tx ∗
-       wh ->re true ∗ wh -{q}>t (j, i, ps, Lending) ∗
-       (* new descriptor in rx *)
-       RX@ i := (tpa ai) ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
-       (* XXX: not sure if it is useful *)
-       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
-                 memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
-        }}}.
-Proof.
-Admitted.
-
 
 Lemma mem_retrieve_share{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai wh:
   (* has access to the page which the instruction is in *)
@@ -984,8 +1153,53 @@ Proof.
   by apply (mem_retrieve_not_donate Sharing).
 Qed.
 
+Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
+  tpa ai ≠ p_tx ->
+  (tpa ai) ∈ sacc ->
+  (* the current instruction is hvc *)
+  (* the decoding of wi is correct *)
+  decode_instruction wi = Some(Hvc) ->
+  (* the hvc call to invoke is retrieve *)
+  decode_hvc_func r0 = Some(Retrieve) ->
+  (* l is the number of involved pages, of type word *)
+  {SS{{(* the encoding of instruction wi is stored in location ai *)
+       ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
+       (* registers *)
+       ▷ (R0 @@ i ->r r0) ∗
+       ▷ (R1 @@ i ->r wh) ∗
+       (* the pagetable *)
+       ▷ i -@A> sacc ∗
+       ▷ TX@i := p_tx ∗
+       (* the transaction hasn't been retrieved *)
+       ▷ wh ->re false ∗ ▷ wh -{q}>t (j, i, ps, Lending) ∗
+       (* the rx page and locations that the rx descriptor will be at *)
+       ▷ RX@ i := (tpa ai) ∗ ▷ RX_state@ i := None ∗
+       ▷ (ai ->a wi -∗ memory_page (tpa ai) mem_rx)}}}
+   ExecI @ i; E
+   {{{ RET (false, ExecI) ;
+       (* PC is incremented *)
+       PC @@ i ->r (ai ^+ 1)%f ∗ ai ->a wi ∗
+       (* return Succ to R0 *)
+       R0 @@ i ->r (encode_hvc_ret_code Succ) ∗
+       R1 @@ i ->r wh ∗
+       (* gain exclusive access and ownership *)
+       i -@A> (ps ∪ sacc) ∗
+       TX@i := p_tx ∗
+       wh ->re true ∗ wh -{q}>t (j, i, ps, Lending) ∗
+       (* new descriptor in rx *)
+       RX@ i := (tpa ai) ∗
+       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (* XXX: not sure if it is useful *)
+       (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
+                 memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
+        }}}.
+Proof.
+Admitted.
+
+
 Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
   tpa ai ≠ p_tx ->
+  (tpa ai) ∈ sacc ->
   (* the current instruction is hvc *)
   (* the decoding of wi is correct *)
   decode_instruction wi = Some(Hvc) ->
