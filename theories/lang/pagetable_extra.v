@@ -749,7 +749,84 @@ Proof.
   }
 Qed.
 
+
 Lemma p_rvk_acc_excl σ i j tt ps:
+ set_Forall (λ p, match tt with
+                | Donation => σ.1.1.1.2 !! p = Some (Some j, true, {[i]})
+                | Sharing => σ.1.1.1.2 !! p = Some (Some j, false, {[j; i]})
+                | Lending => σ.1.1.1.2 !! p = Some (Some j, true, {[i]})
+                end) ps ->
+ (get_excl_gmap (update_page_table_global revoke_access σ i ps)) = (get_excl_gmap σ).
+Proof.
+  rewrite /get_excl_gmap /=.
+  generalize dependent σ.1.1.1.2.
+  induction ps as [|p ps] using set_ind_L.
+  done.
+  intros ? Hforall.
+  rewrite set_fold_disj_union_strong.
+  {
+    rewrite set_fold_singleton /=.
+    set pgt' := (X in X !! p).
+    destruct (pgt' !! p) eqn:Hlookup.
+    { destruct p1.
+      rewrite IHps /=.
+      rewrite fmap_insert /=.
+      apply map_eq.
+      intro.
+      destruct (decide (i0=p)).
+      subst i0.
+      rewrite lookup_insert.
+      rewrite lookup_fmap Hlookup /=.
+      specialize (Hforall p).
+      feed specialize Hforall.
+      set_solver +.
+      destruct tt.
+      rewrite Hlookup in Hforall.
+      inversion Hforall.
+      assert ({[i]}∖ {[i]} = ∅) as ->. set_solver +.
+      case_bool_decide;case_bool_decide;eauto.
+      exfalso.
+      apply H3.
+      rewrite size_singleton //.
+      exfalso.
+      apply H0.
+      rewrite size_empty //. lia.
+      rewrite Hlookup in Hforall.
+      inversion Hforall.
+      done.
+      rewrite Hlookup in Hforall.
+      inversion Hforall.
+      assert ({[i]}∖ {[i]} = ∅) as ->. set_solver +.
+      case_bool_decide;case_bool_decide;eauto.
+      exfalso.
+      apply H3.
+      rewrite size_singleton //.
+      exfalso.
+      apply H0.
+      rewrite size_empty //. lia.
+      rewrite lookup_insert_ne;[done|eauto].
+      intros p' Hin'.
+      specialize (Hforall p').
+      feed specialize Hforall.
+      set_solver + Hin'.
+      simpl in Hforall.
+      assert ( p ≠ p' ).
+      set_solver + Hin' H.
+      destruct tt;
+      rewrite lookup_insert_ne //.
+    }
+    rewrite IHps //.
+    intros p' Hin'.
+    specialize (Hforall p').
+    feed specialize Hforall.
+    set_solver + Hin'.
+    done.
+  }
+  apply upd_is_strong_assoc_comm.
+  { set_solver + H. }
+Qed.
+
+Lemma p_rvk_acc_excl' σ i j tt ps:
  set_Forall (λ p, match tt with
                 | Donation => False
                 | Sharing => σ.1.1.1.2 !! p = Some (Some j, false, {[j; i]})

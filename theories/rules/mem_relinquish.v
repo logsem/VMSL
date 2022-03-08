@@ -216,7 +216,12 @@ Proof.
     2: rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     rewrite (p_rvk_acc_excl _ _ j tt).
     2: {
-      specialize (Hconsis wh _ Hlookup_tran). done.
+      intros p Hin.
+      specialize (Hconsis wh _ Hlookup_tran p Hin).
+      destruct tt; simpl in Hconsis.
+      done.
+      rewrite p_upd_tran_pgt //.
+      rewrite p_upd_tran_pgt //.
     }
     rewrite (preserve_get_excl_gmap σ1);last done.
     iFrame "pgt_excl".
