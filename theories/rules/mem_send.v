@@ -405,87 +405,6 @@ Proof.
   }
 Qed.
 
-Lemma mem_send_hvc_error {E n i ai r0 r2} {σ1: state} err :
-  σ1.1.1.2 = i ->
-  get_reg σ1 PC = Some ai ->
-  get_reg σ1 R0 = Some r0 ->
-  get_reg σ1 R2 = Some r2 ->
-  PC @@ i ->r ai -∗
-  R0 @@ i ->r r0 -∗
-  R2 @@ i ->r r2 -∗
-  gen_vm_interp n σ1 ={E}=∗ (gen_vm_interp n (update_incr_PC (update_reg (update_reg σ1 R0 (encode_hvc_ret_code Error)) R2 (encode_hvc_error err))) ∗
-    ([∗ list] vmid ∈ just_scheduled_vms n σ1
-                       (update_incr_PC (update_reg (update_reg σ1 R0 (encode_hvc_ret_code Error)) R2 (encode_hvc_error err))),
-     VMProp_holds vmid (1 / 2))) ∗
-                 PC @@ i ->r (ai ^+ 1)%f ∗
-                 R0 @@ i ->r (encode_hvc_ret_code Error) ∗
-                 R2 @@ i ->r (encode_hvc_error err).
-Proof.
-  iIntros (Heq_cur Hlookup_PC Hlookup_R0 Hlookup_R2) "PC R0 R2 (Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
-                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
-  rewrite /gen_vm_interp.
-  (* unchanged part *)
-  rewrite (preserve_get_mb_gmap σ1).
-  rewrite (preserve_get_rx_gmap σ1).
-  all: try rewrite p_upd_pc_mb //.
-  rewrite p_upd_pc_mem 2!p_upd_reg_mem.
-  rewrite (preserve_get_own_gmap σ1).
-  2: rewrite p_upd_pc_pgt 2!p_upd_reg_pgt //.
-  rewrite (preserve_get_access_gmap σ1).
-  2: rewrite p_upd_pc_pgt 2!p_upd_reg_pgt //.
-  rewrite (preserve_get_excl_gmap σ1).
-  2: rewrite p_upd_pc_pgt 2!p_upd_reg_pgt //.
-  rewrite (preserve_get_trans_gmap σ1).
-  2: rewrite p_upd_pc_trans 2!p_upd_reg_trans //.
-  rewrite (preserve_get_retri_gmap σ1).
-  2: rewrite p_upd_pc_trans 2!p_upd_reg_trans //.
-  rewrite (preserve_get_hpool_gset σ1).
-  2: rewrite p_upd_pc_trans 2!p_upd_reg_trans //.
-  iFrame "Hnum mem rx_state mb pgt_owned pgt_acc pgt_excl trans retri hpool".
-  (* upd regs *)
-  rewrite (u_upd_pc_regs _ i ai);auto.
-  2: { rewrite 2!u_upd_reg_regs.
-       rewrite lookup_insert_ne;auto.  rewrite lookup_insert_ne;auto.  solve_reg_lookup.
-  }
-  rewrite u_upd_reg_regs p_upd_reg_current_vm Heq_cur.
-  rewrite u_upd_reg_regs Heq_cur.
-  iDestruct ((gen_reg_update3_global PC i (ai ^+ 1)%f R2 i (encode_hvc_error err) R0 i (encode_hvc_ret_code Error)) with "regs PC R2 R0")
-    as ">[$ [PC [R2 R0]]]".
-  (* inv_trans_wellformed *)
-  rewrite (preserve_inv_trans_wellformed σ1).
-  2: rewrite p_upd_pc_trans 2!p_upd_reg_trans //.
-  (* inv_trans_pgt_consistent *)
-  rewrite (preserve_inv_trans_pgt_consistent σ1).
-  2: rewrite p_upd_pc_trans 2!p_upd_reg_trans //.
-  2: rewrite p_upd_pc_pgt 2!p_upd_reg_pgt //.
-  (* inv_trans_ps_disj *)
-  rewrite (preserve_inv_trans_ps_disj σ1).
-  2: rewrite p_upd_pc_trans p_upd_reg_trans //.
-  iModIntro.
-  iFrame.
-  iSplitR. iPureIntro. auto.
-  (* just_scheduled *)
-  rewrite /just_scheduled_vms /just_scheduled.
-  rewrite /scheduled /machine.scheduler /= /scheduler.
-  rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
-  set fl := (filter _ _).
-  assert (fl = []) as ->.
-  {
-    rewrite /fl.
-    induction n.
-    - simpl.
-      rewrite filter_nil //=.
-    - rewrite seq_S.
-      rewrite filter_app.
-      rewrite IHn.
-      simpl.
-      rewrite filter_cons_False /=.
-      rewrite filter_nil. auto.
-      rewrite andb_negb_l.
-      done.
-  }
-  by iSimpl.
-Qed.
 
 Lemma mem_send_invalid_len {i wi r0 r1 r2 hvcf tt q sacc p_tx} ai :
   (tpa ai) ∈ sacc ->
@@ -553,7 +472,7 @@ Proof.
     }
     inversion Heq_c2. clear H2 H3 Heqc2 Heq_c2.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]";auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
@@ -640,7 +559,7 @@ Proof.
     inversion Heq_c2. clear H2 H3 Heqc2 Heq_c2.
     iAssert (memory_page p_tx mem_tx) with "[$mem_tx]" as "mem_tx". done.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
@@ -726,7 +645,7 @@ Proof.
     }
     inversion Heq_c2. clear H2 H3 Heq_c2.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
@@ -830,7 +749,7 @@ Proof.
     }
     inversion Heq_c2. clear H2 H3 Heq_c2.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
@@ -935,7 +854,7 @@ Proof.
     }
     inversion Heq_c2. clear H2 H3 Heq_c2.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
@@ -1076,7 +995,7 @@ Proof.
     }
     inversion Heq_c2. clear H2 H3 Heq_c2.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
@@ -1196,7 +1115,7 @@ Proof.
     }
     inversion Heq_c2. clear H2 H3 Heq_c2.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
@@ -1308,7 +1227,7 @@ Proof.
     }
     inversion Heq_c2. clear H2 H3 Heq_c2.
     rewrite /=.
-    iDestruct (mem_send_hvc_error (E:= ⊤) NoMem with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    iDestruct (hvc_error_update (E:= ⊤) NoMem with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
