@@ -785,26 +785,6 @@ Qed.
     }
   Qed.
 
-(* we don't have actual deletion *)
-  (* Lemma trans_ps_disj_delete' {trans h tran}: *)
-  (*   trans !! h = Some tran -> *)
-  (*   inv_trans_ps_disj' trans -> *)
-  (*   inv_trans_ps_disj' (delete h trans). *)
-  (* Proof. *)
-  (*   rewrite /inv_trans_ps_disj'. *)
-  (*   intros Hlk Hdisj. *)
-  (*   pose proof Hdisj as Hdisj'. *)
-  (*   apply map_Forall_delete. *)
-  (*   intros h' tran' Hlk'. *)
-  (*   specialize (Hdisj h' tran' Hlk'). *)
-  (*   simpl in Hdisj. *)
-  (*   destruct tran';auto. *)
-  (*   assert (delete h' (delete h trans) ⊆ delete h' trans). *)
-  (*   { rewrite delete_commute. apply map_subseteq_delete. } *)
-  (*   apply pages_in_trans_subseteq' in H. *)
-  (*   set_solver + H Hdisj. *)
-  (* Qed. *)
-
 End helpers.
 
 From iris.algebra.lib Require Import gmap_view.

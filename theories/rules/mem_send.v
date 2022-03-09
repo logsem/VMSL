@@ -1220,10 +1220,10 @@ Proof.
     clear H1 H2.
     rewrite /new_transaction /= /fresh_handle /= -Heq_hp' Heq_hp in Heqc2.
     rewrite elements_empty /= in Heqc2.
-    assert (heq_c2 : (m2,σ2) = (execi, update_incr_pc (update_reg (update_reg σ1 r0 (encode_hvc_ret_code error)) r2 (encode_hvc_error nomem)))).
+    assert (Heq_c2 : (m2,σ2) = (ExecI, update_incr_PC (update_reg (update_reg σ1 R0 (encode_hvc_ret_code Error)) R2 (encode_hvc_error NoMem)))).
     {
-    destruct hvcf; inversion htt;
-      destruct hstepp;subst m2 σ2; subst c2; done.
+    destruct hvcf; inversion Htt;
+      destruct HstepP;subst m2 σ2; subst c2; done.
     }
     inversion Heq_c2. clear H2 H3 Heq_c2.
     rewrite /=.

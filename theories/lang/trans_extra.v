@@ -371,16 +371,4 @@ Proof.
   by apply trans_ps_disj_delete'.
 Qed.
 
-
-(* Lemma get_retri_gmap_lookup {σ meta} wh b: *)
-(* (get_transactions σ) !! wh = Some (Some (meta,b))-> *)
-(* get_retri_gmap σ !! wh = Some (Some b). *)
-(* Proof. *)
-(*   intros Hlk. *)
-(*   rewrite /get_retri_gmap /get_transactions_gmap. *)
-(*   rewrite lookup_fmap_Some. *)
-(*   exists (Some (meta,b)). *)
-(*   split;auto. *)
-(* Qed. *)
-
 End trans_extra.

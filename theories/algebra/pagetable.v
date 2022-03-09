@@ -410,42 +410,6 @@ Section pagetable_rules.
     destruct Heq;done.
   Qed.
 
-  (* bigS *)
-
-  (* Lemma access_agree_1_lookup_bigS {σ} (s:gset PID) (sacc: gset VMID): *)
-  (*  own (gen_access_name vmG) (●(get_access_gmap σ)) -∗ *)
-  (*  ([∗ set] p ∈ s, p -@A> [sacc]) -∗ *)
-  (*  ⌜set_Forall (λ p, ∃ v,  get_page_table σ !! p = Some (v,sacc) ) s⌝. *)
-  (* Proof. *)
-  (*   iIntros "Hauth Hfrags". *)
-  (*   iIntros (p Hin_p). *)
-  (*   iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hfrags") as "Hfrags". *)
-  (*   iApply (access_agree_1_lookup with "Hauth Hfrags"). *)
-  (* Qed. *)
-
-  (* Lemma access_agree_check_true_bigS {σ i} (s:gset PID): *)
-  (*  own (gen_access_name vmG) (●(get_access_gmap σ)) -∗ *)
-  (*  ([∗ set] p ∈ s, ∃ q, p -@{q}A> i) -∗ *)
-  (*  ⌜set_Forall (λ p, check_access_page σ i p = true) s⌝. *)
-  (* Proof. *)
-  (*   iIntros "Hacc Hpgt". *)
-  (*   iIntros (p Hin_p). *)
-  (*   iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as (q) "Hpgt". *)
-  (*   iApply (access_agree_check_true with "Hacc Hpgt"). *)
-  (*   by apply elem_of_singleton. *)
-  (* Qed. *)
-
-  (* Lemma access_agree_1_excl_check_true_bigS {σ i} (s:gset PID): *)
-  (*  own (gen_access_name vmG) (●(get_access_gmap σ)) -∗ *)
-  (*  ([∗ set] p ∈ s, p -@A> i) -∗ *)
-  (*  ⌜set_Forall (λ p, check_excl_access_page σ i p = true) s⌝. *)
-  (* Proof. *)
-  (*   iIntros "Hacc Hpgt". *)
-  (*   iIntros (p Hin_p). *)
-  (*   iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt". *)
-  (*   iApply (access_agree_1_excl_check_true with "Hacc Hpgt"). *)
-  (* Qed. *)
-
   (* own *)
   Lemma own_agree_Some_lookup_bigS {σ i} (s:gset PID):
    ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
@@ -602,62 +566,5 @@ Section pagetable_rules.
     }
     set_solver + H.
   Qed.
-
-  (* Lemma gen_access_update_diff{σ i sacc} sps: *)
-  (*  A@i:={1}[sacc] -∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ)==∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (<[i:= (sacc∖sps)]>(get_access_gmap σ)) ∗ *)
-  (*  A@i:={1}[sacc∖sps]. *)
-  (* Proof. *)
-  (*   iIntros "HA Hacc". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iApply (gen_pagetable_update_diff with "HA Hacc");eauto. *)
-  (* Qed. *)
-
-  (* Lemma gen_pagetable_update_union {Perm: Type} {σ i γ s ps} proj (checkb: Perm -> bool) sps: *)
-  (*  sps = (list_to_set ps) -> *)
-  (*  ghost_map_elem γ i (DfracOwn 1)  s -∗ *)
-  (*  ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb) ==∗ *)
-  (*  ghost_map_auth γ 1 (<[i:= s ∪ sps]>(get_pagetable_gmap σ proj checkb)) ∗ *)
-  (*  ghost_map_elem γ i (DfracOwn 1)  (s ∪ sps). *)
-  (* Proof. *)
-  (*   iIntros (Hsps) "Hpt Hσ". *)
-  (*   iApply ((ghost_map_update (s ∪ sps)) with "Hσ Hpt"). *)
-  (* Qed. *)
-
-  (* Lemma gen_access_update_union{σ i sacc psd} sps: *)
-  (*  sps = (list_to_set psd) -> *)
-  (*  A@i:={1}[sacc] -∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ)==∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (<[i:= (sacc ∪ sps)]>(get_access_gmap σ)) ∗ *)
-  (*  A@i:={1}[sacc ∪ sps]. *)
-  (* Proof. *)
-  (*   iIntros (Hsps) "HA Hacc". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iApply (gen_pagetable_update_union with "HA Hacc");eauto. *)
-  (* Qed. *)
-
-  (* Lemma gen_own_update_union{σ i sown psd} sps: *)
-  (*  sps = (list_to_set psd) -> *)
-  (*  O@i:={1}[sown] -∗ *)
-  (*  ghost_map_auth gen_own_name 1 (get_own_gmap σ)==∗ *)
-  (*  ghost_map_auth gen_own_name 1 (<[i:= (sown ∪ sps)]>(get_own_gmap σ)) ∗ *)
-  (*  O@i:={1}[sown ∪ sps]. *)
-  (* Proof. *)
-  (*   iIntros (Hsps) "HO Hown". *)
-  (*   rewrite own_mapsto_eq /own_mapsto_def. *)
-  (*   iApply (gen_pagetable_update_union with "HO Hown");eauto. *)
-  (* Qed. *)
-
-
-
-  (* TODO: a general lemma (in [base_extra.v]? ) to cover both *)
-  Lemma own_split_bigS {q} s o :
-    ([∗ set] p ∈ s, p -@{ q }O> o) ⊣⊢ ([∗ set] p ∈ s, p -@{ q/2 }O> o) ∗ [∗ set] p ∈ s, p -@{q/2}O> o.
-  Admitted.
-
-  Lemma excl_split_bigS {q} s o :
-    ([∗ set] p ∈ s, p -@{ q }E> o) ⊣⊢ ([∗ set] p ∈ s, p -@{ q/2 }E> o) ∗ [∗ set] p ∈ s, p -@{q/2}E> o.
-  Admitted.
 
 End pagetable_rules.
