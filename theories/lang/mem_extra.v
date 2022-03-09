@@ -47,40 +47,6 @@ Lemma update_memory_update_mem σ a w :
   get_mem (update_memory σ a w) = <[a := w]>(get_mem σ).
 Proof. intros. rewrite  /update_memory //. Qed.
 
-Lemma copy_page_segment_preserve_current_vm σ src dst l:
-  get_current_vm (copy_page_segment σ src dst l) = get_current_vm σ.
-Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
-Lemma copy_page_segment_preserve_regs σ src dst l:
-  get_reg_gmap (copy_page_segment σ src dst l) = get_reg_gmap σ.
-Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
-Lemma copy_page_segment_preserve_mb σ src dst l:
-  get_mb_gmap (copy_page_segment σ src dst l) = get_mb_gmap σ.
-Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
-Lemma copy_page_segment_preserve_rx σ src dst l:
-  get_rx_gmap (copy_page_segment σ src dst l) = get_rx_gmap σ.
-Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
-Lemma copy_page_segment_preserve_owned σ src dst l:
-  get_own_gmap (copy_page_segment σ src dst l) = get_own_gmap σ.
-Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
-Lemma copy_page_segment_preserve_access σ src dst l:
-  get_access_gmap (copy_page_segment σ src dst l) = get_access_gmap σ.
-Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
-Lemma copy_page_segment_preserve_trans σ src dst l:
-  (get_trans_gmap (copy_page_segment σ src dst l))
-  = get_trans_gmap σ.
-Proof.
-rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
-Lemma copy_page_segment_preserve_receivers σ src dst l:
-  get_retri_gmap (copy_page_segment σ src dst l) = get_retri_gmap σ.
-Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
-
 Lemma p_wr_mem_current_vm σ dst ws:
   get_current_vm (write_mem_segment σ dst ws) = get_current_vm σ.
 Proof. f_equal. Qed.
@@ -104,6 +70,42 @@ Proof. f_equal. Qed.
 Lemma u_wr_mem_mem σ dst ws:
   get_mem (write_mem_segment σ dst ws) = list_to_map (zip (finz.seq dst (length ws)) ws) ∪ get_mem σ.
 Proof. done. Qed.
+
+Lemma p_cp_mem_current_vm σ src dst l:
+  get_current_vm (copy_page_segment σ src dst l) = get_current_vm σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma p_cp_mem_regs σ src dst l:
+  get_reg_files (copy_page_segment σ src dst l) = get_reg_files σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma p_cp_mem_mb σ src dst l:
+  get_mail_boxes (copy_page_segment σ src dst l) = get_mail_boxes σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma p_cp_mem_pgt σ src dst l:
+  get_page_table (copy_page_segment σ src dst l) = get_page_table σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma p_cp_mem_trans σ src dst l:
+  (get_transactions (copy_page_segment σ src dst l)) = get_transactions σ.
+Proof. rewrite /copy_page_segment. destruct (read_mem_segment σ.1.2 src l). f_equal. done. Qed.
+
+Lemma u_cp_mem_mem {σ} des (src dst: PID) l:
+  read_mem_segment (get_mem σ) src l = Some des ->
+  get_mem (copy_page_segment σ src dst l) = (list_to_map (zip (finz.seq dst (length des)) des)) ∪ get_mem σ.
+Proof.
+  intros.
+  rewrite /copy_page_segment H u_wr_mem_mem //.
+Qed.
+
+Lemma rd_mem_mem_Some (σ:state) (src:PID) (l:Word) :
+  (l <= page_size)%Z ->
+  ∃ wl, read_mem_segment (get_mem σ) src (Z.to_nat l) = Some wl ∧ length wl = (Z.to_nat l).
+Proof.
+  intro Hle.
+  rewrite /read_mem_segment.
+Admitted.
 
 Lemma dom_wr_mem_subseteq (mem: gmap Addr Word) (dst: PID) ws:
   (length ws) <= (Z.to_nat page_size) ->
