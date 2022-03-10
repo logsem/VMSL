@@ -34,7 +34,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
                   ∗ TX@ V0 := p_tx
                   ∗ RX@ j := p_rx ∗ RX_state@ j :=Some(l, V0)
                   ∗ memory_page p_tx mem_tx
-                  ∗ (∃ des, ⌜(Z.to_nat l) = length des ⌝ ∗ ⌜(list_to_map (zip (finz.seq p_rx (length des)) des))⊆ mem_tx⌝
+                  ∗ (∃ des, ⌜(Z.to_nat l) = length des ⌝ ∗ ⌜(list_to_map (zip (finz.seq p_tx (length des)) des))⊆ mem_tx⌝
                                           ∗ memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des))∪ mem_rx)) }}}.
   Proof.
   iIntros (Hneq_tx Hin_acc Hdecode_i Hdecode_f Hle Hdecode_v Hneq_v Φ)
@@ -56,6 +56,8 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
   iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
   iDestruct (gen_mem_valid_SepM with "mem [mem_tx]") as %Hlookup_mem_tx.
   { iDestruct "mem_tx" as "[% mem_tx]". iExact "mem_tx". }
+  iDestruct (gen_mem_valid_SepM with "mem [mem_rx]") as %Hlookup_mem_rx.
+  { iDestruct "mem_rx" as "[% mem_rx]". iExact "mem_rx". }
   (* valid tx *)
   iDestruct (mb_valid_tx V0 p_tx with "mb tx") as %Heq_tx.
   iDestruct (mb_valid_rx j p_rx with "mb rx") as %Heq_rx.
@@ -105,9 +107,82 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     iFrame "Hnum mb pgt_owned pgt_acc pgt_excl trans hpool retri".
     (* mem *)
     rewrite p_upd_id_mem p_upd_pc_mem p_fill_rx_mem.
-    (* TODO: u_cp_mem_mem *)
-    admit.
-  Admitted.
+    iAssert(⌜dom (gset _) mem_tx = list_to_set (addr_of_page p_tx)⌝%I) as %Hdom_mem_tx.
+    { iDestruct ("mem_tx") as "[H _]". done. }
+    iDestruct ("mem_rx") as "[%Hdom_mem_rx mem_rx]". 
+    feed pose proof (rd_mem_mem_Some mem_tx σ1.1.2 p_tx l);auto.
+    rewrite map_subseteq_spec.
+    intros. apply Hlookup_mem_tx;auto.
+    destruct H0 as [des [Hsome Hlen]].
+    erewrite u_cp_mem_mem.
+    2: exact Hsome.
+    simpl in Heq_rx. subst p.
+    set des' := (list_to_map _).
+    assert (Heq_dom : dom (gset Addr) mem_rx = dom (gset Addr) (des' ∪ mem_rx)).
+    { symmetry. apply dom_wr_mem_subseteq.
+      rewrite Hlen.
+      lia. done.
+    }
+    iDestruct (gen_mem_update_SepM _ (des' ∪ mem_rx) with "mem mem_rx") as ">[mem mem_rx]";auto.
+    rewrite -map_union_assoc.
+    assert (mem_rx ∪ σ1.1.2 = σ1.1.2). apply map_subseteq_union.
+    { apply map_subseteq_spec. intros. apply Hlookup_mem_rx;auto. }
+    iEval (rewrite H0) in "mem". clear H0. iFrame "mem".
+    (* reg *)
+    rewrite (preserve_get_reg_gmap (update_incr_PC (fill_rx_unsafe (copy_page_segment σ1 p_tx p_rx (Z.to_nat l)) l V0 j t p_rx)) (update_current_vmid _ _)).
+    2: rewrite p_upd_id_reg //.
+    rewrite (u_upd_pc_regs _ V0 ai).
+    2: { rewrite p_fill_rx_current_vm p_cp_mem_current_vm //. }
+    2: {rewrite (preserve_get_reg_gmap σ1). solve_reg_lookup.
+        rewrite p_fill_rx_regs p_cp_mem_regs //.
+    }
+    rewrite (preserve_get_reg_gmap σ1).
+    2: rewrite p_fill_rx_regs p_cp_mem_regs //.
+    iDestruct ((gen_reg_update1_global PC V0 _ (ai ^+ 1)%f) with "regs PC")
+      as ">[$ PC]";eauto.
+    (* rx_state *)
+    rewrite (preserve_get_rx_gmap (fill_rx_unsafe (copy_page_segment σ1 p_tx p_rx (Z.to_nat l)) l V0 j t p_rx) (update_current_vmid _ _)).
+    2: rewrite p_upd_id_mb p_upd_pc_mb //.
+    rewrite (u_fill_rx_rx_state).
+    rewrite (preserve_get_rx_gmap σ1).
+    2: rewrite p_cp_mem_mb //.
+    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
+    iModIntro.
+    iSplit. iPureIntro. auto.
+    (* just_schedule *)
+    rewrite /just_scheduled_vms /just_scheduled.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite /update_current_vmid /= Heq_cur.
+      set fl := (filter _ _).
+    assert (fl = []) as ->.
+    {
+      rewrite /fl.
+      induction n.
+      - simpl.
+        rewrite filter_nil //=.
+      - rewrite seq_S.
+        rewrite list.filter_app.
+        rewrite IHn.
+        simpl.
+        rewrite filter_cons_False /=.
+        rewrite filter_nil. auto.
+        rewrite andb_negb_l.
+        done.
+    }
+    iSplitR;first done.
+    case_bool_decide; last contradiction.
+    simpl.
+    iApply "HΦ".
+    iFrame.
+    iExists des. iFrame.
+    iPureIntro.
+    split;first done.
+    split. eapply rd_mem_mem_subseteq. symmetry. exact Hlen.
+    eapply rd_mem_mem_Some'. lia. done. exact Hsome.
+    rewrite map_subseteq_spec.
+    intros. apply Hlookup_mem_tx. done.
+    rewrite -Heq_dom //.
+  Qed.
 
   Lemma msg_send_secondary {E i wi r0 w sacc p_tx mem_tx q p_rx mem_rx l r0_ r1_ r2_ P Q R'} ai j R P':
     tpa ai ≠ p_tx ->
@@ -124,7 +199,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
                         ∗ R0 @@ V0 ->r (encode_hvc_func Send) ∗ R1 @@ V0 ->r w ∗ R2 @@ V0 ->r l
                         ∗ TX@ i := p_tx ∗ RX@ j := p_rx ∗ RX_state@j := Some(l, i)
                         ∗ memory_page p_tx mem_tx
-                        ∗ (∃ des, ⌜(Z.to_nat l) = length des ⌝ ∗ ⌜(list_to_map (zip (finz.seq p_rx (length des)) des))⊆ mem_tx⌝
+                        ∗ (∃ des, ⌜(Z.to_nat l) = length des ⌝ ∗ ⌜(list_to_map (zip (finz.seq p_tx (length des)) des)) ⊆ mem_tx⌝
                                           ∗ memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des))∪ mem_rx)))%I in
     {SS{{ ▷ (VMProp V0 Q (1/2)%Qp) ∗
           ▷ (VMProp i P 1%Qp) ∗

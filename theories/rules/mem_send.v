@@ -71,23 +71,9 @@ Proof.
     done.
     feed pose proof (sequence_a_map_Forall_Some (S n) p_tx mem_tx).
     rewrite Hdom.
-    intros a Hin.
-    rewrite elem_of_list_to_set.
-    rewrite elem_of_list_to_set in Hin.
-    pose proof Hin.
-    apply finz_seq_in1 in Hin.
-    apply finz_seq_in2 in H0.
-    apply elem_of_addr_of_page_iff.
-    symmetry.
-    apply to_pid_aligned_in_page.
-    rewrite /addr_in_page.
-    split.
-    apply Is_true_eq_left.
-    solve_finz.
-    apply Is_true_eq_left.
-    pose proof (last_addr_in_bound p_tx).
-    solve_finz.
-    destruct H0 as [? H0].
+    apply addr_of_page_subseteq.
+    lia.
+    destruct H0 as [? [H0 ?]].
     rewrite H0 // in Heqn.
   }
   assert (sequence_a (map (λ v : Addr, mem !! v) (finz.seq p_tx len)) = Some l) as ->.
@@ -100,7 +86,6 @@ Proof.
   }
   done.
 Qed.
-
 
 Lemma parse_list_of_Word_length mem p len l:
   parse_list_of_Word mem p len = Some l ->

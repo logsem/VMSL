@@ -1,5 +1,6 @@
 From HypVeri Require Import machine machine_extra.
 From HypVeri.algebra Require Import base.
+From HypVeri.lang Require Import lang_extra.
 
 Section mem_extra.
 
@@ -99,21 +100,103 @@ Proof.
   rewrite /copy_page_segment H u_wr_mem_mem //.
 Qed.
 
-Lemma rd_mem_mem_Some (σ:state) (src:PID) (l:Word) :
+Lemma rd_mem_mem_Some (m1 m2 : mem) (src:PID) (l:Word) :
   (l <= page_size)%Z ->
-  ∃ wl, read_mem_segment (get_mem σ) src (Z.to_nat l) = Some wl ∧ length wl = (Z.to_nat l).
+  dom (gset _) m1 = list_to_set (addr_of_page src) ->
+  m1 ⊆ m2 ->
+  ∃ wl, read_mem_segment m2 src (Z.to_nat l) = Some wl ∧ length wl = (Z.to_nat l).
 Proof.
-  intro Hle.
+  intros Hle Hdom Hsub.
+  feed pose proof (sequence_a_map_Forall_Some (Z.to_nat l) src m1).
+  rewrite Hdom.
+  apply addr_of_page_subseteq. lia.
+  destruct H as [ws [Hseq Hlen]].
   rewrite /read_mem_segment.
-Admitted.
+  exists ws.
+  split.
+  apply (sequence_a_map_subseteq _ _ _ m1). done. done.
+  done.
+Qed.
+
+Lemma rd_mem_mem_Some' (m1 m2 : mem) (src:PID) (l:Word) wl :
+  (l <= page_size)%Z ->
+  dom (gset _) m1 = list_to_set (addr_of_page src) ->
+  read_mem_segment m2 src (Z.to_nat l) = Some wl ->
+  m1 ⊆ m2 ->
+  read_mem_segment m1 src (Z.to_nat l) = Some wl.
+Proof.
+  intros Hle Hdom Hrd Hsub.
+  feed pose proof (rd_mem_mem_Some m1 m1 src l).
+  done.
+  done.
+  rewrite map_subseteq_spec.
+  intros. done.
+  destruct H as [? [Hrd' ?]].
+  feed pose proof (sequence_a_map_subseteq x (Z.to_nat l) src m1 m2).
+  apply Hrd'.
+  done.
+  rewrite /read_mem_segment H0 in Hrd.
+  inversion Hrd.
+  subst x. done.
+Qed.
+
+Lemma rd_mem_mem_subseteq m src l wl:
+  l = length wl ->
+  read_mem_segment m src l = Some wl ->
+  (list_to_map (zip (finz.seq src (length wl)) wl)) ⊆ m.
+Proof.
+  intros Hlen Hsome.
+  rewrite /read_mem_segment in Hsome.
+  generalize dependent l.
+  generalize dependent src.
+  induction wl.
+  intros.
+  simpl.
+  rewrite map_subseteq_spec.
+  intros. done.
+  simpl.
+  intros.
+  subst l.
+  simpl in Hsome.
+  rewrite /monad.List.sequence_a_list /= in Hsome.
+  destruct (m !! src) eqn:Hlk.
+  { simpl in Hsome.
+    destruct (list.foldr _ _) eqn:Hfold.
+    inversion Hsome.
+    2: inversion Hsome.
+    subst f l.
+    specialize (IHwl (src ^+ 1)%f (length wl)).
+    feed specialize IHwl.
+    done.
+    rewrite /sequence_a /= /monad.List.sequence_a_list //= .
+    {
+      rewrite map_subseteq_spec.
+      intros.
+      destruct (decide (i = src)).
+      subst i.
+      rewrite lookup_insert in H.
+      inversion H.
+      subst a.
+      done.
+      rewrite lookup_insert_ne in H.
+      rewrite map_subseteq_spec in IHwl.
+      apply IHwl.
+      done.
+      done.
+    }
+  }
+  inversion Hsome.
+Qed.
 
 Lemma dom_wr_mem_subseteq (mem: gmap Addr Word) (dst: PID) ws:
   (length ws) <= (Z.to_nat page_size) ->
-  (length ws) >= 4 ->
   dom (gset _) mem = list_to_set (addr_of_page dst) ->
   dom (gset _) (list_to_map (zip (finz.seq dst (length ws)) ws) ∪ mem) = dom (gset _) mem.
 Proof.
-  intros Hle Hge Hdom.
+  intros Hle Hdom.
+  destruct ws.
+  rewrite /= dom_union_L dom_empty_L.
+  set_solver +.
   rewrite dom_union_L.
   apply subseteq_union_1_L.
   rewrite dom_list_to_map_L.

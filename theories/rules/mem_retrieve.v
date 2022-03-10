@@ -220,7 +220,6 @@ Proof.
       rewrite Z.leb_le in Hub.
       rewrite /= map_length .
       rewrite /size /set_size /= in Hub. lia.
-      simpl. lia.
       done.
     }
     iDestruct (gen_mem_update_SepM _ (des ∪ mem_rx) with "mem mem_rx") as ">[mem mem_rx]";auto.
@@ -1066,7 +1065,6 @@ Proof.
       rewrite Z.leb_le in Hub.
       rewrite /= map_length .
       rewrite /size /set_size /= in Hub. lia.
-      simpl. lia.
       done.
     }
     iDestruct (gen_mem_update_SepM _ (des ∪ mem_rx) with "mem mem_rx") as ">[mem mem_rx]";auto.

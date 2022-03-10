@@ -144,9 +144,9 @@ Section lang_extra.
     rewrite (IHlen l) //.
   Qed.
 
-   Lemma sequence_a_map_Forall_Some {A: Type} len p (m1 :gmap _ A):
+  Lemma sequence_a_map_Forall_Some {A: Type} len p (m1 :gmap _ A):
      (list_to_set (finz.seq p len)) ⊆ dom (gset _) m1 ->
-     is_Some (sequence_a (map (λ v : Addr, m1 !! v) (finz.seq p len))).
+     ∃ ws, (sequence_a (map (λ v : Addr, m1 !! v) (finz.seq p len))) = Some ws ∧ length ws = len.
   Proof.
     intros.
     unfold sequence_a. simpl.
@@ -169,11 +169,12 @@ Section lang_extra.
     {
       set_solver + H.
     }
-    destruct IHlen.
+    destruct IHlen as [ws [H1 Hlen]].
     rewrite H1.
-    auto.
+    exists (x::ws). split.
+    done.
+    rewrite /= Hlen //.
   Qed.
-
 
   (** lemmas about taking a step *)
 
