@@ -174,7 +174,8 @@ Section ftlr_msg_wait.
 
       (* getting instruction from [mem_oea] *)
       iDestruct (mem_big_sepM_split mem_oea Hlookup_mem_ai' with "mem_oea") as "[mem_instr Hacc_mem]".
-      iApply (msg_wait_empty ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
+
+      iApply (msg_wait_empty_secondary ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
                                                          transaction_hpool_global_transferred trans ∗
                                                          transaction_pagetable_entries_transferred i trans ∗
                                                          retrieval_entries_transferred i trans ∗
@@ -209,7 +210,9 @@ Section ftlr_msg_wait.
       iIntros "[(PC & mem_instr & R0 & R1 & R2 & pgt_acc' & tx & mem_tx & propi) propi']".
       iIntros "Hholds".
       iExFalso.
-      iApply (VMProp_invalid with "[$propi $propi']").
+      iDestruct "Hholds" as (R) "[_ propi'']".
+      iDestruct (VMProp_split with "[$propi $propi']") as "propi".
+      iApply (VMProp_invalid with "[$propi $propi'']").
     }
     { (* tpa ai ∉ ps_acc ∖ ({[p_rx]} ∪ ps_mem_in_trans) *)
       (* we don't need to touch [mem_oea]*)
@@ -234,7 +237,7 @@ Section ftlr_msg_wait.
 
       (* get instruction *)
       iDestruct (mem_big_sepM_split mem_inters Hlookup_mem_ai' with "mem_inters") as "[mem_instr Hacc_mem_inters]".
-      iApply (msg_wait_empty ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
+      iApply (msg_wait_empty_secondary ai (LB@ i := [ps_na] ∗ i -@{1/2}A> ps_acc ∗
                                                          transaction_hpool_global_transferred trans ∗
                                                          transaction_pagetable_entries_transferred i trans ∗
                                                          retrieval_entries_transferred i trans ∗ rx_pages (list_to_set list_of_vmids ∖ {[i]})) False
@@ -279,7 +282,9 @@ Section ftlr_msg_wait.
       iSimpl.
       iIntros "Hholds".
       iExFalso.
-      iApply (VMProp_invalid with "[$propi $propi']").
+      iDestruct "Hholds" as (R) "[_ propi'']".
+      iDestruct (VMProp_split with "[$propi $propi']") as "propi".
+      iApply (VMProp_invalid with "[$propi $propi'']").
     }
     Qed.
 
