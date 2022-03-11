@@ -319,7 +319,9 @@ Section ftlr_msg_send.
       iIntros "[(PC & mem_instr & R0 & R1 & R2 & pgt_acc' & tx & mem_tx & propi) propi']".
       iIntros "Hholds".
       iExFalso.
-      iApply (VMProp_invalid with "[$propi $propi']").
+      iDestruct "Hholds" as (R) "[_ propi'']".
+      iDestruct (VMProp_split with "[$propi $propi']") as "propi".
+      iApply (VMProp_invalid with "[$propi $propi'']").
     }
     { (* tpa ai ∉ ps_acc ∖ ({[p_rx]} ∪ ps_mem_in_trans) *)
       (* we don't need to touch [mem_oea]*)
@@ -414,8 +416,10 @@ Section ftlr_msg_send.
       iSimpl.
       iIntros "Hholds".
       iExFalso.
-      iApply (VMProp_invalid with "[$propi $propi']").
+      iDestruct "Hholds" as (R) "[_ propi'']".
+      iDestruct (VMProp_split with "[$propi $propi']") as "propi".
+      iApply (VMProp_invalid with "[$propi $propi'']").
     }
-    Qed.
+  Qed.
 
 End ftlr_msg_send.

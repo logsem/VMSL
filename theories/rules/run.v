@@ -92,6 +92,7 @@ Proof.
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_trans_ps_disj σ1).
     all: try rewrite p_upd_id_mb p_upd_pc_mb //.
     all: try rewrite p_upd_id_pgt p_upd_pc_pgt //.
     all: try rewrite p_upd_id_trans p_upd_pc_trans //.
@@ -99,7 +100,7 @@ Proof.
     iFrame.
     iDestruct ((gen_reg_update1_global PC V0 ai (ai ^+ 1)%f) with "Hreg Hpc") as "HpcUpd".
     rewrite (preserve_get_reg_gmap (update_offset_PC σ1 1) (update_current_vmid _ _));last rewrite p_upd_id_reg //.
-    rewrite ->(update_offset_PC_update_PC1 _ V0 ai 1); auto.
+    rewrite ->(u_upd_pc_regs _ V0 ai 1); auto.
     + iDestruct (VMProp_update V0 U P P' with "PAuth HPropz") as "HTemp".
       iMod "HpcUpd".
       iMod "HTemp".

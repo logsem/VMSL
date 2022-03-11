@@ -140,12 +140,12 @@ Section definitions.
 
   Definition get_access_gmap σ : gmap VMID (dfrac_agreeR (gsetO PID)):=
     let pt := (get_page_table σ) in
-    list_to_map (map (λ i, (i,(to_frac_agree 1 (dom (gset PID) (map_filter
-                                          (λ (kv: PID * gset VMID), i ∈ kv.2) _ ((λ (p: ( _ * gset VMID)), p.2) <$> pt)))))) (list_of_vmids)).
+    list_to_map (map (λ i, (i,(to_frac_agree 1 (dom (gset PID) (filter
+                                          (λ (kv: PID * gset VMID), i ∈ kv.2) ((λ (p: ( _ * gset VMID)), p.2) <$> pt)))))) (list_of_vmids)).
 
   Definition get_excl_gmap σ : gmap PID bool:=
     let pt := (get_page_table σ) in
-    ((λ (p: (_ * bool * _)), p.1.2) <$> pt).
+    ((λ (p: (_ * bool * gset _)), p.1.2 && bool_decide (size p.2 <= 1)) <$> pt).
 
   Definition get_transactions_gmap{Info: Type} σ (proj : transaction -> Info):
    gmap Word (option Info) :=
@@ -166,7 +166,7 @@ Section definitions.
     map_Forall (λ _ v,
                  match v with
                  |Some tran =>
-                 (Z.of_nat ((size tran.1.1.2) + 4) <? page_size)%Z = true
+                 (Z.of_nat ((size tran.1.1.2) + 4) <=? page_size)%Z = true
                  |None => True
                end) trans.
 
@@ -185,6 +185,19 @@ Section definitions.
     inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans ∧ inv_finite_handles trans.
 
   Definition inv_trans_wellformed σ := inv_trans_wellformed' (get_transactions σ).
+
+  Definition pages_in_trans' (trans: gmap Word (option transaction)) : gset PID :=
+    map_fold (λ (k:Addr) v acc, match v with
+                                  Some v => v.1.1.2 ∪ acc
+                                | None => acc
+             end) (∅: gset PID) trans.
+
+  Definition inv_trans_ps_disj' (trans : gmap Word (option transaction))  := map_Forall (λ h tran, match tran with
+                                                             Some tran => tran.1.1.2 ## pages_in_trans' (delete h trans)
+                                                           | None => True
+                                                end) trans.
+
+  Definition inv_trans_ps_disj σ:= inv_trans_ps_disj' (get_transactions σ).
 
   Definition inv_trans_pgt_consistent' (trans: gmap Word (option transaction)) (pgt: gmap PID permission) :=
     map_Forall
@@ -222,6 +235,7 @@ Section definitions.
       ∗ own gen_hpool_name (frac_auth_auth (to_agree (get_hpool_gset σ)))
       ∗ ghost_map_auth gen_retri_name 1 (get_retri_gmap σ)
       ∗ ⌜inv_trans_wellformed σ⌝
+      ∗ ⌜inv_trans_ps_disj σ⌝
       ∗ ⌜inv_trans_pgt_consistent σ⌝
   .
 

@@ -225,6 +225,25 @@ Proof.
 Qed.
 
 (* complementing lemmas for finz *)
+Lemma finz_of_z_is_Some {fb} (z : Z):
+  (z >= 0)%Z ->
+  (z < fb)%Z ->
+  is_Some (finz.of_z (finz_bound := fb) z).
+Proof.
+  intros.
+  unfold finz.of_z.
+  destruct (Z_lt_dec z fb).
+  2: lia.
+  destruct (Z_le_dec 0%Z z).
+  2: lia.
+  exists (finz.FinZ z (match Z.ltb_lt z fb with
+                              | conj _ H2 => H2
+                              end l) (match Z.leb_le 0 z with
+                                      | conj _ H2 => H2
+                                      end l0)).
+  done.
+Qed.
+
 Lemma incr_default_incr{fb} (f1 f2: finz.finz fb) z :
   (f1 + z)%f = Some f2 -> (f1 ^+ z)%f = f2.
 Proof.
@@ -776,6 +795,31 @@ Proof.
   done.
 Qed.
 
+Lemma addr_of_page_subseteq (p : PID) (n:nat) :
+  ((Z.of_nat n) <= page_size)%Z ->
+  list_to_set (C:=gset _) (finz.seq p n) ⊆ list_to_set (addr_of_page p).
+Proof.
+  destruct n eqn:Heqn.
+  done.
+  intro Hle.
+  intros a Hin.
+  rewrite elem_of_list_to_set.
+  rewrite elem_of_list_to_set in Hin.
+  pose proof Hin.
+  apply finz_seq_in1 in Hin.
+  apply finz_seq_in2 in H.
+  apply elem_of_addr_of_page_iff.
+  symmetry.
+  apply to_pid_aligned_in_page.
+  rewrite /addr_in_page.
+  split.
+  apply Is_true_eq_left.
+  solve_finz.
+  apply Is_true_eq_left.
+  pose proof (last_addr_in_bound p).
+  solve_finz.
+Qed.
+
 Lemma pid_lt_lt (p1 p2:PID):
   ((of_pid p1) < (of_pid p2))%f -> (p1 ^+ (page_size - 1) < p2)%f.
 Proof.
@@ -880,3 +924,4 @@ Proof.
   rewrite -Heqn.
   reflexivity.
 Qed.
+
