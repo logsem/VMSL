@@ -98,10 +98,7 @@ Lemma ftlr_run {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans r
     rewrite Hlookup_arg1 in Hlookup_reg_R0.
     inversion Hlookup_reg_R0.
     subst a_arg1.
-    iApply (run_not_primary (w2 := r0) ai i with "[PC tx pgt_acc' mem_instr r_arg1 r_arg2]"); iFrameAutoSolve.
-    iNext.
-    iExists a_arg2.
-    iFrame "r_arg2".
+    iApply (run_not_primary (r0 := r0) ai i with "[PC tx pgt_acc' mem_instr r_arg1 r_arg2]"); iFrameAutoSolve.
     iNext.
     iIntros "(PC & mem_instr & pgt_acc' & tx & r_arg1 & r_arg2) _".
     iDestruct ("Hacc_regs" with "[$PC $r_arg1 $r_arg2]") as (regs') "[%Htotal_regs' regs]";iFrame.

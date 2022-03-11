@@ -723,10 +723,10 @@ Definition is_secondary (st : state) : bool :=
 
 Definition run (s : state) : exec_mode * state :=
   let comp :=
+    if is_primary s
+      then
       r <- lift_option (get_reg s R1) ;;;
       id <- lift_option_with_err (decode_vmid r) InvParam ;;;
-      if is_primary s
-      then
         unit (s, id)
       else
         throw Denied

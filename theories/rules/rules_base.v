@@ -329,12 +329,12 @@ Proof.
   by iSimpl.
 Qed.
 
-Lemma invalid_hvc_func {q s r0 r2 p_tx} i a wi :
-  (tpa a) ≠ p_tx ->
-  (tpa a) ∈ s ->
+Lemma invalid_hvc_func {q s r0 r2 p_tx} i ai wi :
+  (tpa ai) ≠ p_tx ->
+  (tpa ai) ∈ s ->
   decode_instruction wi = Some Hvc ->
   decode_hvc_func r0 = None ->
-  {SS{{ ▷ (PC @@ i ->r a) ∗ ▷ a ->a wi
+  {SS{{ ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi
         ∗ ▷ i -@{q}A> s
         ∗ ▷ TX@i := p_tx
         ∗ ▷ (R0 @@ i ->r r0)
@@ -342,16 +342,55 @@ Lemma invalid_hvc_func {q s r0 r2 p_tx} i a wi :
         }}}
   ExecI @ i
   {{{ RET (false, ExecI);
-    PC @@ i ->r (a ^+ 1)%f
-    ∗ a ->a wi
+    PC @@ i ->r (ai ^+ 1)%f
+    ∗ ai ->a wi
     ∗ i -@{q}A> s
     ∗ TX@i := p_tx
     ∗ R0 @@ i ->r encode_hvc_ret_code Error
     ∗ R2 @@ i ->r encode_hvc_error InvParam
   }}}.
 Proof.
-Admitted.
-
-
+  iIntros (Hin_acc Hneq_tx Hdecode_i Hdecode_f Φ)
+          "(>PC & >mem_ins & >acc & >tx & >R0  & >R2) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R2 r2 Heq_cur) with "regs PC R0 R2")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R2)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  (* valid tx *)
+  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
+  (* valid tran *)
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai wi);auto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /= in Heqc2.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    iDestruct (hvc_error_update (E:= ⊤) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    as ">[[$ $] ?]";auto.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    iFrame.
+    by iFrame.
+  Qed.
 
 End rules_base.
