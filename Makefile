@@ -1,14 +1,14 @@
 THRS_DIR := 'theories'
 SRC_DIRS := $(THRS_DIR) $(shell test -d 'vendor' && echo 'vendor')
 ALL_VFILES := $(shell find $(SRC_DIRS) -name "*.v")
-TEST_VFILES := $(shell find 'theories' -name "*Tests.v")
+# TEST_VFILES := $(shell find 'theories' -name "*Tests.v")
+EXAMPLE_VFILES := $(shell find 'theories/examples' -name "*.v")
 PROJ_VFILES := $(shell find 'theories' -name "*.v")
-VFILES := $(filter-out $(TEST_VFILES),$(PROJ_VFILES))
-
+VFILES := $(filter-out $(EXAMPLE_VFILES),$(PROJ_VFILES))
 COQARGS := "-w all"
 
 default: $(VFILES:.v=.vo)
-test: $(TEST_VFILES:.v=.vo) $(VFILES:.v=.vo)
+all: $(ALL_VFILES:.v=.vo)
 
 _CoqProject:
 	@echo "-Q theories HypVeri" > $@
@@ -40,7 +40,5 @@ skip-qed:
 
 ci: skip-qed
 
-# TODO add new options examples and all
-# TODO the default option skips examples
-.PHONY: default test clean ci
+.PHONY: default all clean ci
 .DELETE_ON_ERROR:

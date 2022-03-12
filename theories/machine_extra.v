@@ -544,8 +544,8 @@ Lemma finz_seq_cons {b} (f: finz.finz b) (l:nat) :
   (finz.seq f l) = f :: (finz.seq (f ^+ 1)%f (l-1)).
 Proof.
   intro.
-  destruct l;[lia|].
-  cbn.
+  destruct l eqn:Hl;[lia|].
+  simpl.
   repeat f_equal.
   lia.
 Qed.
