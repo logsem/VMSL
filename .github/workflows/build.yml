@@ -13,6 +13,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        coq_version:
+          - '8.15.0'
+          - '8.14.1'
+          - '8.13.2'
+        ocaml_version: ['4.07-flambda', '4.11.2-flambda']
+      max-parallel: 4
+      # don't cancel all in-progress jobs if one matrix job fails:
+      fail-fast: false
     steps:
     - name: Check out main repo
       uses: actions/checkout@v2
@@ -40,4 +50,5 @@ jobs:
             endGroup
           ocaml_version: 4.07-flambda
           opam_file: './hypveri.opam'
-          custom_image: 'kaptch/coq-iris:latest'
+          coq_version: ${{ matrix.coq_version }}
+          # custom_image: 'kaptch/coq-iris:latest'
