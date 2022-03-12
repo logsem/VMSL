@@ -19,18 +19,19 @@ jobs:
           - '8.15.0'
           - '8.14.1'
           - '8.13.2'
-        ocaml_version: ['4.07-flambda', '4.11.2-flambda']
+        ocaml_version: ['4.11.2-flambda']
       max-parallel: 4
       # don't cancel all in-progress jobs if one matrix job fails:
       fail-fast: false
     steps:
     - name: Check out main repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Check out submodules
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
           repository: logsem/machine_program_logic
           path: vendor/machine_program_logic
+          ref: schedule_cond_frac_agree
           token: ${{ secrets.HYPVERI_ACCESS_TOKEN }}
           persist-credentials: false
     - name: Check out submodules
