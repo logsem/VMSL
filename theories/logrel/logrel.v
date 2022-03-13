@@ -104,8 +104,8 @@ Section logrel.
                            rx_page i p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
                            rx_pages ((list_to_set (list_of_vmids)) ∖ {[i]}) ∗
                            return_reg_rx i)
-                           (* no scheduling, we finish the proof *)
-                           ∨ False).
+                           (* we don't give VMProp of i back, so there is no way to schedule i again. *)
+    ).
 
   Definition vmprop_unknown p_tx p_rx trans : iProp Σ:=
     ∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state,

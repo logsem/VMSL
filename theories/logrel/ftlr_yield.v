@@ -161,7 +161,6 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
         iNext.
         iIntros "((PC & mem_instr & pgt_acc & tx & R0i &R0z & R1z) & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri) & propi)".
         iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran".
-        iLeft.
         iExists ps_na, ps_acc, trans.
         iFrame.
         iSplitL ""; first done.
@@ -233,7 +232,6 @@ Lemma ftlr_yield {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans
         rewrite Heq_inter_diff_union.
 
         iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran".
-        iLeft.
         iExists ps_na, ps_acc, trans.
         iFrame.
         iSplitL ""; first done.

@@ -191,7 +191,6 @@ Section ftlr_msg_wait.
         iIntros "((PC & R0 & mem_instr & pgt_acc & tx & rx_state & R0z & R1z)
                 & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri & other_rx) & propi)".
         iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran".
-        iLeft.
         iExists ps_na, ps_acc, trans.
         iFrame.
         iSplitL ""; first done.
@@ -262,7 +261,6 @@ Section ftlr_msg_wait.
         rewrite Heq_inter_diff_union.
 
         iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran".
-        iLeft.
         iExists ps_na, ps_acc, trans.
         iFrame.
         iSplitL ""; first done.

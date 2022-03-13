@@ -288,7 +288,6 @@ Section ftlr_msg_send.
                 & rx_state_v & mem_tx & [% (_ & _ & mem_rx_v)])
                 & (LB & pgt_acc' & trans_hpool_global & trans_pgt_transferred & retri & other_rx) & propi)".
         iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran mem_rx_v rx_v rx_state_v".
-        iLeft.
         iExists ps_na, ps_acc, trans.
         iFrame.
         iSplitL ""; first done.
@@ -381,9 +380,7 @@ Section ftlr_msg_send.
         2:{ iSplitL "mem_inters". iExists mem_inters. iFrame "mem_inters". iExact "mem_rest". }
         { set_solver +. }
         rewrite Heq_inter_diff_union.
-
         iSplitL "pgt_acc LB trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran rx_v rx_state_v mem_rx_v".
-        iLeft.
         iExists ps_na, ps_acc, trans.
         iFrame.
         iSplitL ""; first done.
