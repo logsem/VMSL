@@ -154,7 +154,6 @@ Section logrel.
 
   Program Definition interp_access p_tx p_rx ps_acc trans : iPropO Σ:=
     (
-      (* let ps_mem_in_trans := pages_in_trans (trans_memory_in_trans trans) in *)
       (* exclusively owned pages are pages i has access to, but ain't in any transactions related to i. *)
       let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (pages_in_trans trans) in
       (* registers *)

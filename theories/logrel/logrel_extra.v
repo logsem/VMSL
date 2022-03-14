@@ -975,12 +975,12 @@ Section logrel_extra.
     exists tran. split;done.
   Qed.
 
-  Lemma get_trans_ps_disj trans {Φ : _ -> iProp Σ}:
-    (([∗ map] h ↦ tran ∈ trans , Φ tran) ∗
-       (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝)
-     ⊢ ⌜trans_ps_disj trans⌝)%I.
-  Proof.
-  Admitted.
+  (* Lemma get_trans_ps_disj trans {Φ : _ -> iProp Σ}: *)
+  (*   (([∗ map] h ↦ tran ∈ trans , Φ tran) ∗ *)
+  (*      (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝) *)
+  (*    ⊢ ⌜trans_ps_disj trans⌝)%I. *)
+  (* Proof. *)
+  (* Admitted. *)
     (* rewrite /trans_ps_disj. *)
     (* iIntros "[m Hfalse]". *)
     (* iIntros (k v Hlookup). *)

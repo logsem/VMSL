@@ -14,7 +14,7 @@ Section fundamental.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Lemma ftlr (i:VMID)  :
+  Lemma ftlr (i:VMID) :
   ∀ p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.

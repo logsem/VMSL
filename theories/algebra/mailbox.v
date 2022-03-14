@@ -1,4 +1,4 @@
-From HypVeri.algebra Require Import base.
+From HypVeri.algebra Require Import base base_extra.
 
 Section mailbox_rules.
 
@@ -20,12 +20,19 @@ Section mailbox_rules.
   Lemma rx_state_split i q x:
     RX_state{q}@i := x ⊣⊢ RX_state{q/2}@i := x ∗ RX_state{q/2}@i := x.
   Proof.
-    Admitted.
+    rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
+    iApply (ghost_map_elem_split i _ q x).
+  Qed.
 
   Lemma rx_state_agree i q1 q2 x x':
      RX_state{q1}@i := x -∗ RX_state{q2}@i := x' -∗ ⌜x = x'⌝.
   Proof.
-  Admitted.
+    rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
+    iIntros "Ha1 Ha2".
+    iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %Hvalid.
+    destruct Hvalid as [_ Hvalid].
+    done.
+  Qed.
 
   Lemma rx_state_valid {σ q} i x :
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
