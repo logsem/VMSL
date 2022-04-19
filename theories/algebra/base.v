@@ -39,16 +39,16 @@ Qed.
 
 Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
         `{Countable A, Countable V, Countable W, Countable R, Countable P, Countable (V * MailBox)} := {
-  gen_mem_preG_inG :> gen_heapGpreS A W Σ;
-  gen_reg_preG_inG :> gen_heapGpreS (R * V) W Σ;
-  gen_rx_preG_inG :> gen_heapGpreS V (option (W * V)) Σ;
-  gen_mb_preG_inG :> gen_heapGpreS (V * MailBox) P Σ;
-  gen_own_preG_inG :> gen_heapGpreS P (option V) Σ;
+  gen_mem_preG_inG :> ghost_mapG Σ A W;
+  gen_reg_preG_inG :> ghost_mapG Σ (R * V) W;
+  gen_rx_preG_inG :> ghost_mapG Σ V (option (W * V));
+  gen_mb_preG_inG :> ghost_mapG Σ (V * MailBox) P;
+  gen_own_preG_inG :> ghost_mapG Σ P (option V);
   gen_access_preG_inG :> inG Σ (authR (gmapUR V (dfrac_agreeR (gsetO P))));
-  gen_excl_preG_inG :> gen_heapGpreS P boolO Σ;
-  gen_trans_preG_inG :> gen_heapGpreS W (option (V * V * (gset P) * F)) Σ;
+  gen_excl_preG_inG :> ghost_mapG Σ P boolO;
+  gen_trans_preG_inG :> ghost_mapG Σ W (option (V * V * (gset P) * F));
   gen_hpool_preG_inG :> inG Σ (frac_authR (agreeR (gsetR W)));
-  gen_retri_preG_inG :> gen_heapGpreS W (option bool) Σ;
+  gen_retri_preG_inG :> ghost_mapG Σ W (option bool);
   gen_lower_bound_preG_inG :> inG Σ (authR (gmapUR V (exclR (gsetR (leibnizO P)))))
   }.
 
@@ -93,16 +93,16 @@ Section gen_vmG.
     #[
            invΣ;
            na_invΣ;
-           gen_heapΣ Addr Word;
-           gen_heapΣ (reg_name * VMID) Word;
-           gen_heapΣ VMID (option (Word*VMID));
-           gen_heapΣ PID (option VMID);
-           gen_heapΣ (VMID* MailBox) PID;
+           ghost_mapΣ Addr Word;
+           ghost_mapΣ (reg_name * VMID) Word;
+           ghost_mapΣ VMID (option (Word*VMID));
+           ghost_mapΣ PID (option VMID);
+           ghost_mapΣ (VMID* MailBox) PID;
            GFunctor (authUR (gmapUR VMID (dfrac_agreeR (gsetO PID))));
-           gen_heapΣ PID boolO;
-           gen_heapΣ Word (option (VMID * VMID * (gset PID) * transaction_type));
+           ghost_mapΣ PID boolO;
+           ghost_mapΣ Word (option (VMID * VMID * (gset PID) * transaction_type));
            GFunctor (frac_authR (agreeR (gsetR Word)));
-           gen_heapΣ Word (option bool);
+           ghost_mapΣ Word (option bool);
            GFunctor (authR (gmapUR VMID (exclR (gsetR (leibnizO PID)))))
       ].
 
