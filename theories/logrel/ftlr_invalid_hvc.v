@@ -11,13 +11,10 @@ Section ftlr_invalid_hvc.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-
 Lemma ftlr_invalid_hvc {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr r0} trans rx_state:
   base_extra.is_total_gmap regs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
   ps_na ## ps_acc ∪ pages_in_trans (trans_memory_in_trans i trans) ->
-  p_rx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i trans) ->
-  p_tx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i trans) ->
   regs !! PC = Some ai ->
   tpa ai ∈ ps_acc ->
   tpa ai ≠ p_tx ->
@@ -32,8 +29,6 @@ Lemma ftlr_invalid_hvc {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr
           ⌜base_extra.is_total_gmap a⌝
             → ⌜{[p_tx; p_rx]} ⊆ a0⌝
               → ⌜ps_na ## a0 ∪ pages_in_trans (trans_memory_in_trans i a1)⌝
-                → ⌜p_rx ∉ a0 ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i a1)⌝
-                  → ⌜p_tx ∉ a0 ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i a1)⌝
                     → ([∗ map] r↦w ∈ a, r @@ i ->r w) -∗
                       TX@i:=p_tx -∗
                       p_tx -@O> - ∗ p_tx -@E> true -∗
@@ -49,7 +44,7 @@ Lemma ftlr_invalid_hvc {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr
                       RX_state@i:= a2 -∗
                       mailbox.rx_page i p_rx -∗
                       rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-                      ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
+                      ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
                       VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
                       transaction_pagetable_entries_owned i a1 -∗
                       pagetable_entries_excl_owned i (a0 ∖ {[p_rx; p_tx]} ∖ pages_in_trans a1) -∗
@@ -71,7 +66,7 @@ Lemma ftlr_invalid_hvc {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr
    RX_state@i:= rx_state -∗
    mailbox.rx_page i p_rx -∗
    rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-   ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
+   ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
    VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
    transaction_pagetable_entries_owned i trans -∗
    pagetable_entries_excl_owned i (ps_acc ∖ {[p_rx; p_tx]} ∖ pages_in_trans trans) -∗
@@ -81,7 +76,7 @@ Lemma ftlr_invalid_hvc {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
-    iIntros (Htotal_regs Hsubset_mb Hdisj_na Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
+    iIntros (Htotal_regs Hsubset_mb Hdisj_na Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
                          Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc).
     iIntros "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
              propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
@@ -98,7 +93,7 @@ Lemma ftlr_invalid_hvc {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr
     iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R2]") as (regs') "[%Htotal_regs' regs]".
 
     iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-    iApply ("IH" $! _ ps_acc trans _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+    iApply ("IH" $! _ ps_acc trans _ Htotal_regs' Hsubset_mb Hdisj_na with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
                             tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]
                             ").
     {

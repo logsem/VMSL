@@ -33,8 +33,6 @@ Section ftlr_msg_wait.
           ⌜base_extra.is_total_gmap a⌝
             → ⌜{[p_tx; p_rx]} ⊆ a0⌝
               → ⌜ps_na ## a0 ∪ pages_in_trans (trans_memory_in_trans i a1)⌝
-                → ⌜p_rx ∉ a0 ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i a1)⌝
-                  → ⌜p_tx ∉ a0 ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i a1)⌝
                     → ([∗ map] r↦w ∈ a, r @@ i ->r w) -∗
                       TX@i:=p_tx -∗
                       p_tx -@O> - ∗ p_tx -@E> true -∗
@@ -50,7 +48,7 @@ Section ftlr_msg_wait.
                       RX_state@i:= a2 -∗
                       mailbox.rx_page i p_rx -∗
                       rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-                      ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
+                      ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
                       VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
                       transaction_pagetable_entries_owned i a1 -∗
                       pagetable_entries_excl_owned i (a0 ∖ {[p_rx; p_tx]} ∖ pages_in_trans a1) -∗
@@ -72,7 +70,7 @@ Section ftlr_msg_wait.
    RX_state@i:= rx_state -∗
    mailbox.rx_page i p_rx -∗
    rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-   ▷ VMProp V0 (vmprop_zero i p_rx) (1 / 2) -∗
+   ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
    VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
    transaction_pagetable_entries_owned i trans -∗
    pagetable_entries_excl_owned i (ps_acc ∖ {[p_rx; p_tx]} ∖ pages_in_trans trans) -∗
@@ -102,7 +100,7 @@ Section ftlr_msg_wait.
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
 
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-      iApply ("IH" $! _ ps_acc trans _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
+      iApply ("IH" $! _ ps_acc trans _ Htotal_regs' Hsubset_mb Hdisj_na with "regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global
                             tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]
                             ").
       {
