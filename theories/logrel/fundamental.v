@@ -865,7 +865,6 @@ Section fundamental.
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
-            (* TODO revert and update IH *)
             { (*Share*)
               iApply (ftlr_share with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
@@ -886,6 +885,7 @@ Section fundamental.
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
+            (* TODO revert and update IH *)
             { (*Relinquish*)
               iApply (ftlr_relinquish with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
@@ -896,13 +896,11 @@ Section fundamental.
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
-            (* TODO change it *)
             { (*Send*)
               iApply (ftlr_msg_send with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
-            (* TODO change it *)
             { (*Wait*)
               iApply (ftlr_msg_wait with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
                  rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
