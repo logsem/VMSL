@@ -372,6 +372,79 @@ Section big_sep.
     rewrite map_filter_insert_False //.
   Qed.
 
+  Lemma big_sepFM_empty {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
+    ⊢ big_sepFM ∅ P Φ.
+  Proof.
+    iIntros.
+    rewrite /big_sepFM.
+    rewrite big_sepM_empty //.
+  Qed.
+
+
+  Lemma big_sepFM_insert_True(k: K) (v: A) {m: gmap K A} {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
+    P (k,v) ->
+    m !! k = None ->
+    big_sepFM (<[k:=v]>m) P Φ ⊣⊢ (Φ k v) ∗ big_sepFM m P Φ.
+  Proof.
+    iIntros (HP Hlk).
+    rewrite /big_sepFM.
+    rewrite map_filter_insert_True //.
+    rewrite big_sepM_insert //.
+    rewrite map_filter_lookup_None. left;auto.
+  Qed.
+
+  Lemma big_sepFM_insert_False(k: K) (v: A) {m: gmap K A} {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
+    ¬P (k,v) ->
+    m !! k = None ->
+    big_sepFM (<[k:=v]>m) P Φ ⊣⊢ big_sepFM m P Φ.
+  Proof.
+    iIntros (HP Hlk).
+    rewrite /big_sepFM.
+    rewrite map_filter_insert_False //.
+    rewrite delete_notin //.
+  Qed.
+
+  Lemma big_sepFM_split_decide{m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)}
+                       {Φ: K -> A -> PROP}:
+    big_sepFM m P Φ ⊣⊢ (big_sepFM m (λ kv, ((P kv) ∧ Q kv):Prop) Φ)
+                       ∗ big_sepFM m (λ kv, (P kv ∧ ¬(Q kv)):Prop) Φ.
+  Proof.
+    {
+      iInduction m as [|k v m Hlk] "H" using map_ind.
+      iSplit; iIntros "_";try iSplitL;iApply big_sepFM_empty.
+      destruct (decide (P (k,v)));destruct (decide (Q (k,v))).
+      {
+        rewrite 2?big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_False//.
+        2:{ intros [_ ?]. done. }
+        iSplit. iIntros "[$ ?]".
+        by iApply "H".
+        iIntros "[[$ ?] ?]".
+        iApply "H"; iFrame.
+      }
+      {
+        rewrite big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_False//.
+        2:{ intros [_ ?]. done. }
+        rewrite big_sepFM_insert_True//.
+        iSplit. iIntros "[$ ?]".
+        by iApply "H".
+        iIntros "[?  [$ ?]]".
+        iApply "H"; iFrame.
+      }
+      {
+        rewrite 3?big_sepFM_insert_False//.
+        2:{ intros [? _]. done. }
+         intros [? _]. done.
+      }
+      {
+        rewrite 3?big_sepFM_insert_False//.
+        2:{ intros [? _]. done. }
+        intros [? _]. done.
+      }
+    }
+  Qed.
+
   Lemma big_sepS_union_acc s s' (Φ: K → PROP) `{!∀ s s' s'', Absorbing (([∗ set] x ∈ s'', Φ x)
               -∗ [∗ set] x ∈ (s ∖ s' ∪ s'') , Φ x)}:
     s' ⊆ s ->
@@ -394,7 +467,6 @@ Section big_sep.
     done.
     iFrame.
   Qed.
-
 
 End big_sep.
 
@@ -938,6 +1010,9 @@ Section logrel_extra.
     iIntros (Hne Hlookup1 Hlookup2).
     iApply (ra_big_sepM_split_upd2' mem a1 a2 w1 w2 f Hne Hlookup1 Hlookup2).
   Qed.
+
+  (* Lemmas about relationships between transferred_all, transferred, and transferred_except  *)
+  (* TODO *)
 
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:

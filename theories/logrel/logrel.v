@@ -264,6 +264,20 @@ Section logrel_prim.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
+  Definition transaction_pagetable_entries_transferred_all (trans: gmap Addr transaction) : iProp Σ:=
+    big_sepFM trans (λ kv, kv.2.1.2 = Donation) (λ k v, k -{1/2}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true)%I.
+
+  Definition retrieval_entries_transferred_all(trans: gmap Addr transaction) : iProp Σ:=
+    (big_sepFM trans (λ kv, True) (λ k v, k -{1/2}>re v.2 )%I) ∗
+    (big_sepFM trans (λ kv, kv.2.2 = false) (λ k v, k -{1/2}>re v.2)%I).
+
+  Definition transaction_pagetable_entries_transferred_except (i: VMID) (trans: gmap Addr transaction) : iProp Σ:=
+    big_sepFM trans (λ kv, kv.2.1.2 = Donation ∧ ¬(kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) (λ k v, k -{1/2}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true)%I.
+
+  Definition retrieval_entries_transferred_except (i: VMID) (trans: gmap Addr transaction) : iProp Σ:=
+    (big_sepFM trans (λ kv, ¬(kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2 )%I) ∗
+    (big_sepFM trans (λ kv, ¬(kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i) ∧ kv.2.2 = false) (λ k v, k -{1/2}>re v.2)%I).
+
   Program Definition interp_access_prim p_tx p_rx ps_acc trans rx_state: iPropO Σ:=
     (
       let ps_macc_trans := (pages_in_trans (trans_memory_in_trans V0 trans)) in
@@ -274,8 +288,8 @@ Section logrel_prim.
       ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
       pagetable_entries_excl_owned V0 ps_oea ∗
       transaction_pagetable_entries_owned V0 trans ∗ transaction_hpool_global_transferred trans ∗
-      transaction_pagetable_entries_transferred V0 trans ∗
-      retrieval_entries_owned V0 trans ∗ retrieval_entries_transferred V0 trans ∗
+      transaction_pagetable_entries_transferred_all trans ∗
+      retrieval_entries_owned V0 trans ∗ retrieval_entries_transferred_all trans ∗
       (∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred V0 trans mem_trans) ∗
       RX_state@ V0 := rx_state ∗ (rx_page V0 p_rx) ∗
       (∃ mem_rx, memory_page p_rx mem_rx) ∗
