@@ -341,7 +341,7 @@ Section big_sep.
     done.
   Qed.
 
-  Lemma big_sepFM_update_True{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+  Lemma big_sepFM_update_True {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
         {Φ : K -> A -> PROP} {k : K} {v : A} (v': A) :
     m !! k = Some v ->
     P (k,v) ->
@@ -359,7 +359,7 @@ Section big_sep.
     iFrame.
   Qed.
 
-  Lemma big_sepFM_update_False{m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
+  Lemma big_sepFM_update_False {m : gmap K A} {P : K * A -> Prop} `{∀ x, Decision (P x)}
         {Φ : K -> A -> PROP} {k : K} {v : A} (v': A) :
     m !! k = Some v ->
     ¬P (k,v) ->
@@ -375,36 +375,48 @@ Section big_sep.
   Lemma big_sepFM_empty {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
     ⊢ big_sepFM ∅ P Φ.
   Proof.
-    iIntros.
-    rewrite /big_sepFM.
+    iIntros. rewrite /big_sepFM.
     rewrite big_sepM_empty //.
   Qed.
 
 
-  Lemma big_sepFM_insert_True(k: K) (v: A) {m: gmap K A} {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
+  Lemma big_sepFM_insert_True (k: K) (v: A) {m: gmap K A} {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
     P (k,v) ->
     m !! k = None ->
     big_sepFM (<[k:=v]>m) P Φ ⊣⊢ (Φ k v) ∗ big_sepFM m P Φ.
   Proof.
-    iIntros (HP Hlk).
-    rewrite /big_sepFM.
+    iIntros (HP Hlk). rewrite /big_sepFM.
     rewrite map_filter_insert_True //.
     rewrite big_sepM_insert //.
     rewrite map_filter_lookup_None. left;auto.
   Qed.
 
-  Lemma big_sepFM_insert_False(k: K) (v: A) {m: gmap K A} {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
+  Lemma big_sepFM_insert_False (k: K) (v: A) {m: gmap K A} {P: K * A -> Prop} `{∀ x, Decision (P x)} {Φ: K -> A -> PROP}:
     ¬P (k,v) ->
     m !! k = None ->
     big_sepFM (<[k:=v]>m) P Φ ⊣⊢ big_sepFM m P Φ.
   Proof.
-    iIntros (HP Hlk).
-    rewrite /big_sepFM.
+    iIntros (HP Hlk). rewrite /big_sepFM.
     rewrite map_filter_insert_False //.
     rewrite delete_notin //.
   Qed.
 
-  Lemma big_sepFM_split_decide{m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)}
+  Lemma big_sepFM_iff {m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)} {Φ: K -> A -> PROP}:
+    (∀ kv, P kv <-> Q kv) ->
+    big_sepFM m P Φ ⊣⊢ big_sepFM m Q Φ.
+  Proof.
+    intro equiv.
+    iInduction m  as [| k v m Hlk] "IH" using map_ind.
+    iSplit; iIntros "?";iApply big_sepFM_empty.
+    destruct (decide (P(k,v))).
+    rewrite 2?big_sepFM_insert_True //.
+    iSplit; iIntros "[$ ?]";by iApply "IH".
+    by apply equiv.
+    rewrite 2?big_sepFM_insert_False //.
+    intro Q'. by apply equiv in Q'.
+  Qed.
+  
+  Lemma big_sepFM_split_decide {m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)}
                        {Φ: K -> A -> PROP}:
     big_sepFM m P Φ ⊣⊢ (big_sepFM m (λ kv, ((P kv) ∧ Q kv):Prop) Φ)
                        ∗ big_sepFM m (λ kv, (P kv ∧ ¬(Q kv)):Prop) Φ.
@@ -435,7 +447,7 @@ Section big_sep.
       {
         rewrite 3?big_sepFM_insert_False//.
         2:{ intros [? _]. done. }
-         intros [? _]. done.
+        intros [? _]. done.
       }
       {
         rewrite 3?big_sepFM_insert_False//.
@@ -471,14 +483,12 @@ Section big_sep.
 End big_sep.
 
 Section logrel_extra.
-
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
   Lemma ra_big_sepM_split `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
-         (f: K -> V -> iProp Σ)
-    :
+         (f: K -> V -> iProp Σ) :
     map !! k = Some v ->
     (([∗ map] k↦y ∈ map, f k y)%I
      ⊢  (f k v) ∗ ( (f k v) -∗  [∗ map] k↦y ∈ map , f k y))%I.
@@ -555,8 +565,7 @@ Section logrel_extra.
   Qed.
 
   Lemma ra_big_sepM_split_upd_with_total `{Countable K} { V :Type} (map : gmap K V) (k : K) (v:V)
-        (total:= (λ m, (∀ k,  is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ)
-    :
+        (total:= (λ m, (∀ k,  is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ) :
     map !! k = Some v ->
     ((⌜total map⌝ ∗ [∗ map] k↦y ∈ map, f k y)%I
      ⊢  (f k v) ∗ (∀ v', (f k v') -∗  ⌜total (<[k := v']>map)⌝ ∗ [∗ map] k↦y ∈ <[k := v']>map , f k y))%I.
@@ -606,8 +615,7 @@ Section logrel_extra.
   Qed.
 
   Lemma ra_big_sepM_split2 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 : K) (v1 v2:V)
-         (f: K -> V -> iProp Σ)
-    :
+         (f: K -> V -> iProp Σ) :
     k1 ≠ k2 ->
     map !! k1 = Some v1 ->
     map !! k2 = Some v2 ->
@@ -908,7 +916,6 @@ Section logrel_extra.
     iApply (ra_big_sepM_split reg r w (λ k v, k @@ i ->r v)%I Hlookup).
   Qed.
 
-
   Lemma reg_big_sepM_split_upd i {reg r w}:
     reg !! r = Some w ->
     ((⌜is_total_gmap (reg: gmap reg_name Addr)⌝ ∗ [∗ map] k↦y ∈ reg, k @@ i ->r y)%I
@@ -918,7 +925,6 @@ Section logrel_extra.
     iIntros (Hlookup).
     iApply (ra_big_sepM_split_upd_with_total reg r w (λ k v, k @@ i ->r v)%I Hlookup).
   Qed.
-
 
   Lemma reg_big_sepM_split_upd2 i {reg r1 w1 r2 w2}:
     reg !! r1 = Some w1 ->
@@ -1012,7 +1018,49 @@ Section logrel_extra.
   Qed.
 
   (* Lemmas about relationships between transferred_all, transferred, and transferred_except  *)
-  (* TODO *)
+  Lemma transaction_pagetable_entries_transferred_split i trans:
+    transaction_pagetable_entries_transferred_all trans ⊣⊢ transaction_pagetable_entries_transferred i trans ∗
+                                                 transaction_pagetable_entries_transferred_except i trans.
+  Proof.
+    iApply big_sepFM_split_decide.
+  Qed.
+
+  Lemma retrieval_entries_transferred_split i trans:
+   retrieval_entries_transferred_all trans ⊣⊢ retrieval_entries_transferred i trans ∗
+                                                 retrieval_entries_transferred_except i trans.
+  Proof.
+    rewrite /retrieval_entries_transferred
+    /retrieval_entries_transferred_all
+    /retrieval_entries_transferred_except.
+    iSplit.
+    iIntros "(H1 & H2)".
+    iDestruct (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) with "H1") as "[H11 H12]".
+    rewrite (big_sepFM_iff (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))). iFrame "H11".
+    rewrite (big_sepFM_iff (Q:= (λ kv, ¬ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)))). iFrame "H12".
+    iDestruct (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)) with "H2") as "[H21 H22]".
+    iSplitL "H21".
+    iApply (big_sepFM_iff with "H21"). intros. split;intros [? ?];auto.
+    iApply (big_sepFM_iff with "H22"). intros. split;intros [? ?];split;auto. intro Hor;apply H;destruct Hor;eauto.
+    intro Hor;apply H0;destruct Hor;eauto.
+    intros. split;intros H;eauto. destruct H;done.
+    intros. split;intros H;eauto. destruct H;done.
+    iIntros "([H11 H12] & [H21 H22])".
+    iSplitL "H11 H21".
+    iApply (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))).
+    rewrite (big_sepFM_iff (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))). iFrame "H11".
+    rewrite (big_sepFM_iff (Q:= (λ kv, ¬ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)))). iFrame "H21".
+    intros. split;intros H;eauto. destruct H;done.
+    intros. split;intros H;eauto. destruct H;done.
+    iApply (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i))).
+    iSplitL "H12".
+    iApply big_sepFM_iff. 2: iFrame "H12".
+    intros. split;intros H;eauto. destruct H;auto. destruct H;split;auto.
+    iApply big_sepFM_iff. 2: iFrame "H22".
+    intros. split;intros H;eauto. destruct H as [? H];split;auto.
+    intro. apply H. destruct H1;auto.
+    destruct H as [? H];split;auto.
+    intro. apply H0. destruct H1;auto.
+  Qed.
 
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:
