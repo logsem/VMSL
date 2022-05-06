@@ -1062,6 +1062,41 @@ Section logrel_extra.
     intro. apply H0. destruct H1;auto.
   Qed.
 
+  Lemma trans_rel_mem_from_eq ps_acc p_rx p_tx trans trans':
+               let ps_macc_trans := (pages_in_trans (trans_memory_in_trans trans)) in
+               let ps_macc_trans' := (pages_in_trans (trans_memory_in_trans trans')) in
+               let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans in
+               let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
+               ps_oea = ps_oea' ->
+               ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
+                ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all).
+    Proof.
+      iIntros (? ? ? ? ->) "[oea trans]".
+      rewrite /memory_transferred.
+      iDestruct (memory_pages_split_union' ps_oea' ps_macc_trans' with "[oea trans]") as "mem".
+      set_solver +.
+      iFrame.
+      replace (ps_oea' ∪ ps_macc_trans') with  (ps_acc ∖ {[p_rx; p_tx]} ∪ ps_macc_trans');auto.
+      rewrite /ps_oea'.
+      rewrite difference_union_L //.
+    Qed.
+
+  (* Lemma transaction_hpool_global_transaction_entries_agree {i} (trans trans' : gmap Word transaction): *)
+  (*   transaction_hpool_global_transferred trans ∗ transaction_pagetable_entries_transferred i trans' *)
+  (*   ⊢ transaction_hpool_global_transferred trans ∗ transaction_pagetable_entries_transferred i trans. *)
+  (* Proof. *)
+  (*   iIntros "[global local]". *)
+  (*   rewrite /transaction_hpool_global_transferred. *)
+  (*   rewrite /transaction_pagetable_entries_transferred. *)
+  (* (* "global" : ∃ hpool : gset Addr, ⌜hpool ∪ dom (gset Addr) trans = hs_all⌝ ∗ *) *)
+  (* (*              trans.fresh_handles 1 hpool ∗ ⌜trans_ps_disj trans⌝ ∗ *) *)
+  (* (*              ([∗ map] h↦tran ∈ trans, h -{1 / 2}>t tran.1) *) *)
+  (* (* "local" : big_sepFM trans' *) *)
+  (* (*             (λ kv : Addr * transaction, *) *)
+  (* (*                (kv.2.1.2 = Donation ∧ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))%type) *) *)
+  (* (*             (λ (k : Addr) (v : transaction), k -{1 / 2}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true) *) *)
+
+
   (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:
     p ∈ pages_in_trans trans <-> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.

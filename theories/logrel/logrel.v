@@ -94,6 +94,11 @@ Section logrel.
     (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', RX_state@ i := rx_state'') ∗ ∃ j p_rx l, ⌜j ≠ i⌝ ∗ RX@ j := p_rx ∗ RX_state{1/2}@j := Some(l,i)
                           ∗ (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗ ∃ mem_rx, memory_page p_rx mem_rx).
 
+  Definition trans_rel (P : gmap Word transaction -d> iPropO Σ) (trans trans': gmap Word transaction ): iProp Σ:=
+    □(P trans -∗ P trans').
+
+  Notation "t -{{ P }}∗ t'"  := (trans_rel P t t') ( at level 70, format "t  -{{ P }}∗  t'").
+
   Definition vmprop_zero_pre (Ψ: PID -d> PID -d> (gmap Word transaction) -d> iPropO Σ) :PID -d> PID -d> (gmap Word transaction) -d> iPropO Σ :=
     λ p_tx p_rx trans', (∃ ps_na'' ps_acc'' trans'' ,
                            let ps_macc_trans'' := pages_in_trans (trans_memory_in_trans trans'') in
@@ -113,9 +118,9 @@ Section logrel.
                            rx_pages ((list_to_set (list_of_vmids)) ∖ {[i]}) ∗
                            return_reg_rx i ∗
                            (* implications *)
-                           (transaction_pagetable_entries_transferred_except i trans' -∗ transaction_pagetable_entries_transferred_except i trans'') ∗
-                           (retrieval_entries_transferred_except i trans' -∗ retrieval_entries_transferred_except i trans'') ∗
-                           (transaction_pagetable_entries_owned V0 trans' -∗ transaction_pagetable_entries_transferred V0 trans'') ∗
+                           (trans' -{{(transaction_pagetable_entries_transferred_except i)}}∗ trans'') ∗
+                           (trans' -{{(retrieval_entries_transferred_except i)}}∗ trans'') ∗
+                           (trans' -{{(transaction_pagetable_entries_owned V0)}}∗ trans'') ∗
                            VMProp i (Ψ p_tx p_rx trans'') (1/2)%Qp)%I.
 
   Definition vmprop_unknown_pre
@@ -158,11 +163,12 @@ Section logrel.
                 in a concrete example(as we give a concrete [trans] at the first and can reason about what should be the
                 [trans'] that satisfies the relation as we know the behaviors of VMs) than in a general case. So we leave
                 the proofs to the users of LR. *)
-               (transaction_pagetable_entries_owned i trans -∗ transaction_pagetable_entries_owned i trans') ∗
-               (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗
-               (retrieval_entries_owned i trans -∗ retrieval_entries_owned i trans') ∗
-               ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
-                ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
+               ⌜ps_oea = ps_oea'⌝ ∗
+               (* ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗ *)
+               (*  ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗ *)
+               (* (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗ *)
+               (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗
+               (trans -{{retrieval_entries_owned i}}∗ trans') ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0 (vmprop_zero_pre Φ p_tx p_rx trans') (1/2)%Qp)%I.
 
@@ -170,7 +176,7 @@ Section logrel.
   Proof.
   rewrite /vmprop_unknown_pre => n vmprop_unknown vmprop_unknown' Hvmprop_unknown p_tx p_rx trans /=.
   f_equiv.
-    do 25 f_equiv.
+    do 24 f_equiv.
     rewrite /VMProp  /=.
     do 6 f_equiv.
     f_contractive.
@@ -186,7 +192,7 @@ Section logrel.
   Definition vmprop_zero := vmprop_zero_pre vmprop_unknown.
 
   Lemma vmprop_unknown_def : vmprop_unknown ≡
-     λ p_tx p_rx trans,
+    λ p_tx p_rx trans,
       (∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state,
           let ps_macc_trans := (pages_in_trans (trans_memory_in_trans trans)) in
           let ps_macc_trans' := (pages_in_trans (trans_memory_in_trans trans')) in
@@ -204,11 +210,9 @@ Section logrel.
           (rx_page i p_rx) ∗
           (∃ mem_rx, memory_page p_rx mem_rx) ∗
           rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗
-          (transaction_pagetable_entries_owned i trans -∗ transaction_pagetable_entries_owned i trans') ∗
-          (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗
-          (retrieval_entries_owned i trans -∗ retrieval_entries_owned i trans') ∗
-          ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
-          ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
+          ⌜ps_oea = ps_oea'⌝ ∗
+          (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗
+          (trans -{{retrieval_entries_owned i}}∗ trans') ∗
           VMProp V0 (vmprop_zero p_tx p_rx trans') (1/2)%Qp)%I.
   Proof.
     rewrite /vmprop_unknown //.
@@ -237,11 +241,9 @@ Section logrel.
                (rx_page i p_rx) ∗
                (∃ mem_rx, memory_page p_rx mem_rx) ∗
                rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗
-               (transaction_pagetable_entries_owned i trans -∗ transaction_pagetable_entries_owned i trans') ∗
-               (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗
-               (retrieval_entries_owned i trans -∗ retrieval_entries_owned i trans') ∗
-               ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
-                ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗
+               ⌜ps_oea = ps_oea'⌝ ∗
+               (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗
+               (trans -{{retrieval_entries_owned i}}∗ trans') ∗
                VMProp V0 (vmprop_zero p_tx p_rx trans') (1/2)%Qp)%I.
     Proof.
       rewrite /vmprop_unknown.
