@@ -1062,6 +1062,7 @@ Section logrel_extra.
     intro. apply H0. destruct H1;auto.
   Qed.
 
+  (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:
     p ∈ pages_in_trans trans <-> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.
   Proof.
@@ -1122,17 +1123,174 @@ Section logrel_extra.
     }
   Qed.
 
+  Lemma pages_in_trans_insert{h tran trans}:
+    trans !! h = None ->
+    pages_in_trans (<[h := tran]> trans) =tran.1.1.2 ∪ pages_in_trans trans.
+  Proof.
+    intros Hlk.
+    rewrite /pages_in_trans.
+    rewrite /lift_option_gmap fmap_insert /=.
+    apply pages_in_trans_insert_None'.
+    rewrite lookup_fmap.
+    rewrite Hlk //.
+  Qed.
+
+  Lemma pages_in_trans_subseteq m m':
+    m' ⊆ m -> pages_in_trans m' ⊆ pages_in_trans m.
+  Proof.
+    intros Hsub.
+    rewrite /pages_in_trans.
+    apply pages_in_trans_subseteq'.
+    rewrite map_subseteq_spec in Hsub.
+    rewrite map_subseteq_spec.
+
+    intros.
+    rewrite /lift_option_gmap in H.
+    apply lookup_fmap_Some in H.
+    destruct H as [? [<- Hlk]].
+    apply Hsub in Hlk.
+    rewrite /lift_option_gmap.
+    rewrite lookup_fmap_Some.
+    exists x0.
+    split;auto.
+  Qed.
+
+  Lemma subseteq_pages_in_trans h tran trans:
+    trans !! h = Some tran ->
+    tran.1.1.2 ⊆ pages_in_trans trans.
+  Proof.
+    intros Hlk.
+    rewrite /pages_in_trans.
+    apply (subseteq_pages_in_trans' h).
+    rewrite /lift_option_gmap.
+    rewrite lookup_fmap_Some.
+    exists tran. split;done.
+  Qed.
+
+  Lemma pages_in_trans_insert'{h tran tran' trans}:
+    trans !! h = Some tran ->
+    tran.1 = tran'.1 ->
+    pages_in_trans (<[h := tran']> trans) = pages_in_trans trans.
+  Proof.
+    intros Hlk.
+    rewrite /pages_in_trans.
+    rewrite /lift_option_gmap fmap_insert /=.
+    apply pages_in_trans_insert_Some'.
+    rewrite lookup_fmap.
+    rewrite Hlk //.
+  Qed.
+
+  Lemma pages_in_trans_delete {h tran trans}:
+    trans !! h = Some tran ->
+    trans_ps_disj trans ->
+    pages_in_trans (delete h trans) = pages_in_trans trans ∖ tran.1.1.2.
+  Proof.
+    intros Hlk Hdisj.
+    rewrite /pages_in_trans.
+    rewrite /lift_option_gmap.
+    rewrite fmap_delete.
+    apply pages_in_trans_delete'.
+    rewrite lookup_fmap.
+    rewrite Hlk //.
+    done.
+  Qed.
+
+  (* lemmas for trans_ps_disj *)
+
+  (* Lemma get_trans_ps_disj trans {Φ : _ -> iProp Σ}: *)
+  (*   (([∗ map] h ↦ tran ∈ trans , Φ tran) ∗ *)
+  (*      (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝) *)
+  (*    ⊢ ⌜trans_ps_disj trans⌝)%I. *)
+  (* Proof. *)
+  (* Admitted. *)
+    (* rewrite /trans_ps_disj. *)
+    (* iIntros "[m Hfalse]". *)
+    (* iIntros (k v Hlookup). *)
+    (* rewrite elem_of_disjoint. *)
+    (* iIntros (p Hin Hin'). *)
+    (* iDestruct (big_sepM_delete with "m") as "[Φ m]". *)
+    (* exact Hlookup. *)
+    (* apply elem_of_pages_in_trans in Hin' as [h [v' [Hlookup' Hin'']]]. *)
+    (* iDestruct (big_sepM_delete with "m") as "[Φ' m]". *)
+    (* exact Hlookup'. *)
+    (* iDestruct ("Hfalse" $! v v' with "[$ Φ $ Φ']") as %Hdisj. *)
+    (* set_solver + Hdisj Hin Hin''. *)
+  (* Qed. *)
+
+  Lemma trans_ps_disj_insert h tran trans :
+    trans_ps_disj trans ->
+    trans !! h = None ->
+    tran.1.1.2 ## pages_in_trans trans <->
+    trans_ps_disj (<[h:=tran]> trans).
+  Proof.
+    rewrite /pages_in_trans.
+    rewrite /trans_ps_disj.
+    rewrite /lift_option_gmap.
+    rewrite fmap_insert.
+    intros Hdisj Hlk.
+    split.
+    intro Hdisj'.
+    apply trans_ps_disj_insert';auto.
+    rewrite lookup_fmap.
+    rewrite Hlk //.
+    intro Hdisj'.
+    rewrite /inv_trans_ps_disj' /= in Hdisj'.
+    rewrite map_Forall_insert in Hdisj'.
+    2:{ rewrite lookup_fmap. rewrite Hlk //. }
+    destruct Hdisj' as [? ?].
+    rewrite delete_insert // in H.
+    rewrite lookup_fmap. rewrite Hlk //.
+  Qed.
+
+  Lemma trans_ps_disj_subseteq m m':
+    trans_ps_disj m -> m' ⊆ m -> trans_ps_disj m'.
+  Proof.
+    rewrite /trans_ps_disj.
+    intros Hdisj Hsub.
+    apply (trans_ps_disj_subseteq' (lift_option_gmap m)).
+    done.
+    rewrite map_subseteq_spec in Hsub.
+    rewrite /lift_option_gmap.
+    rewrite map_subseteq_spec.
+    intros.
+    rewrite lookup_fmap.
+    rewrite lookup_fmap in H.
+    destruct (m' !! i) eqn:Hlk.
+    simpl in H.
+    inversion H.
+    apply Hsub in Hlk.
+    rewrite Hlk //.
+    done.
+  Qed.
+
+  Lemma trans_ps_disj_update{trans h tran tran'}:
+    trans_ps_disj trans ->
+    trans !! h = Some tran->
+    tran.1 = tran'.1 ->
+    trans_ps_disj (<[h:=tran']> trans).
+  Proof.
+    rewrite /trans_ps_disj /lift_option_gmap.
+    intros Hdisj Hlk Heq.
+    rewrite fmap_insert.
+    eapply trans_ps_disj_update'.
+    apply Hdisj.
+    2: exact Heq.
+    rewrite lookup_fmap Hlk //.
+  Qed.
+
+(* lemmas for trans_rel *)
   Lemma trans_rel_mem {i} ps_acc p_rx p_tx trans trans':
-               let ps_macc_trans := (transferred_memory_pages i trans) in
-               let ps_macc_trans' := (transferred_memory_pages i trans') in
-               let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans in
-               let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
-               ps_oea ∪ (retrieved_lending_memory_pages i trans) = ps_oea' ∪ (retrieved_lending_memory_pages i trans')->
-               ((∃ mem_oea, memory_pages (ps_oea ∪ (retrieved_lending_memory_pages i trans)) mem_oea)
-                ∗ (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) -∗
-                ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ (accessible_in_trans_memory_pages i trans')) mem_all).
+    let ps_macc_trans := (transferred_memory_pages i trans) in
+    let ps_macc_trans' := (transferred_memory_pages i trans') in
+    let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans in
+    let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
+    trans_ps_disj trans' ->
+    ps_oea ∪ (retrieved_lending_memory_pages i trans) = ps_oea' ∪ (retrieved_lending_memory_pages i trans')->
+    ((∃ mem_oea, memory_pages (ps_oea ∪ (retrieved_lending_memory_pages i trans)) mem_oea)
+     ∗ (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) -∗
+    ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ (accessible_in_trans_memory_pages i trans')) mem_all).
     Proof.
-      iIntros (? ? ? ? ->) "[oea trans]".
+      iIntros (? ? ? ? Hdisj ->) "[oea trans]".
       iDestruct (memory_pages_split_union' (ps_oea' ∪ retrieved_lending_memory_pages i trans') ps_macc_trans' with "[oea trans]") as "mem".
       {
         rewrite /ps_oea'.
@@ -1140,8 +1298,62 @@ Section logrel_extra.
         split. set_solver +.
         rewrite /retrieved_lending_memory_pages.
         rewrite /ps_macc_trans' /transferred_memory_pages.
-        (* seems need trans_ps_disj trans' *)
-        admit.
+        clear ps_oea' ps_macc_trans'.
+        induction trans' using map_ind.
+        set_solver +.
+        assert (Hdisj0: trans_ps_disj m).
+        {
+          eapply trans_ps_disj_subseteq;eauto.
+          by apply insert_subseteq.
+        }
+        rewrite !map_filter_insert.
+        case_decide.
+        rewrite pages_in_trans_insert.
+        2: { erewrite lookup_weaken_None; eauto. apply map_filter_subseteq. }
+        case_decide.
+        destruct H0, H1. contradiction.
+        rewrite disjoint_union_l.
+        split.
+        {
+          pose proof Hdisj as Hdisj'.
+          rewrite -trans_ps_disj_insert // in Hdisj.
+          rewrite delete_notin //.
+          intros z Hin Hin'.
+          apply (Hdisj z Hin).
+          assert (pages_in_trans
+             (filter
+                (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+                   (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending))
+                m) ⊆ pages_in_trans m).
+          apply pages_in_trans_subseteq.
+          apply map_filter_subseteq.
+          set_solver + H2 Hin'.
+        }
+        rewrite delete_notin //.
+        by apply IHtrans'.
+        case_decide.
+        rewrite pages_in_trans_insert.
+        2: { erewrite lookup_weaken_None; eauto. apply map_filter_subseteq. }
+        rewrite disjoint_union_r.
+        split.
+        {
+          pose proof Hdisj as Hdisj'.
+          rewrite -trans_ps_disj_insert // in Hdisj.
+          rewrite delete_notin //.
+          intros z Hin Hin'.
+          apply (Hdisj z Hin').
+          assert (pages_in_trans
+             (filter
+               (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
+                  kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m) ⊆ pages_in_trans m).
+          apply pages_in_trans_subseteq.
+          apply map_filter_subseteq.
+          set_solver + H2 Hin.
+        }
+        rewrite delete_notin //.
+        by apply IHtrans'.
+        rewrite 2?delete_notin //.
+        by apply IHtrans'.
       }
       iFrame.
       replace (ps_oea' ∪ retrieved_lending_memory_pages i trans' ∪ ps_macc_trans')
@@ -1168,7 +1380,7 @@ Section logrel_extra.
             rewrite Hlk' in Hlk;inversion Hlk.
             subst. contradiction.
         }
-        clear ps_oea ps_macc_trans trans p_rx p_tx ps_acc ps_oea' ps_macc_trans'.
+        clear ps_oea ps_macc_trans trans p_rx p_tx ps_acc ps_oea' ps_macc_trans' Hdisj.
         rewrite /accessible_in_trans_memory_pages. f_equal.
         induction trans' using map_ind.
         rewrite !map_filter_empty. rewrite map_union_empty //.
@@ -1220,178 +1432,29 @@ Section logrel_extra.
               destruct Hlk as [Hlk ?].
               rewrite Hlk in H. inversion H.
             }
+            rewrite lookup_insert_ne // in Hlk'.
             rewrite map_filter_lookup_Some in Hlk'.
             destruct Hlk as [Hlk [? ?]].
             destruct Hlk' as [Hlk' [? ?]].
             rewrite Hlk' in Hlk;inversion Hlk.
             subst. contradiction.
-          exfalso. apply H1.
-          split;auto.
         }
-          rewrite !map_filter_insert.
-          case_decide;
-            case_decide.
-          exfalso. apply H0.
-          right;destruct H2;auto.
-          exfalso. apply H0.
-          destruct H1.
-          destruct H1.
-          left;auto.
-          right;auto.
-          exfalso. apply H1.
-          split;destruct H2. eauto.
-          intro.
-          apply H0. right;auto.
-          rewrite !delete_notin //.
-      }
-    Admitted.
-
-  (* lemmas about pages_in_trans *)
-
-  Lemma subseteq_pages_in_trans h tran trans:
-    trans !! h = Some tran ->
-    tran.1.1.2 ⊆ pages_in_trans trans.
-  Proof.
-    intros Hlk.
-    rewrite /pages_in_trans.
-    apply (subseteq_pages_in_trans' h).
-    rewrite /lift_option_gmap.
-    rewrite lookup_fmap_Some.
-    exists tran. split;done.
-  Qed.
-
-  (* Lemma get_trans_ps_disj trans {Φ : _ -> iProp Σ}: *)
-  (*   (([∗ map] h ↦ tran ∈ trans , Φ tran) ∗ *)
-  (*      (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝) *)
-  (*    ⊢ ⌜trans_ps_disj trans⌝)%I. *)
-  (* Proof. *)
-  (* Admitted. *)
-    (* rewrite /trans_ps_disj. *)
-    (* iIntros "[m Hfalse]". *)
-    (* iIntros (k v Hlookup). *)
-    (* rewrite elem_of_disjoint. *)
-    (* iIntros (p Hin Hin'). *)
-    (* iDestruct (big_sepM_delete with "m") as "[Φ m]". *)
-    (* exact Hlookup. *)
-    (* apply elem_of_pages_in_trans in Hin' as [h [v' [Hlookup' Hin'']]]. *)
-    (* iDestruct (big_sepM_delete with "m") as "[Φ' m]". *)
-    (* exact Hlookup'. *)
-    (* iDestruct ("Hfalse" $! v v' with "[$ Φ $ Φ']") as %Hdisj. *)
-    (* set_solver + Hdisj Hin Hin''. *)
-  (* Qed. *)
-
-  Lemma pages_in_trans_subseteq m m':
-    m' ⊆ m -> pages_in_trans m' ⊆ pages_in_trans m.
-  Proof.
-    intros Hsub.
-    rewrite /pages_in_trans.
-    apply pages_in_trans_subseteq'.
-
-    rewrite map_subseteq_spec in Hsub.
-    rewrite map_subseteq_spec.
-
-    intros.
-    rewrite /lift_option_gmap in H.
-    apply lookup_fmap_Some in H.
-    destruct H as [? [<- Hlk]].
-    apply Hsub in Hlk.
-    rewrite /lift_option_gmap.
-    rewrite lookup_fmap_Some.
-    exists x0.
-    split;auto.
-  Qed.
-
-  Lemma pages_in_trans_insert{h tran trans}:
-    trans !! h = None ->
-    pages_in_trans (<[h := tran]> trans) =tran.1.1.2 ∪ pages_in_trans trans.
-  Proof.
-    intros Hlk.
-    rewrite /pages_in_trans.
-    rewrite /lift_option_gmap fmap_insert /=.
-    apply pages_in_trans_insert_None'.
-    rewrite lookup_fmap.
-    rewrite Hlk //.
-  Qed.
-
-  Lemma pages_in_trans_insert'{h tran tran' trans}:
-    trans !! h = Some tran ->
-    tran.1 = tran'.1 ->
-    pages_in_trans (<[h := tran']> trans) = pages_in_trans trans.
-  Proof.
-    intros Hlk.
-    rewrite /pages_in_trans.
-    rewrite /lift_option_gmap fmap_insert /=.
-    apply pages_in_trans_insert_Some'.
-    rewrite lookup_fmap.
-    rewrite Hlk //.
-  Qed.
-
-  Lemma trans_ps_disj_subseteq m m':
-    trans_ps_disj m -> m' ⊆ m -> trans_ps_disj m'.
-  Proof.
-    rewrite /trans_ps_disj.
-    intros Hdisj Hsub.
-    apply (trans_ps_disj_subseteq' (lift_option_gmap m)).
-    done.
-    rewrite map_subseteq_spec in Hsub.
-    rewrite /lift_option_gmap.
-    rewrite map_subseteq_spec.
-    intros.
-    rewrite lookup_fmap.
-    rewrite lookup_fmap in H.
-    destruct (m' !! i) eqn:Hlk.
-    simpl in H.
-    inversion H.
-    apply Hsub in Hlk.
-    rewrite Hlk //.
-    done.
-  Qed.
-
-  Lemma pages_in_trans_delete {h tran trans}:
-    trans !! h = Some tran ->
-    trans_ps_disj trans ->
-    pages_in_trans (delete h trans) = pages_in_trans trans ∖ tran.1.1.2.
-  Proof.
-    intros Hlk Hdisj.
-    rewrite /pages_in_trans.
-    rewrite /lift_option_gmap.
-    rewrite fmap_delete.
-    apply pages_in_trans_delete'.
-    rewrite lookup_fmap.
-    rewrite Hlk //.
-    done.
-  Qed.
-
-  Lemma trans_ps_disj_insert h tran trans :
-    trans_ps_disj trans ->
-    trans !! h = None ->
-    tran.1.1.2 ## pages_in_trans trans ->
-    trans_ps_disj (<[h:=tran]> trans).
-  Proof.
-    rewrite /pages_in_trans.
-    rewrite /trans_ps_disj.
-    rewrite /lift_option_gmap.
-    rewrite fmap_insert.
-    intros Hdisj Hlk Hdisj'.
-
-    apply trans_ps_disj_insert';auto.
-    rewrite lookup_fmap.
-    rewrite Hlk //.
-  Qed.
-
-  Lemma trans_ps_disj_update{trans h tran tran'}:
-    trans_ps_disj trans ->
-    trans !! h = Some tran->
-    tran.1 = tran'.1 ->
-    trans_ps_disj (<[h:=tran']> trans).
-  Proof.
-    rewrite /trans_ps_disj /lift_option_gmap.
-    intros Hdisj Hlk Heq.
-    rewrite fmap_insert.
-    eapply trans_ps_disj_update'.
-    apply Hdisj.
-    2: exact Heq.
-    rewrite lookup_fmap Hlk //.
-  Qed.
+        exfalso. apply H1.
+        split;eauto.
+}
+        rewrite !map_filter_insert.
+        case_decide; case_decide.
+        exfalso. apply H0.
+        right;destruct H2;auto.
+        exfalso. apply H0.
+        destruct H1.
+        destruct H1.
+        left;auto.
+        right;auto.
+        exfalso. apply H1.
+        split;destruct H2;eauto.
+        rewrite !delete_notin //.
+        }
+    Qed.
 
 End logrel_extra.
