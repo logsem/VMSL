@@ -1,7 +1,7 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
-From HypVeri.algebra Require Import base base_extra.
+From HypVeri.algebra Require Import base base_extra mem.
 From HypVeri.logrel Require Import logrel.
 From HypVeri Require Import proofmode stdpp_extra.
 From stdpp Require fin_map_dom.
@@ -1062,42 +1062,6 @@ Section logrel_extra.
     intro. apply H0. destruct H1;auto.
   Qed.
 
-  Lemma trans_rel_mem_from_eq ps_acc p_rx p_tx trans trans':
-               let ps_macc_trans := (pages_in_trans (trans_memory_in_trans trans)) in
-               let ps_macc_trans' := (pages_in_trans (trans_memory_in_trans trans')) in
-               let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans in
-               let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
-               ps_oea = ps_oea' ->
-               ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗
-                ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all).
-    Proof.
-      iIntros (? ? ? ? ->) "[oea trans]".
-      rewrite /memory_transferred.
-      iDestruct (memory_pages_split_union' ps_oea' ps_macc_trans' with "[oea trans]") as "mem".
-      set_solver +.
-      iFrame.
-      replace (ps_oea' ∪ ps_macc_trans') with  (ps_acc ∖ {[p_rx; p_tx]} ∪ ps_macc_trans');auto.
-      rewrite /ps_oea'.
-      rewrite difference_union_L //.
-    Qed.
-
-  (* Lemma transaction_hpool_global_transaction_entries_agree {i} (trans trans' : gmap Word transaction): *)
-  (*   transaction_hpool_global_transferred trans ∗ transaction_pagetable_entries_transferred i trans' *)
-  (*   ⊢ transaction_hpool_global_transferred trans ∗ transaction_pagetable_entries_transferred i trans. *)
-  (* Proof. *)
-  (*   iIntros "[global local]". *)
-  (*   rewrite /transaction_hpool_global_transferred. *)
-  (*   rewrite /transaction_pagetable_entries_transferred. *)
-  (* (* "global" : ∃ hpool : gset Addr, ⌜hpool ∪ dom (gset Addr) trans = hs_all⌝ ∗ *) *)
-  (* (*              trans.fresh_handles 1 hpool ∗ ⌜trans_ps_disj trans⌝ ∗ *) *)
-  (* (*              ([∗ map] h↦tran ∈ trans, h -{1 / 2}>t tran.1) *) *)
-  (* (* "local" : big_sepFM trans' *) *)
-  (* (*             (λ kv : Addr * transaction, *) *)
-  (* (*                (kv.2.1.2 = Donation ∧ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))%type) *) *)
-  (* (*             (λ (k : Addr) (v : transaction), k -{1 / 2}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true) *) *)
-
-
-  (* lemmas about pages_in_trans *)
   Lemma elem_of_pages_in_trans p trans:
     p ∈ pages_in_trans trans <-> ∃h tran, trans !! h = Some tran ∧ p ∈ tran.1.1.2.
   Proof.
@@ -1120,6 +1084,169 @@ Section logrel_extra.
     exists tran.
     split;done.
   Qed.
+
+  Lemma pages_in_trans_union trans trans':
+    dom (gset _) trans ## dom (gset _) trans' ->
+    pages_in_trans (trans ∪ trans') = pages_in_trans trans ∪ pages_in_trans trans'.
+  Proof.
+    intros Hdisj.
+    rewrite set_eq.
+    intros.
+    rewrite elem_of_pages_in_trans.
+    split.
+    {
+      intros (h & t & Hlk & Hin).
+      destruct (trans !! h) eqn:Hlk'.
+      {
+        apply elem_of_union_l.
+        rewrite elem_of_pages_in_trans.
+        eexists. eexists. split;eauto.
+        apply (lookup_union_Some_l _ trans') in Hlk'.
+        rewrite Hlk' in Hlk; by inversion Hlk.
+      }
+      apply (lookup_union_Some_inv_r) in Hlk;auto.
+      apply elem_of_union_r.
+      rewrite elem_of_pages_in_trans.
+      eexists. eexists. split;eauto.
+    }
+    {
+      intros H.
+      rewrite elem_of_union in H.
+      destruct H as [Hin |Hin];
+        rewrite elem_of_pages_in_trans in Hin;
+        destruct Hin as (? & ? & ? & ?);
+        (eexists; eexists; split;eauto);
+        try (by apply lookup_union_Some_l).
+      apply lookup_union_Some_r;eauto.
+      rewrite map_disjoint_dom //.
+    }
+  Qed.
+
+  Lemma trans_rel_mem {i} ps_acc p_rx p_tx trans trans':
+               let ps_macc_trans := (transferred_memory_pages i trans) in
+               let ps_macc_trans' := (transferred_memory_pages i trans') in
+               let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans in
+               let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
+               ps_oea ∪ (retrieved_lending_memory_pages i trans) = ps_oea' ∪ (retrieved_lending_memory_pages i trans')->
+               ((∃ mem_oea, memory_pages (ps_oea ∪ (retrieved_lending_memory_pages i trans)) mem_oea)
+                ∗ (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) -∗
+                ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ (accessible_in_trans_memory_pages i trans')) mem_all).
+    Proof.
+      iIntros (? ? ? ? ->) "[oea trans]".
+      iDestruct (memory_pages_split_union' (ps_oea' ∪ retrieved_lending_memory_pages i trans') ps_macc_trans' with "[oea trans]") as "mem".
+      {
+        rewrite /ps_oea'.
+        rewrite disjoint_union_l.
+        split. set_solver +.
+        rewrite /retrieved_lending_memory_pages.
+        rewrite /ps_macc_trans' /transferred_memory_pages.
+        (* seems need trans_ps_disj trans' *)
+        admit.
+      }
+      iFrame.
+      replace (ps_oea' ∪ retrieved_lending_memory_pages i trans' ∪ ps_macc_trans')
+        with  (ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans');auto.
+      {
+        rewrite -union_assoc_L.
+        rewrite (union_comm_L (retrieved_lending_memory_pages i trans')).
+        rewrite union_assoc_L.
+        rewrite /ps_oea'.
+        rewrite difference_union_L.
+        rewrite -union_assoc_L.
+        f_equal.
+        rewrite /ps_macc_trans' /transferred_memory_pages.
+        rewrite /retrieved_lending_memory_pages.
+        rewrite -pages_in_trans_union.
+        2:{
+            intros h.
+            rewrite 2?elem_of_dom.
+            intros [? Hlk] [? Hlk'].
+            rewrite map_filter_lookup_Some in Hlk.
+            rewrite map_filter_lookup_Some in Hlk'.
+            destruct Hlk as [Hlk [? ?]].
+            destruct Hlk' as [Hlk' [? ?]].
+            rewrite Hlk' in Hlk;inversion Hlk.
+            subst. contradiction.
+        }
+        clear ps_oea ps_macc_trans trans p_rx p_tx ps_acc ps_oea' ps_macc_trans'.
+        rewrite /accessible_in_trans_memory_pages. f_equal.
+        induction trans' using map_ind.
+        rewrite !map_filter_empty. rewrite map_union_empty //.
+        rewrite map_filter_insert.
+        case_decide.
+        destruct H0.
+        {
+          rewrite !map_filter_insert.
+          case_decide;
+            case_decide.
+          destruct H0, H2;contradiction.
+          rewrite IHtrans' insert_union_l.
+          rewrite delete_notin //.
+          destruct H0, H2;contradiction.
+          exfalso. apply H1.
+          destruct H0.
+          split; eauto.
+        }
+        {
+          rewrite !map_filter_insert.
+          case_decide;
+            case_decide.
+          destruct H1, H2;contradiction.
+          rewrite IHtrans' insert_union_l.
+          rewrite delete_notin //.
+          rewrite delete_notin //.
+          rewrite map_union_comm.
+          rewrite IHtrans'. rewrite map_union_comm. rewrite insert_union_l //.
+          { apply map_disjoint_dom_2.
+            intros h.
+            rewrite 2?elem_of_dom.
+            intros [? Hlk] [? Hlk'].
+            rewrite map_filter_lookup_Some in Hlk.
+            rewrite map_filter_lookup_Some in Hlk'.
+            destruct Hlk as [Hlk [? ?]].
+            destruct Hlk' as [Hlk' [? ?]].
+            rewrite Hlk' in Hlk;inversion Hlk.
+            subst. contradiction.
+          }
+          { apply map_disjoint_dom_2.
+            intros h.
+            rewrite 2?elem_of_dom.
+            intros [? Hlk] [? Hlk'].
+            rewrite map_filter_lookup_Some in Hlk.
+            assert (Hneq: i0 ≠ h).
+            {
+              destruct (decide (i0 = h)); auto.
+              subst.
+              destruct Hlk as [Hlk ?].
+              rewrite Hlk in H. inversion H.
+            }
+            rewrite map_filter_lookup_Some in Hlk'.
+            destruct Hlk as [Hlk [? ?]].
+            destruct Hlk' as [Hlk' [? ?]].
+            rewrite Hlk' in Hlk;inversion Hlk.
+            subst. contradiction.
+          exfalso. apply H1.
+          split;auto.
+        }
+          rewrite !map_filter_insert.
+          case_decide;
+            case_decide.
+          exfalso. apply H0.
+          right;destruct H2;auto.
+          exfalso. apply H0.
+          destruct H1.
+          destruct H1.
+          left;auto.
+          right;auto.
+          exfalso. apply H1.
+          split;destruct H2. eauto.
+          intro.
+          apply H0. right;auto.
+          rewrite !delete_notin //.
+      }
+    Admitted.
+
+  (* lemmas about pages_in_trans *)
 
   Lemma subseteq_pages_in_trans h tran trans:
     trans !! h = Some tran ->

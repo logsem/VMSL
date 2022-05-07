@@ -74,7 +74,6 @@ Section logrel.
   Definition transaction_hpool_global_transferred (trans: gmap Addr transaction) : iProp Σ:=
     ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = hs_all⌝ ∗ fresh_handles 1 hpool ∗ ⌜trans_ps_disj trans⌝ ∗ [∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1.
 
-
   (* [transferred_memory_pages]: some memory points-to predicates are transferred by VMProp.
       NOTE: we exclude the case when the type of transaction is lending and has been retrieved,
       as the associated memory pages in this case is exclusively owned by the receiver*)
@@ -84,6 +83,10 @@ Section logrel.
   (* [retrieved_lending_memory_pages]: the memory of these pages are owned by the receiver *)
   Definition retrieved_lending_memory_pages (trans : gmap Word transaction) :=
     pages_in_trans (filter (λ kv, kv.2.1.1.1.2 = i ∧ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) trans).
+
+  (* [accessible_in_trans_memory_pages] (maybe) accessible memory pages associated with transactions *)
+  Definition accessible_in_trans_memory_pages (trans : gmap Word transaction) :=
+    pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i  ∧ ¬(kv.2.2 = true ∧ kv.2.1.2 = Lending)) ∨ kv.2.1.1.1.2 = i) trans).
 
   (* [TODO] *)
   Definition rx_pages (s: gset VMID) : iProp Σ :=
