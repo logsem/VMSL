@@ -4,7 +4,8 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base mov yield ldr halt fail add sub mult cmp br bne str run.
 From HypVeri.logrel Require Import logrel logrel_extra.
-(* From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_msg_send *)
+From HypVeri.logrel Require Import ftlr_nop.
+(* From HypVeri.logrel Require Import ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_msg_send *)
 (*      ftlr_msg_wait ftlr_msg_poll ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend ftlr_invalid_hvc. *)
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
@@ -26,21 +27,27 @@ Section fundamental.
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (ps_acc') "Hres".
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (trans') "Hres".
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rx_state') "Hres".
-    iEval (rewrite 15!later_sep) in "Hres".
-    iDestruct "Hres" as  "( >pgt_acc' & >LB & >%Hdisj_na & >trans_hpool_global & >tran_pgt_transferred &
+    iEval (rewrite 18!later_sep) in "Hres".
+    iDestruct "Hres" as "( >pgt_acc' & >LB & >%Hdisj_na & >trans_hpool_global & >tran_pgt_transferred &
                          >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >rx & >[% mem_rx] & >other_rx &
-                          Himp_tran_pgt & Himp_pgt & Himp_retri & Himp_mem & prop0)".
+                          >%Heq_oea & >%Heq_rltran & >Himp_tran_pgt & >#Himp_retri & prop0)".
+    (* XXX: change the order of these hypotheses in the context, otherwise have to change every IH.. *)
+    iAssert (∃ trans, ▷ VMProp V0 (vmprop_zero i p_tx p_rx trans) (1 / 2))%I with "[prop0]" as "prop0".
+    iExists trans'. iFrame.
+    iAssert (VMProp i (vmprop_unknown i p_tx p_rx trans) 1) with "propi" as "propi"; first iFrame.
     iDestruct (access_agree_eq with "[$pgt_acc $pgt_acc']") as %->.
-    iDestruct (later_wand with "Himp_tran_pgt") as "Himp_tran_pgt".
-    iDestruct ("Himp_tran_pgt" with "tran_pgt_owned") as ">tran_pgt_owned".
-    iDestruct (later_wand with "Himp_pgt") as "Himp_pgt".
-    iDestruct ("Himp_pgt" with "pgt_owned") as ">pgt_owned".
-    iDestruct (later_wand with "Himp_retri") as "Himp_retri".
-    iDestruct ("Himp_retri" with "retri_owned") as ">retri_owned".
-    iDestruct (later_wand with "Himp_mem") as "Himp_mem".
-    iDestruct ("Himp_mem" with "[$mem_owned $mem_transferred]") as  (?) ">mem".
+    iDestruct ("Himp_tran_pgt" with "tran_pgt_owned") as "tran_pgt_owned".
+    iAssert (pagetable_entries_excl_owned i (ps_acc' ∖ {[p_rx; p_tx]} ∖ accessible_in_trans_memory_pages i trans')) with "[pgt_owned]" as "pgt_owned".
+    rewrite Heq_oea. iFrame.
+    iDestruct ("Himp_retri" with "retri_owned") as "retri_owned".
+    iAssert (⌜trans_ps_disj trans'⌝)%I as %Hdisj.
+    { iDestruct "trans_hpool_global" as "[% (_ & _ & $ & _)]". }
+    iDestruct (trans_rel_mem with "[mem_owned mem_transferred]") as  (?) "mem";eauto.
+    rewrite Heq_oea Heq_rltran. iFrame.
+    clear Hdisj Heq_oea Heq_rltran.
+    iClear "Himp_retri".
 
-    set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans')).
+    set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans').
 
     iDestruct (memory_pages_disj_singleton with "[$mem $mem_rx]") as %Hnin_rx.
     iDestruct (memory_pages_disj_singleton with "[$mem $mem_tx]") as %Hnin_tx.
@@ -49,12 +56,9 @@ Section fundamental.
       with "[mem mem_rx mem_tx]" as "mem".
     {
       iExists (mem_all ∪ mem_rx ∪ mem_tx).
-      assert (pages_in_trans (trans_memory_in_trans i trans') ## {[p_tx]}) as Hdisj_ps_tx'.
-      set_solver.
-      assert (pages_in_trans (trans_memory_in_trans i trans') ## {[p_rx]}) as Hdisj_ps_rx'.
-      set_solver.
-      assert (ps_acc' ∖ {[p_rx; p_tx]} ∪ ps_mem_in_trans ∪ {[p_rx; p_tx]} =
-                (ps_acc' ∪ ps_mem_in_trans)) as <-.
+      assert (accessible_in_trans_memory_pages i trans' ## {[p_tx]}) as Hdisj_ps_tx' by set_solver.
+      assert (accessible_in_trans_memory_pages i trans' ## {[p_rx]}) as Hdisj_ps_rx' by set_solver.
+      assert (ps_acc' ∖ {[p_rx; p_tx]} ∪ ps_mem_in_trans ∪ {[p_rx; p_tx]} = (ps_acc' ∪ ps_mem_in_trans)) as <-.
       {
         rewrite -union_assoc_L.
         rewrite (union_comm_L _ {[p_rx; p_tx]}).
@@ -68,28 +72,22 @@ Section fundamental.
       iApply (memory_pages_split_union with "[mem mem_rx mem_tx]").
       { set_solver. }
       iDestruct (memory_page_neq with "[$mem_tx $mem_rx]") as %Hneq_tx_rx.
-      iExists mem_all, (mem_rx ∪ mem_tx).
-      iFrame "mem".
+      iExists mem_all, (mem_rx ∪ mem_tx). iFrame "mem".
       rewrite memory_pages_split_union.
       iSplit.
-      iExists mem_rx, mem_tx.
-      rewrite 2!memory_pages_singleton.
-      iFrame "mem_rx mem_tx".
+      iExists mem_rx, mem_tx. rewrite 2!memory_pages_singleton. iFrame "mem_rx mem_tx".
       done.
-      iPureIntro.
-      rewrite map_union_assoc //.
-      set_solver + Hneq_tx_rx.
+      iPureIntro. rewrite map_union_assoc //. set_solver + Hneq_tx_rx.
     }
     iDestruct "tx" as "[tx pgt_tx]".
     clear mem_rx mem_tx mem_all; subst ps_mem_in_trans.
 
     iLöb as "IH" forall (regs ps_na' ps_acc' trans trans' rx_state' Htotal_regs Hsubset_mb Hdisj_na Hnin_rx Hnin_tx).
 
-    set ps_mem_in_trans := (pages_in_trans (trans_memory_in_trans i trans')).
+    set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans').
 
     (* split memory pages into [mem_acc] and [mem_rest] *)
-    iDestruct (memory_pages_split_diff' _ ps_acc' with "mem") as "[mem_rest mem_acc]".
-    set_solver.
+    iDestruct (memory_pages_split_diff' _ ps_acc' with "mem") as "[mem_rest mem_acc]". set_solver.
     iDestruct (memory_pages_split_singleton' p_tx ps_acc' with "mem_acc") as "[mem_acc_tx mem_tx]". set_solver + Hsubset_mb.
     iDestruct ("mem_acc_tx") as (mem_acc_tx) "mem_acc_tx".
 
@@ -120,7 +118,7 @@ Section fundamental.
         destruct instr'.
         { (* nop *)
           iApply (ftlr_nop with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx"); iFrameAutoSolve.
           all:done.
         }
         { (* mov *)

@@ -1279,23 +1279,50 @@ Section logrel_extra.
   Qed.
 
 (* lemmas for trans_rel *)
-  Lemma trans_rel_mem {i} ps_acc p_rx p_tx trans trans':
-    let ps_macc_trans := (transferred_memory_pages i trans) in
+  Lemma trans_rel_mem {i} ps_acc p_rx p_tx trans':
     let ps_macc_trans' := (transferred_memory_pages i trans') in
-    let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans in
-    let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ ps_macc_trans' in
+    let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages i trans') in
     trans_ps_disj trans' ->
-    ps_oea ∪ (retrieved_lending_memory_pages i trans) = ps_oea' ∪ (retrieved_lending_memory_pages i trans')->
-    ((∃ mem_oea, memory_pages (ps_oea ∪ (retrieved_lending_memory_pages i trans)) mem_oea)
+    ((∃ mem_oea, memory_pages (ps_oea' ∪ (retrieved_lending_memory_pages i trans')) mem_oea)
      ∗ (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) -∗
     ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ (accessible_in_trans_memory_pages i trans')) mem_all).
     Proof.
-      iIntros (? ? ? ? Hdisj ->) "[oea trans]".
+      iIntros (? ? Hdisj) "[oea trans]".
       iDestruct (memory_pages_split_union' (ps_oea' ∪ retrieved_lending_memory_pages i trans') ps_macc_trans' with "[oea trans]") as "mem".
       {
         rewrite /ps_oea'.
         rewrite disjoint_union_l.
-        split. set_solver +.
+        split.
+        assert (Hsubseteq: ps_macc_trans' ⊆ accessible_in_trans_memory_pages i trans').
+        {
+          rewrite /accessible_in_trans_memory_pages.
+          rewrite /ps_macc_trans' /transferred_memory_pages.
+          apply pages_in_trans_subseteq.
+          clear Hdisj ps_oea' ps_macc_trans'.
+          induction trans' using map_ind.
+          set_solver +.
+          {
+            rewrite !map_filter_insert.
+            case_decide.
+            case_decide.
+            {
+              apply insert_mono.
+              apply IHtrans'.
+            }
+            {
+              exfalso. apply H1.
+              destruct H0 as [[? | ?] ?].
+              left;auto. auto.
+            }
+            case_decide.
+            apply insert_subseteq_r.
+            { apply map_filter_lookup_None. left; apply lookup_delete_None;auto. }
+            rewrite delete_notin //.
+            rewrite 2?delete_notin //.
+          }
+        }
+        set_solver + Hsubseteq.
+        {
         rewrite /retrieved_lending_memory_pages.
         rewrite /ps_macc_trans' /transferred_memory_pages.
         clear ps_oea' ps_macc_trans'.
@@ -1355,6 +1382,7 @@ Section logrel_extra.
         rewrite 2?delete_notin //.
         by apply IHtrans'.
       }
+      }
       iFrame.
       replace (ps_oea' ∪ retrieved_lending_memory_pages i trans' ∪ ps_macc_trans')
         with  (ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans');auto.
@@ -1362,10 +1390,10 @@ Section logrel_extra.
         rewrite -union_assoc_L.
         rewrite (union_comm_L (retrieved_lending_memory_pages i trans')).
         rewrite union_assoc_L.
-        rewrite /ps_oea'.
-        rewrite difference_union_L.
         rewrite -union_assoc_L.
-        f_equal.
+        rewrite /ps_oea'.
+        replace (ps_macc_trans' ∪ retrieved_lending_memory_pages i trans') with (accessible_in_trans_memory_pages i trans').
+        rewrite difference_union_L //.
         rewrite /ps_macc_trans' /transferred_memory_pages.
         rewrite /retrieved_lending_memory_pages.
         rewrite -pages_in_trans_union.
@@ -1380,7 +1408,7 @@ Section logrel_extra.
             rewrite Hlk' in Hlk;inversion Hlk.
             subst. contradiction.
         }
-        clear ps_oea ps_macc_trans trans p_rx p_tx ps_acc ps_oea' ps_macc_trans' Hdisj.
+        clear p_rx p_tx ps_acc ps_oea' ps_macc_trans' Hdisj.
         rewrite /accessible_in_trans_memory_pages. f_equal.
         induction trans' using map_ind.
         rewrite !map_filter_empty. rewrite map_union_empty //.
@@ -1438,10 +1466,10 @@ Section logrel_extra.
             destruct Hlk' as [Hlk' [? ?]].
             rewrite Hlk' in Hlk;inversion Hlk.
             subst. contradiction.
+          }
+          exfalso. apply H1.
+          split;eauto.
         }
-        exfalso. apply H1.
-        split;eauto.
-}
         rewrite !map_filter_insert.
         case_decide; case_decide.
         exfalso. apply H0.
