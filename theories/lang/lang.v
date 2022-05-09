@@ -490,7 +490,7 @@ Definition transfer_msg (st : state) (v : VMID) (r : VMID) (l : Word) : hvc_resu
     in fill_rx st' l v r.
 
 Definition get_fresh_handles (trans: transactions): gset Word:=
-  (dom (gset _) (filter (λ kv, kv.2 = None) trans)).
+  (dom (gset _) (filter (λ kv, kv.2 = None) trans)) ∩ valid_handles.
 
 Definition fresh_handle (trans : transactions) : hvc_result Word:=
     let hds := elements (get_fresh_handles trans) in
@@ -578,10 +578,11 @@ Definition new_transaction (st : state) (v r : VMID)
   unit (alloc_transaction st h (v, r, ps, tt, false), h).
 
 Definition get_transaction (st : state) (h : Word) : option transaction:=
+  if bool_decide (h ∈ valid_handles) then
   match (get_transactions st) !! h with
     |Some o => o
     |None => None
-  end.
+  end else None.
 
 Definition remove_transaction (s : state) (h : Word) : state :=
   (get_reg_files s, get_mail_boxes s, get_page_table s, get_current_vm s, get_mem s,

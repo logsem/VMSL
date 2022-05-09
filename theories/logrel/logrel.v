@@ -35,7 +35,7 @@ Section logrel.
   (* We need the pure proposition to ensure all transaction entries are transferred.
      Only half is needed so that the invokers can remember transactions by keeping the other half.*)
   Definition transaction_hpool_global_transferred (trans: gmap Addr transaction) : iProp Σ:=
-    ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = hs_all⌝ ∗ fresh_handles 1 hpool ∗ ⌜trans_ps_disj trans⌝ ∗ [∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1.
+    ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = valid_handles⌝ ∗ fresh_handles 1 hpool ∗ ⌜trans_ps_disj trans⌝ ∗ [∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1.
 
   (* [transaction_pagetable_entries_owned]: transaction and page table entries that are owned initially by i,
      i.e. they are not transferred by VMProp, so we doesn't need to take care of them when reasoning the primary VM.

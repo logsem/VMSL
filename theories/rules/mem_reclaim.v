@@ -104,6 +104,7 @@ Proof.
   iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
   (* valid trans *)
   iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
   rewrite Hlookup_tran in Hlookup_tran'.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
@@ -123,6 +124,8 @@ Proof.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /reclaim //= Hlookup_R1 //= in Heqc2.
     rewrite /get_transaction Hlookup_tran //= in Heqc2.
+    case_bool_decide. simpl in Heqc2.
+    2:{  contradiction. }
     case_bool_decide;last done. clear H0.
     rewrite andb_true_l /= in Heqc2.
     assert (Heq_c2: (m2, σ2) = (ExecI, (update_incr_PC
@@ -198,7 +201,7 @@ Proof.
     iFrame "trans".
     (* upd hp *)
     rewrite (preserve_get_hpool_gset (remove_transaction σ1 wh) (update_incr_PC _)).
-    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_hp.
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_hp //.
     iDestruct (hpool_update_union wh with "hpool hp") as ">[hpool hp]".
     iFrame "hpool".
     (* upd retri *)
@@ -383,6 +386,7 @@ Proof.
   iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
   (* valid trans *)
   iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
   rewrite Hlookup_tran in Hlookup_tran'.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
@@ -402,6 +406,7 @@ Proof.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /reclaim //= Hlookup_R1 //= in Heqc2.
     rewrite /get_transaction Hlookup_tran //= in Heqc2.
+    case_bool_decide;last contradiction. simpl in Heqc2.
     case_bool_decide;last done. clear H0.
     rewrite andb_true_l /= in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2.
@@ -458,7 +463,7 @@ Proof.
     iDestruct (trans_update_delete with "trans tran") as ">[$ tran]".
     (* upd hp *)
     rewrite (preserve_get_hpool_gset (remove_transaction σ1 wh) (update_incr_PC _)).
-    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_hp.
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_hp //.
     iDestruct (hpool_update_union wh with "hpool hp") as ">[$ hp]".
     (* upd retri *)
     rewrite (preserve_get_retri_gmap (remove_transaction σ1 wh) (update_incr_PC _)).
@@ -528,7 +533,7 @@ Lemma mem_reclaim_invalid_handle {E i wi sacc r0 r2 wh p_tx} ai:
   decode_instruction wi = Some(Hvc) ->
   (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Reclaim) ->
-  wh ∉ hs_all ->
+  wh ∉ valid_handles ->
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        (* registers *)
@@ -587,6 +592,7 @@ Proof.
       rewrite Hwf in Hnin_wh.
       rewrite not_elem_of_dom in Hnin_wh.
       rewrite /get_transaction Hnin_wh //.
+      case_bool_decide;done.
     }
     rewrite Hwh_None /= in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
@@ -653,6 +659,7 @@ Proof.
     iDestruct (trans_valid_None with "trans tran") as %Hlookup_tran.
     iPureIntro.
     rewrite /get_transaction Hlookup_tran //.
+    case_bool_decide;done.
   }
   iSplit.
   - (* reducible *)
@@ -724,6 +731,7 @@ Proof.
   iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
   (* valid tran *)
   iDestruct (trans_valid_Some with "trans tran") as %[? Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -738,6 +746,7 @@ Proof.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /reclaim Hlookup_R1 /= in Heqc2.
     rewrite /get_transaction Hlookup_tran /= in Heqc2.
     destruct meta as [[[? ?] ?] ?].
+    case_bool_decide;last contradiction. simpl in Heqc2. clear H0.
     case_bool_decide. rewrite Heq_cur // in H0.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     iDestruct (hvc_error_update (E:= E) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
@@ -795,6 +804,7 @@ Proof.
   iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
   (* valid tran *)
   iDestruct (retri_valid_Some with "retri re") as %[? Hlookup_re].
+  iDestruct (retri_valid_handle_Some with "re") as %Hvalid_handle.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -811,6 +821,7 @@ Proof.
     destruct x as [[[? ?] ?] ?].
     assert (Heq_c2 : (m2,σ2) = (ExecI, update_incr_PC (update_reg (update_reg σ1 R0 (encode_hvc_ret_code Error)) R2 (encode_hvc_error Denied)))).
     {
+      case_bool_decide;last contradiction. simpl in Heqc2.
       case_bool_decide; destruct HstepP;subst m2 σ2; subst c2; done.
     }
     inversion Heq_c2. clear H1 H2 Heq_c2 Heqc2.

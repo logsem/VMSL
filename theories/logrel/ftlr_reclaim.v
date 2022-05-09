@@ -96,7 +96,7 @@ Lemma ftlr_reclaim {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr tra
     iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & %Htrans_ps_disj & trans)".
 
 
-    destruct (decide (r1 ∈ hs_all)) as [Hin_hs_all |Hnotin_hs_all].
+    destruct (decide (r1 ∈ valid_handles)) as [Hin_hs_all |Hnotin_hs_all].
     2: { (* apply [mem_reclaim_invalid_handle] *)
       iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
 
