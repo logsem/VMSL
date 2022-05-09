@@ -12,13 +12,13 @@ Section ftlr_run.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_run {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans rx_state r0}:
+Lemma ftlr_run {i mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans rx_state r0}:
   base_extra.is_total_gmap regs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
   i ≠ V0 ->
-  ps_na ## ps_acc ∪ accessible_in_trans_memory_pages i trans ->
-  p_rx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans ->
-  p_tx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans ->
+  ps_na ## ps_acc ∪ pages_in_trans (trans_memory_in_trans i trans) ->
+  p_rx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i trans) ->
+  p_tx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i trans) ->
   regs !! PC = Some ai ->
   tpa ai ∈ ps_acc ->
   tpa ai ≠ p_tx ->
@@ -33,9 +33,9 @@ Lemma ftlr_run {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans r
   ▷ (∀ (a : gmap reg_name Addr) (a0 a1: gset PID) (a2 a3: gmap Addr transaction) (a4 : option (Addr * VMID)),
           ⌜base_extra.is_total_gmap a⌝
             → ⌜{[p_tx; p_rx]} ⊆ a1⌝
-              → ⌜a0 ## a1 ∪ accessible_in_trans_memory_pages i a3⌝
-                → ⌜p_rx ∉ a1 ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i a3⌝
-                  → ⌜p_tx ∉ a1 ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i a3⌝
+              → ⌜a0 ## a1 ∪ pages_in_trans (trans_memory_in_trans i a3)⌝
+                → ⌜p_rx ∉ a1 ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i a3)⌝
+                  → ⌜p_tx ∉ a1 ∖ {[p_rx; p_tx]} ∪ pages_in_trans (trans_memory_in_trans i a3)⌝
                     → ([∗ map] r↦w ∈ a, r @@ i ->r w) -∗
                       TX@i:=p_tx -∗
                       p_tx -@O> - ∗ p_tx -@E> true -∗
@@ -51,12 +51,12 @@ Lemma ftlr_run {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans r
                       RX_state@i:= a4 -∗
                       mailbox.rx_page i p_rx -∗
                       rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-                      (∃ trans, ▷ VMProp V0 (vmprop_zero i p_tx p_rx trans) (1 / 2)) -∗
-                      VMProp i (vmprop_unknown i p_tx p_rx a2) 1 -∗
+                      ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
+                      VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
                       transaction_pagetable_entries_owned i a3 -∗
-                      pagetable_entries_excl_owned i (a1 ∖ {[p_rx; p_tx]} ∖ (accessible_in_trans_memory_pages i a3)) -∗
+                      pagetable_entries_excl_owned i (a1 ∖ {[p_rx; p_tx]} ∖ (pages_in_trans (trans_memory_in_trans i a3))) -∗
                       retrieval_entries_owned i a3 -∗
-                      (∃ mem : lang.mem, memory_pages (a1 ∪ (accessible_in_trans_memory_pages i a3)) mem) -∗
+                      (∃ mem : lang.mem, memory_pages (a1 ∪ pages_in_trans (trans_memory_in_trans i a3)) mem) -∗
                       WP ExecI @ i {{ _, True }}) -∗
    ([∗ map] r↦w ∈ regs, r @@ i ->r w) -∗
    TX@i:=p_tx -∗
@@ -73,12 +73,12 @@ Lemma ftlr_run {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans r
    RX_state@i:= rx_state -∗
    mailbox.rx_page i p_rx -∗
    rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-   (∃ trans, ▷ VMProp V0 (vmprop_zero i p_tx p_rx trans) (1 / 2)) -∗
-   VMProp i (vmprop_unknown i p_tx p_rx trans') 1 -∗
+   ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
+   VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
    transaction_pagetable_entries_owned i trans -∗
-   pagetable_entries_excl_owned i (ps_acc ∖ {[p_rx; p_tx]} ∖ (accessible_in_trans_memory_pages i trans)) -∗
+   pagetable_entries_excl_owned i (ps_acc ∖ {[p_rx; p_tx]} ∖ (pages_in_trans (trans_memory_in_trans i trans))) -∗
    retrieval_entries_owned i trans -∗
-   (∃ mem1 : mem, memory_pages ((ps_acc ∪ (accessible_in_trans_memory_pages i trans)) ∖ ps_acc) mem1) -∗
+   (∃ mem1 : mem, memory_pages ((ps_acc ∪ (pages_in_trans (trans_memory_in_trans i trans))) ∖ ps_acc) mem1) -∗
    ([∗ map] k↦v ∈ mem_acc_tx, k ->a v) -∗
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
@@ -106,9 +106,8 @@ Lemma ftlr_run {i trans' mem_acc_tx ai regs ps_acc p_tx p_rx ps_na instr trans r
     iAssert (memory_pages (ps_acc ∖ {[p_tx]}) _)%I with "[mem]" as "mem_acc".
     by iFrame.
     iApply ("IH" $!  _ _ ps_acc _ trans _ Htotal_regs' Hsubset_mb Hdisj_na Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_acc'
-                 LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx [prop0] propi tran_pgt_owned
+                 LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
                  pgt_owned retri_owned [mem_rest mem_acc mem_tx]").
-    { iDestruct "prop0" as "[%x prop0]". iExists x. iFrame. }
     {
       iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
       iSplitL "mem_acc".
