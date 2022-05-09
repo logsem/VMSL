@@ -146,6 +146,7 @@ Lemma mem_retrieve_donate' {E n i sacc r0 sh j mem_rx p_tx} {σ1: state} {ps: gs
   mem_rx ⊆ σ1.1.2 ->
   σ1.2 !! wh = Some (Some (j, i, ps, Donation, false)) ->
   finz.of_z (size ps + 4)%nat = Some l ->
+  wh ∈ valid_handles ->
   wh ∉ sh ->
   PC @@ i ->r ai -∗
   R0 @@ i ->r r0 -∗
@@ -196,7 +197,7 @@ Lemma mem_retrieve_donate' {E n i sacc r0 sh j mem_rx p_tx} {σ1: state} {ps: gs
             memory_page p_rx (list_to_map (zip (finz.seq p_rx (length des)) des) ∪ mem_rx)) ∗
          fresh_handles 1 (sh ∪ {[wh]}).
 Proof.
-  iIntros (Heq_cur Hlookup_PC Hlookup_R0 Hlookup_R1 Heq_tx Heq_rx Hsubseteq_mem Hlookup_tran Heq_l Hnin) "PC R0 R1 own acc re tran rx_s mem_rx hp handles (Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+  iIntros (Heq_cur Hlookup_PC Hlookup_R0 Hlookup_R1 Heq_tx Heq_rx Hsubseteq_mem Hlookup_tran Heq_l Hvalidhandle Hnin) "PC R0 R1 own acc re tran rx_s mem_rx hp handles (Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
                             trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
     rewrite /= /gen_vm_interp.
     (* unchanged part *)
@@ -288,7 +289,7 @@ Proof.
     iDestruct (trans_update_delete with "trans tran") as ">[$ tran]".
     (* upd hp *)
     rewrite (preserve_get_hpool_gset (remove_transaction σ1 wh) (update_incr_PC _)).
-    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_hp.
+    2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_rm_tran_hp; last done.
     iDestruct (hpool_update_union wh with "hpool hp") as ">[$ hp]".
     (* upd retri *)
     rewrite (preserve_get_retri_gmap (remove_transaction σ1 wh) (update_incr_PC _)).
@@ -424,6 +425,7 @@ Proof.
   iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
   (* valid trans *)
   iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
   rewrite Hlookup_tran in Hlookup_tran'.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
@@ -442,6 +444,7 @@ Proof.
     2: rewrite Heq_tx //.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0. simpl in Heqc2.
     case_bool_decide;last done. clear H0.
     assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
     {
@@ -460,7 +463,7 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2.
     rewrite /=.
     iDestruct (mem_retrieve_donate' (E:= E) (n:=n)(σ1 := σ1) with "PC R0 R1 own acc re tran rx_s mem_rx hp handles [Hnum mem regs mb rx_state pgt_owned pgt_acc pgt_excl trans hpool retri]") as ">($ & $ & (? & ? & ? & ? & ? & ?))".
-    done. done. done. done. eauto. eauto. eauto. done. eauto. done. iFrame. iPureIntro. done.
+    done. done. done. done. eauto. eauto. eauto. done. eauto. done. done. iFrame. iPureIntro. done.
     iModIntro.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_upd_own_current_vm p_grnt_acc_current_vm p_rm_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm.
@@ -542,6 +545,7 @@ Proof.
   iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
   (* valid trans *)
   iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
   rewrite Hlookup_tran in Hlookup_tran'.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
@@ -560,6 +564,7 @@ Proof.
     2: rewrite Heq_tx //.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0. simpl in Heqc2.
     case_bool_decide;last done. clear H0.
     assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
     {
@@ -578,7 +583,7 @@ Proof.
     destruct HstepP;subst m2 σ2; subst c2.
     rewrite /=.
     iDestruct (mem_retrieve_donate' (E:= E) (n:=n) (σ1 := σ1) (tpa ai) with "PC R0 R1 own acc re tran rx_s mem_rx hp handles [Hnum mem regs mb rx_state pgt_owned pgt_acc pgt_excl trans hpool retri]") as ">($ & $ & (? & ? & ? & ? & ? & ?))".
-    done. done. done. done. eauto. eauto. eauto. done. eauto. done. iFrame. iPureIntro. done.
+    done. done. done. done. eauto. eauto. eauto. done. eauto. done. done. iFrame. iPureIntro. done.
     iModIntro.
     rewrite /scheduled /machine.scheduler /= /scheduler.
     rewrite p_upd_pc_current_vm p_upd_reg_current_vm p_upd_own_current_vm p_grnt_acc_current_vm p_rm_tran_current_vm p_fill_rx_current_vm p_wr_mem_current_vm.
@@ -597,7 +602,7 @@ Lemma mem_retrieve_invalid_handle {E i wi sacc r0 r2 wh p_tx} ai:
   decode_instruction wi = Some(Hvc) ->
   (* the hvc call to invoke is retrieve *)
   decode_hvc_func r0 = Some(Retrieve) ->
-  wh ∉ hs_all ->
+  wh ∉ valid_handles ->
   {SS{{(* the encoding of instruction wi is stored in location ai *)
        ▷ (PC @@ i ->r ai) ∗ ▷ ai ->a wi ∗
        (* registers *)
@@ -657,6 +662,7 @@ Proof.
       rewrite Hwf in Hnin_wh.
       rewrite not_elem_of_dom in Hnin_wh.
       rewrite /get_transaction Hnin_wh //.
+      case_bool_decide;done.
     }
     rewrite Hwh_None /= in Heqc2.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
@@ -723,6 +729,7 @@ Proof.
     iDestruct (trans_valid_None with "trans tran") as %Hlookup_tran.
     iPureIntro.
     rewrite /get_transaction Hlookup_tran //.
+    case_bool_decide;done.
   }
   iSplit.
   - (* reducible *)
@@ -794,6 +801,7 @@ Proof.
   iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
   (* valid tran *)
   iDestruct (trans_valid_Some with "trans tran") as %[? Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -808,7 +816,8 @@ Proof.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /= in Heqc2.
     rewrite /get_transaction Hlookup_tran /= in Heqc2.
     destruct meta as [[[? ?] ?] ?].
-    case_bool_decide. rewrite Heq_cur // in H0.
+    case_bool_decide;last contradiction. clear H0. simpl in Heqc2.
+    case_bool_decide; rewrite Heq_cur // in H0.
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     iDestruct (hvc_error_update (E:= E) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
     as ">[[$ $] ?]". 1-4: auto. iPureIntro. auto.
@@ -865,6 +874,7 @@ Proof.
   iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
   (* valid tran *)
   iDestruct (retri_valid_Some with "retri re") as %[? Hlookup_re].
+  iDestruct (retri_valid_handle_Some with "re") as %Hvalid_handle.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -881,6 +891,7 @@ Proof.
     destruct x as [[[? ?] ?] ?].
     assert (Heq_c2 : (m2,σ2) = (ExecI, update_incr_PC (update_reg (update_reg σ1 R0 (encode_hvc_ret_code Error)) R2 (encode_hvc_error Denied)))).
     {
+      case_bool_decide;last contradiction. simpl in Heqc2.
       case_bool_decide; destruct HstepP;subst m2 σ2; subst c2; done.
     }
     inversion Heq_c2. clear H1 H2 Heq_c2 Heqc2.
@@ -946,6 +957,7 @@ Proof.
   iDestruct (rx_state_valid_Some with "rx_state rx_s") as %Heq_rx_state.
   (* valid tran *)
   iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
   rewrite Hlookup_tran in Hlookup_tran'.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
@@ -962,6 +974,7 @@ Proof.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /= in Heqc2.
     rewrite /get_transaction Hlookup_tran /= in Heqc2.
+    case_bool_decide;last contradiction. clear H0. simpl in Heqc2.
     case_bool_decide;last done. clear H0.
     assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
     {
@@ -1260,6 +1273,7 @@ Proof.
   iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
   (* valid trans *)
   iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
   iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
   rewrite Hlookup_tran in Hlookup_tran'.
   inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
@@ -1275,6 +1289,7 @@ Proof.
     2: rewrite Heq_tx //.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0. simpl in Heqc2.
     case_bool_decide;last done. clear H0.
     assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
     {
@@ -1476,10 +1491,11 @@ Proof.
   iDestruct (mb_valid_rx i p_rx with "mb rx") as %Heq_rx.
   iDestruct (rx_state_valid_None with "rx_state rx_s") as %Heq_rx_state.
   (* valid trans *)
-  iDestruct (trans_valid_Some with "trans tran") as %[re Hlookup_tran].
-  iDestruct (retri_valid_Some with "retri re") as %[meta Hlookup_tran'].
+  iDestruct (trans_valid_Some with "trans tran") as %[meta Hlookup_tran].
+  iDestruct (trans_valid_handle_Some with "tran") as %Hvalid_handle.
+  iDestruct (retri_valid_Some with "retri re") as %[re Hlookup_tran'].
   rewrite Hlookup_tran in Hlookup_tran'.
-  inversion Hlookup_tran'. subst re. clear meta Hlookup_tran' H1.
+  inversion Hlookup_tran'. subst meta. clear re Hlookup_tran' H1.
   iSplit.
   - (* reducible *)
     iPureIntro.
@@ -1492,6 +1508,7 @@ Proof.
     2: rewrite Heq_tx //.
     remember (exec Hvc σ1) as c2 eqn:Heqc2.
     rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /retrieve Hlookup_R1 /get_transaction /= Hlookup_tran Heq_cur /=  in Heqc2.
+    case_bool_decide;last done. clear H0. simpl in Heqc2.
     case_bool_decide;last done. clear H0.
     assert (is_Some(finz.of_z (finz_bound := word_size) (Z.of_nat (size ps + 4)%nat))) as [l Heq_l].
     {
@@ -1579,7 +1596,6 @@ Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
 Proof.
   by apply (mem_retrieve_not_donate_rx Lending).
 Qed.
-
 
 Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
   tpa ai ≠ p_tx ->

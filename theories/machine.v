@@ -1,5 +1,5 @@
 (* This file defines some basic types that will be used in the operational semantics *)
-From stdpp Require Import countable fin vector.
+From stdpp Require Import countable fin vector gmap.
 From Coq Require Import ssreflect Bool Eqdep_dec ZArith.
 From machine_utils Require Export finz.
 
@@ -316,9 +316,11 @@ Qed.
 
 Section hyp_config.
 (* there are only fixed number of VMs in the machine *)
+
 Class HypervisorConstants := {
   vm_count : nat;
   vm_count_pos : 0 < vm_count;
+  valid_handles : gset Word;
 }.
 
 End hyp_config.
@@ -374,9 +376,7 @@ Class HypervisorParameters := {
   decode_transaction_type : Word -> option transaction_type;
   encode_transaction_type : transaction_type -> Word;
   decode_encode_transaction_type : forall (ty : transaction_type),
-      decode_transaction_type (encode_transaction_type ty) = Some ty
+      decode_transaction_type (encode_transaction_type ty) = Some ty;
 }.
-
-
 
 End hyp_def.

@@ -88,7 +88,6 @@ Section gen_vmG.
   Global Arguments gen_name_map_name {Σ} {_}.
   Global Arguments gen_lower_bound_name {Σ} {_}.
 
-
   Definition gen_VMΣ : gFunctors :=
     #[
            invΣ;
@@ -176,10 +175,8 @@ Section definitions.
                            |None => True
                            end) trans.
 
-  Definition hs_all : gset Word := list_to_set (finz.seq W0 100).
-
   Definition inv_finite_handles (trans: gmap Word (option transaction)) :=
-   hs_all = dom (gset Word) trans.
+   valid_handles = dom (gset Word) trans.
 
   Definition inv_trans_wellformed' (trans : gmap Word (option transaction)) :=
     inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans ∧ inv_finite_handles trans.
@@ -344,13 +341,13 @@ Notation "p -@{ q }E> b" := (excl_mapsto p q b) (at level 20, format "p  -@{ q }
 Notation "p -@E> b" := (p -@{ 1 }E> b)%I (at level 20, format "p  -@E>  b"):bi_scope.
 
 (* predicates for transactions *)
-Notation "w -{ q }>t t" := (trans_mapsto w (DfracOwn q) (Some t)) (at level 20, format "w  -{ q }>t  t"):bi_scope.
-Notation "w -{ q }>t -" := (trans_mapsto w (DfracOwn q) None) (at level 20, format "w  -{ q }>t  -"):bi_scope.
+Notation "w -{ q }>t t" := ((trans_mapsto w (DfracOwn q) (Some t)) ∗ ⌜w ∈ valid_handles⌝)%I (at level 20, format "w  -{ q }>t  t"):bi_scope.
+Notation "w -{ q }>t -" := ((trans_mapsto w (DfracOwn q) None) ∗ ⌜w ∈ valid_handles⌝)%I (at level 20, format "w  -{ q }>t  -"):bi_scope.
 Notation "w ->t t" := (w -{ 1 }>t t)%I (at level 20, format "w  ->t  t"):bi_scope.
 Notation "w ->t -" := (w -{ 1 }>t -)%I (at level 20, format "w  ->t  -"):bi_scope.
 
-Notation "w -{ q }>re b" := (retri_mapsto w (DfracOwn q) (Some b)) (at level 20, format "w  -{ q }>re  b"):bi_scope.
-Notation "w -{ q }>re -" := (retri_mapsto w (DfracOwn q) None) (at level 20, format "w  -{ q }>re  -"):bi_scope.
+Notation "w -{ q }>re b" := ((retri_mapsto w (DfracOwn q) (Some b)) ∗ ⌜w ∈ valid_handles⌝)%I (at level 20, format "w  -{ q }>re  b"):bi_scope.
+Notation "w -{ q }>re -" := ((retri_mapsto w (DfracOwn q) None) ∗ ⌜w ∈ valid_handles⌝)%I (at level 20, format "w  -{ q }>re  -"):bi_scope.
 Notation "w ->re b" := (w -{ 1 }>re b)%I (at level 20, format "w  ->re  b"):bi_scope.
 Notation "w ->re -" := (w -{ 1 }>re -)%I (at level 20, format "w  ->re  -"):bi_scope.
 
