@@ -104,10 +104,11 @@ Section logrel.
     (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', RX_state@ i := rx_state'') ∗ ∃ j p_rx l, ⌜j ≠ i⌝ ∗ RX@ j := p_rx ∗ RX_state{1/2}@j := Some(l,i)
                           ∗ (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗ ∃ mem_rx, memory_page p_rx mem_rx).
 
-  (* Definition trans_rel (P : gmap Word transaction -d> iPropO Σ) (trans trans': gmap Word transaction ): iProp Σ:= *)
-  (*   □(P trans -∗ P trans'). *)
+  Definition trans_rel_wand (P : gmap Word transaction -d> iPropO Σ) (trans trans': gmap Word transaction ): iProp Σ:=
+    □(P trans -∗ P trans').
 
-  (* Notation "t -{{ P }}∗ t'"  := (trans_rel P t t') ( at level 70, format "t  -{{ P }}∗  t'"). *)
+  Definition trans_rel_eq (P : gmap Word transaction -> gset PID) (trans trans': gmap Word transaction ): Prop:=
+    P trans = P trans'.
 
   Definition vmprop_zero_pre (Ψ: PID -d> PID -d> iPropO Σ) :PID -d> PID -d> iPropO Σ :=
     λ p_tx p_rx, (∃ ps_na'' ps_acc'' trans'',
@@ -275,7 +276,7 @@ Section logrel.
       VMProp i (vmprop_unknown p_tx p_rx) (1/2)%Qp
     )%I.
 
-  Definition tran_rel_secondary (i:VMID) (trans trans': gmap Word transaction): Prop :=
+  Definition trans_rel_secondary (i:VMID) (trans trans': gmap Word transaction): Prop :=
    map_Forall (λ h tran,
        match tran with
         | (sndr, rcvr, _, ty, retri) =>
@@ -291,7 +292,7 @@ Section logrel_prim.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Definition tran_rel_primary (i:VMID) (trans trans': gmap Word transaction): Prop :=
+  Definition trans_rel_primary (i:VMID) (trans trans': gmap Word transaction): Prop :=
    map_Forall (λ h tran,
        match tran with
          | (sndr, rcvr, _, ty, retri) =>

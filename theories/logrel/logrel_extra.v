@@ -1278,16 +1278,51 @@ Section logrel_extra.
     rewrite lookup_fmap Hlk //.
   Qed.
 
-(* lemmas for trans_rel *)
-  Lemma trans_rel_mem {i} ps_acc p_rx p_tx trans':
+(* TODO: lemmas for tran_rel *)
+  Lemma derive_trans_rel_secondary i trans trans':
+    transaction_hpool_global_transferred trans' ∗
+      transaction_pagetable_entries_owned i trans ∗
+      retrieved_transaction_owned i trans ⊢
+    ⌜trans_rel_secondary i trans trans'⌝.
+  Proof.
+  Admitted.
+
+  Lemma trans_rel_secondary_retrieved_lending_memory_page i trans trans':
+    trans_rel_secondary i trans trans' ->
+    trans_rel_eq (retrieved_lending_memory_pages i) trans trans'.
+  Proof.
+  Admitted.
+
+  Lemma trans_rel_secondary_currently_accessible_memory_pages i trans trans':
+    trans_rel_secondary i trans trans' ->
+    trans_rel_eq (currently_accessible_in_trans_memory_pages i) trans trans'.
+  Proof.
+  Admitted.
+
+  Lemma trans_rel_secondary_transaction_pagetable_entries_owned i trans trans':
+    trans_rel_secondary i trans trans' ->
+    ⊢ trans_rel_wand (transaction_pagetable_entries_owned i) trans trans'.
+  Proof.
+  Admitted.
+
+  Lemma trans_rel_secondary_retrieved_transaction_owned i trans trans':
+    trans_rel_secondary i trans trans' ->
+    ⊢ trans_rel_wand (retrieved_transaction_owned i) trans trans'.
+  Proof.
+  Admitted.
+
+  (* TODO *)
+  Lemma memory_pages_oea_transferred {i} ps_acc p_rx p_tx trans':
     let ps_macc_trans' := (transferred_memory_pages i trans') in
-    let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages i trans') in
+    let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages i trans') in
     trans_ps_disj trans' ->
+    (* TODO: add this line to logrel *)
+    ps_acc ∖ {[p_rx;p_tx]} ∩ accessible_in_trans_memory_pages i trans' = currently_accessible_in_trans_memory_pages i trans' ->
     ((∃ mem_oea, memory_pages (ps_oea' ∪ (retrieved_lending_memory_pages i trans')) mem_oea)
      ∗ (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) -∗
     ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ (accessible_in_trans_memory_pages i trans')) mem_all).
     Proof.
-      iIntros (? ? Hdisj) "[oea trans]".
+      iIntros (? ? Hdisj_ps Hdisj) "[oea trans]".
       iDestruct (memory_pages_split_union' (ps_oea' ∪ retrieved_lending_memory_pages i trans') ps_macc_trans' with "[oea trans]") as "mem".
       {
         rewrite /ps_oea'.
