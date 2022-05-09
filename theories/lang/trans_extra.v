@@ -73,14 +73,13 @@ Proof.
 Qed.
 
 Lemma insert_transaction_update_hpool {σ} h tran:
-   (get_hpool_gset (insert_transaction σ h tran))
-   = (get_hpool_gset σ) ∖ {[h]}.
+   (get_hpool_gset (insert_transaction σ h tran)) = (get_hpool_gset σ) ∖ {[h]}.
 Proof.
   rewrite /get_hpool_gset.
   rewrite /get_fresh_handles /insert_transaction /=.
   rewrite map_filter_insert_False.
   rewrite map_filter_delete.
-  rewrite dom_delete_L //.
+  rewrite dom_delete_L. set_solver.
   done.
 Qed.
 
@@ -341,12 +340,14 @@ Proof.
 Qed.
 
 Lemma u_rm_tran_hp {σ} h :
+  h ∈ valid_handles ->
   (get_hpool_gset (remove_transaction σ h)) = ({[h]} ∪ (get_hpool_gset σ) ).
 Proof.
+  intro Hvalid.
   rewrite /get_hpool_gset /=.
   rewrite /get_fresh_handles.
   rewrite map_filter_insert_True;last done.
-  rewrite dom_insert_L //.
+  rewrite dom_insert_L. set_solver.
 Qed.
 
 Lemma u_rm_tran_tran σ h :

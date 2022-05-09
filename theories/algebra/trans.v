@@ -11,22 +11,66 @@ Section trans_rules.
     w -{q}>t tran ⊣⊢ w -{q/2}>t tran ∗ w -{q/2}>t tran.
   Proof.
     rewrite trans_mapsto_eq /trans_mapsto_def.
-    iApply ghost_map_elem_split.
+    iSplit.
+    iIntros "[H %]".
+    iDestruct (ghost_map_elem_split with "H") as "[H1 H2]".
+    by iFrame.
+    iIntros "[[H1 %] [H2 _]]".
+    iDestruct (ghost_map_elem_split with "[$H1 $H2]") as "H".
+    by iFrame.
+   Qed.
+
+  Lemma trans_valid_handle_Some w q tran :
+    w -{q}>t tran ⊢ ⌜w ∈ valid_handles⌝.
+  Proof.
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iIntros "[H %Hvalid]".
+    by iFrame.
+  Qed.
+
+  Lemma trans_valid_handle_None w q :
+    w -{q}>t - ⊢ ⌜w ∈ valid_handles⌝.
+  Proof.
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iIntros "[H %Hvalid]".
+    by iFrame.
   Qed.
 
   Lemma retri_split w q bool:
     w -{q}>re bool ⊣⊢ w -{q/2}>re bool ∗ w -{q/2}>re bool.
   Proof.
     rewrite retri_mapsto_eq /retri_mapsto_def.
-    iApply (ghost_map_elem_split w _ q (Some bool)).
+    iSplit.
+    iIntros "[H %]".
+    iDestruct (ghost_map_elem_split with "H") as "[H1 H2]".
+    by iFrame.
+    iIntros "[[H1 %] [H2 _]]".
+    iDestruct ((ghost_map_elem_split w _ q (Some bool)) with "[$H1 $H2]") as "H".
+    by iFrame.
+  Qed.
+
+  Lemma retri_valid_handle_Some w q b :
+    w -{q}>re b ⊢ ⌜w ∈ valid_handles⌝.
+  Proof.
+    rewrite retri_mapsto_eq /retri_mapsto_def.
+    iIntros "[H %Hvalid]".
+    by iFrame.
+  Qed.
+
+  Lemma retri_valid_handle_None w q :
+    w -{q}>re - ⊢ ⌜w ∈ valid_handles⌝.
+  Proof.
+    rewrite retri_mapsto_eq /retri_mapsto_def.
+    iIntros "[H %Hvalid]".
+    by iFrame.
   Qed.
 
   Lemma trans_valid_Some {σ q} {meta} wh:
     (ghost_map_auth gen_trans_name 1 (get_trans_gmap σ)) -∗
      wh -{q}>t (meta) -∗
-    ⌜∃ (b:bool), (get_transactions σ) !! wh = Some (Some (meta,b))⌝.
+    ⌜(∃ (b:bool), (get_transactions σ) !! wh = Some (Some (meta,b)))⌝.
   Proof.
-    iIntros "Hσ Htrn".
+    iIntros "Hσ [Htrn %Hvalid]".
     rewrite trans_mapsto_eq /trans_mapsto_def.
     rewrite /get_trans_gmap /get_transactions_gmap.
     iDestruct (ghost_map_lookup with "Hσ Htrn") as "%Hlk".
@@ -44,7 +88,7 @@ Section trans_rules.
     wh -{q}>t - -∗
     ⌜(get_transactions σ) !! wh = Some (None)⌝.
   Proof.
-    iIntros "Hσ Htrn".
+    iIntros "Hσ [Htrn %Hvalid]".
     rewrite trans_mapsto_eq /trans_mapsto_def.
     rewrite /get_trans_gmap /get_transactions_gmap.
     iDestruct (ghost_map_lookup with "Hσ Htrn") as "%Hlk".
@@ -59,9 +103,9 @@ Section trans_rules.
   Lemma retri_valid_Some {σ q b} wh:
     ghost_map_auth gen_retri_name 1 (get_retri_gmap σ) -∗
     wh -{q}>re b -∗
-    ⌜∃ t, (get_transactions σ) !! wh = Some (Some (t,b))⌝.
+    ⌜(∃ t, (get_transactions σ) !! wh = Some (Some (t,b)))⌝.
   Proof.
-    iIntros "Hσ Hretri".
+    iIntros "Hσ [Hretri %Hvalid]".
     rewrite retri_mapsto_eq /retri_mapsto_def.
     rewrite /get_retri_gmap /get_transactions_gmap.
     iDestruct (ghost_map_lookup with "Hσ Hretri") as "%Hlk".
@@ -79,7 +123,7 @@ Section trans_rules.
     wh -{q}>re - -∗
     ⌜(get_transactions σ) !! wh = Some (None)⌝.
   Proof.
-    iIntros "Hσ Hretri".
+    iIntros "Hσ [Hretri %Hvalid]".
     rewrite retri_mapsto_eq /retri_mapsto_def.
     rewrite /get_retri_gmap /get_transactions_gmap.
     iDestruct (ghost_map_lookup with "Hσ Hretri") as "%Hlk".
@@ -99,7 +143,8 @@ Section trans_rules.
     iIntros "auth tran".
     iDestruct (trans_valid_None with "auth tran") as "%Hvalid".
     rewrite trans_mapsto_eq /trans_mapsto_def.
-    iApply (ghost_map_update with "auth tran");auto.
+    iDestruct "tran" as "[tran Hvalid]".
+    iFrame. iApply (ghost_map_update with "auth tran");auto.
   Qed.
 
   Lemma trans_update_delete {σ meta} h :
@@ -110,7 +155,8 @@ Section trans_rules.
   Proof.
     iIntros "auth tran".
     rewrite trans_mapsto_eq /trans_mapsto_def.
-    iApply (ghost_map_update None with "auth tran").
+    iDestruct "tran" as "[tran Hvalid]".
+    iFrame. iApply (ghost_map_update None with "auth tran").
   Qed.
 
   Lemma retri_update_flip {σ b} h :
@@ -121,7 +167,8 @@ Section trans_rules.
   Proof.
     iIntros "auth retri".
     rewrite retri_mapsto_eq /retri_mapsto_def.
-    iApply ((ghost_map_update (Some (negb b))) with "auth retri").
+    iDestruct "retri" as "[retri Hvalid]".
+    iFrame. iApply ((ghost_map_update (Some (negb b))) with "auth retri").
   Qed.
 
   Lemma retri_update_delete {σ b} (h: Word):
@@ -132,7 +179,8 @@ Section trans_rules.
   Proof.
     iIntros "auth retri".
     rewrite retri_mapsto_eq /retri_mapsto_def.
-    iApply ((ghost_map_update None) with "auth retri").
+    iDestruct "retri" as "[retri Hvalid]".
+    iFrame. iApply ((ghost_map_update None) with "auth retri").
   Qed.
 
   Lemma retri_update_insert {σ} (h: Word):
@@ -143,7 +191,8 @@ Section trans_rules.
   Proof.
     iIntros "auth retri".
     rewrite retri_mapsto_eq /retri_mapsto_def.
-    iApply(ghost_map_update (Some false) with "auth retri").
+    iDestruct "retri" as "[retri Hvalid]".
+    iFrame. iApply(ghost_map_update (Some false) with "auth retri").
   Qed.
 
   Lemma hpool_valid {σ q} s :
@@ -201,15 +250,14 @@ Section trans_rules.
     fresh_handles q hs ∗ w -{q'}>t tran ⊢ ⌜w ∉ hs⌝.
   Proof.
     rewrite /fresh_handles.
-    iIntros "[[_ hs] tran]".
+    iIntros "[[_ hs] [tran _]]".
     destruct (decide (w ∈ hs)).
-    iDestruct (big_sepS_elem_of _ hs w e with "hs") as "[tran' _]".
+    iDestruct (big_sepS_elem_of _ hs w e with "hs") as "[[tran' _] _]".
     rewrite trans_mapsto_eq /trans_mapsto_def.
     iDestruct (ghost_map_elem_agree with "tran tran'") as %H.
     inversion H.
     done.
   Qed.
-
 
   Lemma fresh_handles_disj hs q (trans : gmap Addr transaction) q':
     fresh_handles q hs ∗
