@@ -93,7 +93,7 @@ Section sets.
     }
   Qed.
 
- Lemma not_subseteq_diff A B C :
+  Lemma not_subseteq_diff A B C :
    A ⊆ B -> A ⊈ (B ∖ C) -> ∃ a, a ∈ A ∧ a ∈ C.
   Proof.
     intros Hsub1 Hsub2.
@@ -103,6 +103,23 @@ Section sets.
     split;auto.
     specialize (Hsub1 a Hin).
     set_solver.
+  Qed.
+
+  Lemma difference_union_subseteq A B C :
+    B ⊆ C ->
+    A ∖ B ∪ C = A ∪ C.
+  Proof.
+    intro Hsub.
+    apply (union_split_difference_intersection_subseteq_L C B) in Hsub.
+    destruct Hsub as [Heq _].
+    replace (A ∖ B ∪ C) with (A ∖ B ∪ (C ∖ B ∪ B)).
+    rewrite (union_comm_L  _ B).
+    rewrite union_assoc_L.
+    rewrite difference_union_L.
+    rewrite -(union_assoc_L _ B).
+    rewrite (union_comm_L B).
+    set_solver + Heq.
+    set_solver + Heq.
   Qed.
 
 End sets.
@@ -1311,113 +1328,16 @@ Section logrel_extra.
   Proof.
   Admitted.
 
-  (* TODO *)
   Lemma memory_pages_oea_transferred {i} ps_acc p_rx p_tx trans':
     let ps_macc_trans' := (transferred_memory_pages i trans') in
     let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages i trans') in
     trans_ps_disj trans' ->
-    (* TODO: add this line to logrel *)
-    ps_acc ∖ {[p_rx;p_tx]} ∩ accessible_in_trans_memory_pages i trans' = currently_accessible_in_trans_memory_pages i trans' ->
     ((∃ mem_oea, memory_pages (ps_oea' ∪ (retrieved_lending_memory_pages i trans')) mem_oea)
      ∗ (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) -∗
     ∃ mem_all, memory_pages (ps_acc ∖ {[p_rx;p_tx]} ∪ (accessible_in_trans_memory_pages i trans')) mem_all).
     Proof.
-      iIntros (? ? Hdisj_ps Hdisj) "[oea trans]".
-      iDestruct (memory_pages_split_union' (ps_oea' ∪ retrieved_lending_memory_pages i trans') ps_macc_trans' with "[oea trans]") as "mem".
-      {
-        rewrite /ps_oea'.
-        rewrite disjoint_union_l.
-        split.
-        assert (Hsubseteq: ps_macc_trans' ⊆ accessible_in_trans_memory_pages i trans').
-        {
-          rewrite /accessible_in_trans_memory_pages.
-          rewrite /ps_macc_trans' /transferred_memory_pages.
-          apply pages_in_trans_subseteq.
-          clear Hdisj ps_oea' ps_macc_trans'.
-          induction trans' using map_ind.
-          set_solver +.
-          {
-            rewrite !map_filter_insert.
-            case_decide.
-            case_decide.
-            {
-              apply insert_mono.
-              apply IHtrans'.
-            }
-            {
-              exfalso. apply H1.
-              destruct H0 as [[? | ?] ?].
-              left;auto. auto.
-            }
-            case_decide.
-            apply insert_subseteq_r.
-            { apply map_filter_lookup_None. left; apply lookup_delete_None;auto. }
-            rewrite delete_notin //.
-            rewrite 2?delete_notin //.
-          }
-        }
-        set_solver + Hsubseteq.
-        {
-        rewrite /retrieved_lending_memory_pages.
-        rewrite /ps_macc_trans' /transferred_memory_pages.
-        clear ps_oea' ps_macc_trans'.
-        induction trans' using map_ind.
-        set_solver +.
-        assert (Hdisj0: trans_ps_disj m).
-        {
-          eapply trans_ps_disj_subseteq;eauto.
-          by apply insert_subseteq.
-        }
-        rewrite !map_filter_insert.
-        case_decide.
-        rewrite pages_in_trans_insert.
-        2: { erewrite lookup_weaken_None; eauto. apply map_filter_subseteq. }
-        case_decide.
-        destruct H0, H1. contradiction.
-        rewrite disjoint_union_l.
-        split.
-        {
-          pose proof Hdisj as Hdisj'.
-          rewrite -trans_ps_disj_insert // in Hdisj.
-          rewrite delete_notin //.
-          intros z Hin Hin'.
-          apply (Hdisj z Hin).
-          assert (pages_in_trans
-             (filter
-                (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
-                   (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending))
-                m) ⊆ pages_in_trans m).
-          apply pages_in_trans_subseteq.
-          apply map_filter_subseteq.
-          set_solver + H2 Hin'.
-        }
-        rewrite delete_notin //.
-        by apply IHtrans'.
-        case_decide.
-        rewrite pages_in_trans_insert.
-        2: { erewrite lookup_weaken_None; eauto. apply map_filter_subseteq. }
-        rewrite disjoint_union_r.
-        split.
-        {
-          pose proof Hdisj as Hdisj'.
-          rewrite -trans_ps_disj_insert // in Hdisj.
-          rewrite delete_notin //.
-          intros z Hin Hin'.
-          apply (Hdisj z Hin').
-          assert (pages_in_trans
-             (filter
-               (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
-                  kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m) ⊆ pages_in_trans m).
-          apply pages_in_trans_subseteq.
-          apply map_filter_subseteq.
-          set_solver + H2 Hin.
-        }
-        rewrite delete_notin //.
-        by apply IHtrans'.
-        rewrite 2?delete_notin //.
-        by apply IHtrans'.
-      }
-      }
+      iIntros (? ? Hdisj) "[oea trans]".
+      iDestruct (memory_pages_union' (ps_oea' ∪ retrieved_lending_memory_pages i trans') ps_macc_trans' with "[oea trans]") as "mem".
       iFrame.
       replace (ps_oea' ∪ retrieved_lending_memory_pages i trans' ∪ ps_macc_trans')
         with  (ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans');auto.
@@ -1428,7 +1348,22 @@ Section logrel_extra.
         rewrite -union_assoc_L.
         rewrite /ps_oea'.
         replace (ps_macc_trans' ∪ retrieved_lending_memory_pages i trans') with (accessible_in_trans_memory_pages i trans').
-        rewrite difference_union_L //.
+        assert (currently_accessible_in_trans_memory_pages i trans' ⊆ accessible_in_trans_memory_pages i trans').
+        {
+          rewrite /currently_accessible_in_trans_memory_pages /accessible_in_trans_memory_pages.
+          apply pages_in_trans_subseteq.
+          rewrite map_subseteq_spec.
+
+          intros h tran.
+          rewrite 2?map_filter_lookup_Some.
+          intros [Hlk P].
+          split;auto.
+          destruct P as [[? H0]| [? ?]].
+          left. split;auto. intros [_ H1]. rewrite H0 in H1. inversion H1.
+          right. done.
+        }
+        symmetry.
+        by apply difference_union_subseteq.
         rewrite /ps_macc_trans' /transferred_memory_pages.
         rewrite /retrieved_lending_memory_pages.
         rewrite -pages_in_trans_union.
@@ -1518,6 +1453,6 @@ Section logrel_extra.
         split;destruct H2;eauto.
         rewrite !delete_notin //.
         }
-    Qed.
+      Qed.
 
 End logrel_extra.

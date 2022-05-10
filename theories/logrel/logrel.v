@@ -111,12 +111,12 @@ Section logrel.
     P trans = P trans'.
 
   Definition vmprop_zero_pre (Ψ: PID -d> PID -d> iPropO Σ) :PID -d> PID -d> iPropO Σ :=
-    λ p_tx p_rx, (∃ ps_na'' ps_acc'' trans'',
+    λ p_tx p_rx, (∃ trans'',
                            let ps_macc_trans'' := (transferred_memory_pages trans'') in
                            (* lower bound *)
-                           i -@{1/2}A> ps_acc'' ∗
-                           LB@ i := [ps_na''] ∗
-                           ⌜ps_na'' ## ps_acc'' ∪ ps_macc_trans''⌝ ∗
+                           (* i -@{1/2}A> ps_acc'' ∗ *)
+                           (* LB@ i := [ps_na''] ∗ *)
+                           (* ⌜ps_na'' ## ps_acc'' ∪ ps_macc_trans''⌝ ∗ *)
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans'' ∗
                            transaction_pagetable_entries_transferred i trans'' ∗
@@ -138,18 +138,18 @@ Section logrel.
     (Φ: PID -d> PID -d> iPropO Σ)
     :PID -d> PID -d> iPropO Σ :=
     λ p_tx p_rx,
-    (∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state,
+    (∃ (trans' : gmap Word transaction) rx_state,
                let ps_macc_trans' := (transferred_memory_pages trans') in
                (* [ps_oea], we exclude all pages involved in in-flight transactions,
                 NOTE: it has to be (accessible_in_trans_memory_pages), ps_macc_trans doesn't make sense(even if we can complete the FTLR proof)*)
                (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages trans') in *)
                (* lower bound *)
-               i -@{1/2}A> ps_acc' ∗
-               LB@ i := [ps_na'] ∗
+               (* i -@{1/2}A> ps_acc' ∗ *)
+               (* LB@ i := [ps_na'] ∗ *)
                (* NOTE: Just having [ps_acc'] seems not enough, which can be broken by getting access to pages in ps_na from some
                 transaction. *)
                (* XXX: how to formulate this disjointness using RAs? making use of ownership and exclusiveness? *)
-               ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗
+               (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
                (* we can derive ⌜{[p_rx;p_tx]} ## ps_mem_in_trans''⌝ from rx_page/tx_page ∗ transaction_hpool_global_transferred *)
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
@@ -187,12 +187,12 @@ Section logrel.
   Local Instance vmprop_unknown_pre_contractive : Contractive (vmprop_unknown_pre).
   Proof.
     rewrite /vmprop_unknown_pre => n vmprop_unknown vmprop_unknown' Hvmprop_unknown p_tx p_rx /=.
-    do 22 f_equiv.
+    do 15 f_equiv.
     rewrite /VMProp  /=.
     do 6 f_equiv.
     f_contractive.
     rewrite /vmprop_zero_pre.
-    do 17 f_equiv.
+    do 10 f_equiv.
     rewrite /VMProp.
     repeat f_equiv.
   Qed.
@@ -203,12 +203,12 @@ Section logrel.
 
   Lemma vmprop_unknown_def : vmprop_unknown ≡
     λ p_tx p_rx,
-      (∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state,
+      (∃ (trans' : gmap Word transaction) rx_state,
           let ps_macc_trans' := (transferred_memory_pages trans') in
           (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages trans') in *)
-          i -@{1/2}A> ps_acc' ∗
-          LB@ i := [ps_na'] ∗
-          ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗
+          (* i -@{1/2}A> ps_acc' ∗ *)
+          (* LB@ i := [ps_na'] ∗ *)
+          (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
           transaction_hpool_global_transferred trans' ∗
           transaction_pagetable_entries_transferred i trans' ∗
           retrievable_transaction_transferred i trans' ∗
@@ -232,12 +232,12 @@ Section logrel.
   Proof. apply _. Qed.
 
   Lemma vmprop_unknown_eq (p_tx p_rx:PID) : vmprop_unknown p_tx p_rx ⊣⊢
-      (∃ ps_na' ps_acc' (trans' : gmap Word transaction) rx_state,
+      (∃ (trans' : gmap Word transaction) rx_state,
                let ps_macc_trans' := (transferred_memory_pages trans') in
                (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages trans') in *)
-               i -@{1/2}A> ps_acc' ∗
-               LB@ i := [ps_na'] ∗
-               ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗
+               (* i -@{1/2}A> ps_acc' ∗ *)
+               (* LB@ i := [ps_na'] ∗ *)
+               (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
                transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred i trans' ∗
                retrievable_transaction_transferred i trans' ∗
@@ -267,7 +267,7 @@ Section logrel.
       (* TX page and its memory *)
       (tx_page i p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
       (* access *)
-      i -@{1/2}A> ps_acc ∗
+      i -@A> ps_acc ∗
       ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned i trans ∗
@@ -302,33 +302,52 @@ Section logrel_prim.
        end
      ) trans.
 
-  (* Definition transaction_pagetable_entries_transferred_all (trans: gmap Addr transaction) : iProp Σ:= *)
-  (*   big_sepFM trans (λ kv, kv.2.1.2 = Donation) (λ k v, k -{1/2}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true)%I. *)
+  Definition transaction_pagetable_entries_transferred_all (trans: gmap Addr transaction) : iProp Σ:=
+    big_sepFM trans (λ kv, kv.2.1.2 = Donation) (λ k v, k -{1/4}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true)%I.
 
-  (* Definition retrieval_entries_transferred_all(trans: gmap Addr transaction) : iProp Σ:= *)
-  (*   (big_sepFM trans (λ kv, True) (λ k v, k -{1/2}>re v.2 )%I) ∗ *)
-  (*   (big_sepFM trans (λ kv, kv.2.2 = false) (λ k v, k -{1/2}>re v.2)%I). *)
+  Definition retrievable_transaction_transferred_all(trans: gmap Addr transaction) : iProp Σ:=
+    (big_sepFM trans (λ kv, True) (λ k v, k -{1/2}>re v.2 )%I) ∗
+    (big_sepFM trans (λ kv, kv.2.2 = false) (λ k v, k -{1/4}>t v.1 ∗ k -{1/2}>re v.2)%I).
 
-  (* Program Definition interp_access_prim p_tx p_rx ps_acc trans rx_state: iPropO Σ:= *)
-  (*   ( *)
-  (*     let ps_macc_trans := (transferred_memory_pages V0 trans) in *)
-  (*     let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages V0 trans) in *)
-  (*     (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗ *)
-  (*     (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗ *)
-  (*     V0 -@A> ps_acc ∗ *)
-  (*     ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ *)
-  (*     pagetable_entries_excl_owned V0 ps_oea ∗ *)
-  (*     transaction_pagetable_entries_owned V0 trans ∗ transaction_hpool_global_transferred trans ∗ *)
-  (*     transaction_pagetable_entries_transferred_all trans ∗ *)
-  (*     retrieved_transaction_owned V0 trans ∗ retrieval_entries_transferred_all trans ∗ *)
-  (*     (∃ mem_oea, memory_pages ps_oea mem_oea) ∗ *)
-  (*     (∃ mem_trans, memory_pages ps_macc_trans mem_trans) ∗ *)
-  (*     RX_state@ V0 := rx_state ∗ (rx_page V0 p_rx) ∗ *)
-  (*     (∃ mem_rx, memory_page p_rx mem_rx) ∗ *)
-  (*     rx_pages (list_to_set (list_of_vmids) ∖ {[V0]}) ∗ *)
-  (*     VMProp V0 True 1%Qp ∗ *)
-  (*     [∗ set] i ∈ list_to_set (list_of_vmids) ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i p_tx p_rx) (1/2)%Qp *)
-  (*   )%I. *)
+  Program Definition interp_access_prim p_tx p_rx ps_acc trans rx_state: iPropO Σ:=
+    (
+      let ps_macc_trans := (transferred_memory_pages V0 trans) in
+      let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in
+      (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗
+      (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
+      V0 -@A> ps_acc ∗
+      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
+      pagetable_entries_excl_owned V0 ps_oea ∗
+      transaction_pagetable_entries_owned V0 trans ∗ transaction_hpool_global_transferred trans ∗
+      transaction_pagetable_entries_transferred_all trans ∗
+      retrieved_transaction_owned V0 trans ∗ retrievable_transaction_transferred_all trans ∗
+      (∃ mem_oea, memory_pages ps_oea mem_oea) ∗
+      (∃ mem_trans, memory_pages ps_macc_trans mem_trans) ∗
+      RX_state@ V0 := rx_state ∗ (rx_page V0 p_rx) ∗
+      (∃ mem_rx, memory_page p_rx mem_rx) ∗
+      rx_pages (list_to_set (list_of_vmids) ∖ {[V0]}) ∗
+      VMProp V0 True 1%Qp ∗
+      [∗ set] i ∈ list_to_set (list_of_vmids) ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i p_tx p_rx) (1/2)%Qp
+    )%I.
+
+               (* let ps_macc_trans' := (transferred_memory_pages trans') in *)
+               (* (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages trans') in *) *)
+               (* i -@{1/2}A> ps_acc' ∗ *)
+               (* LB@ i := [ps_na'] ∗ *)
+               (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
+               (* transaction_hpool_global_transferred trans' ∗ *)
+               (* transaction_pagetable_entries_transferred i trans' ∗ *)
+               (* retrievable_transaction_transferred i trans' ∗ *)
+               (* (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗ *)
+               (* R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗ *)
+               (* RX_state@ i := rx_state ∗ *)
+               (* (rx_page i p_rx) ∗ *)
+               (* (∃ mem_rx, memory_page p_rx mem_rx) ∗ *)
+               (* rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗ *)
+               (* (* ⌜ps_oea = ps_oea'⌝ ∗ ⌜retrieved_lending_memory_pages trans = retrieved_lending_memory_pages trans' ⌝ ∗ *) *)
+               (* (* (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗ *) *)
+               (* (* (trans -{{retrieval_entries_owned i}}∗ trans') ∗ *) *)
+               (* VMProp V0 (vmprop_zero p_tx p_rx) (1/2)%Qp)%I. *)
 
 End logrel_prim.
 
