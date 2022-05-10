@@ -20,6 +20,15 @@ Section trans_rules.
     by iFrame.
    Qed.
 
+  Lemma trans_agree w q1 q2 tran tran':
+   w -{q1}>t tran ∗ w -{q2}>t tran' ⊢ ⌜tran = tran'⌝.
+  Proof.
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iIntros "[[H1 %] [H2 _]]".
+    iDestruct (ghost_map_elem_agree with "H1 H2") as "%Heq".
+    inversion Heq;done.
+  Qed.
+
   Lemma trans_valid_handle_Some w q tran :
     w -{q}>t tran ⊢ ⌜w ∈ valid_handles⌝.
   Proof.
@@ -48,6 +57,15 @@ Section trans_rules.
     iDestruct ((ghost_map_elem_split w _ q (Some bool)) with "[$H1 $H2]") as "H".
     by iFrame.
   Qed.
+
+  Lemma retri_agree w q1 q2 b b':
+   w -{q1}>re b ∗ w -{q2}>re b' ⊢ ⌜b = b'⌝.
+  Proof.
+    rewrite retri_mapsto_eq /retri_mapsto_def.
+    iIntros "[[H1 %] [H2 _]]".
+    iDestruct (ghost_map_elem_agree with "H1 H2") as "%Heq".
+    inversion Heq;done.
+   Qed.
 
   Lemma retri_valid_handle_Some w q b :
     w -{q}>re b ⊢ ⌜w ∈ valid_handles⌝.

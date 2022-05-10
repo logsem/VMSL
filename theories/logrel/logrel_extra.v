@@ -1,7 +1,7 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
-From HypVeri.algebra Require Import base base_extra mem.
+From HypVeri.algebra Require Import base base_extra mem trans.
 From HypVeri.logrel Require Import logrel.
 From HypVeri Require Import proofmode stdpp_extra.
 From stdpp Require fin_map_dom.
@@ -1295,14 +1295,98 @@ Section logrel_extra.
     rewrite lookup_fmap Hlk //.
   Qed.
 
-(* TODO: lemmas for tran_rel *)
+(* lemmas for tran_rel *)
   Lemma derive_trans_rel_secondary i trans trans':
-    transaction_hpool_global_transferred trans' ∗
-      transaction_pagetable_entries_owned i trans ∗
-      retrieved_transaction_owned i trans ⊢
-    ⌜trans_rel_secondary i trans trans'⌝.
+    transaction_hpool_global_transferred trans' ∗ retrievable_transaction_transferred i trans' ∗
+    transaction_pagetable_entries_owned i trans ∗ retrieved_transaction_owned i trans
+    ⊢ ⌜trans_rel_secondary i trans trans'⌝.
   Proof.
-  Admitted.
+    iIntros "((%s & %Hall & fresh & _ & global_tran) & [global_re _] & tran1 & tran2)".
+    rewrite /transaction_pagetable_entries_owned.
+    rewrite /retrieved_transaction_owned.
+    rewrite /trans_rel_secondary.
+    iInduction trans as [|h x tran Hlk] "IH" using map_ind; first done.
+    rewrite map_Forall_insert;last done.
+    destruct (decide (x.1.1.1.1 = i ∧ x.1.2 ≠ Donation)).
+    {
+      iDestruct (big_sepFM_insert_True with "tran1") as "[[tran _] tran1]";auto.
+      iDestruct (trans.not_elem_of_fresh_handles with "[$fresh $tran]") as "%Hnin".
+      iDestruct (trans.trans_valid_handle_Some with "tran") as "%Hvalid".
+      assert (Hlk': h ∈ dom (gset Addr) trans') by set_solver + Hvalid Hnin Hall.
+      rewrite elem_of_dom in Hlk'.
+      destruct Hlk' as [tran' Hlk'].
+      iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[tran' global_tran_acc]";eauto.
+      iDestruct (trans_agree with "[$tran $tran']") as %Heq.
+      destruct (decide (x.1.1.1.2 = i ∧ x.2 = true)).
+      {
+        iDestruct (big_sepFM_insert_True with "tran2") as "[[tran'' re] tran2]";auto.
+        iDestruct (big_sepFM_lookup_Some_acc Hlk' with "global_re") as "[re' global_re_acc]";auto.
+        simpl. left. destruct a0. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
+        inversion Heq. subst v0. done.
+        iDestruct (retri_agree with "[$re $re']") as %Heq_re.
+        iSplitR.
+        iPureIntro.
+        split;intros.
+        eexists. split;eauto.
+        eexists. split. eauto. destruct x, tran'. simpl in *. subst m0 b0. done.
+        iApply ("IH" with "fresh [global_tran_acc tran'] [re' global_re_acc] tran1 tran2").
+        by iApply "global_tran_acc".
+        iDestruct("global_re_acc" $! tran') as "global_re".
+        case_decide.
+        iDestruct ("global_re" with "re'") as "global_re".
+        rewrite insert_id //.
+        exfalso. apply H. left. destruct a0. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
+        inversion Heq. subst v0. done.
+      }
+      {
+        iSplitR.
+        iPureIntro.
+        split;intros.
+        eexists. split;eauto.
+        done.
+        iApply ("IH" with "fresh [global_tran_acc tran'] global_re tran1 [tran2]").
+        by iApply "global_tran_acc".
+        rewrite big_sepFM_insert_False //.
+      }
+    }
+    rewrite big_sepFM_insert_False //.
+    destruct (decide (x.1.1.1.2 = i ∧ x.2 = true)).
+    {
+      iDestruct (big_sepFM_insert_True with "tran2") as "[[tran re] tran2]";auto.
+      iDestruct (trans.not_elem_of_fresh_handles with "[$fresh $tran]") as "%Hnin".
+      iDestruct (trans.trans_valid_handle_Some with "tran") as "%Hvalid".
+      assert (Hlk': h ∈ dom (gset Addr) trans') by set_solver + Hvalid Hnin Hall.
+      rewrite elem_of_dom in Hlk'.
+      destruct Hlk' as [tran' Hlk'].
+      iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[tran' global_tran_acc]";eauto.
+      iDestruct (trans_agree with "[$tran $tran']") as %Heq.
+      iDestruct (big_sepFM_lookup_Some_acc Hlk' with "global_re") as "[re' global_re_acc]";auto.
+      simpl. left. destruct a. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
+      inversion Heq. subst v0. done.
+      iDestruct (retri_agree with "[$re $re']") as %Heq_re.
+      iSplitR.
+      iPureIntro.
+      split;intros.
+      done.
+      eexists. split. eauto. destruct x, tran'. simpl in *. subst m0 b0. done.
+      iApply ("IH" with "fresh [global_tran_acc tran'] [re' global_re_acc] tran1 tran2").
+      by iApply "global_tran_acc".
+      iDestruct("global_re_acc" $! tran') as "global_re".
+      case_decide.
+      iDestruct ("global_re" with "re'") as "global_re".
+      rewrite insert_id //.
+      exfalso. apply H. left. destruct a. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
+      inversion Heq. subst v0. done.
+    }
+    {
+      iSplitR.
+      iPureIntro.
+      split;intros.
+      done. done.
+      iApply ("IH" with "fresh global_tran global_re tran1 [tran2]").
+      rewrite big_sepFM_insert_False //.
+    }
+  Qed.
 
   Lemma trans_rel_secondary_retrieved_lending_memory_page i trans trans':
     trans_rel_secondary i trans trans' ->

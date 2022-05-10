@@ -278,11 +278,8 @@ Section logrel.
 
   Definition trans_rel_secondary (i:VMID) (trans trans': gmap Word transaction): Prop :=
    map_Forall (λ h tran,
-       match tran with
-        | (sndr, rcvr, _, ty, retri) =>
-            ((sndr = i ∧ ty ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1) ∧
-            ((rcvr = i ∧ retri = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran')
-       end
+            ((tran.1.1.1.1 = i ∧ tran.1.2 ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1) ∧
+            ((tran.1.1.1.2 = i ∧ tran.2 = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran')
      ) trans.
 End logrel.
 
@@ -294,12 +291,9 @@ Section logrel_prim.
 
   Definition trans_rel_primary (i:VMID) (trans trans': gmap Word transaction): Prop :=
    map_Forall (λ h tran,
-       match tran with
-         | (sndr, rcvr, _, ty, retri) =>
-          ((sndr ≠ i ∧ rcvr ≠ i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧
-          ((sndr = i ∧ retri = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧
-          ((rcvr = i ∧ ty ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1)
-       end
+          ((tran.1.1.1.1 ≠ i ∧ tran.1.1.1.2 ≠ i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧
+          ((tran.1.1.1.1 = i ∧ tran.2 = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧
+          ((tran.1.1.1.2= i ∧ tran.1.2 ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1)
      ) trans.
 
   Definition transaction_pagetable_entries_transferred_all (trans: gmap Addr transaction) : iProp Σ:=
