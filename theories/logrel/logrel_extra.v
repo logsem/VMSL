@@ -7,6 +7,12 @@ From HypVeri Require Import proofmode stdpp_extra.
 From stdpp Require fin_map_dom.
 Import uPred.
 
+Lemma half_of_half: (1/2/2)%Qp = (1/4)%Qp.
+Proof.
+  apply (bool_decide_unpack _).
+  by compute.
+Qed.
+
 Section sets.
   Context `{Countable T}.
   Implicit Type A B C : gset T.

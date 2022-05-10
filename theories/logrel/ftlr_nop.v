@@ -73,7 +73,7 @@ Lemma ftlr_nop {i mem_acc_tx ai regs ps_acc p_tx p_rx instr} trans rx_state:
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
     iIntros (Htotal_regs Hsubset_mb Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx Hlookup_mem_ai Heqn).
-    iIntros "IH regs tx pgt_tx pgt_acc  pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
+    iIntros "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
                  retri_owned mem_rest mem_acc_tx mem_tx".
     (* getting the PC *)
     iDestruct (reg_big_sepM_split_upd i Hlookup_PC with "[$regs]")
