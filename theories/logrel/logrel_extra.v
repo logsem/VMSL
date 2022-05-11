@@ -1418,6 +1418,11 @@ Section logrel_extra.
   Proof.
   Admitted.
 
+  (* lemmas *)
+  Lemma transferred_memory_pages_subseteq i trans: transferred_memory_pages i trans ⊆ accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
   Lemma memory_pages_oea_transferred {i} ps_acc p_rx p_tx trans':
     let ps_macc_trans' := (transferred_memory_pages i trans') in
     let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages i trans') in
