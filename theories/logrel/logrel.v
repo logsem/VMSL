@@ -268,7 +268,7 @@ Section logrel.
       (tx_page i p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
       (* access *)
       i -@A> ps_acc ∗
-      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
+      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ ⌜ currently_accessible_in_trans_memory_pages trans ⊆ ps_acc ⌝ ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned i trans ∗
       retrieved_transaction_owned i trans ∗
@@ -324,28 +324,4 @@ Section logrel_prim.
       [∗ set] i ∈ list_to_set (list_of_vmids) ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i p_tx p_rx) (1/2)%Qp
     )%I.
 
-               (* let ps_macc_trans' := (transferred_memory_pages trans') in *)
-               (* (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages trans') in *) *)
-               (* i -@{1/2}A> ps_acc' ∗ *)
-               (* LB@ i := [ps_na'] ∗ *)
-               (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
-               (* transaction_hpool_global_transferred trans' ∗ *)
-               (* transaction_pagetable_entries_transferred i trans' ∗ *)
-               (* retrievable_transaction_transferred i trans' ∗ *)
-               (* (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗ *)
-               (* R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗ *)
-               (* RX_state@ i := rx_state ∗ *)
-               (* (rx_page i p_rx) ∗ *)
-               (* (∃ mem_rx, memory_page p_rx mem_rx) ∗ *)
-               (* rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗ *)
-               (* (* ⌜ps_oea = ps_oea'⌝ ∗ ⌜retrieved_lending_memory_pages trans = retrieved_lending_memory_pages trans' ⌝ ∗ *) *)
-               (* (* (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗ *) *)
-               (* (* (trans -{{retrieval_entries_owned i}}∗ trans') ∗ *) *)
-               (* VMProp V0 (vmprop_zero p_tx p_rx) (1/2)%Qp)%I. *)
-
 End logrel_prim.
-
-  (* Things we haven't really considerred:
-   - [ ] if we need more pure propositions to relate trans'' and other stuff
-   *)
-

@@ -1448,6 +1448,90 @@ Section logrel_extra.
   Proof.
   Admitted.
 
+  Lemma accessible_in_trans_memory_pages_insert_True i trans h tran:
+    (tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
+    accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_insert_False i trans h tran:
+    ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
+    accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_lookup_True i trans h tran:
+    trans !! h = Some tran ->
+    ((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
+    tran.1.1.2 ⊆ (accessible_in_trans_memory_pages i trans).
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_lookup_False i trans h tran:
+    trans !! h = Some tran ->
+    ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
+    tran.1.1.2 ## (accessible_in_trans_memory_pages i trans).
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_delete_True i trans h tran:
+    trans !! h = Some tran ->
+    (tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
+    trans_ps_disj trans ->
+    accessible_in_trans_memory_pages i (delete h trans) = accessible_in_trans_memory_pages i trans ∖ tran.1.1.2.
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_delete_False i trans h tran:
+    trans !! h = Some tran ->
+    ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
+    trans_ps_disj trans ->
+    accessible_in_trans_memory_pages i (delete h trans) = accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma currently_accessible_in_trans_memory_pages_insert_True i trans h tran:
+    (tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true) ->
+    currently_accessible_in_trans_memory_pages i (<[h:= tran]>trans) = currently_accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
+  Proof.
+  Admitted.
+
+  Lemma currently_accessible_in_trans_memory_pages_insert_False i trans h tran:
+    ¬((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
+    currently_accessible_in_trans_memory_pages i (<[h:= tran]>trans) = currently_accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma currently_accessible_in_trans_memory_pages_lookup_True i trans h tran:
+    trans !! h = Some tran ->
+    ((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
+    tran.1.1.2 ⊆ (currently_accessible_in_trans_memory_pages i trans).
+  Proof.
+  Admitted.
+
+  Lemma currently_accessible_in_trans_memory_pages_lookup_False i trans h tran:
+    trans !! h = Some tran ->
+    ¬((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
+    tran.1.1.2 ## (currently_accessible_in_trans_memory_pages i trans).
+  Proof.
+  Admitted.
+
+  Lemma currently_accessible_in_trans_memory_pages_delete_True i trans h tran:
+    trans !! h = Some tran ->
+    (tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true) ->
+    trans_ps_disj trans ->
+    currently_accessible_in_trans_memory_pages i (delete h trans) = currently_accessible_in_trans_memory_pages i trans ∖ tran.1.1.2.
+  Proof.
+  Admitted.
+
+  Lemma currently_accessible_in_trans_memory_pages_delete_False i trans h tran:
+    trans !! h = Some tran ->
+    ¬((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
+    trans_ps_disj trans ->
+    currently_accessible_in_trans_memory_pages i (delete h trans) = currently_accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
   Lemma memory_pages_oea_transferred {i} ps_acc p_rx p_tx trans':
     let ps_macc_trans' := (transferred_memory_pages i trans') in
     let ps_oea' := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages i trans') in
