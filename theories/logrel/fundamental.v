@@ -4,8 +4,8 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base mov yield ldr halt fail add sub mult cmp br bne str run.
 From HypVeri.logrel Require Import logrel logrel_extra.
-(* From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_donate. *)
-(*  [WIP: ftlr_yield] [TODO ftlr_share] [WIP ftlr_retrieve] ftlr_msg_send *)
+From HypVeri.logrel Require Import ftlr_nop. (* ftlr_run ftlr_donate. *)
+(*  [WIP: ftlr_yield] [WIP ftlr_share] [WIP ftlr_retrieve] ftlr_msg_send *)
 (*      ftlr_msg_wait ftlr_msg_poll [WIP ftlr_relinquish ftlr_reclaim] [donate] ftlr_lend ftlr_invalid_hvc. *)
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
@@ -19,7 +19,7 @@ Section fundamental.
   ∀ p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
-    iIntros (????) "((%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & pgt_owned & tran_pgt_owned &
+    iIntros (????) "((%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
                            retri_owned & mem_owned & VMProp) %Hneq_0 VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
     iEval (setoid_rewrite vmprop_unknown_eq) in "Hres".
@@ -32,6 +32,7 @@ Section fundamental.
     iDestruct (derive_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
     erewrite (trans_rel_secondary_retrieved_lending_memory_page);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
+    erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
     iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
     iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
     iAssert (⌜trans_ps_disj trans'⌝)%I as %Hdisj. { iDestruct "trans_hpool_global" as "[% (_ & _ & $ & _)]". }
@@ -74,7 +75,7 @@ Section fundamental.
     iDestruct "tx" as "[tx pgt_tx]".
     clear mem_rx mem_tx mem_all; subst ps_mem_in_trans.
 
-    iLöb as "IH" forall (regs ps_acc trans' rx_state' Htotal_regs Hsubset_mb Hnin_rx Hnin_tx).
+    iLöb as "IH" forall (regs ps_acc trans' rx_state' Htotal_regs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx).
 
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans').
 

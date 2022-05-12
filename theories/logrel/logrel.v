@@ -268,7 +268,7 @@ Section logrel.
       (tx_page i p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
       (* access *)
       i -@A> ps_acc ∗
-      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ ⌜ currently_accessible_in_trans_memory_pages trans ⊆ ps_acc ⌝ ∗
+      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ ⌜ currently_accessible_in_trans_memory_pages trans ⊆ ps_acc ∖ {[p_tx;p_rx]}⌝ ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned i trans ∗
       retrieved_transaction_owned i trans ∗
