@@ -1419,7 +1419,32 @@ Section logrel_extra.
   Admitted.
 
   (* lemmas *)
-  Lemma transferred_memory_pages_subseteq i trans: transferred_memory_pages i trans ⊆ accessible_in_trans_memory_pages i trans.
+  Lemma transferred_accessible_memory_pages_subseteq i trans:
+    transferred_memory_pages i trans ⊆ accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma currently_accessible_accessible_memory_pages_subseteq i trans:
+    currently_accessible_in_trans_memory_pages i trans ⊆ accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma retrieved_lending_currently_accessible_memory_pages_subseteq i trans:
+    retrieved_lending_memory_pages i trans ⊆ currently_accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma transferred_retrieved_lending_memory_pages_union i trans:
+    transferred_memory_pages i trans ∪ retrieved_lending_memory_pages i trans = accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma transferred_retrieved_lending_memory_pages_disj i trans: transferred_memory_pages i trans ## retrieved_lending_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma accessible_retrieved_lending_memory_pages_difference i trans:
+    transferred_memory_pages i trans = accessible_in_trans_memory_pages i trans ∖ retrieved_lending_memory_pages i trans.
   Proof.
   Admitted.
 

@@ -111,6 +111,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
       f_equal.
       (* TODO: we need a new assertion in logrel: currently_accessible_in_tran_memory_pages ⊆ ps_acc ∖ {[p_rx; p_tx]},
          the question is do we need something even stronger?? *)
+
       admit.
     }
 
@@ -160,7 +161,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         iExists trans. iFrame.
         (* split [mem_tran] into [mem_rx] and [mem_trans] *)
         iDestruct (memory_pages_split_union' with "mem_tran") as "[mem_rx mem_trans]".
-        { pose proof (transferred_memory_pages_subseteq i trans) as Hs.
+        { pose proof (transferred_accessible_memory_pages_subseteq i trans) as Hs.
           set_solver + Hs Hnin_rx.
         }
         iFrame.
@@ -279,7 +280,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         iExists trans. iFrame "trans_hpool_global trans_pgt_transferred retri rx other_rx".
         (* split [mem_tran] into [mem_rx] and [mem_trans] *)
         iDestruct (memory_pages_split_union' with "mem_tran") as "[mem_rx mem_trans]".
-        { pose proof (transferred_memory_pages_subseteq i trans) as Hs.
+        { pose proof (transferred_accessible_memory_pages_subseteq i trans) as Hs.
           set_solver + Hs Hnin_rx.
         }
         iFrame "mem_trans".
@@ -311,6 +312,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
       iAssert (∃ mem_all : mem, memory_pages (ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans') mem_all)%I
         with "[mem_oea mem_transferred]" as (?) "mem".
       (* TODO: we need currently_accessible_in_tran_memory_pages ⊆ ps_acc ∖ {[p_rx; p_tx]} *)
+      (* SAME *)
       admit.
 
       iDestruct "mem_tx" as "[%mem_tx mem_tx]".
@@ -348,6 +350,6 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
                        trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
                            tran_pgt_owned retri_owned mem").
     }
-  Qed.
+  Admitted.
 
 End ftlr_yield.
