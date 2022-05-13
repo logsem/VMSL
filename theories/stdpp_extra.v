@@ -191,4 +191,40 @@ Section sets.
     set_solver + Heq.
   Qed.
 
+  Lemma intersection_subseteq_disjoint A B C:
+    C ⊆ A -> C ⊆ B ->
+    A ∖ C ## B ->
+    A ∩ B = C.
+  Proof.
+    intros Hsub1 Hsub2 Hdisj.
+    rewrite set_eq.
+    intros. split.
+    set_solver.
+    set_solver.
+  Qed.
+
+  Lemma difference_difference_union A B C:
+    C ⊆ A ->
+    A ∖ (B ∖ C) = A ∖ B ∪ C.
+  Proof.
+    intro.
+    rewrite set_eq.
+    intros. split.
+    intro.
+    apply elem_of_difference in H1.
+    destruct H1.
+    destruct (decide (x ∈ B)).
+    destruct (decide (x ∈ C)); set_solver.
+    set_solver.
+    intro.
+    rewrite elem_of_union in H1.
+    destruct H1; set_solver.
+  Qed.
+
+  Lemma intersection_difference A B:
+    A ∖ B = A ∖ (A ∩ B).
+  Proof.
+    set_solver.
+  Qed.
+
 End sets.

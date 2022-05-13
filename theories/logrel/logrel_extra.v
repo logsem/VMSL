@@ -65,7 +65,7 @@ Section logrel_extra.
     iApply excl_split. iFrame.
   Qed.
 
-   Lemma pgt_split_quarter ps vo be:
+  Lemma pgt_split_quarter ps vo be:
     pgt_full ps vo be ⊣⊢ pgt_1_4 ps vo be ∗ pgt_3_4 ps vo be.
   Proof.
     rewrite /pgt_full.
@@ -75,6 +75,21 @@ Section logrel_extra.
     rewrite (pgt_split_half _ (1/2)).
     rewrite -sep_assoc //.
   Qed.
+
+  Lemma pgt_valid ps (q1 q2:Qp) vo1 be1 vo2 be2:
+  pgt ps q1 vo1 be1 ∗ pgt ps q2 vo2 be2 ⊢ ⌜(q1 + q2 ≤ 1)%Qp⌝.
+  Proof.
+    Admitted.
+
+  Lemma pgt_invalid_3_4 ps vo1 be1 vo2 be2:
+  pgt_3_4 ps vo1 be1 ∗ pgt_3_4 ps vo2 be2 ⊢ False.
+  Proof.
+    Admitted.
+
+  Lemma pgt_valid_3_4 ps1 ps2 vo1 be1 vo2 be2:
+  pgt_3_4 ps1 vo1 be1 ∗ pgt_3_4 ps2 vo2 be2 ⊢ ⌜ps1 ## ps2⌝.
+  Proof.
+    Admitted.
 
   (** registers **)
   (* we provide lookup, so r and w can be implicit *)
@@ -369,9 +384,9 @@ Section logrel_extra.
 
   (* lemmas for trans_ps_disj *)
 
-  Lemma get_trans_ps_disj trans {Φ : _ -> iProp Σ}:
-    (([∗ map] h ↦ tran ∈ trans , Φ tran) ∗
-       (∀ v1 v2, Φ v1 ∗ Φ v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝)
+  Lemma get_trans_ps_disj' trans {Φ : _ -> _ -> iProp Σ}:
+    (([∗ map] h ↦ tran ∈ trans , Φ h tran) ∗
+       (∀ k1 k2 v1 v2, Φ k1 v1 ∗ Φ k2 v2 -∗ ⌜v1.1.1.2 ## v2.1.1.2⌝)
      ⊢ ⌜trans_ps_disj trans⌝)%I.
   Proof.
     rewrite /trans_ps_disj.
@@ -392,7 +407,7 @@ Section logrel_extra.
     destruct Hlookup' as [? [? Hlookup']].
     inversion H. subst x0.
     exact Hlookup'.
-    iDestruct ("Hfalse" $! x v' with "[$ Φ $ Φ']") as %Hdisj.
+    iDestruct ("Hfalse" $! k h x v' with "[$ Φ $ Φ']") as %Hdisj.
     set_solver + Hdisj Hin Hin''.
   Qed.
 
@@ -458,12 +473,12 @@ Section logrel_extra.
   Qed.
 
 (* lemmas for tran_rel *)
-  Lemma derive_trans_rel_secondary i trans trans':
+  Lemma get_trans_rel_secondary i trans trans':
     transaction_hpool_global_transferred trans' ∗ retrievable_transaction_transferred i trans' ∗
     transaction_pagetable_entries_owned i trans ∗ retrieved_transaction_owned i trans
     ⊢ ⌜trans_rel_secondary i trans trans'⌝.
   Proof.
-    iIntros "((%s & %Hall & fresh & _ & global_tran) & [global_re _] & tran1 & tran2)".
+    iIntros "((%s & %Hall & fresh & global_tran) & [global_re _] & tran1 & tran2)".
     rewrite /transaction_pagetable_entries_owned.
     rewrite /retrieved_transaction_owned.
     rewrite /trans_rel_secondary.
@@ -477,28 +492,13 @@ Section logrel_extra.
       assert (Hlk': h ∈ dom (gset Addr) trans') by set_solver + Hvalid Hnin Hall.
       rewrite elem_of_dom in Hlk'.
       destruct Hlk' as [tran' Hlk'].
-      iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[tran' global_tran_acc]";eauto.
+      iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[[tran' pgt] global_tran_acc]";eauto.
       iDestruct (trans_agree with "[$tran $tran']") as %Heq.
       destruct (decide (x.1.1.1.2 = i ∧ x.2 = true)).
       {
-        iDestruct (big_sepFM_insert_True with "tran2") as "[[tran'' re] tran2]";auto.
-        iDestruct (big_sepFM_lookup_Some_acc Hlk' with "global_re") as "[re' global_re_acc]";auto.
-        simpl. left. destruct a0. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
-        inversion Heq. subst v0. done.
-        iDestruct (retri_agree with "[$re $re']") as %Heq_re.
-        iSplitR.
-        iPureIntro.
-        split;intros.
-        eexists. split;eauto.
-        eexists. split. eauto. destruct x, tran'. simpl in *. subst m0 b0. done.
-        iApply ("IH" with "fresh [global_tran_acc tran'] [re' global_re_acc] tran1 tran2").
-        by iApply "global_tran_acc".
-        iDestruct("global_re_acc" $! tran') as "global_re".
-        case_decide.
-        iDestruct ("global_re" with "re'") as "global_re".
-        rewrite insert_id //.
-        exfalso. apply H. left. destruct a0. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
-        inversion Heq. subst v0. done.
+        iDestruct (trans_valid_tran_Some with "tran") as %Hvalid_h.
+        destruct a,a0 as [? _].
+        rewrite /valid_transaction H H1 // in Hvalid_h.
       }
       {
         iSplitR.
@@ -506,8 +506,8 @@ Section logrel_extra.
         split;intros.
         eexists. split;eauto.
         done.
-        iApply ("IH" with "fresh [global_tran_acc tran'] global_re tran1 [tran2]").
-        by iApply "global_tran_acc".
+        iApply ("IH" with "fresh [global_tran_acc tran' pgt] global_re tran1 [tran2]").
+        iApply "global_tran_acc". iFrame.
         rewrite big_sepFM_insert_False //.
       }
     }
@@ -520,19 +520,16 @@ Section logrel_extra.
       assert (Hlk': h ∈ dom (gset Addr) trans') by set_solver + Hvalid Hnin Hall.
       rewrite elem_of_dom in Hlk'.
       destruct Hlk' as [tran' Hlk'].
-      iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[tran' global_tran_acc]";eauto.
+      iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[[tran' pgt] global_tran_acc]";eauto.
       iDestruct (trans_agree with "[$tran $tran']") as %Heq.
       iDestruct (big_sepFM_lookup_Some_acc Hlk' with "global_re") as "[re' global_re_acc]";auto.
       simpl. left. destruct a. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
       inversion Heq. subst v0. done.
       iDestruct (retri_agree with "[$re $re']") as %Heq_re.
-      iSplitR.
-      iPureIntro.
-      split;intros.
-      done.
+      iSplitR. iPureIntro. split;intros. done.
       eexists. split. eauto. destruct x, tran'. simpl in *. subst m0 b0. done.
-      iApply ("IH" with "fresh [global_tran_acc tran'] [re' global_re_acc] tran1 tran2").
-      by iApply "global_tran_acc".
+      iApply ("IH" with "fresh [global_tran_acc tran' pgt] [re' global_re_acc] tran1 tran2").
+      iApply "global_tran_acc". iFrame.
       iDestruct("global_re_acc" $! tran') as "global_re".
       case_decide.
       iDestruct ("global_re" with "re'") as "global_re".
@@ -541,33 +538,56 @@ Section logrel_extra.
       inversion Heq. subst v0. done.
     }
     {
-      iSplitR.
-      iPureIntro.
-      split;intros.
-      done. done.
+      iSplitR. iPureIntro. split;intros. done. done.
       iApply ("IH" with "fresh global_tran global_re tran1 [tran2]").
       rewrite big_sepFM_insert_False //.
     }
   Qed.
 
-  Lemma trans_rel_secondary_retrieved_lending_memory_page i trans trans':
+  Lemma get_trans_ps_disj trans:
+    transaction_hpool_global_transferred trans ⊢ ⌜trans_ps_disj trans⌝.
+  Proof.
+    iIntros "(%s & %Hall & fresh & global_tran)".
+    iApply (get_trans_ps_disj' with "[$global_tran]").
+    iIntros (????) "[[_ pgt1] [_ pgt2]]".
+    iApply pgt_valid_3_4.
+    iFrame.
+  Qed.
+
+  Definition valid_accessible_in_trans_memory_pages ps_acc i trans :=
+    ps_acc ∩ (accessible_in_trans_memory_pages i trans) = currently_accessible_in_trans_memory_pages i trans.
+
+  (* TODO *)
+  Lemma get_valid_accessible_in_trans_memory_pages ps_acc i trans :
+    currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc ->
+    transaction_hpool_global_transferred trans ∗
+    pagetable_entries_excl_owned i (ps_acc ∖ currently_accessible_in_trans_memory_pages i trans)
+    ⊢ ⌜valid_accessible_in_trans_memory_pages ps_acc i trans⌝%I.
+  Proof.
+    Admitted.
+
+  (* TODO *)
+  Lemma trans_rel_secondary_retrieved_lending_memory_pages i trans trans':
     trans_rel_secondary i trans trans' ->
     trans_rel_eq (retrieved_lending_memory_pages i) trans trans'.
   Proof.
   Admitted.
 
+  (* TODO *)
   Lemma trans_rel_secondary_currently_accessible_memory_pages i trans trans':
     trans_rel_secondary i trans trans' ->
     trans_rel_eq (currently_accessible_in_trans_memory_pages i) trans trans'.
   Proof.
   Admitted.
 
+  (* TODO *)
   Lemma trans_rel_secondary_transaction_pagetable_entries_owned i trans trans':
     trans_rel_secondary i trans trans' ->
     ⊢ trans_rel_wand (transaction_pagetable_entries_owned i) trans trans'.
   Proof.
   Admitted.
 
+  (* TODO *)
   Lemma trans_rel_secondary_retrieved_transaction_owned i trans trans':
     trans_rel_secondary i trans trans' ->
     ⊢ trans_rel_wand (retrieved_transaction_owned i) trans trans'.
@@ -603,6 +623,55 @@ Section logrel_extra.
     transferred_memory_pages i trans = accessible_in_trans_memory_pages i trans ∖ retrieved_lending_memory_pages i trans.
   Proof.
   Admitted.
+
+  Lemma acc_transferred_memory_pages_difference ps_acc i trans trans':
+    trans_rel_secondary i trans trans' ->
+    currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc ->
+    valid_accessible_in_trans_memory_pages ps_acc i trans ->
+    valid_accessible_in_trans_memory_pages ps_acc i trans' ->
+    ps_acc ∖ transferred_memory_pages i trans = ps_acc ∖ transferred_memory_pages i trans'.
+  Proof.
+    intros.
+    rewrite 2?accessible_retrieved_lending_memory_pages_difference.
+    rewrite 2?difference_difference_union.
+    2 : {
+      erewrite (trans_rel_secondary_currently_accessible_memory_pages) in H0;eauto.
+      pose proof(retrieved_lending_currently_accessible_memory_pages_subseteq i trans').
+      set_solver.
+    }
+    2 : {
+      pose proof(retrieved_lending_currently_accessible_memory_pages_subseteq i trans).
+      set_solver.
+    }
+    rewrite intersection_difference.
+    rewrite H1.
+      erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
+    rewrite -H2.
+    rewrite -intersection_difference.
+      erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
+  Qed.
+
+  Lemma acc_accessible_in_trans_memory_pages_union ps_acc i trans:
+  currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc  ->
+        ps_acc ∖ transferred_memory_pages i trans ∪ transferred_memory_pages i trans
+            = ps_acc ∪ accessible_in_trans_memory_pages i trans.
+  Proof.
+    intro.
+    rewrite accessible_retrieved_lending_memory_pages_difference.
+      pose proof (retrieved_lending_currently_accessible_memory_pages_subseteq i trans).
+    rewrite difference_difference_union.
+    2: {
+      set_solver.
+    }
+    rewrite -union_assoc_L.
+    rewrite (union_comm_L (retrieved_lending_memory_pages i trans)).
+    rewrite difference_union_L.
+    pose proof (currently_accessible_accessible_memory_pages_subseteq i trans).
+    rewrite (union_comm_L _ (retrieved_lending_memory_pages i trans)).
+    rewrite (subseteq_union_1_L (retrieved_lending_memory_pages i trans)).
+    2: set_solver.
+    apply difference_union_L.
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_insert_True i trans h tran:
     (tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
