@@ -1,7 +1,7 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
-From HypVeri.algebra Require Import base base_extra mem trans.
+From HypVeri.algebra Require Import base base_extra mem pagetable trans.
 From HypVeri.logrel Require Import logrel big_sepFM big_sepM_split.
 From HypVeri Require Import proofmode stdpp_extra.
 From stdpp Require fin_map_dom.
@@ -12,7 +12,6 @@ Proof.
   apply (bool_decide_unpack _).
   by compute.
 Qed.
-
 
 Section big_sep.
   Context `{Countable K} {A : Type}.
@@ -48,6 +47,34 @@ Section logrel_extra.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
+
+  (** pgt **)
+  Lemma pgt_split_half ps q vo be:
+    pgt ps q vo be ⊣⊢ pgt ps (q/2) vo be ∗ pgt ps (q/2) vo be.
+  Proof.
+    rewrite /pgt.
+    rewrite -big_sepS_sep.
+    rewrite (big_sepS_proper _ (λ y, (y -@{q / 2}O> vo ∗ y -@{q / 2}E> be) ∗ y -@{q / 2}O> vo ∗ y -@{q / 2}E> be)%I) //.
+    iIntros (? Hin).
+    iSplit.
+    iIntros "[H1 H2]".
+    iDestruct (own_split with "H1") as "[$ $]".
+    by iApply excl_split.
+    iIntros "([H1 H2] & H3 & H4)".
+    iDestruct (own_split with "[$H1 $H3]") as "$".
+    iApply excl_split. iFrame.
+  Qed.
+
+   Lemma pgt_split_quarter ps vo be:
+    pgt_full ps vo be ⊣⊢ pgt_1_4 ps vo be ∗ pgt_3_4 ps vo be.
+  Proof.
+    rewrite /pgt_full.
+    rewrite (pgt_split_half _ 1).
+    rewrite /pgt_1_4 /pgt_3_4.
+    rewrite -half_of_half.
+    rewrite (pgt_split_half _ (1/2)).
+    rewrite -sep_assoc //.
+  Qed.
 
   (** registers **)
   (* we provide lookup, so r and w can be implicit *)

@@ -18,7 +18,11 @@ Section logrel.
   Definition trans_ps_disj trans := inv_trans_ps_disj' (lift_option_gmap trans).
 
   Definition pgt (ps: gset PID) q (vo: VMID) (be: bool) : iProp Σ :=
-    ([∗ set] p ∈ ps, p -@{q}O> vo) ∗ [∗ set] p ∈ ps, p -@{q}E> be.
+    [∗ set] p ∈ ps, p -@{q}O> vo ∗ p -@{q}E> be.
+
+  Definition pgt_full ps vo be := pgt ps 1 vo be.
+  Definition pgt_3_4 ps vo be : iProp Σ := pgt ps (1/4) vo be ∗ pgt ps (1/2) vo be.
+  Definition pgt_1_4 ps vo be : iProp Σ := pgt ps (1/4) vo be.
 
   (** definitions **)
 
@@ -27,7 +31,7 @@ Section logrel.
       full entries.
       Pagetable entries are transferred along as both sender and receiver could be the exclusive owner of those pages. *)
   Definition transaction_pagetable_entries_transferred i (trans: gmap Addr transaction) : iProp Σ:=
-    big_sepFM trans (λ kv, kv.2.1.2 = Donation ∧ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) (λ k v, k -{1/4}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true)%I.
+    big_sepFM trans (λ kv, kv.2.1.2 = Donation ∧ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) (λ k v, k -{1/4}>t v.1 ∗ pgt_1_4 v.1.1.2 v.1.1.1.1 true)%I.
 
   (* [retrieval entries]: half of all retrieval entries of i-related transactions are required.
      For transactions where i is the sender, we need the corresponding retrieval entries to check if it is allowed for i to reclaim,
@@ -46,7 +50,7 @@ Section logrel.
      while the sender needs full to reclaim, we let i always own half and only pass the otner half around with VMProp*)
   (* [TODO] relation to [pagetable_entries_excl_owned] *)
   Definition transaction_pagetable_entries_owned i (trans: gmap Addr transaction) : iProp Σ:=
-    big_sepFM trans (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.2 ≠ Donation) (λ k v, k -{1/4}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 (bool_decide (v.1.2 ≠ Sharing)))%I.
+    big_sepFM trans (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.2 ≠ Donation) (λ k v, k -{1/4}>t v.1 ∗ pgt_1_4 v.1.1.2 v.1.1.1.1 (bool_decide (v.1.2 ≠ Sharing)))%I.
 
   Context (i : (leibnizO VMID)).
 
@@ -72,7 +76,8 @@ Section logrel.
   (* We need the pure proposition to ensure all transaction entries are transferred.
      Only half is needed so that the invokers can remember transactions by keeping the other half.*)
   Definition transaction_hpool_global_transferred (trans: gmap Addr transaction) : iProp Σ:=
-    ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = valid_handles⌝ ∗ fresh_handles 1 hpool ∗ ⌜trans_ps_disj trans⌝ ∗ [∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1.
+    ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = valid_handles⌝ ∗ fresh_handles 1 hpool
+       ∗ ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1 ∗ pgt_3_4 tran.1.1.2 tran.1.1.1.1 (bool_decide (tran.1.2 ≠ Sharing))).
 
   (* [transferred_memory_pages]: some memory points-to predicates are transferred by VMProp.
       NOTE: we exclude the case when the type of transaction is lending and has been retrieved,
@@ -113,10 +118,6 @@ Section logrel.
   Definition vmprop_zero_pre (Ψ: PID -d> PID -d> iPropO Σ) :PID -d> PID -d> iPropO Σ :=
     λ p_tx p_rx, (∃ trans'',
                            let ps_macc_trans'' := (transferred_memory_pages trans'') in
-                           (* lower bound *)
-                           (* i -@{1/2}A> ps_acc'' ∗ *)
-                           (* LB@ i := [ps_na''] ∗ *)
-                           (* ⌜ps_na'' ## ps_acc'' ∪ ps_macc_trans''⌝ ∗ *)
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans'' ∗
                            transaction_pagetable_entries_transferred i trans'' ∗
@@ -128,10 +129,6 @@ Section logrel.
                            rx_page i p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
                            rx_pages ((list_to_set (list_of_vmids)) ∖ {[i]}) ∗
                            return_reg_rx i ∗
-                           (* XXX: implications, to be proved later.. or not?? *)
-                           (* (trans' -{{(transaction_pagetable_entries_transferred_except i)}}∗ trans'') ∗ *)
-                           (* (trans' -{{(retrieval_entries_transferred_except i)}}∗ trans'') ∗ *)
-                           (* (trans' -{{(transaction_pagetable_entries_owned V0)}}∗ trans'') ∗ *)
                            VMProp i (Ψ p_tx p_rx) (1/2)%Qp)%I.
 
   Definition vmprop_unknown_pre
@@ -140,17 +137,8 @@ Section logrel.
     λ p_tx p_rx,
     (∃ (trans' : gmap Word transaction) rx_state,
                let ps_macc_trans' := (transferred_memory_pages trans') in
-               (* [ps_oea], we exclude all pages involved in in-flight transactions,
-                NOTE: it has to be (accessible_in_trans_memory_pages), ps_macc_trans doesn't make sense(even if we can complete the FTLR proof)*)
-               (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages trans') in *)
-               (* lower bound *)
-               (* i -@{1/2}A> ps_acc' ∗ *)
-               (* LB@ i := [ps_na'] ∗ *)
                (* NOTE: Just having [ps_acc'] seems not enough, which can be broken by getting access to pages in ps_na from some
                 transaction. *)
-               (* XXX: how to formulate this disjointness using RAs? making use of ownership and exclusiveness? *)
-               (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
-               (* we can derive ⌜{[p_rx;p_tx]} ## ps_mem_in_trans''⌝ from rx_page/tx_page ∗ transaction_hpool_global_transferred *)
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred i trans' ∗
@@ -165,22 +153,6 @@ Section logrel.
                (∃ mem_rx, memory_page p_rx mem_rx) ∗
                (* rx pages for all other VMs *)
                rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗
-               (* Implications: these implications relate [trans], the transactions at the beginning of the proof, and
-                [trans'], those at the point of switching to i. These assumptions are (I believe) necessary to prove FTLR.
-                Moreover, they are provable because of that fact that i as the invoker is the only vm can manipulate
-                the state of some transactions, and since, i is not scheduled during the time between starting pvm
-                and switching to i, states of those transactions are immutable.
-                There are other ways of expressing the relation, we choosed this as (I assume) it should be easier to prove it
-                in a concrete example(as we give a concrete [trans] at the first and can reason about what should be the
-                [trans'] that satisfies the relation as we know the behaviors of VMs) than in a general case. So we leave
-                the proofs to the users of LR. *)
-               (* ((∃ mem_oea, memory_pages ps_oea mem_oea) ∗ (∃ mem_trans, memory_transferred trans' mem_trans) -∗ *)
-               (*  ∃ mem_all, memory_pages (ps_acc' ∖ {[p_rx;p_tx]} ∪ ps_macc_trans') mem_all) ∗ *)
-               (* (pagetable_entries_excl_owned i ps_oea -∗ pagetable_entries_excl_owned i ps_oea') ∗ *)
-               (* TODO derive below with trans_rel *)
-               (* ⌜ps_oea = ps_oea'⌝ ∗ ⌜retrieved_lending_memory_pages trans = retrieved_lending_memory_pages trans' ⌝ ∗ *)
-               (* (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗ *)
-               (* (trans -{{retrieval_entries_owned i}}∗ trans') ∗ *)
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0 (vmprop_zero_pre Φ p_tx p_rx) (1/2)%Qp)%I.
 
@@ -205,10 +177,6 @@ Section logrel.
     λ p_tx p_rx,
       (∃ (trans' : gmap Word transaction) rx_state,
           let ps_macc_trans' := (transferred_memory_pages trans') in
-          (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages trans') in *)
-          (* i -@{1/2}A> ps_acc' ∗ *)
-          (* LB@ i := [ps_na'] ∗ *)
-          (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
           transaction_hpool_global_transferred trans' ∗
           transaction_pagetable_entries_transferred i trans' ∗
           retrievable_transaction_transferred i trans' ∗
@@ -218,9 +186,6 @@ Section logrel.
           (rx_page i p_rx) ∗
           (∃ mem_rx, memory_page p_rx mem_rx) ∗
           rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗
-          (* ⌜ps_oea = ps_oea'⌝ ∗ ⌜retrieved_lending_memory_pages trans = retrieved_lending_memory_pages trans' ⌝ ∗ *)
-          (* (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗ *)
-          (* (trans -{{retrieval_entries_owned i}}∗ trans') ∗ *)
           VMProp V0 (vmprop_zero p_tx p_rx) (1/2)%Qp)%I.
   Proof.
     rewrite /vmprop_unknown //.
@@ -234,10 +199,6 @@ Section logrel.
   Lemma vmprop_unknown_eq (p_tx p_rx:PID) : vmprop_unknown p_tx p_rx ⊣⊢
       (∃ (trans' : gmap Word transaction) rx_state,
                let ps_macc_trans' := (transferred_memory_pages trans') in
-               (* let ps_oea' := ps_acc' ∖ {[p_rx;p_tx]} ∖ (accessible_in_trans_memory_pages trans') in *)
-               (* i -@{1/2}A> ps_acc' ∗ *)
-               (* LB@ i := [ps_na'] ∗ *)
-               (* ⌜ps_na' ## ps_acc' ∪ (accessible_in_trans_memory_pages trans')⌝ ∗ *)
                transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred i trans' ∗
                retrievable_transaction_transferred i trans' ∗
@@ -247,9 +208,6 @@ Section logrel.
                (rx_page i p_rx) ∗
                (∃ mem_rx, memory_page p_rx mem_rx) ∗
                rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗
-               (* ⌜ps_oea = ps_oea'⌝ ∗ ⌜retrieved_lending_memory_pages trans = retrieved_lending_memory_pages trans' ⌝ ∗ *)
-               (* (trans -{{transaction_pagetable_entries_owned i}}∗ trans') ∗ *)
-               (* (trans -{{retrieval_entries_owned i}}∗ trans') ∗ *)
                VMProp V0 (vmprop_zero p_tx p_rx) (1/2)%Qp)%I.
     Proof.
       rewrite /vmprop_unknown.
@@ -261,6 +219,8 @@ Section logrel.
     (
       (* exclusively owned pages are pages i has access to, but ain't in any transactions related to i. *)
       let ps_macc_trans := (transferred_memory_pages trans) in
+      (* [ps_oea], we exclude all pages involved in in-flight transactions,
+       NOTE: it has to be (currently_accessible_in_trans_memory_pages)*)
       let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages trans) in
       (* registers *)
       (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ i ->r w) ∗
@@ -276,6 +236,11 @@ Section logrel.
       VMProp i (vmprop_unknown p_tx p_rx) (1/2)%Qp
     )%I.
 
+  (* [trans_rel_secondary] relates [trans], the transactions at the beginning of the proof, and
+                [trans'], those at the point of switching to i. These assumptions are (I believe) necessary to prove FTLR.
+                Moreover, they are provable because of that fact that i as the invoker is the only vm can manipulate
+                the state of some transactions, and since, i is not scheduled during the time between starting pvm
+                and switching to i, states of those transactions are immutable. *)
   Definition trans_rel_secondary (i:VMID) (trans trans': gmap Word transaction): Prop :=
    map_Forall (λ h tran,
             ((tran.1.1.1.1 = i ∧ tran.1.2 ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1) ∧
@@ -303,25 +268,25 @@ Section logrel_prim.
     (big_sepFM trans (λ kv, True) (λ k v, k -{1/2}>re v.2 )%I) ∗
     (big_sepFM trans (λ kv, kv.2.2 = false) (λ k v, k -{1/4}>t v.1 ∗ k -{1/2}>re v.2)%I).
 
-  Program Definition interp_access_prim p_tx p_rx ps_acc trans rx_state: iPropO Σ:=
-    (
-      let ps_macc_trans := (transferred_memory_pages V0 trans) in
-      let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in
-      (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗
-      (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
-      V0 -@A> ps_acc ∗
-      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗
-      pagetable_entries_excl_owned V0 ps_oea ∗
-      transaction_pagetable_entries_owned V0 trans ∗ transaction_hpool_global_transferred trans ∗
-      transaction_pagetable_entries_transferred_all trans ∗
-      retrieved_transaction_owned V0 trans ∗ retrievable_transaction_transferred_all trans ∗
-      (∃ mem_oea, memory_pages ps_oea mem_oea) ∗
-      (∃ mem_trans, memory_pages ps_macc_trans mem_trans) ∗
-      RX_state@ V0 := rx_state ∗ (rx_page V0 p_rx) ∗
-      (∃ mem_rx, memory_page p_rx mem_rx) ∗
-      rx_pages (list_to_set (list_of_vmids) ∖ {[V0]}) ∗
-      VMProp V0 True 1%Qp ∗
-      [∗ set] i ∈ list_to_set (list_of_vmids) ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i p_tx p_rx) (1/2)%Qp
-    )%I.
+  (* Program Definition interp_access_prim p_tx p_rx ps_acc trans rx_state: iPropO Σ:= *)
+  (*   ( *)
+  (*     let ps_macc_trans := (transferred_memory_pages V0 trans) in *)
+  (*     let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in *)
+  (*     (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗ *)
+  (*     (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗ *)
+  (*     V0 -@A> ps_acc ∗ *)
+  (*     ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ *)
+  (*     pagetable_entries_excl_owned V0 ps_oea ∗ *)
+  (*     transaction_pagetable_entries_owned V0 trans ∗ transaction_hpool_global_transferred trans ∗ *)
+  (*     transaction_pagetable_entries_transferred_all trans ∗ *)
+  (*     retrieved_transaction_owned V0 trans ∗ retrievable_transaction_transferred_all trans ∗ *)
+  (*     (∃ mem_oea, memory_pages ps_oea mem_oea) ∗ *)
+  (*     (∃ mem_trans, memory_pages ps_macc_trans mem_trans) ∗ *)
+  (*     RX_state@ V0 := rx_state ∗ (rx_page V0 p_rx) ∗ *)
+  (*     (∃ mem_rx, memory_page p_rx mem_rx) ∗ *)
+  (*     rx_pages (list_to_set (list_of_vmids) ∖ {[V0]}) ∗ *)
+  (*     VMProp V0 True 1%Qp ∗ *)
+  (*     [∗ set] i ∈ list_to_set (list_of_vmids) ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i p_tx p_rx) (1/2)%Qp *)
+  (*   )%I. *)
 
 End logrel_prim.
