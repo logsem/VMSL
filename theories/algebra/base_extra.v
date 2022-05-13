@@ -10,8 +10,6 @@ Section predicates.
 
   Context {PROP : bi}.
 
-  Definition big_sepFM(m : gmap K V) (P : K * V-> Prop) `{∀ x, Decision (P x)} (Φ : K -> V -> PROP) : PROP:=
-    [∗ map] k ↦ v ∈ (filter P m), Φ k v.
 End predicates.
 
 Section preservation.

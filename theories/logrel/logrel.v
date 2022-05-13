@@ -1,7 +1,7 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
-From HypVeri Require Import machine_extra.
+From HypVeri Require Import big_sepFM machine_extra.
 From HypVeri.algebra Require Import base base_extra mem mailbox trans.
 Import uPred.
 

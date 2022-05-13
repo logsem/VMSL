@@ -15,6 +15,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
   base_extra.is_total_gmap regs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
   i ≠ V0 ->
+  currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc ∖ {[p_tx; p_rx]} ->
   p_rx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans ->
   p_tx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans ->
   regs !! PC = Some ai ->
@@ -27,32 +28,32 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
   regs !! R0 = Some r0 ->
   decode_hvc_func r0 = Some Yield ->
   p_tx ≠ p_rx ->
-  ⊢
-▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : option (Addr * VMID)),
-              ⌜base_extra.is_total_gmap a⌝
-              → ⌜{[p_tx; p_rx]} ⊆ a0⌝
-                → ⌜p_rx ∉ a0 ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i a1⌝
-                  → ⌜p_tx ∉ a0 ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i a1⌝
-                    → ([∗ map] r↦w ∈ a, r @@ i ->r w) -∗
-                      TX@i:=p_tx -∗
-                      p_tx -@O> - ∗ p_tx -@E> true -∗
-                      i -@A> a0 -∗
-                      pagetable_entries_excl_owned i (a0 ∖ {[p_rx; p_tx]} ∖ currently_accessible_in_trans_memory_pages i a1) -∗
-                      transaction_hpool_global_transferred a1 -∗
-                      transaction_pagetable_entries_transferred i a1 -∗
-                      retrievable_transaction_transferred i a1 -∗
-                      R0 @@ V0 ->r encode_hvc_func Run -∗
-                      R1 @@ V0 ->r encode_vmid i -∗
-                      (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
-                      RX_state@i:= a2 -∗
-                      mailbox.rx_page i p_rx -∗
-                      rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-                      ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
-                      VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
-                      transaction_pagetable_entries_owned i a1 -∗
-                      retrieved_transaction_owned i a1 -∗
-                      (∃ mem : lang.mem, memory_pages (a0 ∪ (accessible_in_trans_memory_pages i a1)) mem) -∗
-                      WP ExecI @ i {{ _, True }}) -∗
+  ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : option (Addr * VMID)),
+              ⌜base_extra.is_total_gmap a⌝ -∗
+              ⌜{[p_tx; p_rx]} ⊆ a0⌝ -∗
+              ⌜currently_accessible_in_trans_memory_pages i a1 ⊆ a0 ∖ {[p_tx; p_rx]}⌝ -∗
+              ⌜p_rx ∉ a0 ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i a1⌝ -∗
+              ⌜p_tx ∉ a0 ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i a1⌝ -∗
+              ([∗ map] r↦w ∈ a, r @@ i ->r w) -∗
+              TX@i:=p_tx -∗
+              p_tx -@O> - ∗ p_tx -@E> true -∗
+              i -@A> a0 -∗
+              pagetable_entries_excl_owned i (a0 ∖ {[p_rx; p_tx]} ∖ currently_accessible_in_trans_memory_pages i a1) -∗
+              transaction_hpool_global_transferred a1 -∗
+              transaction_pagetable_entries_transferred i a1 -∗
+              retrievable_transaction_transferred i a1 -∗
+              R0 @@ V0 ->r encode_hvc_func Run -∗
+              R1 @@ V0 ->r encode_vmid i -∗
+              (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
+              RX_state@i:= a2 -∗
+              mailbox.rx_page i p_rx -∗
+              rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
+              ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
+              VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
+              transaction_pagetable_entries_owned i a1 -∗
+              retrieved_transaction_owned i a1 -∗
+              (∃ mem : lang.mem, memory_pages (a0 ∪ (accessible_in_trans_memory_pages i a1)) mem) -∗
+              WP ExecI @ i {{ _, True }}) -∗
    ([∗ map] r↦w ∈ regs, r @@ i ->r w) -∗
    TX@i:=p_tx -∗
    p_tx -@O> - ∗ p_tx -@E> true -∗
@@ -76,13 +77,14 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
-    iIntros (Htotal_regs Hsubset_mb Hneq_0 Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
-                         Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc Hneq_mb).
-    iIntros  "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
+    iIntros (Htotal_regs Hsubset_mb Hneq_0 Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
+                         Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc).
+    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
              propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans).
     iDestruct (reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_reg_R0  with "[$regs]") as "(PC & R0 & Hacc_regs)";eauto.
-    pose proof (union_split_difference_intersection_L (ps_acc∖ {[p_tx]}) ({[p_rx]} ∪ (transferred_memory_pages i trans))) as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
+    pose proof (union_split_difference_intersection_L (ps_acc∖ {[p_tx]}) ({[p_rx]} ∪ (transferred_memory_pages i trans)))
+      as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
     rewrite Heq_ps_acc_tx in Hdom_mem_acc_tx.
     rewrite set_of_addr_union in Hdom_mem_acc_tx;last auto.
     apply dom_union_inv_L in Hdom_mem_acc_tx;last apply set_of_addr_disj;auto.
@@ -109,10 +111,17 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
       pose proof (union_split_difference_intersection_L (transferred_memory_pages i trans) (ps_acc∖ {[p_tx]})) as [Heq _].
       rewrite union_comm_L intersection_comm_L in Heq.
       f_equal.
-      (* TODO: we need a new assertion in logrel: currently_accessible_in_tran_memory_pages ⊆ ps_acc ∖ {[p_rx; p_tx]},
-         the question is do we need something even stronger?? *)
-
-      admit.
+      rewrite (accessible_retrieved_lending_memory_pages_difference i trans).
+      rewrite union_intersection_r_L.
+      rewrite union_comm_L difference_union_L.
+      assert(ps_mem_in_trans ∖ retrieved_lending_memory_pages i trans ∪ ps_mem_in_trans ∖ (ps_acc ∖ {[p_tx]})=
+               ps_mem_in_trans ∖ retrieved_lending_memory_pages i trans) as H.
+      rewrite union_comm_L.
+      apply subseteq_union_1_L.
+      pose proof (retrieved_lending_currently_accessible_memory_pages_subseteq i trans).
+      set_solver + Hsubset_acc H.
+      rewrite H.
+      set_solver +.
     }
 
     (* we have this annoying case anlaysis because we need to know if the instruction is in the memory pages required by VMProp 0 *)
@@ -185,14 +194,20 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
       iDestruct (derive_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
       (* erewrite (trans_rel_secondary_retrieved_lending_memory_page);eauto. *)
       erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
+      erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
       iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
       iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
       clear trans_rel.
 
       iAssert (∃ mem_all : mem, memory_pages (ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans') mem_all)%I
         with "[mem_oea mem_transferred]" as (?) "mem".
+      {
+       assert (ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans'
+               = ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans')
       (* TODO: we need currently_accessible_in_tran_memory_pages ⊆ ps_acc ∖ {[p_rx; p_tx]} *)
       admit.
+
+      }
 
       iDestruct "mem_tx" as "[%mem_tx mem_tx]".
       iDestruct (memory_pages_disj_singleton with "[$mem $mem_rx]") as %Hnin_rx'.

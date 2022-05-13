@@ -74,3 +74,121 @@ Proof.
   rewrite (lookup_insert_ne _ k2) //.
   rewrite (lookup_insert_ne _ k1) //.
 Qed.
+
+
+Section sets.
+  Context `{Countable T}.
+  Implicit Type A B C : gset T.
+
+  (* lemmas about sets... *)
+  Lemma union_split_difference_intersection_L A B:
+    A = (A ∖ B) ∪ (A ∩ B) ∧ (A ∖ B) ## (A ∩ B).
+  Proof.
+    split.
+    {
+      rewrite union_intersection_l_L.
+      rewrite difference_union_L.
+      set_solver.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma union_split_difference_intersection_subseteq_L A B:
+    B ⊆ A ->
+    A = (A ∖ B) ∪ B ∧ (A ∖ B) ## B.
+  Proof.
+    intro H0.
+    pose proof (union_split_difference_intersection_L A B) as H1.
+    assert (A∩ B = B).
+    {
+      set_solver + H0.
+    }
+    rewrite H2 in H1.
+    done.
+  Qed.
+
+  Lemma union_split_difference_1_L A B:
+    A ∪ B = A ∪ (B ∖ A) ∧ A ## (B ∖ A).
+  Proof.
+    split.
+    {
+      rewrite union_comm_L (union_comm_L _ (B ∖ A)).
+      rewrite difference_union_L //.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma union_split_difference_2_L A B:
+    A ∪ B = B ∪ (A ∖ B) ∧ B ## (A ∖ B).
+  Proof.
+    split.
+    {
+      rewrite  (union_comm_L _ (A ∖ B)).
+      rewrite difference_union_L //.
+    }
+    {
+      set_solver.
+    }
+  Qed.
+
+  Lemma not_subseteq A B:
+    A ⊈ B -> ∃ a, a ∈ A ∧ a ∉ B.
+  Proof.
+    intros.
+    induction A using set_ind_L.
+    pose proof (empty_subseteq B) .
+    done.
+    destruct (decide (x ∈ B)).
+    {
+      assert (X ⊈ B).
+      {
+        intro.
+        apply H0.
+        set_solver.
+      }
+      apply IHA in H2 as [a [? ?]].
+      exists a.
+      split;auto.
+      set_solver.
+    }
+    {
+      exists x.
+      split;auto.
+      set_solver.
+    }
+  Qed.
+
+  Lemma not_subseteq_diff A B C :
+   A ⊆ B -> A ⊈ (B ∖ C) -> ∃ a, a ∈ A ∧ a ∈ C.
+  Proof.
+    intros Hsub1 Hsub2.
+    apply not_subseteq in Hsub2 as [a [Hin Hnin]].
+    rewrite elem_of_subseteq in Hsub1.
+    exists a.
+    split;auto.
+    specialize (Hsub1 a Hin).
+    set_solver.
+  Qed.
+
+  Lemma difference_union_subseteq A B C :
+    B ⊆ C ->
+    A ∖ B ∪ C = A ∪ C.
+  Proof.
+    intro Hsub.
+    apply (union_split_difference_intersection_subseteq_L) in Hsub.
+    destruct Hsub as [Heq _].
+    replace (A ∖ B ∪ C) with (A ∖ B ∪ (C ∖ B ∪ B)).
+    rewrite (union_comm_L  _ B).
+    rewrite union_assoc_L.
+    rewrite difference_union_L.
+    rewrite -(union_assoc_L _ B).
+    rewrite (union_comm_L B).
+    set_solver + Heq.
+    set_solver + Heq.
+  Qed.
+
+End sets.
