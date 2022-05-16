@@ -2,8 +2,10 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base base_extra mem pagetable trans.
-From HypVeri.logrel Require Import logrel big_sepFM big_sepM_split.
-From HypVeri Require Import proofmode stdpp_extra.
+From HypVeri.logrel Require Import logrel.
+From HypVeri.logrel Require Export big_sepFM big_sepM_split.
+From HypVeri Require Import proofmode.
+From HypVeri Require Export stdpp_extra.
 From stdpp Require fin_map_dom.
 Import uPred.
 
