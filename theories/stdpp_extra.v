@@ -1,9 +1,4 @@
-From Coq Require Import ssreflect ssrfun ssrbool.
-Set Implicit Arguments.
-Unset Strict Implicit.
-Unset Printing Implicit Defensive.
-
-Require Import stdpp.base.
+From Coq Require Import ssreflect.
 Require Import stdpp.gmap.
 From Coq Require Import Lia.
 
@@ -228,3 +223,51 @@ Section sets.
   Qed.
 
 End sets.
+
+Section filter.
+  Context `{Countable K} {V: Type}.
+
+  Implicit Type m : gmap K V.
+
+  Lemma map_filter_imp m P `{∀ x, Decision (P x)} Q `{∀ x, Decision (Q x)}:
+    (∀ x, P x -> Q x) ->
+    filter P m ⊆ filter Q m.
+  Proof.
+    intros Himp.
+    induction m using map_ind. done.
+    rewrite 2?map_filter_insert.
+    case_decide;case_decide.
+    {
+      apply map_subseteq_spec.
+      intros.
+      rewrite lookup_insert_Some in H5.
+      destruct H5 as [[-> ->]|[Hneq Hlk]].
+      {
+        rewrite lookup_insert //.
+      }
+      {
+        rewrite lookup_insert_ne //.
+        rewrite map_subseteq_spec in IHm.
+        by apply IHm.
+      }
+      }
+      by apply Himp in H3.
+    rewrite delete_notin //.
+    apply map_subseteq_spec.
+    intros.
+    destruct (decide (i = i0)).
+    {
+      subst.
+      rewrite map_filter_lookup_Some in H5.
+      destruct H5;auto.
+      rewrite H5 in H2. inversion H2.
+    }
+    {
+      rewrite lookup_insert_ne //.
+      rewrite map_subseteq_spec in IHm.
+      by apply IHm.
+    }
+    rewrite 2?delete_notin //.
+  Qed.
+
+End filter.

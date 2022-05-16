@@ -28,7 +28,7 @@ Section big_sep.
               -∗ [∗ set] x ∈ (s ∖ s' ∪ s'') , Φ x).
   Proof.
     iIntros (Hsubseteq) "Hset".
-    pose proof(union_split_difference_intersection_subseteq_L Hsubseteq) as [Heq Hdisj].
+    pose proof(union_split_difference_intersection_subseteq_L _ _ Hsubseteq) as [Heq Hdisj].
     rewrite Heq.
     iDestruct (big_sepS_union with "Hset") as "[Hset1 Hset2]".
     done.
@@ -411,6 +411,42 @@ Section logrel_extra.
     set_solver + Hdisj Hin Hin''.
   Qed.
 
+  Lemma trans_ps_disj_insert_2 h tran trans :
+    trans !! h = None ->
+    trans_ps_disj (<[h:=tran]> trans) ->
+    tran.1.1.2 ## pages_in_trans trans ∧ trans_ps_disj trans.
+  Proof.
+    rewrite /pages_in_trans.
+    rewrite /trans_ps_disj.
+    rewrite /lift_option_gmap.
+    rewrite fmap_insert.
+    intros Hlk.
+    intro Hdisj'.
+    rewrite /inv_trans_ps_disj' /= in Hdisj'.
+    rewrite map_Forall_insert in Hdisj'.
+    2:{ rewrite lookup_fmap. rewrite Hlk //. }
+    destruct Hdisj' as [? ?].
+    rewrite delete_insert // in H.
+    split. done.  2:{ rewrite lookup_fmap. rewrite Hlk //. }
+    rewrite /inv_trans_ps_disj' /= .
+    intro h0. intros.
+    destruct x;auto.
+    specialize (H0 h0 (Some p) H1).
+    simpl in H0.
+    destruct (decide (h = h0)).
+    subst.
+    rewrite delete_insert in H0.
+    rewrite -fmap_delete.
+    rewrite delete_notin //.
+    rewrite lookup_fmap.
+    rewrite Hlk //.
+    rewrite delete_insert_ne // in H0.
+    rewrite pages_in_trans_insert_None' in H0.
+    set_solver + H0.
+    rewrite lookup_delete_ne //.
+    rewrite lookup_fmap Hlk //.
+   Qed.
+
   Lemma trans_ps_disj_insert h tran trans :
     trans_ps_disj trans ->
     trans !! h = None ->
@@ -428,12 +464,11 @@ Section logrel_extra.
     rewrite lookup_fmap.
     rewrite Hlk //.
     intro Hdisj'.
-    rewrite /inv_trans_ps_disj' /= in Hdisj'.
-    rewrite map_Forall_insert in Hdisj'.
-    2:{ rewrite lookup_fmap. rewrite Hlk //. }
-    destruct Hdisj' as [? ?].
-    rewrite delete_insert // in H.
-    rewrite lookup_fmap. rewrite Hlk //.
+    apply (trans_ps_disj_insert_2 h);auto.
+    rewrite /trans_ps_disj.
+    rewrite /lift_option_gmap.
+    rewrite fmap_insert.
+    done.
   Qed.
 
   Lemma trans_ps_disj_subseteq m m':
@@ -598,44 +633,205 @@ Section logrel_extra.
   Lemma transferred_accessible_memory_pages_subseteq i trans:
     transferred_memory_pages i trans ⊆ accessible_in_trans_memory_pages i trans.
   Proof.
-  Admitted.
+    apply pages_in_trans_subseteq.
+    apply map_filter_imp.
+    intros.
+    destruct H as [[|] ].
+    left;done.
+    right;done.
+  Qed.
 
   Lemma currently_accessible_accessible_memory_pages_subseteq i trans:
     currently_accessible_in_trans_memory_pages i trans ⊆ accessible_in_trans_memory_pages i trans.
   Proof.
-  Admitted.
+    apply pages_in_trans_subseteq.
+    apply map_filter_imp.
+    intros.
+    destruct H as [[]|[]].
+    left;split;auto.
+    intro.
+    destruct H1.
+    rewrite H2 //in H0.
+    right;done.
+  Qed.
 
   Lemma retrieved_lending_currently_accessible_memory_pages_subseteq i trans:
     retrieved_lending_memory_pages i trans ⊆ currently_accessible_in_trans_memory_pages i trans.
   Proof.
-  Admitted.
+    apply pages_in_trans_subseteq.
+    apply map_filter_imp.
+    intros.
+    destruct H as [? []].
+    right;split;done.
+  Qed.
 
+  (* TODO: make a general lemma *)
+  Lemma transferred_retrieved_lending_memory_pages_disj i trans:
+    trans_ps_disj trans ->
+    transferred_memory_pages i trans ## retrieved_lending_memory_pages i trans.
+  Proof.
+    intros Hdisj.
+    induction trans using map_ind. done.
+    rewrite /transferred_memory_pages /retrieved_lending_memory_pages.
+    rewrite 2?map_filter_insert.
+    case_decide;case_decide.
+    {
+      destruct H0.
+      destruct H1. done.
+    }
+         {
+           rewrite pages_in_trans_insert.
+           rewrite delete_notin //.
+           assert (x.1.1.2 ## pages_in_trans (filter
+           (λ kv : Addr *
+                  (VMID * leibnizO VMID * gset PID * transaction_type * bool),
+             kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending)
+           m)).
+           apply trans_ps_disj_insert_2 in Hdisj;auto.
+           pose proof ( pages_in_trans_subseteq m (filter (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m)).
+           feed specialize H2.
+           apply map_filter_subseteq.
+           set_solver + H2 Hdisj.
+           apply trans_ps_disj_insert_2 in Hdisj;auto.
+           destruct Hdisj as [Hdisj Hdisj_t].
+           apply IHtrans in Hdisj_t.
+           rewrite /transferred_memory_pages /retrieved_lending_memory_pages in Hdisj_t.
+           set_solver + H2 Hdisj Hdisj_t.
+           rewrite map_filter_lookup_None.
+           left;done.
+         }
+         {
+           rewrite pages_in_trans_insert.
+           rewrite delete_notin //.
+           assert (x.1.1.2 ##  pages_in_trans
+    (filter
+       (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+          (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
+           apply trans_ps_disj_insert_2 in Hdisj;auto.
+           pose proof (pages_in_trans_subseteq m (filter
+          (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+             (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
+           feed specialize H2.
+           apply map_filter_subseteq.
+           set_solver + H2 Hdisj.
+           apply trans_ps_disj_insert_2 in Hdisj;auto.
+           destruct Hdisj as [Hdisj Hdisj_t].
+           apply IHtrans in Hdisj_t.
+           rewrite /transferred_memory_pages /retrieved_lending_memory_pages in Hdisj_t.
+           set_solver + H2 Hdisj Hdisj_t.
+           rewrite map_filter_lookup_None.
+           left;done.
+         }
+         {
+           rewrite 2?delete_notin //.
+
+           apply trans_ps_disj_insert_2 in Hdisj;auto.
+           apply IHtrans.
+           destruct Hdisj as [];done.
+         }
+  Qed.
+
+  (* TODO: make a general lemma *)
   Lemma transferred_retrieved_lending_memory_pages_union i trans:
-    transferred_memory_pages i trans ∪ retrieved_lending_memory_pages i trans = accessible_in_trans_memory_pages i trans.
+    transferred_memory_pages i trans ∪ retrieved_lending_memory_pages i trans
+    = accessible_in_trans_memory_pages i trans.
   Proof.
-  Admitted.
-
-  Lemma transferred_retrieved_lending_memory_pages_disj i trans: transferred_memory_pages i trans ## retrieved_lending_memory_pages i trans.
-  Proof.
-  Admitted.
+    rewrite -pages_in_trans_union.
+    rewrite /accessible_in_trans_memory_pages.
+    f_equal.
+    2:{
+      induction trans using map_ind.
+      set_solver +.
+      rewrite !map_filter_insert.
+      case_decide.
+      rewrite dom_insert_L.
+      rewrite delete_notin //.
+      case_decide.
+      destruct H0, H1;done.
+      assert (i0 ∉ dom (gset Addr)
+                (filter (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m)).
+      apply not_elem_of_dom.
+      rewrite map_filter_lookup_None;left;done.
+      set_solver + H2 IHtrans.
+      case_decide.
+      rewrite dom_insert_L.
+      rewrite delete_notin //.
+      assert (i0 ∉ dom (gset Addr)
+                (filter
+                   (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+                       (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
+      apply not_elem_of_dom.
+      rewrite map_filter_lookup_None;left;done.
+      set_solver + H2 IHtrans.
+      rewrite 2?delete_notin //.
+    }
+    induction trans using map_ind. rewrite !map_filter_empty. apply map_union_empty.
+    rewrite !map_filter_insert.
+    case_decide.
+    {
+      case_decide.
+      destruct H0.
+      destruct H1.
+      done.
+      case_decide.
+      {
+        rewrite -insert_union_l.
+        f_equal.
+        rewrite delete_notin //.
+      }
+      exfalso.
+      apply H2.
+      destruct H0 as [[|] ?];[left|right];done.
+    }
+    {
+      rewrite delete_notin //.
+      case_decide.
+      case_decide.
+      {
+        rewrite -insert_union_r.
+        f_equal.
+        done.
+        rewrite map_filter_lookup_None.
+        left;done.
+      }
+      exfalso.
+      apply H2.
+      right.
+      destruct H1;done.
+      case_decide.
+      exfalso.
+      apply H0.
+      destruct H2 as [[??]|].
+      split;auto.
+      split;auto.
+      apply IHtrans.
+    }
+  Qed.
 
   Lemma accessible_retrieved_lending_memory_pages_difference i trans:
+    trans_ps_disj trans ->
     transferred_memory_pages i trans = accessible_in_trans_memory_pages i trans ∖ retrieved_lending_memory_pages i trans.
   Proof.
-  Admitted.
+    intro Hdisj.
+    pose proof (transferred_retrieved_lending_memory_pages_union i trans).
+    pose proof (transferred_retrieved_lending_memory_pages_disj i trans Hdisj).
+    set_solver.
+  Qed.
 
   Lemma acc_transferred_memory_pages_difference ps_acc i trans trans':
     trans_rel_secondary i trans trans' ->
     currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc ->
     valid_accessible_in_trans_memory_pages ps_acc i trans ->
+    trans_ps_disj trans ->
     valid_accessible_in_trans_memory_pages ps_acc i trans' ->
+    trans_ps_disj trans' ->
     ps_acc ∖ transferred_memory_pages i trans = ps_acc ∖ transferred_memory_pages i trans'.
   Proof.
-    intros.
-    rewrite 2?accessible_retrieved_lending_memory_pages_difference.
+    intros Hrel Hsubset Hvalid Hdisj Hvalid' Hdisj'.
+    rewrite 2?accessible_retrieved_lending_memory_pages_difference;auto.
     rewrite 2?difference_difference_union.
     2 : {
-      erewrite (trans_rel_secondary_currently_accessible_memory_pages) in H0;eauto.
+      erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset;eauto.
       pose proof(retrieved_lending_currently_accessible_memory_pages_subseteq i trans').
       set_solver.
     }
@@ -644,20 +840,21 @@ Section logrel_extra.
       set_solver.
     }
     rewrite intersection_difference.
-    rewrite H1.
-      erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
-    rewrite -H2.
+    rewrite Hvalid.
+    erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
+    rewrite -Hvalid'.
     rewrite -intersection_difference.
-      erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
+    erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
   Qed.
 
   Lemma acc_accessible_in_trans_memory_pages_union ps_acc i trans:
+    trans_ps_disj trans ->
   currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc  ->
         ps_acc ∖ transferred_memory_pages i trans ∪ transferred_memory_pages i trans
             = ps_acc ∪ accessible_in_trans_memory_pages i trans.
   Proof.
-    intro.
-    rewrite accessible_retrieved_lending_memory_pages_difference.
+    intros.
+    rewrite accessible_retrieved_lending_memory_pages_difference;auto.
       pose proof (retrieved_lending_currently_accessible_memory_pages_subseteq i trans).
     rewrite difference_difference_union.
     2: {

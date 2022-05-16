@@ -622,30 +622,26 @@ Section fundamental.
             apply decode_instruction_valid in Heqn.
             inversion Heqn.
             unfold reg_valid_cond in *.
-            exfalso.
-            naive_solver.
+            exfalso. naive_solver.
           }
           {
             apply decode_instruction_valid in Heqn.
             inversion Heqn.
             unfold reg_valid_cond in *.
-            exfalso.
-            naive_solver.
+            exfalso. naive_solver.
           }
           destruct op2 as [| | n' nle'].
           {
             apply decode_instruction_valid in Heqn.
             inversion Heqn.
             unfold reg_valid_cond in *.
-            exfalso.
-            naive_solver.
+            exfalso. naive_solver.
           }
           {
             apply decode_instruction_valid in Heqn.
             inversion Heqn.
             unfold reg_valid_cond in *.
-            exfalso.
-            naive_solver.
+            exfalso. naive_solver.
           }
           pose proof (Htotal_regs (R n nle)) as [a_arg1 Hlookup_arg1].
           pose proof (Htotal_regs (R n' nle')) as [a_arg2 Hlookup_arg2].
