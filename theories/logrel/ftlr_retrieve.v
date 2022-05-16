@@ -615,10 +615,10 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
         }
         {
           iPureIntro.
-          rewrite currently_accessible_in_trans_memory_pages_insert_True.
+          rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) //.
           simpl.
           rewrite -Hrewrite in Hnin_rx Hnin_tx.
-          rewrite accessible_in_trans_memory_pages_insert_True /= in Hnin_rx Hnin_tx.
+          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) //= in Hnin_rx Hnin_tx.
           simpl in Hnin_tx,Hnin_rx.
           set_solver + Hsubset_acc Hnin_rx Hnin_tx.
           right;done.
@@ -645,7 +645,8 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
           assert (currently_accessible_in_trans_memory_pages i (<[r1:=(tran.1, true)]> trans)
                   = tran.1.1.2 ∪ currently_accessible_in_trans_memory_pages i trans) as Hrewrite'.
           {
-            rewrite currently_accessible_in_trans_memory_pages_insert_True /=.
+            rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) //=.
+            rewrite difference_union_L.
             set_solver +.
             right;done.
           }
@@ -754,14 +755,12 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
         }
         {
           iPureIntro.
-          rewrite currently_accessible_in_trans_memory_pages_insert_True.
-          simpl.
+          rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=;auto.
           rewrite -Hrewrite in Hnin_rx Hnin_tx.
-          rewrite accessible_in_trans_memory_pages_insert_True /= in Hnin_rx Hnin_tx.
+          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx.
           simpl in Hnin_tx,Hnin_rx.
           set_solver + Hsubset_acc Hnin_rx Hnin_tx.
           right;done.
-          right;auto.
         }
         {
           iPureIntro.
@@ -784,11 +783,11 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
           assert (currently_accessible_in_trans_memory_pages i (<[r1:=(tran.1, true)]> trans)
                   = tran.1.1.2 ∪ currently_accessible_in_trans_memory_pages i trans) as Hrewrite'.
           {
-            rewrite currently_accessible_in_trans_memory_pages_insert_True /=.
+            rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=.
+            rewrite difference_union_L.
             set_solver +.
-            right;auto.
+            right;auto. auto.
           }
-
           rewrite Hrewrite'.
           rewrite (difference_union_distr_l_L tran.1.1.2).
           set p_rx := tpa ai.
@@ -901,13 +900,12 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
         }
         {
           iPureIntro.
-          rewrite currently_accessible_in_trans_memory_pages_insert_True.
+          rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=;auto.
           simpl. rewrite -Hrewrite in Hnin_rx Hnin_tx.
-          rewrite accessible_in_trans_memory_pages_insert_True /= in Hnin_rx Hnin_tx.
+          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx.
           simpl in Hnin_tx,Hnin_rx.
           set_solver + Hsubset_acc Hnin_rx Hnin_tx.
           right;done.
-          right;auto.
         }
         {
           iPureIntro.
@@ -930,9 +928,10 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
           assert (currently_accessible_in_trans_memory_pages i (<[r1:=(tran.1, true)]> trans)
                   = tran.1.1.2 ∪ currently_accessible_in_trans_memory_pages i trans) as Hrewrite'.
           {
-            rewrite currently_accessible_in_trans_memory_pages_insert_True /=.
+            rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=.
+            rewrite difference_union_L.
             set_solver +.
-            right;auto.
+            right;auto. auto.
           }
           rewrite Hrewrite'.
           rewrite (difference_union_distr_l_L tran.1.1.2).
@@ -1046,13 +1045,12 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
         }
         {
           iPureIntro.
-          rewrite currently_accessible_in_trans_memory_pages_insert_True.
+          rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=;auto.
           simpl. rewrite -Hrewrite in Hnin_rx Hnin_tx.
-          rewrite accessible_in_trans_memory_pages_insert_True /= in Hnin_rx Hnin_tx.
+          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx.
           simpl in Hnin_tx,Hnin_rx.
           set_solver + Hsubset_acc Hnin_rx Hnin_tx.
           right;done.
-          right;auto.
         }
         {
           iPureIntro.
@@ -1075,9 +1073,10 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state 
           assert (currently_accessible_in_trans_memory_pages i (<[r1:=(tran.1, true)]> trans)
                   = tran.1.1.2 ∪ currently_accessible_in_trans_memory_pages i trans) as Hrewrite'.
           {
-            rewrite currently_accessible_in_trans_memory_pages_insert_True /=.
+            rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=.
+            rewrite difference_union_L.
             set_solver +.
-            right;auto.
+            right;auto. auto.
           }
           rewrite Hrewrite'.
           rewrite (difference_union_distr_l_L tran.1.1.2).

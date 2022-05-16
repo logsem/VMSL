@@ -346,9 +346,6 @@ Section helpers.
         set_solver +.
       }
       rewrite IHtrans //.
-      (* destruct x. *)
-      (* 2: done. *)
-
       rewrite (map_fold_insert_L _ _ i _ );auto.
       2:{
         intros w1 w2 trans1 trans2 y.
@@ -363,6 +360,159 @@ Section helpers.
       rewrite lookup_insert_ne //.
     }
     Qed.
+
+  Lemma trans_ps_disj_subseteq' m m':
+    inv_trans_ps_disj' m -> m' ⊆ m -> inv_trans_ps_disj' m'.
+  Proof.
+    intros Hdisj Hsub.
+    intros k v Hlookup.
+    rewrite map_subseteq_spec in Hsub.
+    assert (delete k m' ⊆ delete k m).
+    rewrite map_subseteq_spec.
+    intros.
+    destruct (decide (i = k)).
+    {
+      subst.
+      rewrite lookup_delete_Some in H.
+      destruct H;contradiction.
+    }
+    {
+      rewrite lookup_delete_ne in H;auto.
+      rewrite lookup_delete_ne;auto.
+    }
+    pose proof (pages_in_trans_subseteq' _ _ H).
+    specialize (Hdisj k v).
+    simpl in Hdisj.
+    feed specialize Hdisj.
+    apply Hsub;eauto.
+    destruct v;auto.
+    set_solver + Hdisj H0.
+  Qed.
+
+  Lemma pages_in_trans_lookup' {trans  h tran}:
+    trans !! h = Some (Some tran)->
+    tran.1.1.2 ⊆ pages_in_trans' trans.
+  Proof.
+    intros.
+    induction trans using map_ind.
+    done.
+    rewrite /pages_in_trans'.
+    rewrite map_fold_insert_L //.
+    2:{
+      intros w1 w2 trans1 trans2 y.
+      intros Hneq Hlookup1 Hlookup2.
+      destruct trans1, trans2;
+        set_solver +.
+    }
+    destruct (decide (i = h)).
+    subst.
+    rewrite lookup_insert_Some in H.
+    destruct H as [[_ ->]| [[] _]].
+    set_solver +.
+    done.
+    rewrite lookup_insert_ne // in H.
+    apply IHtrans in H.
+    destruct x;set_solver + H.
+  Qed.
+
+  Lemma pages_in_trans_insert_Some_strong'{h tran tran' trans}:
+    trans !! h = Some (Some tran) ->
+    inv_trans_ps_disj' trans ->
+    pages_in_trans' (<[h := Some tran']> trans) = pages_in_trans' trans ∖ tran.1.1.2 ∪ tran'.1.1.2.
+  Proof.
+    intros Hlk Hdisj.
+    rewrite /pages_in_trans'.
+    induction trans using map_ind.
+    {
+      rewrite map_fold_empty //.
+    }
+    {
+      destruct (decide (i = h)).
+      subst i.
+      rewrite insert_insert.
+      rewrite lookup_insert_Some in Hlk.
+      destruct Hlk as [[_ ->]|[? _]].
+      2: done.
+      rewrite map_fold_insert_L;auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        destruct trans1, trans2;
+        set_solver +.
+      }
+      rewrite map_fold_insert_L;auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        destruct trans1, trans2;
+        set_solver +.
+      }
+      rewrite /inv_trans_ps_disj' in Hdisj.
+      rewrite map_Forall_insert //in Hdisj.
+      destruct Hdisj as [Hd Hdisj].
+      rewrite delete_insert // in Hd.
+      set_solver + Hd.
+      rewrite lookup_insert_Some in Hlk.
+      destruct Hlk as [[? _]|[_ Hlk]].
+      contradiction.
+      rewrite map_insert_swap //.
+      rewrite /inv_trans_ps_disj' in Hdisj.
+      rewrite map_Forall_insert //in Hdisj.
+      destruct Hdisj as [Hd Hdisj].
+      rewrite (map_fold_insert_L _ _ _ _ (<[h:=tran']> m));auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        destruct trans1, trans2;
+        set_solver +.
+      }
+      rewrite (map_fold_insert_L _ _ i _ );auto.
+      2:{
+        intros w1 w2 trans1 trans2 y.
+        intros Hneq Hlookup1 Hlookup2.
+        destruct trans1, trans2;
+        set_solver +.
+      }
+      2: rewrite lookup_insert_ne //.
+      assert (inv_trans_ps_disj' m) as Hdisj'.
+      {
+        clear Hlk n IHtrans Hd tran tran'.
+        intros ???.
+        specialize (Hdisj i0 x0 H0). simpl in Hdisj.
+        destruct x0;auto.
+        destruct (decide (i = i0)).
+        {
+          subst.
+          rewrite delete_insert_delete // in Hdisj.
+        }
+        {
+          rewrite delete_insert_ne // in Hdisj.
+          rewrite /pages_in_trans' in Hdisj.
+          rewrite map_fold_insert_L in Hdisj.
+          2:{
+            intros w1 w2 trans1 trans2 y.
+            intros Hneq Hlookup1 Hlookup2.
+            destruct trans1, trans2;
+              set_solver +.
+          }
+          destruct x; set_solver + Hdisj.
+          rewrite lookup_delete_ne //.
+        }
+      }
+      destruct x.
+      rewrite (difference_union_distr_l_L t.1.1.2).
+      assert (t.1.1.2 ∖ tran.1.1.2 = t.1.1.2) as ->.
+      {
+        rewrite delete_insert // in Hd.
+        pose proof(pages_in_trans_lookup' Hlk).
+        set_solver + H0 Hd.
+      }
+      rewrite -union_assoc_L.
+      f_equal.
+      apply IHtrans;auto.
+      apply IHtrans;auto.
+    }
+  Qed.
 
   Lemma pages_in_trans_insert_Some'{h tran tran' trans}:
     trans !! h = Some (Some tran) ->
@@ -462,33 +612,6 @@ Qed.
       }
    Qed.
 
-  Lemma trans_ps_disj_subseteq' m m':
-    inv_trans_ps_disj' m -> m' ⊆ m -> inv_trans_ps_disj' m'.
-  Proof.
-    intros Hdisj Hsub.
-    intros k v Hlookup.
-    rewrite map_subseteq_spec in Hsub.
-    assert (delete k m' ⊆ delete k m).
-    rewrite map_subseteq_spec.
-    intros.
-    destruct (decide (i = k)).
-    {
-      subst.
-      rewrite lookup_delete_Some in H.
-      destruct H;contradiction.
-    }
-    {
-      rewrite lookup_delete_ne in H;auto.
-      rewrite lookup_delete_ne;auto.
-    }
-    pose proof (pages_in_trans_subseteq' _ _ H).
-    specialize (Hdisj k v).
-    simpl in Hdisj.
-    feed specialize Hdisj.
-    apply Hsub;eauto.
-    destruct v;auto.
-    set_solver + Hdisj H0.
-  Qed.
 
   Lemma pages_in_trans_delete_None' {h trans}:
     trans !! h = Some (None) ->

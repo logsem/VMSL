@@ -356,6 +356,20 @@ Section logrel_extra.
     exists tran. split;done.
   Qed.
 
+  Lemma pages_in_trans_insert_strong{h tran tran' trans}:
+    trans !! h = Some tran ->
+    trans_ps_disj trans ->
+    pages_in_trans (<[h := tran']> trans) = pages_in_trans trans ∖ tran.1.1.2 ∪ tran'.1.1.2.
+  Proof.
+    intros Hlk Hdisj.
+    rewrite /pages_in_trans.
+    rewrite /lift_option_gmap fmap_insert /=.
+    apply pages_in_trans_insert_Some_strong'.
+    rewrite lookup_fmap.
+    rewrite Hlk //.
+    done.
+  Qed.
+
   Lemma pages_in_trans_insert'{h tran tran' trans}:
     trans !! h = Some tran ->
     tran.1 = tran'.1 ->
@@ -382,6 +396,14 @@ Section logrel_extra.
     rewrite lookup_fmap.
     rewrite Hlk //.
     done.
+  Qed.
+
+  Lemma pages_in_trans_delete_None {h trans}:
+    trans !! h = None ->
+    pages_in_trans (delete h trans) = pages_in_trans trans.
+  Proof.
+    intros Hlk.
+    rewrite delete_notin //.
   Qed.
 
   (* lemmas for trans_ps_disj *)
@@ -681,56 +703,56 @@ Section logrel_extra.
       destruct H0.
       destruct H1. done.
     }
-         {
-           rewrite pages_in_trans_insert.
-           rewrite delete_notin //.
-           assert (x.1.1.2 ## pages_in_trans (filter
-           (λ kv : Addr *
-                  (VMID * leibnizO VMID * gset PID * transaction_type * bool),
-             kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending)
-           m)).
-           apply trans_ps_disj_insert_2 in Hdisj;auto.
-           pose proof ( pages_in_trans_subseteq m (filter (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m)).
-           feed specialize H2.
-           apply map_filter_subseteq.
-           set_solver + H2 Hdisj.
-           apply trans_ps_disj_insert_2 in Hdisj;auto.
-           destruct Hdisj as [Hdisj Hdisj_t].
-           apply IHtrans in Hdisj_t.
-           rewrite /transferred_memory_pages /retrieved_lending_memory_pages in Hdisj_t.
-           set_solver + H2 Hdisj Hdisj_t.
-           rewrite map_filter_lookup_None.
-           left;done.
-         }
-         {
-           rewrite pages_in_trans_insert.
-           rewrite delete_notin //.
-           assert (x.1.1.2 ##  pages_in_trans
-    (filter
-       (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
-          (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
-           apply trans_ps_disj_insert_2 in Hdisj;auto.
-           pose proof (pages_in_trans_subseteq m (filter
-          (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
-             (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
-           feed specialize H2.
-           apply map_filter_subseteq.
-           set_solver + H2 Hdisj.
-           apply trans_ps_disj_insert_2 in Hdisj;auto.
-           destruct Hdisj as [Hdisj Hdisj_t].
-           apply IHtrans in Hdisj_t.
-           rewrite /transferred_memory_pages /retrieved_lending_memory_pages in Hdisj_t.
-           set_solver + H2 Hdisj Hdisj_t.
-           rewrite map_filter_lookup_None.
-           left;done.
-         }
-         {
-           rewrite 2?delete_notin //.
+    {
+      rewrite pages_in_trans_insert.
+      rewrite delete_notin //.
+      assert (x.1.1.2 ## pages_in_trans (filter
+                                           (λ kv : Addr *
+                                                     (VMID * leibnizO VMID * gset PID * transaction_type * bool),
+                                               kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending)
+                                           m)).
+      apply trans_ps_disj_insert_2 in Hdisj;auto.
+      pose proof ( pages_in_trans_subseteq m (filter (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m)).
+      feed specialize H2.
+      apply map_filter_subseteq.
+      set_solver + H2 Hdisj.
+      apply trans_ps_disj_insert_2 in Hdisj;auto.
+      destruct Hdisj as [Hdisj Hdisj_t].
+      apply IHtrans in Hdisj_t.
+      rewrite /transferred_memory_pages /retrieved_lending_memory_pages in Hdisj_t.
+      set_solver + H2 Hdisj Hdisj_t.
+      rewrite map_filter_lookup_None.
+      left;done.
+    }
+    {
+      rewrite pages_in_trans_insert.
+      rewrite delete_notin //.
+      assert (x.1.1.2 ##  pages_in_trans
+                (filter
+                   (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+                       (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
+      apply trans_ps_disj_insert_2 in Hdisj;auto.
+      pose proof (pages_in_trans_subseteq m (filter
+                                               (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+                                                   (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
+      feed specialize H2.
+      apply map_filter_subseteq.
+      set_solver + H2 Hdisj.
+      apply trans_ps_disj_insert_2 in Hdisj;auto.
+      destruct Hdisj as [Hdisj Hdisj_t].
+      apply IHtrans in Hdisj_t.
+      rewrite /transferred_memory_pages /retrieved_lending_memory_pages in Hdisj_t.
+      set_solver + H2 Hdisj Hdisj_t.
+      rewrite map_filter_lookup_None.
+      left;done.
+    }
+    {
+      rewrite 2?delete_notin //.
 
-           apply trans_ps_disj_insert_2 in Hdisj;auto.
-           apply IHtrans.
-           destruct Hdisj as [];done.
-         }
+      apply trans_ps_disj_insert_2 in Hdisj;auto.
+      apply IHtrans.
+      destruct Hdisj as [];done.
+    }
   Qed.
 
   (* TODO: make a general lemma *)
@@ -872,18 +894,7 @@ Section logrel_extra.
     apply difference_union_L.
   Qed.
 
-  Lemma accessible_in_trans_memory_pages_insert_True i trans h tran:
-    (tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
-    accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
-  Proof.
-  Admitted.
-
-  Lemma accessible_in_trans_memory_pages_insert_False i trans h tran:
-    ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
-    accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans.
-  Proof.
-  Admitted.
-
+  (** accessible_in_trans_memory_pages **)
   Lemma accessible_in_trans_memory_pages_lookup_True i trans h tran:
     trans !! h = Some tran ->
     ((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
@@ -895,6 +906,35 @@ Section logrel_extra.
     trans !! h = Some tran ->
     ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
     tran.1.1.2 ## (accessible_in_trans_memory_pages i trans).
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_insert_True_None i trans h tran:
+    trans !! h = None ->
+    (tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
+    accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_insert_True_Some i trans h tran tran':
+    trans !! h = Some tran ->
+    (tran'.1.1.1.1 = i  ∧ ¬(tran'.2 = true ∧ tran'.1.2 = Lending)) ∨ tran'.1.1.1.2 = i ->
+    accessible_in_trans_memory_pages i (<[h:= tran']>trans) = accessible_in_trans_memory_pages i trans  ∖ tran.1.1.2 ∪ tran'.1.1.2.
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_insert_False_None i trans h tran:
+    trans !! h = None ->
+    ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
+    accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans.
+  Proof.
+  Admitted.
+
+  Lemma accessible_in_trans_memory_pages_insert_False_Some i trans h tran tran':
+    trans !! h = Some tran ->
+    ¬((tran'.1.1.1.1 = i  ∧ ¬(tran'.2 = true ∧ tran'.1.2 = Lending)) ∨ tran'.1.1.1.2 = i) ->
+    trans_ps_disj trans ->
+    accessible_in_trans_memory_pages i (<[h:= tran']>trans) = accessible_in_trans_memory_pages i trans ∖ tran.1.1.2.
   Proof.
   Admitted.
 
@@ -914,18 +954,7 @@ Section logrel_extra.
   Proof.
   Admitted.
 
-  Lemma currently_accessible_in_trans_memory_pages_insert_True i trans h tran:
-    (tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true) ->
-    currently_accessible_in_trans_memory_pages i (<[h:= tran]>trans) = currently_accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
-  Proof.
-  Admitted.
-
-  Lemma currently_accessible_in_trans_memory_pages_insert_False i trans h tran:
-    ¬((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
-    currently_accessible_in_trans_memory_pages i (<[h:= tran]>trans) = currently_accessible_in_trans_memory_pages i trans.
-  Proof.
-  Admitted.
-
+  (** currently_accessible_in_trans_memory_pages **)
   Lemma currently_accessible_in_trans_memory_pages_lookup_True i trans h tran:
     trans !! h = Some tran ->
     ((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
@@ -936,9 +965,102 @@ Section logrel_extra.
   Lemma currently_accessible_in_trans_memory_pages_lookup_False i trans h tran:
     trans !! h = Some tran ->
     ¬((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
+    trans_ps_disj trans ->
     tran.1.1.2 ## (currently_accessible_in_trans_memory_pages i trans).
   Proof.
   Admitted.
+
+  Lemma currently_accessible_in_trans_memory_pages_insert_True_None i trans h tran:
+    trans !! h = None ->
+    (tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true) ->
+    currently_accessible_in_trans_memory_pages i (<[h:= tran]>trans) = currently_accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
+  Proof.
+    intros.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    rewrite map_filter_insert_True //.
+    rewrite pages_in_trans_insert //.
+    set_solver +.
+    rewrite map_filter_lookup_None.
+    left;done.
+  Qed.
+
+  Lemma currently_accessible_in_trans_memory_pages_insert_True_Some i trans h tran tran':
+    trans !! h = Some tran ->
+    (tran'.1.1.1.1 = i ∧ tran'.1.2 = Sharing) ∨ (tran'.1.1.1.2 = i ∧ tran'.2 = true) ->
+    trans_ps_disj trans ->
+    currently_accessible_in_trans_memory_pages i (<[h:= tran']>trans) = currently_accessible_in_trans_memory_pages i trans ∖ tran.1.1.2 ∪ tran'.1.1.2.
+  Proof.
+    intros Hlk P' Hdisj.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    rewrite map_filter_insert_True //.
+    destruct (decide ((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true))).
+    {
+      apply pages_in_trans_insert_strong.
+      rewrite map_filter_lookup_Some.
+      split;auto.
+      eapply trans_ps_disj_subseteq;eauto.
+      apply map_filter_subseteq.
+    }
+    {
+      rewrite pages_in_trans_insert.
+      2: {
+        rewrite map_filter_lookup_None.
+        right;simpl. intros ? Hlk'.
+        rewrite Hlk' in Hlk.
+        inversion Hlk.
+        done.
+      }
+      feed pose proof(currently_accessible_in_trans_memory_pages_lookup_False i trans h tran);auto.
+      set_solver + H.
+    }
+  Qed.
+
+  Lemma currently_accessible_in_trans_memory_pages_insert_False_None i trans h tran:
+    trans !! h = None ->
+    ¬((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
+    currently_accessible_in_trans_memory_pages i (<[h:= tran]>trans) = currently_accessible_in_trans_memory_pages i trans.
+  Proof.
+    intros.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    rewrite map_filter_insert_False //.
+    rewrite map_filter_delete.
+    rewrite pages_in_trans_delete_None //.
+    rewrite map_filter_lookup_None.
+    left;done.
+  Qed.
+
+   Lemma currently_accessible_in_trans_memory_pages_insert_False_Some i trans h tran tran':
+    trans !! h = Some tran ->
+    ¬((tran'.1.1.1.1 = i ∧ tran'.1.2 = Sharing) ∨ (tran'.1.1.1.2 = i ∧ tran'.2 = true)) ->
+    trans_ps_disj trans ->
+    currently_accessible_in_trans_memory_pages i (<[h:= tran']>trans) = currently_accessible_in_trans_memory_pages i trans ∖ tran.1.1.2.
+  Proof.
+    intros Hlk nP' Hdisj.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    rewrite map_filter_insert_False //.
+    rewrite map_filter_delete.
+    destruct (decide ((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true))).
+    {
+      apply pages_in_trans_delete.
+      rewrite map_filter_lookup_Some.
+      split;auto.
+      eapply trans_ps_disj_subseteq;eauto.
+      apply map_filter_subseteq.
+
+    }
+    {
+      feed pose proof(currently_accessible_in_trans_memory_pages_lookup_False i trans h tran);auto.
+      rewrite pages_in_trans_delete_None.
+      2: {
+        rewrite map_filter_lookup_None.
+        right;simpl. intros ? Hlk'.
+        rewrite Hlk' in Hlk.
+        inversion Hlk.
+        done.
+      }
+      set_solver + H.
+    }
+  Qed.
 
   Lemma currently_accessible_in_trans_memory_pages_delete_True i trans h tran:
     trans !! h = Some tran ->
