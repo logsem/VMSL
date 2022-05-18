@@ -178,6 +178,8 @@ Section definitions.
   Definition inv_finite_handles (trans: gmap Word (option transaction)) :=
    valid_handles = dom (gset Word) trans.
 
+  Definition valid_transaction (tran: VMID * VMID  * gset PID  * transaction_type):= tran.1.1.1 ≠ tran.1.1.2.
+
   Definition inv_trans_wellformed' (trans : gmap Word (option transaction)) :=
     inv_trans_pg_num_ub trans ∧ inv_trans_sndr_rcvr_neq trans ∧ inv_finite_handles trans.
 
@@ -216,6 +218,7 @@ Section definitions.
     ) trans.
 
   Definition inv_trans_pgt_consistent σ := inv_trans_pgt_consistent' (get_transactions σ) (get_page_table σ).
+
 
   Context `{vmG: !gen_VMG Σ}.
 
@@ -341,8 +344,8 @@ Notation "p -@{ q }E> b" := (excl_mapsto p q b) (at level 20, format "p  -@{ q }
 Notation "p -@E> b" := (p -@{ 1 }E> b)%I (at level 20, format "p  -@E>  b"):bi_scope.
 
 (* predicates for transactions *)
-Notation "w -{ q }>t t" := ((trans_mapsto w (DfracOwn q) (Some t)) ∗ ⌜w ∈ valid_handles⌝)%I (at level 20, format "w  -{ q }>t  t"):bi_scope.
-Notation "w -{ q }>t -" := ((trans_mapsto w (DfracOwn q) None) ∗ ⌜w ∈ valid_handles⌝)%I (at level 20, format "w  -{ q }>t  -"):bi_scope.
+Notation "w -{ q }>t t" := ((trans_mapsto w (DfracOwn q) (Some t)) ∗ ⌜w ∈ valid_handles ∧ valid_transaction t⌝)%I (at level 20, format "w  -{ q }>t  t"):bi_scope.
+Notation "w -{ q }>t -" := ((trans_mapsto w (DfracOwn q) None) ∗ ⌜w ∈ valid_handles ⌝)%I (at level 20, format "w  -{ q }>t  -"):bi_scope.
 Notation "w ->t t" := (w -{ 1 }>t t)%I (at level 20, format "w  ->t  t"):bi_scope.
 Notation "w ->t -" := (w -{ 1 }>t -)%I (at level 20, format "w  ->t  -"):bi_scope.
 

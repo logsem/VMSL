@@ -20,11 +20,28 @@ Section trans_rules.
     by iFrame.
    Qed.
 
+  Lemma trans_agree w q1 q2 tran tran':
+   w -{q1}>t tran ∗ w -{q2}>t tran' ⊢ ⌜tran = tran'⌝.
+  Proof.
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iIntros "[[H1 %] [H2 _]]".
+    iDestruct (ghost_map_elem_agree with "H1 H2") as "%Heq".
+    inversion Heq;done.
+  Qed.
+
   Lemma trans_valid_handle_Some w q tran :
     w -{q}>t tran ⊢ ⌜w ∈ valid_handles⌝.
   Proof.
     rewrite trans_mapsto_eq /trans_mapsto_def.
-    iIntros "[H %Hvalid]".
+    iIntros "[H [%Hvalid _]]".
+    by iFrame.
+  Qed.
+
+  Lemma trans_valid_tran_Some w q tran :
+    w -{q}>t tran ⊢ ⌜valid_transaction tran⌝.
+  Proof.
+    rewrite trans_mapsto_eq /trans_mapsto_def.
+    iIntros "[H [_ %Hvalid]]".
     by iFrame.
   Qed.
 
@@ -48,6 +65,15 @@ Section trans_rules.
     iDestruct ((ghost_map_elem_split w _ q (Some bool)) with "[$H1 $H2]") as "H".
     by iFrame.
   Qed.
+
+  Lemma retri_agree w q1 q2 b b':
+   w -{q1}>re b ∗ w -{q2}>re b' ⊢ ⌜b = b'⌝.
+  Proof.
+    rewrite retri_mapsto_eq /retri_mapsto_def.
+    iIntros "[[H1 %] [H2 _]]".
+    iDestruct (ghost_map_elem_agree with "H1 H2") as "%Heq".
+    inversion Heq;done.
+   Qed.
 
   Lemma retri_valid_handle_Some w q b :
     w -{q}>re b ⊢ ⌜w ∈ valid_handles⌝.
@@ -136,15 +162,17 @@ Section trans_rules.
   Qed.
 
   Lemma trans_update_insert {σ} h meta:
+   valid_transaction meta ->
    (ghost_map_auth gen_trans_name 1 (get_trans_gmap σ)) -∗
    h ->t - ==∗
    (ghost_map_auth gen_trans_name 1 (<[h:= Some meta]>(get_trans_gmap σ))) ∗ h ->t (meta).
   Proof.
-    iIntros "auth tran".
-    iDestruct (trans_valid_None with "auth tran") as "%Hvalid".
+    iIntros (Hvalid_t) "auth tran".
+    iDestruct (trans_valid_None with "auth tran") as "%Hlk".
     rewrite trans_mapsto_eq /trans_mapsto_def.
-    iDestruct "tran" as "[tran Hvalid]".
-    iFrame. iApply (ghost_map_update with "auth tran");auto.
+    iDestruct "tran" as "[tran %Hvalid_h]".
+    iDestruct (ghost_map_update with "auth tran") as ">[$ $]".
+    done.
   Qed.
 
   Lemma trans_update_delete {σ meta} h :
@@ -155,7 +183,7 @@ Section trans_rules.
   Proof.
     iIntros "auth tran".
     rewrite trans_mapsto_eq /trans_mapsto_def.
-    iDestruct "tran" as "[tran Hvalid]".
+    iDestruct "tran" as "[tran [Hvalid _]]".
     iFrame. iApply (ghost_map_update None with "auth tran").
   Qed.
 

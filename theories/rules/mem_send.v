@@ -112,6 +112,7 @@ Proof.
      rewrite /monad.List.sequence_a_list /= in H0.
      done.
 Qed.
+
 Lemma parse_list_of_pids_length l f3 l0:
   parse_list_of_pids l f3 = Some l0->
   length l = length l0.
@@ -1400,6 +1401,7 @@ Proof.
     rewrite big_sepS_singleton. iDestruct "h" as "[tran re]". iClear "H".
     iDestruct (trans_valid_None with "trans tran") as %Hlookup_tran.
     iDestruct (trans_update_insert h (i, j, ps, Sharing) with "trans tran") as ">[$ tran]".
+    { rewrite /valid_transaction //=. }
     (* upd hp *)
     rewrite (preserve_get_hpool_gset (alloc_transaction σ1 h (i, j, ps, Sharing, false)) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //. rewrite u_alloc_tran_hpool.
@@ -1725,6 +1727,7 @@ Proof.
     rewrite big_sepS_singleton. iDestruct "h" as "[tran re]". iClear "H".
     iDestruct (trans_valid_None with "trans tran") as %Hlookup_tran.
     iDestruct (trans_update_insert h (i, j, ps, tt) with "trans tran") as ">[$ tran]".
+    { rewrite /valid_transaction //=. }
     (* upd hp *)
     rewrite (preserve_get_hpool_gset (alloc_transaction σ1 h (i, j, ps, tt, false)) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans 2!p_upd_reg_trans p_rvk_acc_trans //. rewrite u_alloc_tran_hpool.

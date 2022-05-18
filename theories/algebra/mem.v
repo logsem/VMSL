@@ -391,7 +391,7 @@ Section mem_rules.
     }
   Qed.
 
-   Lemma memory_pages_split_union' (ps1 ps2 :gset PID):
+  Lemma memory_pages_split_union' (ps1 ps2 :gset PID):
     ps1 ## ps2 ->
     (∃ mem, memory_pages (ps1 ∪ ps2) mem) ⊣⊢ (∃ mem1 , memory_pages ps1 mem1) ∗ ∃mem2, memory_pages ps2 mem2.
   Proof.
@@ -602,6 +602,15 @@ Section mem_rules.
     iDestruct ("Hsplit" with "[mem1]") as "(% & % & mem1' & mem1_p & _)".
     iFrame.
     iApply (memory_page_false with "[$mem1_p $mem2]").
+  Qed.
+
+  Lemma memory_pages_union' (ps1 ps2 :gset PID):
+    ((∃ mem1 , memory_pages ps1 mem1) ∗ ∃mem2, memory_pages ps2 mem2) ⊢ (∃ mem, memory_pages (ps1 ∪ ps2) mem).
+  Proof.
+    iIntros "((%m1 & mem1) & (%m2 & mem2))".
+    iDestruct (memory_pages_disj with "[$mem1 $mem2]") as "%Hdisj".
+    iApply (memory_pages_split_union' with "[mem1 mem2]");auto.
+    iSplitL "mem1"; iExists _; iFrame.
   Qed.
 
   Lemma memory_pages_empty : ⊢ memory_pages ∅ ∅.
