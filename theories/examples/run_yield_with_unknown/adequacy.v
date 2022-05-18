@@ -161,12 +161,11 @@ Section rywu_adequacy.
     iMod (gen_trans_alloc σ) as (trans_gname) "[Hσtrans Htrans]".
     iMod (gen_hpool_alloc σ) as (hpool_gname) "[Hσhpool Hhpool]".
     iMod (gen_retri_alloc σ) as (retri_gname) "[Hσretri Hretri]".
-    iMod (gen_lower_bound_alloc ∅) as (lb_gname) "[HLB_auth _]".
-    
+
     iModIntro.
     iIntros (name_map_name).
     pose ((GenVMG irisΣ vm_preG Hinv _ _ _ name_map_name mem_gname reg_gname mb_gname rx_state_gname
-                  own_gname access_gname excl_gname trans_gname hpool_gname retri_gname lb_gname)) as VMG.
+                  own_gname access_gname excl_gname trans_gname hpool_gname retri_gname)) as VMG.
     iExists (gen_vm_interp (Σ := irisΣ)).
     
     destruct Hinit as (-> & -> & (p_prog1 & p_prog2 & p_prog3 & p_tx1 & p_tx2 & p_tx3 & p_rx1 & p_rx2 & p_rx3 & Hnodup_p & Hpgt & Hmem & Hreg & (Hmb & Hrx)) & Htrans).
@@ -836,7 +835,7 @@ Section rywu_adequacy.
     pose proof (@access_split rywu_vmconfig irisΣ VMG 1 V2) as Hsplit.
     rewrite access_mapsto_eq /access_mapsto_def in Hsplit.
 
-    iSplitL "PCz R0z R1z R2z mem_p_prog1 Hp VMProp0 VMProp1_half' VMProp2_half' HLB_auth mb0RX mb1RX mb2RX RX0St RX1St RX2St p_rx1 p_rx2 p_rx3 mb0TX access1 excl1 excl2 excl3 own1 own2 own3".
+    iSplitL "PCz R0z R1z R2z mem_p_prog1 Hp VMProp0 VMProp1_half' VMProp2_half' mb0RX mb1RX mb2RX RX0St RX1St RX2St p_rx1 p_rx2 p_rx3 mb0TX access1 excl1 excl2 excl3 own1 own2 own3".
     iIntros "_".
     iDestruct (rywu_machine0  p_prog1 p_tx1 p_prog3 p_tx3 p_rx1 p_rx2 p_rx3 with "[-]") as "HWP".
     {

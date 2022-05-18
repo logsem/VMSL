@@ -1,6 +1,6 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base lower_bound mem.
+From HypVeri.algebra Require Import base mem.
 From HypVeri.rules Require Import rules_base mov halt run yield.
 From HypVeri.examples Require Import instr.
 From HypVeri.logrel Require Import logrel logrel_extra.
