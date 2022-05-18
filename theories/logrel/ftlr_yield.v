@@ -339,7 +339,6 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
                          >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >rx & >[% mem_rx] & >other_rx & prop0)".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f r0 with "[PC R0i]") as "[%regs' [%Htotal_regs' regs'']]"; iFrameAutoSolve.
       iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
-      (* erewrite (trans_rel_secondary_retrieved_lending_memory_page);eauto. *)
       erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
       erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
       iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
