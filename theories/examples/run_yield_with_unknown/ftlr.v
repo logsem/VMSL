@@ -15,8 +15,6 @@ Section rywu_ftlr.
 
   Lemma rywu_ftlr (p_prog3 p_tx p_rx :PID):
    rywu_interp_access p_prog3 p_tx p_rx ⊢ interp_execute V2.
-  Proof.
-    iApply ftlr.
-  Qed.
+  Proof. iApply ftlr. Qed.
 
 End rywu_ftlr.

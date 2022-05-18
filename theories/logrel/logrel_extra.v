@@ -275,6 +275,14 @@ Section logrel_extra.
     split;done.
   Qed.
 
+  Lemma pages_in_trans_empty:
+    pages_in_trans ∅ = ∅.
+  Proof.
+    rewrite /pages_in_trans /pages_in_trans'.
+    rewrite /lift_option_gmap.
+    rewrite fmap_empty map_fold_empty //.
+  Qed.
+
   Lemma pages_in_trans_union trans trans':
     dom (gset _) trans ## dom (gset _) trans' ->
     pages_in_trans (trans ∪ trans') = pages_in_trans trans ∪ pages_in_trans trans'.
