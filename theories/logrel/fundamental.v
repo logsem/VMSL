@@ -4,9 +4,9 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base mov yield ldr halt fail add sub mult cmp br bne str run.
 From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim.
-(*  [ftlr_yield] [ftlr_share] [ftlr_retrieve] ftlr_msg_send *)
-(*      ftlr_msg_wait ftlr_msg_poll [ftlr_relinquish] [ftlr_reclaim] [WIP: ftlr_donate] ftlr_lend ftlr_invalid_hvc. *)
+From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend.
+(*  [ftlr_yield] [ftlr_share] [ftlr_retrieve] [TODO: ftlr_msg_send] *)
+(*      [WIP ftlr_msg_wait] ftlr_msg_poll [ftlr_relinquish] [ftlr_reclaim] [ftlr_donate] [ftlr_lend] ftlr_invalid_hvc. *)
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
