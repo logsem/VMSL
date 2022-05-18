@@ -58,13 +58,6 @@ Section logrel.
   Definition retrieved_transaction_owned i (trans: gmap Addr transaction) : iProp Σ:=
     (big_sepFM trans (λ kv, kv.2.1.1.1.2 = i ∧ kv.2.2 = true) (λ k v, k -{1/4}>t v.1 ∗ k -{1/2}>re v.2)%I).
 
-  (* Definition transaction_pagetable_entries_transferred_except (i: VMID) (trans: gmap Addr transaction) : iProp Σ:= *)
-  (*   big_sepFM trans (λ kv, kv.2.1.2 = Donation ∧ ¬(kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) (λ k v, k -{1/2}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true)%I. *)
-
-  (* Definition retrieval_entries_transferred_except (i: VMID) (trans: gmap Addr transaction) : iProp Σ:= *)
-  (*   (big_sepFM trans (λ kv, ¬(kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) (λ k v, k -{1/2}>re v.2 )%I) ∗ *)
-  (*   (big_sepFM trans (λ kv, ¬(kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i) ∧ kv.2.2 = false) (λ k v, k -{1/2}>re v.2)%I). *)
-
   Program Definition interp_execute: iPropO Σ :=
    (⌜i ≠ V0⌝ -∗
         (VMProp_holds i (1/2)%Qp -∗ WP ExecI @ i {{(λ _, True )}}))%I.
@@ -137,8 +130,6 @@ Section logrel.
     λ p_tx p_rx,
     (∃ (trans' : gmap Word transaction) rx_state,
                let ps_macc_trans' := (transferred_memory_pages trans') in
-               (* NOTE: Just having [ps_acc'] seems not enough, which can be broken by getting access to pages in ps_na from some
-                transaction. *)
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred i trans' ∗
@@ -247,46 +238,3 @@ Section logrel.
             ((tran.1.1.1.2 = i ∧ tran.2 = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran')
      ) trans.
 End logrel.
-
-Section logrel_prim.
-
-  Context `{hypconst:HypervisorConstants}.
-  Context `{hypparams:!HypervisorParameters}.
-  Context `{vmG: !gen_VMG Σ}.
-
-  Definition trans_rel_primary (i:VMID) (trans trans': gmap Word transaction): Prop :=
-   map_Forall (λ h tran,
-          ((tran.1.1.1.1 ≠ i ∧ tran.1.1.1.2 ≠ i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧
-          ((tran.1.1.1.1 = i ∧ tran.2 = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧
-          ((tran.1.1.1.2= i ∧ tran.1.2 ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1)
-     ) trans.
-
-  Definition transaction_pagetable_entries_transferred_all (trans: gmap Addr transaction) : iProp Σ:=
-    big_sepFM trans (λ kv, kv.2.1.2 = Donation) (λ k v, k -{1/4}>t v.1 ∗ pgt v.1.1.2 1 v.1.1.1.1 true)%I.
-
-  Definition retrievable_transaction_transferred_all(trans: gmap Addr transaction) : iProp Σ:=
-    (big_sepFM trans (λ kv, True) (λ k v, k -{1/2}>re v.2 )%I) ∗
-    (big_sepFM trans (λ kv, kv.2.2 = false) (λ k v, k -{1/4}>t v.1 ∗ k -{1/2}>re v.2)%I).
-
-  (* Program Definition interp_access_prim p_tx p_rx ps_acc trans rx_state: iPropO Σ:= *)
-  (*   ( *)
-  (*     let ps_macc_trans := (transferred_memory_pages V0 trans) in *)
-  (*     let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in *)
-  (*     (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗ *)
-  (*     (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗ *)
-  (*     V0 -@A> ps_acc ∗ *)
-  (*     ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ *)
-  (*     pagetable_entries_excl_owned V0 ps_oea ∗ *)
-  (*     transaction_pagetable_entries_owned V0 trans ∗ transaction_hpool_global_transferred trans ∗ *)
-  (*     transaction_pagetable_entries_transferred_all trans ∗ *)
-  (*     retrieved_transaction_owned V0 trans ∗ retrievable_transaction_transferred_all trans ∗ *)
-  (*     (∃ mem_oea, memory_pages ps_oea mem_oea) ∗ *)
-  (*     (∃ mem_trans, memory_pages ps_macc_trans mem_trans) ∗ *)
-  (*     RX_state@ V0 := rx_state ∗ (rx_page V0 p_rx) ∗ *)
-  (*     (∃ mem_rx, memory_page p_rx mem_rx) ∗ *)
-  (*     rx_pages (list_to_set (list_of_vmids) ∖ {[V0]}) ∗ *)
-  (*     VMProp V0 True 1%Qp ∗ *)
-  (*     [∗ set] i ∈ list_to_set (list_of_vmids) ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i p_tx p_rx) (1/2)%Qp *)
-  (*   )%I. *)
-
-End logrel_prim.
