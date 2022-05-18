@@ -5,8 +5,7 @@ From HypVeri.algebra Require Import base pagetable mem trans.
 From HypVeri.rules Require Import rules_base mov yield ldr halt fail add sub mult cmp br bne str run.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend
-  ftlr_msg_send ftlr_msg_wait.
-(*      TODO: ftlr_msg_poll ftlr_invalid_hvc. *)
+  ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc.
 From HypVeri Require Import proofmode stdpp_extra.
 Import uPred.
 
@@ -826,54 +825,54 @@ Section fundamental.
               all:done.
             }
             { (*Share*)
-              iApply (ftlr_share with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_share with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Lend*)
-              iApply (ftlr_lend with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_lend with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Donate*)
-              iApply (ftlr_donate with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_donate with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Retrieve*)
-              iApply (ftlr_retrieve with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_retrieve with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Relinquish*)
-              iApply (ftlr_relinquish with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_relinquish with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Reclaim*)
-              iApply (ftlr_reclaim with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_reclaim with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Send*)
-              iApply (ftlr_msg_send with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_msg_send with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Wait*)
-              iApply (ftlr_msg_wait with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_msg_wait with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
             { (*Poll*)
-              iApply (ftlr_msg_poll with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              iApply (ftlr_msg_poll with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
               all:done.
             }
           }
           { (* decode_hvc_func r0 = None *)
-            iApply (ftlr_invalid_hvc with "IH regs tx pgt_tx pgt_acc pgt_acc' LB trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
-                 rx_state rx other_rx prop0 propi tran_pgt_owned pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+            iApply (ftlr_invalid_hvc with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z
+                 rx_state rx other_rx prop0 propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
             all:done.
           }
         }
@@ -885,22 +884,14 @@ Section fundamental.
         iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx")
           as "[mem_instr Hacc_mem_acc]".
         iApply (not_valid_instr _ ai instr with "[PC pgt_acc tx mem_instr]"); iFrameAutoSolve.
-        iNext.
-        iIntros "? _".
+        iNext. iIntros "? _".
         by iApply wp_terminated.
       }
     }
     { (* i doesn't have access *)
       iDestruct (reg_big_sepM_split i Hlookup_PC with "[$regs]") as "[PC _]".
-      iApply (invalid_pc_not_accessible with "[PC pgt_acc pgt_acc']"); iFrameAutoSolve.
-      exact.
-      {
-        iNext.
-        rewrite (access_split (q:=1)).
-        iFrame.
-      }
-      iNext;simpl.
-      iIntros "? _".
+      iApply (invalid_pc_not_accessible with "[PC pgt_acc]"); iFrameAutoSolve.
+      iNext;simpl. iIntros "? _".
       by iApply wp_terminated.
     }
   Qed.
