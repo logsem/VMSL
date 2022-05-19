@@ -28,8 +28,9 @@ Definition mem : Type :=
 Definition reg_file : Type :=
   gmap reg_name Word.
 
+(* TODO: this is a very confusing name *)
 Definition permission : Type :=
-  option VMID * bool * gset VMID.
+  (** owner *) option VMID * (** exclusive *) bool * (** can_access *) gset VMID.
 
 Definition page_table : Type :=
   gmap PID permission.
@@ -38,7 +39,7 @@ Definition tx_buffer : Type :=
   PID.
 
 Definition rx_buffer : Type :=
-  (PID * option(Word * VMID)).
+  (PID * option (Word * VMID)).
 
 Definition mail_box : Type :=
   (tx_buffer * rx_buffer).
@@ -50,7 +51,7 @@ Definition meta_info : Type :=
   * transaction_type.
 
 Definition transaction : Type :=
-   meta_info * bool (* if retrieved *).
+  meta_info * bool (* if retrieved *).
 
 Definition transactions : Type :=
   gmap Word (option transaction).
@@ -116,7 +117,7 @@ Definition check_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
 Definition check_read_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
   check_read_access_page st v (to_pid_aligned a).
 
-Definition check_write_access_addr (st : state) (v :VMID) (a : Addr) : bool :=
+Definition check_write_access_addr (st : state) (v : VMID) (a : Addr) : bool :=
   check_write_access_page st v (to_pid_aligned a).
 
 Definition check_ownership_addr (st : state) (v : VMID) (a : Addr) : bool :=
@@ -137,23 +138,23 @@ Definition get_reg_global (st : state) (v : VMID) (r : reg_name) : option Word :
 Definition get_reg (st : state) (r : reg_name) : option Word :=
   get_reg_global st (get_current_vm st) r.
 
-Definition update_ownership (perm: permission) (v:VMID) : permission:=
+Definition update_ownership (perm: permission) (v: VMID) : permission :=
   match perm with
   | (Some o, b, s) => (Some v, b, s)
   | _ => perm
   end.
 
-Definition grant_access (perm: permission) (v:VMID) : permission :=
+Definition grant_access (perm: permission) (v: VMID) : permission :=
   match perm with
   | (o, s) => (o, {[v]} ∪ s)
   end.
 
-Definition revoke_access (perm: permission) (v:VMID)  : permission :=
+Definition revoke_access (perm: permission) (v: VMID) : permission :=
   match perm with
   | (o, s) => (o, s ∖ {[v]})
   end.
 
-Definition flip_excl (perm:permission) (v: VMID) : permission :=
+Definition flip_excl (perm: permission) (v: VMID) : permission :=
   match perm with
   | (o, b, s) => (o, negb b, s)
   end.

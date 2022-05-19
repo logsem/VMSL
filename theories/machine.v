@@ -23,9 +23,11 @@ Notation Word := (finz word_size).
 
 Notation Addr := Word.
 
+(** page identifier *)
+(* TODO: page_id or PGID would be better *)
 (* we introduce PID as there will be some operations on pagetables *)
 Inductive PID: Type :=
-| P (z : Addr) (align: (Z.rem z page_size =? 0)%Z = true) .
+| P (z : Addr) (align: (Z.rem z page_size =? 0)%Z = true).
 
 Definition of_pid (p: PID): Word :=
   match p with
