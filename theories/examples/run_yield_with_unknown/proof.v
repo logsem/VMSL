@@ -17,7 +17,6 @@ Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
 Program Definition V2 : VMID := (@nat_to_fin 2 _ _).
 
 Section proof.
-
   Context `{hypparams: !HypervisorParameters}.
 
   Definition rywu_program0 : list Word :=

@@ -309,7 +309,7 @@ Section lemmas.
     big_sepFM m P Φ ⊣⊢ big_sepFM m Q Φ.
   Proof.
     intro equiv.
-    iInduction m  as [| k v m Hlk] "IH" using map_ind.
+    iInduction m as [| k v m Hlk] "IH" using map_ind.
     iSplit; iIntros "?";iApply big_sepFM_empty.
     destruct (decide (P(k,v))).
     rewrite 2?big_sepFM_insert_True //.
@@ -358,6 +358,114 @@ Section lemmas.
         intros [? _]. done.
       }
     }
+  Qed.
+
+  Lemma big_sepFM_split_lor {m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)}
+                       {Φ: K -> A -> PROP}:
+    (∀ kv, P kv ∧ Q kv -> False)
+    ->
+    big_sepFM m (λ kv, ((P kv) ∨ Q kv):Prop) Φ ⊣⊢ (big_sepFM m P Φ)
+                       ∗ big_sepFM m Q Φ.
+  Proof.
+    intro Hfalse.
+    {
+      iInduction m as [|k v m Hlk] "H" using map_ind.
+      iSplit; iIntros "_";try iSplitL;iApply big_sepFM_empty.
+      destruct (decide (P (k,v)));destruct (decide (Q (k,v))).
+      {
+        exfalso.
+        eapply Hfalse.
+        split;done.
+      }
+      {
+        rewrite big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_False//.
+        2:{ left;done. }
+        iSplit. iIntros "[$ ?]".
+        by iApply "H".
+        iIntros "[[$ ?] ?]".
+        iApply "H"; iFrame.
+      }
+      {
+        rewrite big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_False//.
+        rewrite big_sepFM_insert_True//.
+        2:{ right;done. }
+        iSplit. iIntros "[$ ?]".
+        by iApply "H".
+        iIntros "[? [$ ?]]".
+        iApply "H"; iFrame.
+      }
+      {
+        rewrite 3?big_sepFM_insert_False//.
+        intros [? | ?]; done.
+      }
+    }
+  Qed.
+
+
+  Lemma big_sepFM_split_lor_weak {m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)}
+                       {Φ: K -> A -> PROP}:
+    map_Forall (λ k v, P (k,v) ∧ Q (k,v) -> False) m
+    ->
+    (big_sepFM m (λ kv, ((P kv) ∨ Q kv):Prop) Φ ⊣⊢ (big_sepFM m P Φ)
+                       ∗ big_sepFM m Q Φ).
+  Proof.
+    intro Hfalse.
+    {
+      iInduction m as [|k v m Hlk] "H" using map_ind.
+      iSplit; iIntros "_";try iSplitL;iApply big_sepFM_empty.
+      assert (Hfalse': map_Forall (λ (k0 : K) (v0 : A), P (k0, v0) ∧ Q (k0, v0) → False) m).
+      {
+        rewrite map_Forall_insert //in Hfalse.
+        destruct Hfalse;done.
+      }
+      iSpecialize ("H" $! Hfalse').
+      destruct (decide (P (k,v)));destruct (decide (Q (k,v))).
+      {
+        exfalso.
+        eapply (Hfalse k v).
+        rewrite lookup_insert //.
+        split;done.
+      }
+      {
+        rewrite big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_False//.
+        2:{ left;done. }
+        iSplit. iIntros "[$ ?]".
+        by iApply "H".
+        iIntros "[[$ ?] ?]".
+        iApply "H"; iFrame.
+      }
+      {
+        rewrite big_sepFM_insert_True//.
+        rewrite big_sepFM_insert_False//.
+        rewrite big_sepFM_insert_True//.
+        2:{ right;done. }
+        iSplit. iIntros "[$ ?]".
+        by iApply "H".
+        iIntros "[? [$ ?]]".
+        iApply "H"; iFrame.
+      }
+      {
+        rewrite 3?big_sepFM_insert_False//.
+        intros [? | ?]; done.
+      }
+    }
+  Qed.
+
+  Lemma big_sepFM_False {m: gmap K A} `{∀x, (Decision (P x))} {Φ: K -> A -> PROP}:
+    (∀ x, P x -> False) ->
+    ⊢ big_sepFM m P Φ.
+  Proof.
+    intro Hfalse.
+    iIntros.
+    iInduction m as [| k v m Hlk] "IH" using map_ind.
+    iApply big_sepFM_empty.
+    rewrite big_sepFM_insert_False //.
+    intro. eapply Hfalse.  done.
   Qed.
 
 End lemmas.

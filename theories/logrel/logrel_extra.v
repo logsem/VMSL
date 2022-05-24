@@ -545,8 +545,7 @@ Section logrel_extra.
       iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[[tran' pgt] global_tran_acc]";eauto.
       iDestruct (trans_agree with "[$tran $tran']") as %Heq.
       iDestruct (big_sepFM_lookup_Some_acc Hlk' with "global_re") as "[re' global_re_acc]";auto.
-      simpl. left. destruct a. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
-      inversion Heq. subst v0. done.
+      simpl. right. destruct a;repeat destruct x as [x ?]. simpl in *. rewrite -Heq //.
       iDestruct (retri_agree with "[$re $re']") as %Heq_re.
       iSplitR. iPureIntro. split;intros. done.
       eexists. split. eauto. destruct x, tran'. simpl in *. subst m0 b0. done.
@@ -556,8 +555,8 @@ Section logrel_extra.
       case_decide.
       iDestruct ("global_re" with "re'") as "global_re".
       rewrite insert_id //.
-      exfalso. apply H. left. destruct a. repeat destruct x as [x ?]. repeat destruct tran' as [tran' ?]. simpl in *.
-      inversion Heq. subst v0. done.
+      exfalso. apply H. right. destruct a. repeat destruct x as [x ?]. simpl in *.
+      rewrite -Heq //.
     }
     {
       iSplitR. iPureIntro. split;intros. done. done.

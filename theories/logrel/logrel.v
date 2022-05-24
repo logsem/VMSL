@@ -31,7 +31,7 @@ Section logrel.
       full entries.
       Pagetable entries are transferred along as both sender and receiver could be the exclusive owner of those pages. *)
   Definition transaction_pagetable_entries_transferred i (trans: gmap Addr transaction) : iProp Σ:=
-    big_sepFM trans (λ kv, kv.2.1.2 = Donation ∧ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) (λ k v, k -{1/4}>t v.1 ∗ pgt_1_4 v.1.1.2 v.1.1.1.1 true)%I.
+    big_sepFM trans (λ kv, (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ kv.2.1.2 = Donation ) (λ k v, k -{1/4}>t v.1 ∗ pgt_1_4 v.1.1.2 v.1.1.1.1 true)%I.
 
   (* [retrieval entries]: half of all retrieval entries of i-related transactions are required.
      For transactions where i is the sender, we need the corresponding retrieval entries to check if it is allowed for i to reclaim,
@@ -39,7 +39,7 @@ Section logrel.
   (* There are also some cases when we need the second half, as in those cases we may update/remove the retrival state *)
   (* XXX: How to relate retrieval and transaction entries? Using option(frac_agree transaction,option bool)? or is it unnecessary? *)
   Definition retrievable_transaction_transferred i (trans: gmap Addr transaction) : iProp Σ:=
-    (big_sepFM trans (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i) (λ k v, k -{1/2}>re v.2 )%I) ∗
+    (big_sepFM trans (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) (λ k v, k -{1/2}>re v.2 )%I) ∗
     (big_sepFM trans (λ kv, (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ kv.2.2 = false) (λ k v, k -{1/4}>t v.1 ∗ k -{1/2}>re v.2)%I).
 
   (* [transaction_pagetable_entries_owned]: transaction and page table entries that are owned initially by i,
@@ -76,7 +76,7 @@ Section logrel.
       NOTE: we exclude the case when the type of transaction is lending and has been retrieved,
       as the associated memory pages in this case is exclusively owned by the receiver*)
   Definition transferred_memory_pages (trans : gmap Word transaction) :=
-    pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i  ∨ kv.2.1.1.1.2 = i) ∧ ¬(kv.2.2 = true ∧ kv.2.1.2 = Lending)) trans).
+    pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬(kv.2.2 = true ∧ kv.2.1.2 = Lending)) trans).
 
   (* [retrieved_lending_memory_pages]: the memory of these pages are owned by the receiver *)
   Definition retrieved_lending_memory_pages (trans : gmap Word transaction) :=
@@ -84,11 +84,11 @@ Section logrel.
 
   (* [accessible_in_trans_memory_pages] (maybe) accessible memory pages associated with transactions *)
   Definition accessible_in_trans_memory_pages (trans : gmap Word transaction) :=
-    pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i  ∧ ¬(kv.2.2 = true ∧ kv.2.1.2 = Lending)) ∨ kv.2.1.1.1.2 = i) trans).
+    pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i ∧ ¬(kv.2.2 = true ∧ kv.2.1.2 = Lending)) ∨ kv.2.1.1.1.2 = i) trans).
 
   (* [currently_accessible_in_trans_memory_pages] currently accessible memory pages associated with transactions *)
   Definition currently_accessible_in_trans_memory_pages (trans : gmap Word transaction) :=
-    pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i  ∧ kv.2.1.2 = Sharing) ∨ (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans).
+    pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.2 = Sharing) ∨ (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans).
 
   (* [TODO] *)
   Definition rx_pages (s: gset VMID) : iProp Σ :=
@@ -97,7 +97,7 @@ Section logrel.
 
   (* [TODO] *)
   Definition return_reg_rx i : iProp Σ:=
-    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∗ (∃ rx_state'', RX_state@ i := rx_state'')  ∨
+    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∗ (∃ rx_state'', RX_state@ i := rx_state'') ∨
       R0 @@ V0 ->r encode_hvc_func(Wait) ∗ RX_state@ i :=None) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
     (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', RX_state@ i := rx_state'') ∗ ∃ j p_rx l, ⌜j ≠ i⌝ ∗ RX@ j := p_rx ∗ RX_state{1/2}@j := Some(l,i)
                           ∗ (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗ ∃ mem_rx, memory_page p_rx mem_rx).
@@ -151,7 +151,7 @@ Section logrel.
   Proof.
     rewrite /vmprop_unknown_pre => n vmprop_unknown vmprop_unknown' Hvmprop_unknown p_tx p_rx /=.
     do 15 f_equiv.
-    rewrite /VMProp  /=.
+    rewrite /VMProp /=.
     do 6 f_equiv.
     f_contractive.
     rewrite /vmprop_zero_pre.
@@ -219,7 +219,7 @@ Section logrel.
       (tx_page i p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
       (* access *)
       i -@A> ps_acc ∗
-      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ ⌜ currently_accessible_in_trans_memory_pages trans ⊆ ps_acc ∖ {[p_tx;p_rx]}⌝ ∗
+      ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ ⌜currently_accessible_in_trans_memory_pages trans ⊆ ps_acc ∖ {[p_tx;p_rx]}⌝ ∗
       pagetable_entries_excl_owned i ps_oea ∗
       transaction_pagetable_entries_owned i trans ∗
       retrieved_transaction_owned i trans ∗
@@ -237,4 +237,5 @@ Section logrel.
             ((tran.1.1.1.1 = i ∧ tran.1.2 ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1) ∧
             ((tran.1.1.1.2 = i ∧ tran.2 = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran')
      ) trans.
+
 End logrel.

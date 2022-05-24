@@ -846,7 +846,7 @@ Section rywu_adequacy.
     }
     {
       iFrame "Hp VMProp0 VMProp1_half' VMProp2_half'".
-      rewrite fmap_empty. unfold program.
+      unfold program.
       iEval (rewrite big_opM_map_to_list) in "mem_p_prog1".
       rewrite big_sepL2_alt.
       iSplitL "mem_p_prog1".
@@ -1019,10 +1019,6 @@ Section rywu_adequacy.
         apply NoDup_map_to_list.
       }
       iFrame "VMProp2_half".
-      (* rewrite pages_in_trans_empty. *)
-      (* unfold pages_in_trans. *)
-      (* simpl. *)
-      (* rewrite map_fold_empty. *)
       rewrite difference_empty_L.
       unfold transaction_pagetable_entries_owned.
       unfold retrieved_transaction_owned.
