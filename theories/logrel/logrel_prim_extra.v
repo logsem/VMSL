@@ -20,6 +20,76 @@ Section logrel_prim_extra.
   Definition trans_preserve_except i (trans trans': (gmap Addr transaction)) :=
     map_Forall (λ h tran, ¬(tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') trans.
 
+  Definition slice_transfer_all :=
+    (λ trans ij, transaction_pagetable_entries_transferred_slice ij.1 ij.2 trans
+                ∗ retrievable_transaction_transferred_slice ij.1 ij.2 trans
+                ∗ ∃mem, memory_pages (transferred_memory_pages_slice ij.1 ij.2 trans) mem)%I.
+
+  Lemma slice_wf_sep `{slice_wf1:!SliceWf Φ1} `{slice_wf2:!SliceWf Φ2} :
+    SliceWf (λ trans ij, ((Φ1 trans ij) :iProp Σ) ∗ ((Φ2 trans ij) :iProp Σ))%I.
+  Proof.
+    Admitted.
+
+  Instance slice_transaction_pagetable_entries_transferred_wf
+    : SliceWf (λ trans ij, transaction_pagetable_entries_transferred_slice ij.1 ij.2 trans).
+  Proof.
+    split.
+    {
+      intros i j trans trans' Heq.
+      rewrite /transaction_pagetable_entries_transferred_slice /=.
+      iInduction trans as [|k v m Hlk] "IH" using map_ind forall (trans' Heq).
+      rewrite map_filter_empty in Heq.
+      iSplit.
+      {
+        iIntros "_".
+        symmetry in Heq.
+        apply map_filter_empty_iff in Heq.
+        iApply big_sepFM_False_weak.
+        intros ? ? ? [? ?].
+        efeed specialize Heq;eauto.
+      }
+      {
+        iIntros "_".
+        iApply big_sepFM_empty.
+      }
+      destruct (decide (((v.1.1.1.1 = i ∧ v.1.1.1.2 = j) ∧ v.1.2 = Donation))).
+      {
+        admit.
+      }
+      {
+        admit.
+      }
+    }
+    {
+      intros i j trans trans' Hsubset.
+      rewrite /transaction_pagetable_entries_transferred_slice /=.
+      iIntros "global".
+      iInduction trans as [|k v m Hlk] "IH" using map_ind forall (trans' Hsubset).
+      iSplit.
+      iIntros "_".
+      rewrite fmap_empty.
+      (* TODO show lemmas about map_zip *)
+      admit.
+      admit.
+      admit.
+    }
+    Admitted.
+
+  Instance slice_retrievable_transaction_transferred_wf
+    : SliceWf (λ trans ij, retrievable_transaction_transferred_slice ij.1 ij.2 trans).
+  Proof.
+    Admitted.
+
+  Instance slice_transferred_memory_pages_wf
+    : SliceWf (λ trans ij, (∃mem, memory_pages (transferred_memory_pages_slice ij.1 ij.2 trans) mem)%I).
+  Proof.
+    Admitted.
+
+  Instance slice_transfer_all_wf : SliceWf slice_transfer_all.
+  Proof.
+    rewrite /slice_transfer_all /=.
+  Admitted.
+
   Lemma slice_preserve_singleton (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
     slice_wf Φ ->
     trans_preserve_only i trans trans'->
@@ -34,9 +104,18 @@ Section logrel_prim_extra.
   Proof.
   Admitted.
 
-  Lemma slice_union_unify (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
-    big_sepSS_except set_of_vmids i (Φ trans) ∗ big_sepSS_singleton set_of_vmids i (Φ trans')
-    ⊣⊢ ∃ trans'', big_sepSS set_of_vmids (Φ trans'') ∗ ⌜trans_preserve_except i trans trans'' ∧ trans_preserve_only i trans' trans''⌝.
+  (* Lemma slice_union_unify (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i: *)
+  (*   big_sepSS_except set_of_vmids i (Φ trans) ∗ big_sepSS_singleton set_of_vmids i (Φ trans') *)
+  (*   ⊣⊢ ∃ trans'', big_sepSS set_of_vmids (Φ trans'') ∗ ⌜trans_preserve_except i trans trans'' ∧ trans_preserve_only i trans' trans''⌝. *)
+  (* Proof. *)
+  (* Admitted. *)
+  (* TODO: the most important lemma! *)
+  Lemma slice_global_unify (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
+    big_sepSS_except set_of_vmids i (Φ trans) ∗
+      big_sepSS_singleton set_of_vmids i (Φ trans') ∗
+      ([∗ map] h ↦ tran ∈ trans', h -{1/2}>t tran.1)
+    ⊢ ∃ trans'', big_sepSS set_of_vmids (Φ trans'') ∗ [∗ map] h ↦ tran ∈ trans'', h -{1/2}>t tran.1.
+  (* trans'' = map_zip (fst <$>trans') ((snd<$> (filter (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)trans)) ∪ (snd<$> (filter (λ kv, ¬ (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i))trans))) *)
   Proof.
   Admitted.
 

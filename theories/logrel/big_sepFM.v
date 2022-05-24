@@ -468,4 +468,24 @@ Section lemmas.
     intro. eapply Hfalse.  done.
   Qed.
 
+  Lemma big_sepFM_False_weak{m: gmap K A} `{∀x, (Decision (P x))} {Φ: K -> A -> PROP}:
+    map_Forall (λ k v, P(k,v) -> False) m->
+    ⊢ big_sepFM m P Φ.
+  Proof.
+    intro Hfalse.
+    iIntros.
+    iInduction m as [| k v m Hlk] "IH" using map_ind.
+    iApply big_sepFM_empty.
+    rewrite big_sepFM_insert_False //.
+    assert (Hfalse': map_Forall (λ (k0 : K) (v0 : A), P (k0, v0) → False) m).
+    {
+      rewrite map_Forall_insert //in Hfalse.
+      destruct Hfalse;done.
+    }
+    iApply ("IH" $! Hfalse').
+    rewrite map_Forall_insert //in Hfalse.
+    destruct Hfalse;done.
+  Qed.
+
+
 End lemmas.

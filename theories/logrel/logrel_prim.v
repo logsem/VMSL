@@ -47,10 +47,23 @@ Section logrel_prim.
   Definition set_of_vmids : gset VMID := (list_to_set list_of_vmids).
 
   Definition slice_wf (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) :=
-    ∀ i j trans trans', map_Forall (λ h tran, tran.1.1.1.1 = i ∧ tran.1.1.1.2 = j -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') trans ->
+    ∀ i j trans trans', filter (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j) trans
+                        = filter (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j) trans' ->
     (Φ trans (i,j) ⊣⊢ Φ trans' (i,j)).
 
-  Program Definition interp_access_prim p_tx p_rx ps_acc trans (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ): iPropO Σ:=
+  Definition slice_wf2 (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) :=
+    ∀ i j (trans trans' : gmap Addr transaction),
+    dom (gset _) (filter (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j)%type trans') ⊆ dom _ trans ->
+    ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1) ⊢
+    (Φ trans' (i,j)) ∗-∗ (Φ (map_zip (fst<$>trans) (snd <$>trans')) (i,j)).
+
+  Class SliceWf (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ):=
+    {
+      slice : (slice_wf Φ);
+      agree : (slice_wf2 Φ)
+    }.
+
+  Program Definition interp_access_prim p_tx p_rx ps_acc trans `(SliceWf Φ): iPropO Σ:=
     (
       (* let ps_macc_trans := (transferred_memory_pages_all trans) in *)
       let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in
