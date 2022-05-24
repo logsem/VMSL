@@ -7,51 +7,38 @@ From HypVeri Require Import proofmode.
 From stdpp Require fin_map_dom.
 Import uPred.
 
+
 Section logrel_prim_extra.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  (* Lemmas about relationships between transferred_all, transferred, and transferred_except *)
-  (* Lemma transaction_pagetable_entries_transferred_split i trans: *)
-  (*   transaction_pagetable_entries_transferred_all trans ⊣⊢ transaction_pagetable_entries_transferred i trans ∗ *)
-  (*                                                transaction_pagetable_entries_transferred_except i trans. *)
-  (* Proof. iApply (big_sepFM_split_decide). Qed. *)
+  (* slice *)
+  Definition trans_preserve_only i (trans trans': (gmap Addr transaction)) :=
+    map_Forall (λ h tran, tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') trans.
 
-  (* Lemma retrievable_transaction_transferred_split i trans: *)
-  (*  retrievable_transaction_transferred_all trans ⊣⊢ retrievable_transaction_transferred i trans ∗ *)
-  (*                                                retrievable_transaction_transferred_except i trans. *)
-  (* Proof. *)
-  (*   rewrite /retrievable_transaction_transferred /retrievable_transaction_transferred_all /retrievable_transaction_transferred_except. *)
-  (*   iSplit. *)
-  (*   iIntros "(H1 & H2)". *)
-  (*   iDestruct (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)) with "H1") as "[H11 H12]". *)
-  (*   rewrite (big_sepFM_iff (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))). iFrame "H11". *)
-  (*   rewrite (big_sepFM_iff (Q:= (λ kv, ¬ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)))). iFrame "H12". *)
-  (*   iDestruct (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)) with "H2") as "[H21 H22]". *)
-  (*   iSplitL "H21". *)
-  (*   iApply (big_sepFM_iff with "H21"). intros. split;intros [? ?];auto. *)
-  (*   iApply (big_sepFM_iff with "H22"). intros. split;intros [? ?];split;auto. intro Hor;apply H;destruct Hor;eauto. *)
-  (*   intro Hor;apply H0;destruct Hor;eauto. *)
-  (*   intros. split;intros H;eauto. destruct H;done. *)
-  (*   intros. split;intros H;eauto. destruct H;done. *)
-  (*   iIntros "([H11 H12] & [H21 H22])". *)
-  (*   iSplitL "H11 H21". *)
-  (*   iApply (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))). *)
-  (*   rewrite (big_sepFM_iff (Q:= (λ kv, kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i))). iFrame "H11". *)
-  (*   rewrite (big_sepFM_iff (Q:= (λ kv, ¬ (kv.2.1.1.1.2 = i ∨ kv.2.1.1.1.1 = i)))). iFrame "H21". *)
-  (*   intros. split;intros H;eauto. destruct H;done. *)
-  (*   intros. split;intros H;eauto. destruct H;done. *)
-  (*   iApply (big_sepFM_split_decide (Q:= (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i))). *)
-  (*   iSplitL "H12". *)
-  (*   iApply big_sepFM_iff. 2: iFrame "H12". *)
-  (*   intros. split;intros H;eauto. destruct H;auto. destruct H;split;auto. *)
-  (*   iApply big_sepFM_iff. 2: iFrame "H22". *)
-  (*   intros. split;intros H;eauto. destruct H as [? H];split;auto. *)
-  (*   intro. apply H. destruct H1;auto. *)
-  (*   destruct H as [? H];split;auto. *)
-  (*   intro. apply H0. destruct H1;auto. *)
-  (* Qed. *)
+  Definition trans_preserve_except i (trans trans': (gmap Addr transaction)) :=
+    map_Forall (λ h tran, ¬(tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') trans.
+
+  Lemma slice_preserve_singleton (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
+    slice_wf Φ ->
+    trans_preserve_only i trans trans'->
+    big_sepSS_singleton set_of_vmids i (Φ trans) ⊣⊢ big_sepSS_singleton set_of_vmids i (Φ trans').
+  Proof.
+  Admitted.
+
+  Lemma slice_preserve_except (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
+    slice_wf Φ ->
+    trans_preserve_except i trans trans'->
+    big_sepSS_except set_of_vmids i (Φ trans) ⊣⊢ big_sepSS_except set_of_vmids i (Φ trans').
+  Proof.
+  Admitted.
+
+  Lemma slice_union_unify (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
+    big_sepSS_except set_of_vmids i (Φ trans) ∗ big_sepSS_singleton set_of_vmids i (Φ trans')
+    ⊣⊢ ∃ trans'', big_sepSS set_of_vmids (Φ trans'') ∗ ⌜trans_preserve_except i trans trans'' ∧ trans_preserve_only i trans' trans''⌝.
+  Proof.
+  Admitted.
 
   Lemma big_sepFM_trans_split i (trans: gmap Addr transaction) `{∀ x, Decision (Q x)} (Φ: _ -> _ -> iPropO Σ):
     map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
@@ -194,13 +181,14 @@ Section logrel_prim_extra.
    Qed.
 
   Lemma retrievable_transaction_transferred_equiv i (trans: gmap Addr transaction):
-    big_sepSS_singleton set_of_vmids i (λ ij, retrievable_transaction_transferred_to ij.2 ij.1 trans) ⊣⊢
+    big_sepSS_singleton set_of_vmids i (λ ij, retrievable_transaction_transferred_slice ij.1 ij.2 trans) ⊣⊢
     retrievable_transaction_transferred i trans.
   Proof.
   Admitted.
 
   Lemma transferred_memory_pages_equiv i (trans: gmap Addr transaction):
-    big_sepSS_singleton set_of_vmids i (λ ij, ∃mem, memory_pages (transferred_memory_pages_to ij.2 ij.1 trans) mem) ⊣⊢
+    trans_ps_disj trans ->
+    big_sepSS_singleton set_of_vmids i (λ ij, ∃mem, memory_pages (transferred_memory_pages_slice ij.1 ij.2 trans) mem) ⊣⊢
     ∃mem, memory_pages (transferred_memory_pages i trans) mem.
   Proof.
   Admitted.
