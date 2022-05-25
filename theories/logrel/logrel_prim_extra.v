@@ -15,11 +15,6 @@ Section logrel_prim_extra.
 
   (* slice *)
 
-  Definition slice_transfer_all :=
-    (λ trans i j, transaction_pagetable_entries_transferred_slice trans i j
-                ∗ retrievable_transaction_transferred_slice trans i j
-                ∗ transferred_memory_slice trans i j)%I.
-
   Lemma slice_wf_sep `{slice_wf1:!SliceWf Φ1} `{slice_wf2:!SliceWf Φ2} :
     SliceWf (λ trans i j, ((Φ1 trans i j) :iProp Σ) ∗ ((Φ2 trans i j) :iProp Σ))%I.
   Proof.
@@ -322,7 +317,7 @@ Section logrel_prim_extra.
     iApply big_sepFM_empty.
   Qed.
 
-  Lemma transferred_memory_pages_equiv i trans:
+  Lemma transferred_memory_equiv i trans:
     map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
     trans_ps_disj trans ->
     big_sepSS_singleton set_of_vmids i (transferred_memory_slice trans) ⊣⊢
@@ -417,6 +412,42 @@ Section logrel_prim_extra.
         rewrite delete_notin //.
       }
     }
+  Qed.
+
+  Lemma slice_transfer_all_equiv k (trans: gmap Addr transaction) Φ:
+      (∀ i j trans, (i = k ∨ j = k) -> Φ trans i j ⊣⊢ slice_transfer_all trans i j) ->
+      big_sepSS_singleton set_of_vmids k (Φ trans) ⊣⊢ big_sepSS_singleton set_of_vmids k (slice_transfer_all trans).
+  Proof.
+    intros HΦ.
+    rewrite /big_sepSS_singleton.
+    apply big_sepS_proper.
+    intros.
+    rewrite (HΦ k x);last (left;done).
+    rewrite (HΦ x k);last (right;done).
+    done.
+  Qed.
+
+  Lemma transferred_all_equiv k (trans: gmap Addr transaction) Φ:
+      (∀ i j trans, (i = k ∨ j = k) -> Φ trans i j ⊣⊢ slice_transfer_all trans i j) ->
+      map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
+      trans_ps_disj trans ->
+      big_sepSS_singleton set_of_vmids k (Φ trans) ⊣⊢
+      transaction_pagetable_entries_transferred k trans ∗
+      retrievable_transaction_transferred k trans ∗
+      (∃ mem_trans, memory_pages (transferred_memory_pages k trans) mem_trans).
+  Proof.
+    intros HΦ Hneq Hdisj.
+    rewrite slice_transfer_all_equiv //.
+    rewrite /big_sepSS_singleton.
+    rewrite !big_sepS_sep.
+    rewrite -transaction_pagetable_entries_transferred_equiv //.
+    rewrite -retrievable_transaction_transferred_equiv //.
+    rewrite -transferred_memory_equiv //.
+    rewrite /big_sepSS_singleton.
+    rewrite !big_sepS_sep.
+    iSplit.
+    iIntros "[($ & $ & $) ($ & $ & $)]".
+    iIntros "([$ $] & [$ $] & [$ $])".
   Qed.
 
 End logrel_prim_extra.
