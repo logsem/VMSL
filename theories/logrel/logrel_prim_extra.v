@@ -2,7 +2,7 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base base_extra mem pagetable trans.
-From HypVeri.logrel Require Import logrel_prim big_sepSS.
+From HypVeri.logrel Require Export logrel_prim big_sepSS.
 From HypVeri Require Import proofmode.
 From stdpp Require fin_map_dom.
 Import uPred.
@@ -237,8 +237,11 @@ Section logrel_prim_extra.
     rewrite big_sepS_sep.
   Admitted.
 
+  Definition trans_neq (trans: gmap Addr transaction) :=
+      map_Forall (λ (k:Addr) (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans.
+
   Lemma transaction_pagetable_entries_transferred_equiv i (trans: gmap Addr transaction):
-    map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
+    trans_neq trans ->
     big_sepSS_singleton set_of_vmids i (transaction_pagetable_entries_transferred_slice trans) ⊣⊢
       transaction_pagetable_entries_transferred i trans.
   Proof.
@@ -273,7 +276,7 @@ Section logrel_prim_extra.
    Qed.
 
   Lemma retrievable_transaction_transferred_equiv i (trans: gmap Addr transaction):
-    map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
+    trans_neq trans ->
     big_sepSS_singleton set_of_vmids i (retrievable_transaction_transferred_slice trans) ⊣⊢
     retrievable_transaction_transferred i trans.
   Proof.
@@ -318,7 +321,7 @@ Section logrel_prim_extra.
   Qed.
 
   Lemma transferred_memory_equiv i trans:
-    map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
+    trans_neq trans ->
     trans_ps_disj trans ->
     big_sepSS_singleton set_of_vmids i (transferred_memory_slice trans) ⊣⊢
     ∃ mem, memory_pages (transferred_memory_pages i trans) mem.
@@ -346,7 +349,7 @@ Section logrel_prim_extra.
       rewrite /transferred_memory_slice.
       rewrite 2?big_sepFM_big_sepS_trans_sndr.
       rewrite 2?big_sepFM_big_sepS_trans_rcvr.
-      rewrite map_Forall_insert // in Hneq.
+      rewrite /trans_neq map_Forall_insert // in Hneq.
       destruct Hneq as [Hneq Hneq'].
       apply trans_ps_disj_insert_2 in Hdisj;auto.
       destruct Hdisj as [Hdisj Hdisj'].
@@ -427,9 +430,9 @@ Section logrel_prim_extra.
     done.
   Qed.
 
-  Lemma transferred_all_equiv k (trans: gmap Addr transaction) Φ:
+  Lemma transferred_only_equiv k (trans: gmap Addr transaction) Φ:
       (∀ i j trans, (i = k ∨ j = k) -> Φ trans i j ⊣⊢ slice_transfer_all trans i j) ->
-      map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
+      trans_neq trans ->
       trans_ps_disj trans ->
       big_sepSS_singleton set_of_vmids k (Φ trans) ⊣⊢
       transaction_pagetable_entries_transferred k trans ∗
@@ -449,5 +452,16 @@ Section logrel_prim_extra.
     iIntros "[($ & $ & $) ($ & $ & $)]".
     iIntros "([$ $] & [$ $] & [$ $])".
   Qed.
+
+  Lemma get_trans_neq trans:
+    transaction_hpool_global_transferred trans ⊢ ⌜trans_neq trans⌝.
+  Proof.
+    iIntros "(%s & %Hall & fresh & global_tran)".
+    iIntros (h tran Hlk).
+    iDestruct (big_sepM_lookup with "global_tran") as "[mp _]";eauto.
+    iDestruct (trans_valid_tran_Some with "mp") as %Hvalid.
+    iPureIntro. done.
+  Qed.
+
 
 End logrel_prim_extra.

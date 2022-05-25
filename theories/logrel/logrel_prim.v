@@ -184,4 +184,7 @@ Section logrel_prim.
       [∗ set] i ∈ set_of_vmids ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i Φ p_tx p_rx) (1/2)%Qp
     )%I.
 
+  Program Definition interp_execute_prim: iPropO Σ :=
+    WP ExecI @ V0 {{(λ _, True )}}%I.
+
 End logrel_prim.

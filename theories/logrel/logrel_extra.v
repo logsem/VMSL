@@ -1167,4 +1167,40 @@ Section logrel_extra.
         }
       Qed.
 
+  Lemma memory_pages_merge_mb {i p_rx p_tx ps_acc trans mem_tx mem_rx mem_all}:
+  let ps_mem_in_trans := accessible_in_trans_memory_pages i trans in
+  p_rx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ ps_mem_in_trans ->
+  p_tx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ ps_mem_in_trans ->
+   {[p_tx; p_rx]}⊆ ps_acc  ->
+   memory_pages (ps_acc ∖ {[p_rx; p_tx]} ∪ ps_mem_in_trans) mem_all ∗
+   memory_page p_tx mem_tx ∗
+   memory_page p_rx mem_rx
+   ⊢ ∃ mem, memory_pages (ps_acc ∪ ps_mem_in_trans) mem.
+  Proof.
+    iIntros (? Hnin_rx Hnin_tx Hsubset_mb) "(mem & mem_tx & mem_rx)".
+    iExists (mem_all ∪ mem_rx ∪ mem_tx).
+    assert (accessible_in_trans_memory_pages i trans ## {[p_tx]}) as Hdisj_ps_tx' by set_solver.
+    assert (accessible_in_trans_memory_pages i trans ## {[p_rx]}) as Hdisj_ps_rx' by set_solver.
+    assert (ps_acc ∖ {[p_rx; p_tx]} ∪ ps_mem_in_trans ∪ {[p_rx; p_tx]} = (ps_acc ∪ ps_mem_in_trans)) as <-.
+    {
+      rewrite -union_assoc_L.
+      rewrite (union_comm_L _ {[p_rx; p_tx]}).
+      rewrite union_assoc_L.
+      rewrite difference_union_L.
+      f_equal.
+      rewrite union_comm_L.
+      rewrite subseteq_union_1_L //.
+      set_solver + Hsubset_mb.
+    }
+    iApply (memory_pages_split_union with "[mem mem_rx mem_tx]").
+    { set_solver. }
+    iDestruct (memory_page_neq with "[$mem_tx $mem_rx]") as %Hneq_tx_rx.
+    iExists mem_all, (mem_rx ∪ mem_tx). iFrame "mem".
+    rewrite memory_pages_split_union.
+    iSplit.
+    iExists mem_rx, mem_tx. rewrite 2!memory_pages_singleton. iFrame "mem_rx mem_tx".
+    done.
+    iPureIntro. rewrite map_union_assoc //. set_solver + Hneq_tx_rx.
+  Qed.
+
 End logrel_extra.
