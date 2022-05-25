@@ -15,7 +15,7 @@ Section fundamental_prim.
   Context `{vmG: !gen_VMG Σ}.
 
   Lemma ftlr_p:
-  ∀ p_tx p_rx ps_acc trans, interp_access_prim p_tx p_rx ps_acc trans ⊢ interp_execute V0.
+  ∀ Φ p_tx p_rx ps_acc trans, interp_access_prim p_tx p_rx ps_acc trans ⊢ interp_execute V0.
   Proof.
     rewrite /interp_access_prim /=.
   Admitted.

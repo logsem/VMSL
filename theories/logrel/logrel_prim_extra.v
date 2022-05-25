@@ -14,31 +14,26 @@ Section logrel_prim_extra.
   Context `{vmG: !gen_VMG Σ}.
 
   (* slice *)
-  Definition trans_preserve_only i (trans trans': (gmap Addr transaction)) :=
-    map_Forall (λ h tran, tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') trans.
-
-  Definition trans_preserve_except i (trans trans': (gmap Addr transaction)) :=
-    map_Forall (λ h tran, ¬(tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') trans.
 
   Definition slice_transfer_all :=
-    (λ trans ij, transaction_pagetable_entries_transferred_slice ij.1 ij.2 trans
-                ∗ retrievable_transaction_transferred_slice ij.1 ij.2 trans
-                ∗ ∃mem, memory_pages (transferred_memory_pages_slice ij.1 ij.2 trans) mem)%I.
+    (λ trans i j, transaction_pagetable_entries_transferred_slice trans i j
+                ∗ retrievable_transaction_transferred_slice trans i j
+                ∗ transferred_memory_slice trans i j)%I.
 
   Lemma slice_wf_sep `{slice_wf1:!SliceWf Φ1} `{slice_wf2:!SliceWf Φ2} :
-    SliceWf (λ trans ij, ((Φ1 trans ij) :iProp Σ) ∗ ((Φ2 trans ij) :iProp Σ))%I.
+    SliceWf (λ trans i j, ((Φ1 trans i j) :iProp Σ) ∗ ((Φ2 trans i j) :iProp Σ))%I.
   Proof.
-    Admitted.
+  Admitted.
 
   Instance slice_transaction_pagetable_entries_transferred_wf
-    : SliceWf (λ trans ij, transaction_pagetable_entries_transferred_slice ij.1 ij.2 trans).
+    : SliceWf transaction_pagetable_entries_transferred_slice.
   Proof.
     split.
     {
       intros i j trans trans' Heq.
       rewrite /transaction_pagetable_entries_transferred_slice /=.
       iInduction trans as [|k v m Hlk] "IH" using map_ind forall (trans' Heq).
-      rewrite map_filter_empty in Heq.
+      rewrite /trans_preserve_slice map_filter_empty in Heq.
       iSplit.
       {
         iIntros "_".
@@ -76,12 +71,12 @@ Section logrel_prim_extra.
     Admitted.
 
   Instance slice_retrievable_transaction_transferred_wf
-    : SliceWf (λ trans ij, retrievable_transaction_transferred_slice ij.1 ij.2 trans).
+    : SliceWf retrievable_transaction_transferred_slice.
   Proof.
     Admitted.
 
   Instance slice_transferred_memory_pages_wf
-    : SliceWf (λ trans ij, (∃mem, memory_pages (transferred_memory_pages_slice ij.1 ij.2 trans) mem)%I).
+    : SliceWf transferred_memory_slice.
   Proof.
     Admitted.
 
@@ -90,14 +85,13 @@ Section logrel_prim_extra.
     rewrite /slice_transfer_all /=.
   Admitted.
 
-  Lemma slice_preserve_singleton (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
-    slice_wf Φ ->
+  Lemma slice_preserve_only i Φ `{Hwf:!SliceWf Φ} trans trans':
     trans_preserve_only i trans trans'->
     big_sepSS_singleton set_of_vmids i (Φ trans) ⊣⊢ big_sepSS_singleton set_of_vmids i (Φ trans').
   Proof.
   Admitted.
 
-  Lemma slice_preserve_except (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
+  Lemma slice_preserve_except i Φ `{Hwf:!SliceWf Φ} trans trans':
     slice_wf Φ ->
     trans_preserve_except i trans trans'->
     big_sepSS_except set_of_vmids i (Φ trans) ⊣⊢ big_sepSS_except set_of_vmids i (Φ trans').
@@ -109,8 +103,9 @@ Section logrel_prim_extra.
   (*   ⊣⊢ ∃ trans'', big_sepSS set_of_vmids (Φ trans'') ∗ ⌜trans_preserve_except i trans trans'' ∧ trans_preserve_only i trans' trans''⌝. *)
   (* Proof. *)
   (* Admitted. *)
+
   (* TODO: the most important lemma! *)
-  Lemma slice_global_unify (Φ: (gmap Addr transaction) -> (VMID * VMID)-> iProp Σ) trans trans' i:
+  Lemma slice_global_unify Φ `{Hwf:!SliceWf Φ} trans trans' i:
     big_sepSS_except set_of_vmids i (Φ trans) ∗
       big_sepSS_singleton set_of_vmids i (Φ trans') ∗
       ([∗ map] h ↦ tran ∈ trans', h -{1/2}>t tran.1)
@@ -147,6 +142,16 @@ Section logrel_prim_extra.
     apply in_list_of_vmids.
   Qed.
 
+  Lemma in_set_of_vmids:
+    ∀ i, i ∈ set_of_vmids.
+  Proof.
+    rewrite /set_of_vmids.
+    intros.
+    rewrite elem_of_list_to_set.
+    rewrite elem_of_list_In.
+    apply in_list_of_vmids.
+  Qed.
+
   Lemma big_sepFM_big_sepS_trans_sndr i (trans: gmap Addr transaction) `{∀ x, Decision (Q x)} (Φ: _ -> _ -> iPropO Σ):
   ([∗ set] y ∈ set_of_vmids,  big_sepFM trans (λ kv : Addr * transaction, (kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = y ∧ Q kv)%type) Φ)
   ⊣⊢ big_sepFM trans (λ kv : Addr * transaction, (kv.2.1.1.1.1 = i ∧ Q kv)%type) Φ.
@@ -170,8 +175,8 @@ Section logrel_prim_extra.
       2: set_solver+ Hin.
       rewrite big_sepS_singleton.
       rewrite (big_sepFM_iff
-                 (P:= (λ kv , (kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 ∈ {[x]} ∪ s ∧ Q kv)))
-                 (Q:= (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = x ∧ Q kv ∨ kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 ∈ s ∧ Q kv )%type))).
+                 (P:= (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 ∈ {[x]} ∪ s ∧ Q kv)))
+                 (Q:= (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = x ∧ Q kv ∨ kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 ∈ s ∧ Q kv)%type))).
       2:{
         intros kv. rewrite elem_of_union. split.
         intros [? [[|] ?]]. left;split;auto;split;auto. set_solver.
@@ -207,8 +212,8 @@ Section logrel_prim_extra.
       2: set_solver+ Hin.
       rewrite big_sepS_singleton.
       rewrite (big_sepFM_iff
-                 (P:= (λ kv , (kv.2.1.1.1.1 ∈ {[x]} ∪ s ∧ kv.2.1.1.1.2 = i ∧ Q kv)))
-                 (Q:= (λ kv, (kv.2.1.1.1.1 = x ∧ kv.2.1.1.1.2 = i ∧ Q kv ∨ kv.2.1.1.1.1 ∈ s ∧ kv.2.1.1.1.2 = i ∧ Q kv )%type))).
+                 (P:= (λ kv, (kv.2.1.1.1.1 ∈ {[x]} ∪ s ∧ kv.2.1.1.1.2 = i ∧ Q kv)))
+                 (Q:= (λ kv, (kv.2.1.1.1.1 = x ∧ kv.2.1.1.1.2 = i ∧ Q kv ∨ kv.2.1.1.1.1 ∈ s ∧ kv.2.1.1.1.2 = i ∧ Q kv)%type))).
       2:{
         intros kv. rewrite elem_of_union. split.
         intros [[|] [? ?]]. left;split;auto. set_solver.
@@ -222,9 +227,20 @@ Section logrel_prim_extra.
     }
   Qed.
 
+  Lemma big_sepSS_singleton_trans_unify `{Hwf:!SliceWf Φ} i trans trans':
+    filter (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) trans
+    = filter (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) trans' ->
+    big_sepSS_singleton set_of_vmids i (Φ trans) ⊣⊢
+      big_sepSS_singleton set_of_vmids i (Φ trans').
+  Proof.
+    intros Heq.
+    rewrite /big_sepSS_singleton.
+    rewrite big_sepS_sep.
+  Admitted.
+
   Lemma transaction_pagetable_entries_transferred_equiv i (trans: gmap Addr transaction):
     map_Forall (λ k (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans ->
-    big_sepSS_singleton set_of_vmids i (λ ij, transaction_pagetable_entries_transferred_slice ij.1 ij.2 trans) ⊣⊢
+    big_sepSS_singleton set_of_vmids i (transaction_pagetable_entries_transferred_slice trans) ⊣⊢
       transaction_pagetable_entries_transferred i trans.
   Proof.
     intros Hfalse.
@@ -260,16 +276,59 @@ Section logrel_prim_extra.
    Qed.
 
   Lemma retrievable_transaction_transferred_equiv i (trans: gmap Addr transaction):
-    big_sepSS_singleton set_of_vmids i (λ ij, retrievable_transaction_transferred_slice ij.1 ij.2 trans) ⊣⊢
+    big_sepSS_singleton set_of_vmids i (retrievable_transaction_transferred_slice trans) ⊣⊢
     retrievable_transaction_transferred i trans.
   Proof.
   Admitted.
 
+  Lemma transferred_memory_slice_empty i j: ⊢ transferred_memory_slice ∅ i j.
+  Proof.
+    iIntros.
+    rewrite /transferred_memory_slice.
+    iExists ∅.
+    rewrite map_filter_empty.
+    rewrite pages_in_trans_empty //.
+    iApply memory_pages_empty.
+  Qed.
+
   Lemma transferred_memory_pages_equiv i (trans: gmap Addr transaction):
     trans_ps_disj trans ->
-    big_sepSS_singleton set_of_vmids i (λ ij, ∃mem, memory_pages (transferred_memory_pages_slice ij.1 ij.2 trans) mem) ⊣⊢
-    ∃mem, memory_pages (transferred_memory_pages i trans) mem.
+    big_sepSS_singleton set_of_vmids i (transferred_memory_slice trans) ⊣⊢
+    ∃ mem, memory_pages (transferred_memory_pages i trans) mem.
   Proof.
+    intros Hdisj.
+    iInduction trans as [|h tran m Hlk] "IH" using map_ind.
+    iSplit.
+    { iIntros "_". iExists ∅. iApply memory_pages_empty. }
+    {
+      iIntros "_".
+      rewrite /big_sepSS_singleton.
+      iInduction set_of_vmids as [|x s Hnin] "IH" using set_ind_L.
+      done.
+      rewrite big_sepS_union.
+      2: set_solver.
+      rewrite big_sepS_singleton /=.
+      iSplitL "".
+      iSplitL "";iApply transferred_memory_slice_empty.
+      iApply "IH".
+    }
+    apply trans_ps_disj_insert_2 in Hdisj;auto.
+    destruct Hdisj as [Hdisj Hdisj'].
+    iSpecialize ("IH" $! Hdisj').
+    iSplit.
+    {
+    iIntros "H".
+    assert (Heqn: ∃ s2, s2 = set_of_vmids).
+    exists set_of_vmids. done.
+    destruct Heqn as [set_of_vmids' Heqn].
+    assert (Hnonempty: ∀ i,  i ∈ set_of_vmids').
+    pose proof in_set_of_vmids as Hnonempty.
+    set_solver.
+    admit.
+    (* iDestruct (slice_preserve_only i with "H") as "H". *)
+    (* iInduction set_of_vmids as [|j s Hnin] "IH'" using set_ind_L forall (set_of_vmids' Heqn Hnonempty). *)
+    (* set_solver + Hnonempty Heqn. *)
+    }
   Admitted.
 
 End logrel_prim_extra.
