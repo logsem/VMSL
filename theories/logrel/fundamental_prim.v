@@ -98,6 +98,132 @@ Section fundamental_prim.
             }
             destruct (hvc_f).
             { (* RUN *)
+              pose proof (Htotal_regs R1) as [r1 Hlookup_reg_R1].
+              destruct (decode_vmid r1) as [v |].
+              {
+                destruct (decide (v = V0)).
+                { admit. }
+                {
+                pose proof (Htotal_regs R2) as [r2 Hlookup_reg_R2].
+                iDestruct (reg_big_sepM_split_upd4 i Hlookup_PC Hlookup_reg_R0 Hlookup_reg_R1 Hlookup_reg_R2 with "[$regs]")
+                  as "(PC & R0 & R1 & R2 & Hacc_regs)";eauto.
+                pose proof (union_split_difference_intersection_L (ps_acc∖ {[p_tx]}) ({[p_rx]} ∪ (transferred_memory_pages i trans)))
+                  as [Heq_ps_acc_tx Hdisj_ps_acc_tx].
+                rewrite Heq_ps_acc_tx in Hdom_mem_acc_tx.
+                rewrite set_of_addr_union in Hdom_mem_acc_tx;last auto.
+                apply dom_union_inv_L in Hdom_mem_acc_tx;last apply set_of_addr_disj;auto.
+                destruct Hdom_mem_acc_tx as (mem_oea & mem_inters & Heq_mem_acc_tx' & Hdisj_mem_oea_inters & Hdom_mem_oea & Hdom_mem_inters).
+                rewrite Heq_mem_acc_tx'.
+                iDestruct (big_sepM_union with "mem_acc_tx") as "[mem_oea mem_inters]";auto.
+
+                iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Htrans_disj.
+                iDestruct (get_trans_neq with "trans_hpool_global") as %Htrans_neq.
+
+                (* for simplication *)
+                assert (Heq_inter_diff_union: (ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ (transferred_memory_pages i trans)) ∪
+                                                ((ps_acc ∪ (ps_mem_in_trans)) ∖ ps_acc)
+                                              = {[p_rx]} ∪ (transferred_memory_pages i trans)).
+                {
+                  assert ((ps_acc ∪ ps_mem_in_trans) ∖ ps_acc = ps_mem_in_trans ∖ (ps_acc∖ {[p_tx]})) as ->.
+                  {
+                    assert ((ps_acc ∪ ps_mem_in_trans) ∖ ps_acc = ps_mem_in_trans ∖ ps_acc) as ->.
+                    set_solver +.
+                    set_solver + Hnin_tx.
+                  }
+                  rewrite intersection_union_l_L.
+                  rewrite -union_assoc_L.
+                  rewrite intersection_comm_L.
+                  rewrite subseteq_intersection_1_L.
+                  2: { apply subseteq_difference_r. set_solver. set_solver + Hsubset_mb. }
+                  pose proof (union_split_difference_intersection_L (transferred_memory_pages i trans) (ps_acc∖ {[p_tx]})) as [Heq _].
+                  rewrite union_comm_L intersection_comm_L in Heq.
+                  f_equal.
+                  rewrite (accessible_retrieved_lending_memory_pages_difference i trans).
+                  rewrite union_intersection_r_L.
+                  rewrite union_comm_L difference_union_L.
+                  assert(ps_mem_in_trans ∖ retrieved_lending_memory_pages i trans ∪ ps_mem_in_trans ∖ (ps_acc ∖ {[p_tx]})=
+                           ps_mem_in_trans ∖ retrieved_lending_memory_pages i trans) as H.
+                  rewrite union_comm_L.
+                  apply subseteq_union_1_L.
+                  pose proof (retrieved_lending_currently_accessible_memory_pages_subseteq i trans).
+                  set_solver + Hsubset_acc H.
+                  rewrite H.
+                  set_solver +.
+                  done.
+                }
+
+                iDestruct (get_valid_accessible_in_trans_memory_pages with "[$trans_hpool_global $pgt_owned]") as %Hvalid_acc_in_tran.
+                set_solver + Hsubset_acc.
+
+                (* we have this annoying case anlaysis because we need to know if the instruction is in the memory pages required by VMProp 0 *)
+                destruct (decide ((tpa ai) ∈ ((ps_acc∖ {[p_tx]}) ∖ ({[p_rx]} ∪ transferred_memory_pages i trans)))) as [Hin_ps_oea | Hnin_ps_oea].
+                { (* instruction is in ps_oea *)
+                  (* in this case, we don't need to transfer instruction *)
+                  assert (Hsubseteq_mem_acc: mem_oea ⊆ mem_acc_tx).
+                  rewrite Heq_mem_acc_tx'.
+                  apply map_union_subseteq_l.
+                  rewrite map_subseteq_spec in Hsubseteq_mem_acc.
+                  apply elem_of_set_of_addr_tpa in Hin_ps_oea.
+                  rewrite -Hdom_mem_oea in Hin_ps_oea.
+                  rewrite elem_of_dom in Hin_ps_oea.
+                  destruct Hin_ps_oea as [? Hlookup_mem_ai'].
+                  specialize (Hsubseteq_mem_acc ai _ Hlookup_mem_ai').
+                  rewrite Hlookup_mem_ai in Hsubseteq_mem_acc.
+                  inversion Hsubseteq_mem_acc.
+                  subst x. clear Hsubseteq_mem_acc.
+
+                  iAssert (memory_pages ((ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ (transferred_memory_pages i trans))) mem_inters)%I  with "[mem_inters]" as "mem_inters".
+                  { rewrite /memory_pages. iSplitL "";first done. iFrame. }
+
+                  (* merge [mem_inters] and [mem_rest] into [mem_trans] (including [mem_rx]) *)
+                  iDestruct (memory_pages_split_union'
+                               ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ (transferred_memory_pages i trans))) with "[mem_inters mem_rest]") as "mem_tran".
+                  2:{ iSplitL "mem_inters". iExists mem_inters. iFrame "mem_inters". iExact "mem_rest". }
+                  { set_solver +. }
+                  rewrite Heq_inter_diff_union.
+
+                  iDestruct (memory_pages_split_singleton' p_rx with "mem_tran") as "[mem_transferred mem_rx]".
+                  set_solver +.
+                  replace (({[p_rx]} ∪ transferred_memory_pages i trans) ∖ {[p_rx]}) with (transferred_memory_pages i trans).
+                  2:{
+                    pose proof (transferred_retrieved_lending_memory_pages_union i trans).
+                    set_solver + H Hnin_rx.
+                  }
+
+                  (* organizing big_sepSS: merging i and splitting v *)
+                  iDestruct (transferred_only_equiv with "[$tran_pgt_transferred $retri $mem_transferred]") as "transferred_only";eauto.
+                  rewrite /big_sepSS_except.
+                  assert (Hvmids_eq: set_of_vmids = (set_of_vmids ∖ {[i]} ∪ {[i]})).
+                  {
+                    pose proof (elem_of_set_of_vmids i).
+                    rewrite union_comm_L.
+                    apply union_difference_L.
+                    set_solver + H.
+                  }
+                  iDestruct (big_sepSS_union_singleton _ i with "[$transferred_except transferred_only]") as "transferred";auto.
+                  set_solver +. rewrite -Hvmids_eq. iFrame.
+                  rewrite -Hvmids_eq.
+                  iDestruct (big_sepSS_difference_singleton _ v with "transferred") as "[transferred_except transferred_only]";eauto.
+                  apply elem_of_set_of_vmids.
+
+                  (* split VMProp v *)
+                  iDestruct (big_sepS_elem_of_acc _ _ v with "VMProps") as "[VMProp_v VMProps_acc]".
+                  pose proof (elem_of_set_of_vmids v).
+                  set_solver + H n i.
+                  
+                  (* getting instruction from [mem_oea] *)
+                  iDestruct (mem_big_sepM_split mem_oea Hlookup_mem_ai' with "mem_oea") as "[mem_instr Hacc_mem]".
+                  iDestruct ("tx") as "#tx".
+
+                  (* XXX: how to transfer RXs??? also using Φ ? *)
+                  iApply (run ai v (transaction_hpool_global_transferred trans ∗
+                                      transaction_pagetable_entries_transferred i trans ∗
+                                      retrievable_transaction_transferred i trans)%I (vmprop_zero v Φ p_tx p_rx)
+                           with "[PC R0 R0 R1 R2 pgt_acc $tx mem_instr other_rx VMProp VMProp_v trans_hpool_global transferred_only rx_state rx]"); iFrameAutoSolve.
+                }
+
+                admit.
+              }
               admit. }
             { admit. }
             { admit. }

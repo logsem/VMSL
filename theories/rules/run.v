@@ -11,7 +11,7 @@ Context `{hypparams:HypervisorParameters}.
   
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma run {E w1 w2 w3 q s p_tx R R' Q P P'} ai i :
+Lemma run {E w1 w2 w3 q s p_tx R' Q P} ai i R P':
   let T := (▷ (PC @@ V0 ->r ai)
             ∗ ▷ (ai ->a w1)
             ∗ ▷ (V0 -@{q}A> s)
@@ -274,13 +274,12 @@ Lemma run_not_primary {E wi r0 r2 q s p_tx } ai i :
     by iFrame.
   Qed.
 
-Lemma run_invalid_vmid {E wi r0 r1 r2 q s p_tx } ai i :
+Lemma run_invalid_vmid {E wi r0 r1 r2 q s p_tx } ai :
   (tpa ai) ∈ s ->
   (tpa ai) ≠ p_tx ->
   decode_instruction wi = Some Hvc ->
   decode_hvc_func r0 = Some Run ->
   decode_vmid r1 = None ->
-  i ≠ V0 ->
   {SS{{ ▷ (PC @@ V0 ->r ai)
             ∗ ▷ (ai ->a wi)
             ∗ ▷ (V0 -@{q}A> s)
@@ -298,7 +297,7 @@ Lemma run_invalid_vmid {E wi r0 r1 r2 q s p_tx } ai i :
                ∗ R1 @@ V0 ->r r1
                ∗ R2 @@ V0 ->r (encode_hvc_error InvParam) }}}.
   Proof.
-  iIntros (Hin_acc Hneq_tx Hdecode_i Hdecode_f Hdecode_vmid Hneq_v0 Φ)
+  iIntros (Hin_acc Hneq_tx Hdecode_i Hdecode_f Hdecode_vmid Φ)
           "(>PC & >mem_ins & >acc & >tx & >R0 &>R1 & >R2) HΦ".
   iApply (sswp_lift_atomic_step ExecI);[done|].
   iIntros (n σ1) "%Hsche state".
@@ -342,7 +341,6 @@ Lemma run_invalid_vmid {E wi r0 r1 r2 q s p_tx } ai i :
     iFrame.
     by iFrame.
   Qed.
-
 
 Lemma run_primary {E wi r0 r1 q s p_tx} ai :
   (tpa ai) ∈ s ->
