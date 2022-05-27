@@ -49,12 +49,12 @@ Section slice.
   Context (Φ_t : (gmap Addr transaction) -> VMID -> VMID -> iProp Σ).
   Context (Φ_r : VMID -> VMID -> iProp Σ).
 
-  Definition rx_state_yield (j : VMID) rx_state : iProp Σ :=
-     (∃ p_rx, RX@ j := p_rx ∗  RX_state{1/2}@j := rx_state ∗
-                  match rx_state with
-                  | None => (RX_state{1/2}@j := rx_state ∗ ∃ mem_rx, memory_page p_rx mem_rx)
-                  | Some (_,v) => True
-                  end)%I.
+  (* Definition rx_state_yield (j : VMID) rx_state : iProp Σ := *)
+  (*    (∃ p_rx, RX@ j := p_rx ∗  RX_state{1/2}@j := rx_state ∗ *)
+  (*                 match rx_state with *)
+  (*                 | None => (RX_state{1/2}@j := rx_state ∗ ∃ mem_rx, memory_page p_rx mem_rx) *)
+  (*                 | Some (_,v) => True *)
+  (*                 end)%I. *)
 
   Definition rx_state_run (i j : VMID) rx_state : iProp Σ :=
      (∃ p_rx, RX@ j := p_rx ∗  RX_state{1/2}@j := rx_state ∗
@@ -64,9 +64,9 @@ Section slice.
                   end)%I.
 
   Definition return_reg_rx i : iProp Σ:=
-    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∗ (∃ rx_state'', rx_state_yield i rx_state'') ∨
-      R0 @@ V0 ->r encode_hvc_func(Wait) ∗ rx_state_yield i None) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
-    (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', rx_state_yield i rx_state'') ∗ ∃ j l, ⌜j ≠ i⌝ ∗
+    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∗ (∃ rx_state'', rx_state_run i i rx_state'') ∨
+      R0 @@ V0 ->r encode_hvc_func(Wait) ∗ rx_state_run i i None) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
+    (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', rx_state_run i i rx_state'') ∗ ∃ j l, ⌜j ≠ i⌝ ∗
                           (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗
                               (Φ_r i j)).
 
@@ -77,7 +77,7 @@ Section slice.
                            big_sepSS_singleton set_of_vmids i (Φ_t trans'') ∗
                            (* RX *)
                            rx_page i p_rx ∗
-                           ([∗ set] j ∈ set_of_vmids ∖ {[i]}, ∃ rx_state', rx_state_yield j rx_state') ∗
+                           ([∗ set] j ∈ set_of_vmids ∖ {[i]}, ∃ rx_state', rx_state_run i j rx_state') ∗
                            return_reg_rx i ∗
                            VMProp i (Ψ p_tx p_rx) (1/2)%Qp)%I.
 
@@ -196,7 +196,7 @@ Section logrel_prim.
       (* transferred *)
       (rx_page V0 p_rx) ∗
       transaction_hpool_global_transferred trans ∗
-      ([∗ set] j ∈ set_of_vmids, ∃rx_state', rx_state_run Φ_r V0 j rx_state') ∗
+      ([∗ set] j ∈ set_of_vmids, ∃rx_state', rx_state_run Φ_r j j rx_state') ∗
       (big_sepSS set_of_vmids (Φ_t trans)) ∗
       [∗ set] i ∈ set_of_vmids ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i Φ_t Φ_r p_tx p_rx) (1/2)%Qp
     )%I.
