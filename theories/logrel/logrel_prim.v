@@ -49,19 +49,26 @@ Section slice.
   Context (Φ_t : (gmap Addr transaction) -> VMID -> VMID -> iProp Σ).
   Context (Φ_r : VMID -> VMID -> iProp Σ).
 
-  Definition return_reg_rx i : iProp Σ:=
-    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∗ (∃ rx_state'', RX_state@ i := rx_state'') ∨
-      R0 @@ V0 ->r encode_hvc_func(Wait) ∗ RX_state@ i :=None) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
-    (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', RX_state@ i := rx_state'') ∗ ∃ j l, ⌜j ≠ i⌝ ∗
-                          (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗
-                              (Φ_r i j)).
-
-  Definition rx_pages (j : VMID) : iProp Σ :=
-     (∃ p_rx, RX@ j := p_rx ∗ ∃ rx_state, RX_state{1/2}@j := rx_state ∗
+  Definition rx_state_yield (j : VMID) rx_state : iProp Σ :=
+     (∃ p_rx, RX@ j := p_rx ∗  RX_state{1/2}@j := rx_state ∗
                   match rx_state with
                   | None => (RX_state{1/2}@j := rx_state ∗ ∃ mem_rx, memory_page p_rx mem_rx)
-                  | Some (_,v) => Φ_r v j
+                  | Some (_,v) => True
                   end)%I.
+
+  Definition rx_state_run (i j : VMID) rx_state : iProp Σ :=
+     (∃ p_rx, RX@ j := p_rx ∗  RX_state{1/2}@j := rx_state ∗
+                  match rx_state with
+                  | None => (RX_state{1/2}@j := rx_state ∗ ∃ mem_rx, memory_page p_rx mem_rx)
+                  | Some (_,v) => if bool_decide(i = j) then Φ_r v j else True
+                  end)%I.
+
+  Definition return_reg_rx i : iProp Σ:=
+    ((R0 @@ V0 ->r encode_hvc_func(Yield) ∗ (∃ rx_state'', rx_state_yield i rx_state'') ∨
+      R0 @@ V0 ->r encode_hvc_func(Wait) ∗ rx_state_yield i None) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
+    (R0 @@ V0 ->r encode_hvc_func(Send) ∗ (∃ rx_state'', rx_state_yield i rx_state'') ∗ ∃ j l, ⌜j ≠ i⌝ ∗
+                          (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗
+                              (Φ_r i j)).
 
   Definition vmprop_zero_pre (Ψ: PID -d> PID -d> iPropO Σ) :PID -d> PID -d> iPropO Σ :=
     λ p_tx p_rx, (∃ trans'',
@@ -69,8 +76,8 @@ Section slice.
                            transaction_hpool_global_transferred trans'' ∗
                            big_sepSS_singleton set_of_vmids i (Φ_t trans'') ∗
                            (* RX *)
-                           rx_page i p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
-                           ([∗ set] i ∈ set_of_vmids, rx_pages i) ∗
+                           rx_page i p_rx ∗
+                           ([∗ set] j ∈ set_of_vmids ∖ {[i]}, ∃ rx_state', rx_state_yield j rx_state') ∗
                            return_reg_rx i ∗
                            VMProp i (Ψ p_tx p_rx) (1/2)%Qp)%I.
 
@@ -86,7 +93,7 @@ Section slice.
                (* RX *)
                (rx_page i p_rx) ∗
                (* rx pages for all other VMs *)
-               ([∗ set] i ∈ set_of_vmids, rx_pages i) ∗
+               ([∗ set] j ∈ set_of_vmids, ∃ rx_state', rx_state_run i j rx_state') ∗
                (* if i yielding, we give following resources back to pvm *)
                VMProp V0 (vmprop_zero_pre Ψ p_tx p_rx) (1/2)%Qp)%I.
 
@@ -98,7 +105,7 @@ Section slice.
     do 6 f_equiv.
     f_contractive.
     rewrite /vmprop_zero_pre.
-    do 8 f_equiv.
+    do 7 f_equiv.
     rewrite /VMProp.
     repeat f_equiv.
   Qed.
@@ -114,7 +121,7 @@ Section slice.
           big_sepSS_singleton set_of_vmids i (Φ_t trans') ∗
           R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
           (rx_page i p_rx) ∗
-          ([∗ set] i ∈ set_of_vmids, rx_pages i) ∗
+          ([∗ set] j ∈ set_of_vmids, ∃ rx_state', rx_state_run i j rx_state') ∗
           VMProp V0 (vmprop_zero p_tx p_rx) (1/2)%Qp)%I.
   Proof.
     rewrite /vmprop_unknown //.
@@ -131,7 +138,7 @@ Section slice.
                big_sepSS_singleton set_of_vmids i (Φ_t trans') ∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
                (rx_page i p_rx) ∗
-               ([∗ set] i ∈ set_of_vmids, rx_pages i) ∗
+               ([∗ set] j ∈ set_of_vmids, ∃ rx_state', rx_state_run i j rx_state') ∗
                VMProp V0 (vmprop_zero p_tx p_rx) (1/2)%Qp)%I.
     Proof.
       rewrite /vmprop_unknown.
@@ -163,16 +170,19 @@ Section logrel_prim.
   Definition transaction_pagetable_entries_transferred_slice (trans: gmap Addr transaction) (i: VMID) (j: VMID) : iProp Σ :=
     big_sepFM trans (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j) ∧ kv.2.1.2 = Donation) (λ k v, k -{1/4}>t v.1 ∗ pgt_1_4 v.1.1.2 v.1.1.1.1 true)%I.
 
-
   Definition slice_transfer_all :=
     (λ trans i j, transaction_pagetable_entries_transferred_slice trans i j
                 ∗ retrievable_transaction_transferred_slice trans i j
                 ∗ transferred_memory_slice trans i j)%I.
 
+  Definition slice_rx_state (i j: VMID) : iProp Σ :=
+    ∃ p_rx, RX@ j := p_rx ∗ (∃ l,  RX_state{1/2}@j := Some(l, i)) ∗ (∃ mem_rx, memory_page p_rx mem_rx).
+
   Program Definition interp_access_prim Φ_t Φ_r p_tx p_rx ps_acc trans `{!SliceWf Φ_t}: iPropO Σ:=
     (
       (* making sure we have enough resources for V0 *)
       ⌜∀ i j trans, (i = V0 ∨ j = V0) -> Φ_t trans i j ⊣⊢ slice_transfer_all trans i j⌝ ∗
+      ⌜∀ i, Φ_r i V0 ⊣⊢ slice_rx_state i V0 ⌝ ∗
       let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in
       (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗
       (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
@@ -186,7 +196,7 @@ Section logrel_prim.
       (* transferred *)
       (rx_page V0 p_rx) ∗
       transaction_hpool_global_transferred trans ∗
-      ([∗ set] i ∈ set_of_vmids, rx_pages Φ_r i) ∗
+      ([∗ set] j ∈ set_of_vmids, ∃rx_state', rx_state_run Φ_r V0 j rx_state') ∗
       (big_sepSS set_of_vmids (Φ_t trans)) ∗
       [∗ set] i ∈ set_of_vmids ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i Φ_t Φ_r p_tx p_rx) (1/2)%Qp
     )%I.
