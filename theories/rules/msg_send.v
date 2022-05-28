@@ -146,7 +146,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     rewrite (u_fill_rx_rx_state).
     rewrite (preserve_get_rx_gmap σ1).
     2: rewrite p_cp_mem_mb //.
-    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
+    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]". done.
     iModIntro.
     iSplit. iPureIntro. auto.
     (* just_schedule *)
@@ -336,7 +336,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     rewrite (u_fill_rx_rx_state).
     rewrite (preserve_get_rx_gmap σ1).
     2: rewrite p_cp_mem_mb //.
-    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
+    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]". done.
     iModIntro.
     iSplitL "vmprop_auth".
     iExists P'. iFrame.

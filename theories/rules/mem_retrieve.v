@@ -171,7 +171,7 @@ Lemma mem_retrieve_donate' {E n i sacc r0 sh j mem_rx p_tx} {σ1: state} {ps: gs
                            (of_imm (encode_vmid j)
                             :: wh
                                :: encode_transaction_type Donation
-                                  :: (l ^- 4)%f :: map of_pid (elements ps))) l i i p_tx p_rx) wh)
+                                  :: (l ^- 4)%f :: map of_pid (elements ps))) l j i p_tx p_rx) wh)
                   i ps) i ps) R0 (encode_hvc_ret_code Succ))) ∗
                             ([∗ list] vmid ∈ just_scheduled_vms n σ1
                        (update_incr_PC
@@ -184,12 +184,12 @@ Lemma mem_retrieve_donate' {E n i sacc r0 sh j mem_rx p_tx} {σ1: state} {ps: gs
                                             (of_imm (encode_vmid j)
                                              :: wh
                                                 :: encode_transaction_type Donation
-                                                   :: (l ^- 4)%f :: map of_pid (elements ps))) l i
+                                                   :: (l ^- 4)%f :: map of_pid (elements ps))) l j
                                          i p_tx p_rx) wh) i ps) i ps) R0
                              (encode_hvc_ret_code Succ))), VMProp_holds vmid (1 / 2)) ∗
       PC @@ i ->r (ai ^+ 1)%f ∗ R0 @@ i ->r encode_hvc_ret_code Succ ∗
          R1 @@ i ->r wh ∗ ([∗ set] p ∈ ps, p -@O> i) ∗ i -@A> (ps ∪ sacc) ∗
-         (∃ (l0 : Addr) (des : list Addr), RX_state@i:= Some (l0, i) ∗ ⌜
+         (∃ (l0 : Addr) (des : list Addr), RX_state@i:= Some (l0, j) ∗ ⌜
             Z.to_nat l0 = length des⌝ ∗
             ⌜des =
              of_imm (encode_vmid j)
@@ -201,7 +201,7 @@ Proof.
                             trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
     rewrite /= /gen_vm_interp.
     (* unchanged part *)
-    set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l i i p_tx p_rx).
+    set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l j i p_tx p_rx).
     rewrite (preserve_get_mb_gmap σ_fill (update_incr_PC _)).
     2: rewrite p_upd_pc_mb p_upd_reg_mb p_upd_own_mb p_grnt_acc_mb p_rm_tran_mb //.
     rewrite p_fill_rx_mb. all : try rewrite p_wr_mem_mb //.
@@ -281,7 +281,8 @@ Proof.
     2: rewrite p_upd_pc_mb p_upd_reg_mb p_upd_own_mb p_grnt_acc_mb //.
     rewrite u_fill_rx_rx_state.
     rewrite (preserve_get_rx_gmap σ1); last done.
-    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
+    iDestruct (trans_valid_tran_Some with "tran") as %Hneq.
+    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]". done.
     (* upd tran *)
     rewrite (preserve_get_trans_gmap (remove_transaction σ_fill wh) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
@@ -393,7 +394,7 @@ Lemma mem_retrieve_donate {E i wi sacc p_tx r0 sh j mem_rx p_rx} {ps: gset PID} 
        TX@i := p_tx ∗
        (* new descriptor in rx *)
        RX@ i := p_rx ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx))) ∗
@@ -511,7 +512,7 @@ Lemma mem_retrieve_donate_rx {E i wi sacc r0 sh j mem_rx p_tx} {ps: gset PID} ai
        TX@i := p_tx ∗
        (* new descriptor in rx *)
        RX@ i := (tpa ai) ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Donation ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx))) ∗
@@ -1030,7 +1031,7 @@ Lemma mem_retrieve_not_donate' {E n q i sacc r0 j mem_rx p_tx} {σ1: state} {ps:
                            (of_imm (encode_vmid j)
                             :: wh
                                :: encode_transaction_type tt
-                                  :: (l ^- 4)%f :: map of_pid (elements ps))) l i i p_tx p_rx) wh (j,i,ps,tt,true))
+                                  :: (l ^- 4)%f :: map of_pid (elements ps))) l j i p_tx p_rx) wh (j,i,ps,tt,true))
                   i ps)  R0 (encode_hvc_ret_code Succ))) ∗
                             ([∗ list] vmid ∈ just_scheduled_vms n σ1
                        (update_incr_PC
@@ -1042,13 +1043,13 @@ Lemma mem_retrieve_not_donate' {E n q i sacc r0 j mem_rx p_tx} {σ1: state} {ps:
                                             (of_imm (encode_vmid j)
                                              :: wh
                                                 :: encode_transaction_type tt
-                                                   :: (l ^- 4)%f :: map of_pid (elements ps))) l i
+                                                   :: (l ^- 4)%f :: map of_pid (elements ps))) l j
                                          i p_tx p_rx) wh (j,i,ps,tt,true)) i ps) R0
                              (encode_hvc_ret_code Succ))), VMProp_holds vmid (1 / 2)) ∗
       PC @@ i ->r (ai ^+ 1)%f ∗ R0 @@ i ->r encode_hvc_ret_code Succ ∗
          R1 @@ i ->r wh ∗ i -@A> (ps ∪ sacc) ∗
        wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
-         (∃ (l0 : Addr) (des : list Addr), RX_state@i:= Some (l0, i) ∗ ⌜
+         (∃ (l0 : Addr) (des : list Addr), RX_state@i:= Some (l0, j) ∗ ⌜
             Z.to_nat l0 = length des⌝ ∗
             ⌜des =
              of_imm (encode_vmid j)
@@ -1059,7 +1060,7 @@ Proof.
                             trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
     rewrite /= /gen_vm_interp.
     (* unchanged part *)
-    set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l i i p_tx p_rx).
+    set σ_fill := (fill_rx_unsafe (write_mem_segment σ1 p_rx _) l j i p_tx p_rx).
     rewrite (preserve_get_mb_gmap σ_fill (update_incr_PC _)).
     2:  rewrite p_upd_pc_mb p_upd_reg_mb p_grnt_acc_mb p_upd_tran_mb //.
     rewrite p_fill_rx_mb. all : try rewrite p_wr_mem_mb //.
@@ -1134,7 +1135,8 @@ Proof.
     2: rewrite p_upd_pc_mb p_upd_reg_mb p_grnt_acc_mb //.
     rewrite u_fill_rx_rx_state.
     rewrite (preserve_get_rx_gmap σ1); last done.
-    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
+    iDestruct (trans_valid_tran_Some with "tran") as %Hneq.
+    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]". done.
     (* upd tran *)
     rewrite (preserve_get_trans_gmap (update_transaction σ_fill wh (j, i, ps, tt, true)) (update_incr_PC _)).
     2: rewrite p_upd_pc_trans p_upd_reg_trans //.
@@ -1242,7 +1244,7 @@ Lemma mem_retrieve_not_donate{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID
        wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
        (* new descriptor in rx *)
        RX@ i := p_rx ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type tt ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
@@ -1311,7 +1313,7 @@ Proof.
                      (update_transaction
                         (fill_rx_unsafe
                            (write_mem_segment σ1 p_rx
-                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l i i
+                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l j i
                            p_tx p_rx) wh (j, i, ps, tt, true)) i ps) R0 (encode_hvc_ret_code Succ))))).
     {
       destruct tt.
@@ -1369,7 +1371,7 @@ Lemma mem_retrieve_lend{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai w
        wh ->re true ∗ wh -{q}>t (j, i, ps, Lending) ∗
        (* new descriptor in rx *)
        RX@ i := p_rx ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Lending ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
@@ -1414,7 +1416,7 @@ Lemma mem_retrieve_share{E i wi sacc r0 j mem_rx p_rx q p_tx} {ps: gset PID} ai 
        wh ->re true ∗ wh -{q}>t (j, i, ps, Sharing) ∗
        (* new descriptor in rx *)
        RX@ i := p_rx ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Sharing ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page p_rx ((list_to_map (zip (finz.seq p_rx (length des)) des)) ∪ mem_rx)))
@@ -1459,7 +1461,7 @@ Lemma mem_retrieve_not_donate_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} 
        wh ->re true ∗ wh -{q}>t (j, i, ps, tt) ∗
        (* new descriptor in rx *)
        RX@ i := (tpa ai) ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type tt ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
@@ -1530,7 +1532,7 @@ Proof.
                      (update_transaction
                         (fill_rx_unsafe
                            (write_mem_segment σ1 p_rx
-                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l i i
+                              (of_imm (encode_vmid j) :: wh :: (encode_transaction_type tt) :: (l ^- 4)%f :: map of_pid (elements ps))) l j i
                            p_tx p_rx) wh (j, i, ps, tt, true)) i ps) R0 (encode_hvc_ret_code Succ))))).
     {
       destruct tt.
@@ -1588,7 +1590,7 @@ Lemma mem_retrieve_lend_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh:
        wh ->re true ∗ wh -{q}>t (j, i, ps, Lending) ∗
        (* new descriptor in rx *)
        RX@ i := (tpa ai) ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Lending ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
@@ -1632,7 +1634,7 @@ Lemma mem_retrieve_share_rx{E i wi sacc r0 j mem_rx q p_tx} {ps: gset PID} ai wh
        wh ->re true ∗ wh -{q}>t (j, i, ps, Sharing) ∗
        (* new descriptor in rx *)
        RX@ i := (tpa ai) ∗
-       (∃ l des, RX_state@ i := Some(l, i) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
+       (∃ l des, RX_state@ i := Some(l, j) ∗ ⌜((Z.to_nat (finz.to_z l)) = (length des))%nat⌝ ∗
        (* XXX: not sure if it is useful *)
        (⌜des = ([of_imm (encode_vmid j); wh; encode_transaction_type Sharing ;(l ^- 4)%f] ++ map of_pid (elements ps))⌝ ∗
                  memory_page (tpa ai) ((list_to_map (zip (finz.seq (tpa ai) (length des)) des)) ∪ mem_rx)))
