@@ -88,7 +88,7 @@ Section slice.
                           (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l ∗
                               (Φ_r j i V0)).
 
-  Definition vmprop_zero_pre (Ψ: PID -d> PID -d> iPropO Σ) :PID -d> PID -d> iPropO Σ :=
+  Definition vmprop_zero_pre (Ψ: PID -d> PID -d> iPropO Σ) :PID -d> PID -d> (gmap VMID option(Word * VMID)) -d> iPropO Σ :=
     λ p_tx p_rx, (∃ trans' rxs',
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans' ∗
