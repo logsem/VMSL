@@ -171,6 +171,16 @@ Section mailbox_rules.
     set_solver + H3.
   Qed.
 
+  Lemma rx_agree i x x' :
+    RX@i := x -∗  RX@i := x' -∗ ⌜x = x'⌝.
+  Proof.
+    rewrite mb_mapsto_eq /mb_mapsto_def.
+    iIntros "Ha1 Ha2".
+    iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %Hvalid.
+    destruct Hvalid as [_ Hvalid].
+    done.
+  Qed.
+
   Definition rx_page i p_rx := (RX@i := p_rx ∗ p_rx -@O> - ∗ p_rx -@E> true)%I.
   Definition tx_page i p_tx := (TX@i := p_tx ∗ p_tx -@O> - ∗ p_tx -@E> true)%I.
 

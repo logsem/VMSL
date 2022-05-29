@@ -309,6 +309,7 @@ Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 (* predicates for TX and RX *)
 Notation "TX@ i := p" := (mb_mapsto i TX p)
                               (at level 20, format "TX@ i := p"): bi_scope.
+
 Notation "RX_state{ q }@ i := o" := ((rx_state_mapsto i q o) ∗ ⌜((λ (oo: option (Word*VMID)), match oo with
                                       | None => True
                                       | Some s => s.2 ≠ i
