@@ -14,8 +14,8 @@ Section fundamental_prim.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Lemma ftlr_p Φ `(!SliceWf Φ):
-  ∀ p_tx p_rx ps_acc trans, interp_access_prim Φ p_tx p_rx ps_acc trans ⊢ interp_execute_prim.
+  Lemma ftlr_p Φ_t Φ_r `(!SliceWf Φ_t):
+  ∀ p_tx p_rx ps_acc trans rxs, interp_access_prim Φ_t Φ_r p_tx p_rx ps_acc trans rxs ⊢ interp_execute_prim.
   Proof.
     rewrite /interp_access_prim /=.
     iIntros (????) "(%HΦ & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &

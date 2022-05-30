@@ -463,15 +463,19 @@ Section logrel_prim_extra.
     iPureIntro. done.
   Qed.
 
-  Lemma rx_states_equiv i Φ_r:
-      ⌜∀ i, Φ_r i V0 ⊣⊢ slice_rx_state i V0 ⌝ ∗
-      ([∗ set] j ∈ set_of_vmids, ∃rx_state', rx_state_run Φ_r V0 j rx_state') ∗
- RX_state@ i := rx_state ∗
-               (* RX *)
-               (rx_page i p_rx) ∗
-               (∃ mem_rx, memory_page p_rx mem_rx) ∗
-               (* rx pages for all other VMs *)
-               rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗
+  (* TODO *)
+ (*  Lemma rx_states_equiv i Φ_r: *)
+ (*      ⌜∀ i os, (match os with *)
+ (*                 | None => True *)
+ (*                 | Some (_,j) => j = V0 *)
+ (*                end) -> Φ_r i os i ⊣⊢ slice_rx_state i os⌝ ∗ *)
+ (*      ([∗ set] j ∈ set_of_vmids, ∃rx_state', rx_state_run Φ_r V0 j rx_state') ∗ *)
+ (* RX_state@ i := rx_state ∗ *)
+ (*               (* RX *) *)
+ (*               (rx_page i p_rx) ∗ *)
+ (*               (∃ mem_rx, memory_page p_rx mem_rx) ∗ *)
+ (*               (* rx pages for all other VMs *) *)
+ (*               rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗ *)
 
 
 End logrel_prim_extra.
