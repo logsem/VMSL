@@ -12,8 +12,9 @@ Section ftlr_relinquish.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}:
+Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
   base_extra.is_total_gmap regs ->
+  base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
   currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc ∖ {[p_tx; p_rx]} ->
   p_rx ∉ ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans ->
@@ -28,7 +29,8 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
   regs !! R0 = Some r0 ->
   decode_hvc_func r0 = Some Relinquish ->
   p_tx ≠ p_rx ->
-  ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : option (Addr * VMID)),
+  ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : gmap VMID (option (Addr * VMID))),
+              ⌜base_extra.is_total_gmap a2⌝ -∗
               ⌜base_extra.is_total_gmap a⌝ -∗
               ⌜{[p_tx; p_rx]} ⊆ a0⌝ -∗
               ⌜currently_accessible_in_trans_memory_pages i a1 ⊆ a0 ∖ {[p_tx; p_rx]}⌝ -∗
@@ -45,10 +47,10 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
               R0 @@ V0 ->r encode_hvc_func Run -∗
               R1 @@ V0 ->r encode_vmid i -∗
               (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
-              RX_state@i:= a2 -∗
               mailbox.rx_page i p_rx -∗
-              rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-              ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
+              rx_state_get i a2 -∗
+              rx_states_global (delete i a2) -∗
+              ▷ VMProp V0 (vmprop_zero i p_tx p_rx a2) (1 / 2) -∗
               VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
               transaction_pagetable_entries_owned i a1 -∗
               retrieved_transaction_owned i a1 -∗
@@ -65,10 +67,10 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
    R0 @@ V0 ->r encode_hvc_func Run -∗
    R1 @@ V0 ->r encode_vmid i -∗
    (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
-   RX_state@i:= rx_state -∗
+   rx_state_get i rxs -∗
    mailbox.rx_page i p_rx -∗
-   rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-   ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
+   rx_states_global (delete i rxs) -∗
+   ▷ VMProp V0 (vmprop_zero i p_tx p_rx rxs) (1 / 2) -∗
    VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
    transaction_pagetable_entries_owned i trans -∗
    retrieved_transaction_owned i trans -∗
@@ -77,9 +79,9 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
-    iIntros (Htotal_regs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
-                         Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc Hneq_mb).
-    iIntros  "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
+    iIntros (Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
+                         Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc).
+    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
              propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
     set ps_mem_in_trans := accessible_in_trans_memory_pages i trans.
     pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
@@ -99,8 +101,8 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
 
-      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
+      iApply ("IH" $! _ _ trans _ Htotal_rxs Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned
                             retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
       { iExists hpool. iSplitL "";auto. iFrame. }
       {
@@ -121,8 +123,8 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
 
-      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
+      iApply ("IH" $! _ _ trans _ Htotal_rxs Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles trans]
+                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned
                             retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
       { iExists hpool. iSplitL "";auto. iFrame. }
       {
@@ -153,8 +155,8 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
 
-      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles tran pgt_tran trans]
-                            tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
+      iApply ("IH" $! _ _ trans _ Htotal_rxs Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles tran pgt_tran trans]
+                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned
                             retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
       {
         iExists hpool.
@@ -173,7 +175,7 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
 
     iDestruct ("retri") as "[retri retri']".
     iDestruct (big_sepFM_lookup_Some Hlookup_tran with "retri") as "[re retri]".
-    simpl;left;done.
+    right;done.
 
     destruct (tran.2) eqn:Heq_retri.
     2: { (* apply [mem_relinquish_not_retrieved] *)
@@ -186,8 +188,8 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
 
-      iApply ("IH" $! _ _ trans _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles tran pgt_tran trans]
-                            tran_pgt_transferred [re retri retri'] R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
+      iApply ("IH" $! _ _ trans _ Htotal_rxs Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc pgt_owned [fresh_handles tran pgt_tran trans]
+                            tran_pgt_transferred [re retri retri'] R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned
                             retri_owned [mem_rest mem_acc_tx mem_tx]");auto.
       {
         iExists hpool.
@@ -199,7 +201,7 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
       {
         rewrite /retrievable_transaction_transferred.
         iDestruct (big_sepFM_delete_acc_True tran with "retri") as "retri".
-        simpl. left;done.
+        right;done.
         rewrite Heq_retri.
         iDestruct ("retri" with "re") as "retri".
         rewrite insert_id;auto.
@@ -261,9 +263,9 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
     iDestruct (retri_split with "re") as "[re re']".
     iDestruct (trans_valid_tran_Some with "tran") as %Hvalid_tran.
 
-    iApply ("IH" $! _ _ (<[r1 := ((tran.1, false):transaction)]> trans) _ Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc
+    iApply ("IH" $! _ _ (<[r1 := ((tran.1, false):transaction)]> trans) _ Htotal_rxs Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc
                             [pgt_owned] [fresh_handles trans pgt_tran tran] [tran_pgt_transferred] [retri retri' re re' tran'']
-                            R0z R1z R2z rx_state rx other_rx prop0 propi [tran_pgt_owned]
+                            R0z R1z R2z rx rx_state other_rx prop0 propi [tran_pgt_owned]
                             [retri_owned] [mem_rest mem_acc_tx mem_tx]").
     {
       iPureIntro.
@@ -323,13 +325,13 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_stat
       iIntros "H". simpl. rewrite Hrw_tran. iFrame.
       iFrame.
       iApply (big_sepFM_update_False _ Hlookup_tran);auto.
-      simpl. intros [? _]. contradiction.
-      simpl. intros [? _]. contradiction.
+      simpl. intros [_ ?]. contradiction.
+      simpl. intros [_ ?]. contradiction.
     }
     {
       rewrite /retrievable_transaction_transferred.
       iDestruct (big_sepFM_delete_acc_True (tran.1, false) with "retri") as "retri".
-      simpl. left;done.
+      right ;done.
       iDestruct ("retri" with "re") as "retri".
       iFrame.
       iApply (big_sepFM_delete_acc_True with "[retri'] [re' tran'']").

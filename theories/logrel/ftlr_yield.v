@@ -11,8 +11,9 @@ Section ftlr_yield.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}:
+Lemma ftlr_yield {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0}:
   base_extra.is_total_gmap regs ->
+  base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
   i ≠ V0 ->
   currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc ∖ {[p_tx; p_rx]} ->
@@ -28,7 +29,8 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
   regs !! R0 = Some r0 ->
   decode_hvc_func r0 = Some Yield ->
   p_tx ≠ p_rx ->
-  ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : option (Addr * VMID)),
+  ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : gmap VMID (option (Addr * VMID))),
+              ⌜base_extra.is_total_gmap a2⌝ -∗
               ⌜base_extra.is_total_gmap a⌝ -∗
               ⌜{[p_tx; p_rx]} ⊆ a0⌝ -∗
               ⌜currently_accessible_in_trans_memory_pages i a1 ⊆ a0 ∖ {[p_tx; p_rx]}⌝ -∗
@@ -45,10 +47,10 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
               R0 @@ V0 ->r encode_hvc_func Run -∗
               R1 @@ V0 ->r encode_vmid i -∗
               (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
-              RX_state@i:= a2 -∗
               mailbox.rx_page i p_rx -∗
-              rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-              ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
+              rx_state_get i a2 -∗
+              rx_states_global (delete i a2) -∗
+              ▷ VMProp V0 (vmprop_zero i p_tx p_rx a2) (1 / 2) -∗
               VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
               transaction_pagetable_entries_owned i a1 -∗
               retrieved_transaction_owned i a1 -∗
@@ -65,10 +67,10 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
    R0 @@ V0 ->r encode_hvc_func Run -∗
    R1 @@ V0 ->r encode_vmid i -∗
    (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
-   RX_state@i:= rx_state -∗
+   rx_state_get i rxs -∗
    mailbox.rx_page i p_rx -∗
-   rx_pages (list_to_set list_of_vmids ∖ {[i]}) -∗
-   ▷ VMProp V0 (vmprop_zero i p_tx p_rx) (1 / 2) -∗
+   rx_states_global (delete i rxs) -∗
+   ▷ VMProp V0 (vmprop_zero i p_tx p_rx rxs) (1 / 2) -∗
    VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
    transaction_pagetable_entries_owned i trans -∗
    retrieved_transaction_owned i trans -∗
@@ -77,9 +79,9 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
-    iIntros (Htotal_regs Hsubset_mb Hneq_0 Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
-                         Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc).
-    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
+    iIntros (Htotal_regs Htotal_rxs Hsubset_mb Hneq_0 Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
+                         Hlookup_mem_ai Heqn Hlookup_reg_R0).
+    iIntros (Hdecode_hvc Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
              propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans).
     iDestruct (reg_big_sepM_split_upd2 i Hlookup_PC Hlookup_reg_R0  with "[$regs]") as "(PC & R0 & Hacc_regs)";eauto.
@@ -170,19 +172,22 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         iSplitL "propi". iFrame.
         iSplitR "trans_hpool_global tran_pgt_transferred retri".
         2:{ iFrame. }
-        iNext.
-        iIntros "((PC & mem_instr & pgt_acc & _ & R0i &R0z & R1z) & (trans_hpool_global & trans_pgt_transferred & retri) & propi)".
+        iNext. iIntros "((PC & mem_instr & pgt_acc & _ & R0i &R0z & R1z) & (trans_hpool_global & trans_pgt_transferred & retri) & propi)".
         iSplitL "trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran propi".
-        iExists trans. iFrame.
+        iExists trans.
+        pose proof (Htotal_rxs i) as [rs Hlookup_rs]. iExists rs.
+        iDestruct ("rx_state" $! rs with "[]") as "rx_state".
+        { iPureIntro. exact Hlookup_rs. }
+        iFrame "trans_hpool_global trans_pgt_transferred retri rx rx_state".
         (* split [mem_tran] into [mem_rx] and [mem_trans] *)
         iDestruct (memory_pages_split_union' with "mem_tran") as "[mem_rx mem_trans]".
         { pose proof (transferred_accessible_memory_pages_subseteq i trans) as Hs.
-          set_solver + Hs Hnin_rx.
-        }
-        iFrame.
-        rewrite memory_pages_singleton'. iFrame.
+          set_solver + Hs Hnin_rx. }
+        iFrame "mem_trans".
+        rewrite memory_pages_singleton'. iFrame "mem_rx".
+        iSplitR "propi".
         iLeft. iFrame.
-        iLeft. iFrame. iExists rx_state. iFrame.
+        iExact "propi".
         iCombine "PC mem_instr R0i pgt_acc" as "R'". iExact "R'".
       }
       iNext.
@@ -193,10 +198,10 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
       iDestruct (VMProp_holds_agree i with "[$Hholds $propi]") as "[Hres propi]".
       iEval (setoid_rewrite vmprop_unknown_eq) in "Hres".
       iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (trans') "Hres".
-      iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rx_state') "Hres".
+      iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rxs') "Hres".
       iEval (rewrite 11!later_sep) in "Hres".
       iDestruct "Hres" as "(>trans_hpool_global & >tran_pgt_transferred &
-                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >rx & >[% mem_rx] & >other_rx & prop0)".
+                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx & >rx_state & >[% mem_rx] & >other_rx & >%Htotal_rxs' & prop0)".
       iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
       (* erewrite (trans_rel_secondary_retrieved_lending_memory_page);eauto. *)
       erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
@@ -262,9 +267,9 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         done.
         iPureIntro. rewrite map_union_assoc //. set_solver + Hneq_tx_rx.
       }
-      iApply ("IH" $! _ ps_acc trans' _ Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx' Hnin_tx' with "regs'' tx pgt_tx pgt_acc pgt_owned
-                       trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
-                           tran_pgt_owned  retri_owned mem").
+      iApply ("IH" $! _ ps_acc trans' _ Htotal_rxs' Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx' Hnin_tx' with "regs'' tx pgt_tx pgt_acc pgt_owned
+                       trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi
+                           tran_pgt_owned retri_owned  mem").
     }
     { (* tpa ai ∉ ps_acc ∖ ({[p_rx]} ∪ ps_mem_in_trans) *)
       (* we don't need to touch [mem_oea]*)
@@ -300,8 +305,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         iSplitL "propi". iFrame.
         iSplitR "trans_hpool_global tran_pgt_transferred retri".
         2:{ iFrame. }
-        iNext.
-        iIntros "((PC & mem_instr & pgt_acc & _ & R0i &R0z & R1z) & (trans_hpool_global & trans_pgt_transferred & retri) & propi)".
+        iNext. iIntros "((PC & mem_instr & pgt_acc & _ & R0i &R0z & R1z) & (trans_hpool_global & trans_pgt_transferred & retri) & propi)".
         iDestruct ("Hacc_mem_inters" with "mem_instr") as "mem_inters".
         (* FIXME: copied proofs  *)
         iAssert (memory_pages ((ps_acc∖ {[p_tx]}) ∩ ({[p_rx]} ∪ (transferred_memory_pages i trans))) mem_inters)%I  with "[mem_inters]" as "mem_inters".
@@ -314,7 +318,11 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         rewrite Heq_inter_diff_union.
 
         iSplitL "trans_hpool_global trans_pgt_transferred retri R0z R1z R2z rx_state rx other_rx mem_tran propi".
-        iExists trans. iFrame "trans_hpool_global trans_pgt_transferred retri rx other_rx".
+        iExists trans.
+        pose proof (Htotal_rxs i) as [rs Hlookup_rs]. iExists rs.
+        iDestruct ("rx_state" $! rs with "[]") as "rx_state".
+        { iPureIntro. exact Hlookup_rs. }
+        iFrame "trans_hpool_global trans_pgt_transferred retri rx rx_state".
         (* split [mem_tran] into [mem_rx] and [mem_trans] *)
         iDestruct (memory_pages_split_union' with "mem_tran") as "[mem_rx mem_trans]".
         { pose proof (transferred_accessible_memory_pages_subseteq i trans) as Hs.
@@ -324,7 +332,6 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         rewrite memory_pages_singleton'. iFrame "mem_rx".
         iSplitR "propi".
         iLeft. iFrame.
-        iLeft. iFrame. iExists rx_state. iFrame.
         iExact "propi".
         iCombine "PC R0i pgt_acc" as "R'". iExact "R'".
       }
@@ -336,7 +343,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
       iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rx_state') "Hres".
       iEval (rewrite 11!later_sep) in "Hres".
       iDestruct "Hres" as "(>trans_hpool_global & >tran_pgt_transferred &
-                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >rx & >[% mem_rx] & >other_rx & prop0)".
+                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx & >rx_state & >[% mem_rx] & >other_rx & >%Htotal_rxs' & prop0)".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f r0 with "[PC R0i]") as "[%regs' [%Htotal_regs' regs'']]"; iFrameAutoSolve.
       iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
       erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
@@ -401,8 +408,8 @@ Lemma ftlr_yield {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rx_state r0}
         done.
         iPureIntro. rewrite map_union_assoc //. set_solver + Hneq_tx_rx.
       }
-      iApply ("IH" $! _ ps_acc trans' _ Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx' Hnin_tx' with "regs'' tx pgt_tx pgt_acc pgt_owned
-                       trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi
+      iApply ("IH" $! _ ps_acc trans' _ Htotal_rxs' Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx' Hnin_tx' with "regs'' tx pgt_tx pgt_acc pgt_owned
+                       trans_hpool_global tran_pgt_transferred retri R0z R1z R2z  rx rx_state other_rx prop0 propi
                            tran_pgt_owned retri_owned mem").
     }
   Qed.

@@ -101,6 +101,9 @@ Section logrel.
   Definition rx_states_global (rxs: gmap VMID (option (Word*VMID))) : iProp Σ :=
     [∗ map]i ↦ os ∈ rxs, rx_state_match i os.
 
+  Definition rx_state_get (i:VMID) (rxs: gmap VMID (option (Word*VMID))) :iProp Σ:=
+    ∀ rs, ⌜rxs !! i = Some rs⌝ -∗ RX_state@i := rs.
+
   (* [TODO] *)
   Definition return_reg_rx i (rs : option (Word * VMID)) (rxs :gmap VMID (option(Word*VMID))): iProp Σ:=
     ((R0 @@ V0 ->r encode_hvc_func(Yield) ∨
@@ -148,11 +151,9 @@ Section logrel.
                (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
                (* RX *)
-               (rx_page i p_rx) ∗
-               (match rxs !! i with
-                | None => True
-                | Some rs' => RX_state@i:= rs'
-               end) ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
+               rx_page i p_rx ∗
+               rx_state_get i rxs ∗
+               (∃ mem_rx, memory_page p_rx mem_rx) ∗
                (* rx pages for all other VMs *)
                rx_states_global (delete i rxs) ∗ ⌜is_total_gmap rxs⌝ ∗
                (* if i yielding, we give following resources back to pvm *)
@@ -184,11 +185,9 @@ Section logrel.
           retrievable_transaction_transferred i trans' ∗
           (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗
           R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
-          (rx_page i p_rx) ∗
-               (match rxs !! i with
-                | None => True
-                | Some rs' => RX_state@i:= rs'
-               end) ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
+          rx_page i p_rx ∗
+          rx_state_get i rxs ∗
+          (∃ mem_rx, memory_page p_rx mem_rx) ∗
           (* rx pages for all other VMs *)
           rx_states_global (delete i rxs) ∗ ⌜is_total_gmap rxs⌝ ∗
           VMProp V0 (vmprop_zero p_tx p_rx rxs) (1/2)%Qp)%I.
@@ -209,11 +208,9 @@ Section logrel.
                retrievable_transaction_transferred i trans' ∗
                (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
-               (rx_page i p_rx) ∗
-               (match rxs !! i with
-                | None => True
-                | Some rs' => RX_state@i:= rs'
-               end) ∗ (∃ mem_rx, memory_page p_rx mem_rx) ∗
+               rx_page i p_rx ∗
+               rx_state_get i rxs ∗
+               (∃ mem_rx, memory_page p_rx mem_rx) ∗
                (* rx pages for all other VMs *)
                rx_states_global (delete i rxs) ∗ ⌜is_total_gmap rxs⌝ ∗
                VMProp V0 (vmprop_zero p_tx p_rx rxs) (1/2)%Qp)%I.
