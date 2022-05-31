@@ -159,7 +159,7 @@ Section ftlr_msg_send.
 
     destruct (rx_state_v).
     { (* apply [msg_send_full_rx] *)
-      iEval (rewrite /rx_state_match /= /rx_state_some) in "rx_state_v".
+      iEval (rewrite /rx_state_match /=) in "rx_state_v".
       iApply (msg_send_full_rx ai with "[PC mem_instr pgt_acc R0 R1 R2 tx rx_state_v]");iFrameAutoSolve.
       exact Heq_decode. done. lia. 2: { iDestruct "rx_state_v" as "[$ ?]". done. } done.
       iNext. iIntros "(PC & mem_instr & pgt_acc  & tx & R0 & R1 & R2 & rx_state_v ) _".

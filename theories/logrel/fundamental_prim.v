@@ -1,8 +1,8 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang trans_extra.
-From HypVeri.algebra Require Import base pagetable mem trans.
-From HypVeri.rules Require Import rules_base mov yield ldr halt fail add sub mult cmp br bne str run.
+From HypVeri.algebra Require Import base pagetable mem trans mailbox.
+From HypVeri.rules Require Import rules_base mov ldr halt fail add sub mult cmp br bne str run.
 From HypVeri.logrel Require Import logrel_prim_extra.
 (* From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend *)
 (*   ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc. *)
@@ -18,8 +18,8 @@ Section fundamental_prim.
   ∀ p_tx p_rx ps_acc trans rxs, interp_access_prim Φ_t Φ_r p_tx p_rx ps_acc trans rxs ⊢ interp_execute_prim.
   Proof.
     rewrite /interp_access_prim /=.
-    iIntros (????) "(%HΦ & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
-                           retri_owned & mem_owned & VMProp & rx_state & rx & [% mem_rx] & trans_hpool_global & other_rx & transferred & VMProps)".
+    iIntros (?????) "(%HΦt & %HΦr1 & %HΦr2 & %HΦr3 & %HΦr4 & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
+                           retri_owned & mem_owned & [% VMProp] & rx & trans_hpool_global & %Htotal_rxs & rxs_global & rxs_transferred & rxs_owned & transferred & VMProps)".
 
     iDestruct (big_sepSS_difference_singleton _ V0 with "transferred") as "[transferred_except transferred_only]";eauto.
     apply elem_of_set_of_vmids.
@@ -29,6 +29,15 @@ Section fundamental_prim.
 
     iDestruct (memory_pages_oea_transferred with "[$mem_owned $mem_transferred]") as (?) "mem";eauto.
     clear Htrans_disj Htrans_neq.
+
+    iDestruct (rx_states_equiv_0 with "[$rxs_global $rxs_transferred $rxs_owned]") as "(rxs_global & rxs_transferred & rxs_owned
+                                 & (rx_state & [% (rx' & [% mem_rx])]))";auto.
+    iAssert (⌜p_rx0 = p_rx⌝%I) with "[rx rx']" as %Hrx_eq.
+    {
+      iDestruct "rx" as "[rx ?]".
+      iApply (rx_agree with "rx' rx").
+    }
+    subst p_rx0.
 
     set i := V0.
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans).
@@ -41,7 +50,7 @@ Section fundamental_prim.
     iDestruct "tx" as "[tx pgt_tx]".
     clear mem_rx mem_tx mem_all; subst ps_mem_in_trans.
 
-    iLöb as "IH" forall (regs ps_acc trans Htotal_regs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx).
+    iLöb as "IH" forall (P0 regs ps_acc trans rxs Htotal_rxs Htotal_regs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx).
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans).
 
     (* split memory pages into [mem_acc] and [mem_rest] *)
@@ -215,11 +224,11 @@ Section fundamental_prim.
                   iDestruct (mem_big_sepM_split mem_oea Hlookup_mem_ai' with "mem_oea") as "[mem_instr Hacc_mem]".
                   iDestruct ("tx") as "#tx".
 
-                  (* XXX: how to transfer RXs??? also using Φ ? *)
                   iApply (run ai v (transaction_hpool_global_transferred trans ∗
-                                      transaction_pagetable_entries_transferred i trans ∗
-                                      retrievable_transaction_transferred i trans)%I (vmprop_zero v Φ p_tx p_rx)
-                           with "[PC R0 R0 R1 R2 pgt_acc $tx mem_instr other_rx VMProp VMProp_v trans_hpool_global transferred_only rx_state rx]"); iFrameAutoSolve.
+                                      big_sepSS_singleton set_of_vmids v (Φ_t trans) ∗
+                                      rx_states_global (delete i rxs) ∗
+                                      )%I (vmprop_zero v Φ_t Φ_r p_tx p_rx rxs)
+                           with "[PC R0 R1 R2 pgt_acc $tx mem_instr rxs_global VMProp VMProp_v trans_hpool_global transferred_only rx_state rx]"); iFrameAutoSolve.
                 }
 
                 admit.

@@ -217,10 +217,11 @@ Section logrel_prim.
       transaction_pagetable_entries_owned V0 trans ∗
       retrieved_transaction_owned V0 trans ∗
       (∃ mem_oea, memory_pages (ps_oea ∪ (retrieved_lending_memory_pages V0 trans)) mem_oea) ∗
-      VMProp V0 True 1%Qp ∗
+      (∃ P0, VMProp V0 P0 1%Qp) ∗
       (* transferred *)
       (rx_page V0 p_rx) ∗
       transaction_hpool_global_transferred trans ∗
+      ⌜is_total_gmap rxs⌝ ∗
       rx_states_global rxs ∗
       rx_states_transferred Φ_r rxs ∗
       rx_states_owned Φ_r rxs ∗

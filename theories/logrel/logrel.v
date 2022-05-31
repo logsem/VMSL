@@ -90,13 +90,11 @@ Section logrel.
   Definition currently_accessible_in_trans_memory_pages (trans : gmap Word transaction) :=
     pages_in_trans (filter (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.2 = Sharing) ∨ (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans).
 
-  Definition rx_state_none i : iProp Σ := RX_state@i := None ∗ ∃p_rx, RX@ i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx).
-  Definition rx_state_some i s : iProp Σ := RX_state{1/2}@i := Some(s).
   Definition rx_state_match i os : iProp Σ :=
     match os with
-                           | None => rx_state_none i
-                           | Some s => rx_state_some i s
-                          end.
+    | None => RX_state@i := None ∗ ∃p_rx, RX@ i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx)
+    | Some s => RX_state{1/2}@i := Some(s)
+    end.
 
   Definition rx_states_global (rxs: gmap VMID (option (Word*VMID))) : iProp Σ :=
     [∗ map]i ↦ os ∈ rxs, rx_state_match i os.
@@ -121,8 +119,8 @@ Section logrel.
   Definition trans_rel_eq (P : gmap Word transaction -> gset PID) (trans trans': gmap Word transaction ): Prop:=
     P trans = P trans'.
 
-  Definition vmprop_zero_pre (Ψ: PID -d> PID-d> iPropO Σ) :PID -d> PID -d> (gmap VMID (option(Word*VMID))) -d> iPropO Σ :=
-    λ p_tx p_rx rxs', (∃ trans'' rs',
+  Definition vmprop_zero_pre (Ψ: iPropO Σ) : (gmap VMID (option(Word*VMID))) -d> iPropO Σ :=
+    λ rxs', (∃ trans'' rs',
                            let ps_macc_trans'' := (transferred_memory_pages trans'') in
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans'' ∗
@@ -130,17 +128,13 @@ Section logrel.
                            retrievable_transaction_transferred i trans'' ∗
                            (* memory *)
                            (∃ mem_trans, memory_pages ps_macc_trans'' mem_trans) ∗
-                           (* status of RX *)
-                           (* RX *)
-                           rx_page i p_rx ∗
-                           (RX_state@i:= rs') ∗ (∃ mem_rx, memory_page p_rx mem_rx)  ∗
+                           (RX_state@i:= rs') ∗
+                           (∃p_rx, RX@i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx)) ∗
                            return_reg_rx i rs' rxs' ∗
-                           VMProp i (Ψ p_tx p_rx) (1/2)%Qp)%I.
+                           VMProp i (Ψ) (1/2)%Qp)%I.
 
   Definition vmprop_unknown_pre
-    (Φ: PID -d> PID -d> iPropO Σ)
-    :PID -d> PID -d> iPropO Σ :=
-    λ p_tx p_rx,
+    (Φ: iPropO Σ) :iPropO Σ :=
     (∃ (trans' : gmap Word transaction) (rxs : gmap VMID (option(Word * VMID))),
                let ps_macc_trans' := (transferred_memory_pages trans') in
                (* transaction and pagetable entries *)
@@ -150,19 +144,17 @@ Section logrel.
                (* memory *)
                (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
-               (* RX *)
-               rx_page i p_rx ∗
                rx_state_get i rxs ∗
-               (∃ mem_rx, memory_page p_rx mem_rx) ∗
+               (∃p_rx, RX@i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx)) ∗
                (* rx pages for all other VMs *)
                rx_states_global (delete i rxs) ∗ ⌜is_total_gmap rxs⌝ ∗
                (* if i yielding, we give following resources back to pvm *)
-               VMProp V0 (vmprop_zero_pre Φ p_tx p_rx rxs) (1/2)%Qp)%I.
+               VMProp V0 (vmprop_zero_pre Φ rxs) (1/2)%Qp)%I.
 
   Local Instance vmprop_unknown_pre_contractive : Contractive (vmprop_unknown_pre).
   Proof.
-    rewrite /vmprop_unknown_pre => n vmprop_unknown vmprop_unknown' Hvmprop_unknown p_tx p_rx /=.
-    do 16 f_equiv.
+    rewrite /vmprop_unknown_pre => n vmprop_unknown vmprop_unknown' Hvmprop_unknown /=.
+    do 15 f_equiv.
     rewrite /VMProp /=.
     do 6 f_equiv.
     f_contractive.
@@ -170,6 +162,7 @@ Section logrel.
     do 11 f_equiv.
     rewrite /VMProp.
     repeat f_equiv.
+    apply Hvmprop_unknown.
   Qed.
 
   Definition vmprop_unknown:= fixpoint (vmprop_unknown_pre).
@@ -177,7 +170,6 @@ Section logrel.
   Definition vmprop_zero := vmprop_zero_pre vmprop_unknown.
 
   Lemma vmprop_unknown_def : vmprop_unknown ≡
-    λ p_tx p_rx,
       (∃ (trans' : gmap Word transaction) rxs,
           let ps_macc_trans' := (transferred_memory_pages trans') in
           transaction_hpool_global_transferred trans' ∗
@@ -185,22 +177,18 @@ Section logrel.
           retrievable_transaction_transferred i trans' ∗
           (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗
           R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
-          rx_page i p_rx ∗
           rx_state_get i rxs ∗
-          (∃ mem_rx, memory_page p_rx mem_rx) ∗
+          (∃p_rx, RX@i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx)) ∗
           (* rx pages for all other VMs *)
           rx_states_global (delete i rxs) ∗ ⌜is_total_gmap rxs⌝ ∗
-          VMProp V0 (vmprop_zero p_tx p_rx rxs) (1/2)%Qp)%I.
+          VMProp V0 (vmprop_zero rxs) (1/2)%Qp)%I.
   Proof.
     rewrite /vmprop_unknown //.
     rewrite (fixpoint_unfold vmprop_unknown_pre).
     setoid_reflexivity.
   Qed.
 
-  Global Instance vmprop_unknown_proper: Proper ((=) ==> (=) ==> (⊣⊢)) vmprop_unknown.
-  Proof. apply _. Qed.
-
-  Lemma vmprop_unknown_eq (p_tx p_rx : PID) : vmprop_unknown p_tx p_rx ⊣⊢
+  Lemma vmprop_unknown_eq : vmprop_unknown ⊣⊢
       (∃ (trans' : gmap Word transaction) rxs,
                let ps_macc_trans' := (transferred_memory_pages trans') in
                transaction_hpool_global_transferred trans' ∗
@@ -208,12 +196,11 @@ Section logrel.
                retrievable_transaction_transferred i trans' ∗
                (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗
                R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
-               rx_page i p_rx ∗
                rx_state_get i rxs ∗
-               (∃ mem_rx, memory_page p_rx mem_rx) ∗
+               (∃p_rx, RX@i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx)) ∗
                (* rx pages for all other VMs *)
                rx_states_global (delete i rxs) ∗ ⌜is_total_gmap rxs⌝ ∗
-               VMProp V0 (vmprop_zero p_tx p_rx rxs) (1/2)%Qp)%I.
+               VMProp V0 (vmprop_zero rxs) (1/2)%Qp)%I.
     Proof.
       rewrite /vmprop_unknown.
       apply (fixpoint_unfold vmprop_unknown_pre).
@@ -229,6 +216,7 @@ Section logrel.
       (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ i ->r w) ∗
       (* TX page and its memory *)
       (tx_page i p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
+      rx_page i p_rx ∗
       (* access *)
       i -@A> ps_acc ∗
       ⌜{[p_tx;p_rx]} ⊆ ps_acc⌝ ∗ ⌜currently_accessible_in_trans_memory_pages trans ⊆ ps_acc ∖ {[p_tx;p_rx]}⌝ ∗
@@ -236,7 +224,7 @@ Section logrel.
       transaction_pagetable_entries_owned i trans ∗
       retrieved_transaction_owned i trans ∗
       (∃ mem_oea, memory_pages (ps_oea ∪ (retrieved_lending_memory_pages trans)) mem_oea) ∗
-      VMProp i (vmprop_unknown p_tx p_rx) (1/2)%Qp
+      VMProp i (vmprop_unknown) (1/2)%Qp
     )%I.
 
   (* [trans_rel_secondary] relates [trans], the transactions at the beginning of the proof, and

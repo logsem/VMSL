@@ -1,7 +1,7 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
-From HypVeri.algebra Require Import base base_extra mem pagetable trans.
+From HypVeri.algebra Require Import base base_extra mem pagetable trans mailbox.
 From HypVeri.logrel Require Export logrel_prim big_sepSS.
 From HypVeri Require Import proofmode.
 From stdpp Require fin_map_dom.
@@ -464,18 +464,50 @@ Section logrel_prim_extra.
   Qed.
 
   (* TODO *)
- (*  Lemma rx_states_equiv i Φ_r: *)
- (*      ⌜∀ i os, (match os with *)
- (*                 | None => True *)
- (*                 | Some (_,j) => j = V0 *)
- (*                end) -> Φ_r i os i ⊣⊢ slice_rx_state i os⌝ ∗ *)
- (*      ([∗ set] j ∈ set_of_vmids, ∃rx_state', rx_state_run Φ_r V0 j rx_state') ∗ *)
- (* RX_state@ i := rx_state ∗ *)
- (*               (* RX *) *)
- (*               (rx_page i p_rx) ∗ *)
- (*               (∃ mem_rx, memory_page p_rx mem_rx) ∗ *)
- (*               (* rx pages for all other VMs *) *)
- (*               rx_pages (list_to_set (list_of_vmids) ∖ {[i]}) ∗ *)
-
+  Lemma rx_states_equiv_0 {Φ_r} rxs:
+      is_total_gmap rxs ->
+      (∀ j, Φ_r V0 j V0 ⊣⊢ slice_rx_state V0 j) ->
+      rx_states_global rxs ∗
+      rx_states_transferred Φ_r rxs ∗
+      rx_states_owned Φ_r rxs
+      ⊢
+      rx_states_global (delete V0 rxs) ∗
+      rx_states_transferred Φ_r (delete V0 rxs) ∗
+      rx_states_owned Φ_r (delete V0 rxs) ∗
+      rx_state_get V0 rxs ∗
+      ∃ p_rx, RX@V0 := p_rx ∗
+      (∃ mem_rx, memory_page p_rx mem_rx).
+  Proof.
+    iIntros (Htotal Hequiv) "(global & transferred & owned)".
+    rewrite /rx_states_global /rx_states_owned /rx_states_transferred.
+    pose proof (Htotal V0) as [rs Hlookup_rs].
+    iDestruct (big_sepM_delete with "global") as "[rs global]";eauto.
+    iDestruct (big_sepM_delete with "transferred") as "[t transferred]";eauto.
+    iDestruct (big_sepM_delete with "owned") as "[_ owned]";eauto.
+    iFrame.
+    destruct rs.
+    {
+      iDestruct (Hequiv (Some p) with "t") as "[% (? & R & ?)]".
+      rewrite /rx_state_match  /slice_rx_state /=.
+      iSplitL "rs R".
+      rewrite /rx_state_get.
+      iIntros (?) "%Hlk".
+      rewrite Hlookup_rs in Hlk.
+      inversion Hlk.
+      iApply (rx_state_split V0 _ (Some p)). iFrame.
+      iExists p_rx. iFrame.
+    }
+    {
+      rewrite /rx_state_match.
+      iDestruct "rs" as "[? R]".
+      iSplitR "R".
+      rewrite /rx_state_get.
+      iIntros (?) "%Hlk".
+      rewrite Hlookup_rs in Hlk.
+      inversion Hlk.
+      done.
+      done.
+    }
+  Qed.
 
 End logrel_prim_extra.
