@@ -1203,17 +1203,17 @@ Section logrel_extra.
     iPureIntro. rewrite map_union_assoc //. set_solver + Hneq_tx_rx.
   Qed.
 
-  Lemma vmprop_zero_equiv_rxs{p_tx p_rx} i rxs rxs' :
+  Lemma vmprop_zero_equiv_rxs i rxs rxs' :
   delete i rxs = delete i rxs' ->
-  VMProp V0 (vmprop_zero i p_tx p_rx rxs) (1 / 2) ⊣⊢
-  VMProp V0 (vmprop_zero i p_tx p_rx rxs') (1 / 2).
+  VMProp V0 (vmprop_zero i rxs) (1 / 2) ⊣⊢
+  VMProp V0 (vmprop_zero i rxs') (1 / 2).
   Proof.
     intro.
     rewrite /VMProp /=.
     do 7 f_equiv.
     rewrite /vmprop_zero.
     rewrite /vmprop_zero_pre.
-    do 12 f_equiv.
+    do 11 f_equiv.
     rewrite /return_reg_rx.
     do 4 f_equiv.
     done.

@@ -18,8 +18,8 @@ Section fundamental_prim.
   ∀ p_tx p_rx ps_acc trans rxs, interp_access_prim Φ_t Φ_r p_tx p_rx ps_acc trans rxs ⊢ interp_execute_prim.
   Proof.
     rewrite /interp_access_prim /=.
-    iIntros (?????) "(%HΦt & %HΦr1 & %HΦr2 & %HΦr3 & %HΦr4 & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
-                           retri_owned & mem_owned & [% VMProp] & rx & trans_hpool_global & %Htotal_rxs & rxs_global & rxs_transferred & rxs_owned & transferred & VMProps)".
+    iIntros (?????) "(%HΦt & %HΦr1 & %HΦr2 & %HΦr3 & %HΦr4 & %HΦr5 & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & rx & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
+                           retri_owned & mem_owned & [% VMProp] & trans_hpool_global & %Htotal_rxs & rxs_global & rxs_transferred & rxs_owned & transferred & VMProps)".
 
     iDestruct (big_sepSS_difference_singleton _ V0 with "transferred") as "[transferred_except transferred_only]";eauto.
     apply elem_of_set_of_vmids.
@@ -227,7 +227,7 @@ Section fundamental_prim.
                   iApply (run ai v (transaction_hpool_global_transferred trans ∗
                                       big_sepSS_singleton set_of_vmids v (Φ_t trans) ∗
                                       rx_states_global (delete i rxs) ∗
-                                      )%I (vmprop_zero v Φ_t Φ_r p_tx p_rx rxs)
+                                      )%I (vmprop_zero v Φ_t Φ_r rxs)
                            with "[PC R0 R1 R2 pgt_acc $tx mem_instr rxs_global VMProp VMProp_v trans_hpool_global transferred_only rx_state rx]"); iFrameAutoSolve.
                 }
 

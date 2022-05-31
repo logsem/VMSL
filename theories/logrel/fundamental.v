@@ -4,8 +4,8 @@ From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans mailbox.
 From HypVeri.rules Require Import rules_base mov yield ldr halt fail add sub mult cmp br bne str run.
 From HypVeri.logrel Require Import logrel logrel_extra.
- From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend
-   ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc.
+ (* From HypVeri.logrel Require Import ftlr_nop ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend *)
+ (*   ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc. *)
 From HypVeri Require Import proofmode.
 Import uPred.
 
@@ -14,11 +14,12 @@ Section fundamental.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
+  (*TODO fix it, moved the position of rx_page in IH*)
   Lemma ftlr (i:VMID) :
   ∀ p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
-    iIntros (????) "((%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
+    iIntros (????) "((%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & rx & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
                            retri_owned & mem_owned & VMProp) %Hneq_0 VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
     iEval (rewrite vmprop_unknown_eq) in "Hres".
@@ -26,7 +27,7 @@ Section fundamental.
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rxs') "Hres".
     iEval (rewrite 11!later_sep) in "Hres".
     iDestruct "Hres" as "(>trans_hpool_global & >tran_pgt_transferred &
-                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx & >rx_state & >[% mem_rx] & >other_rx & >%Htotal_rxs & prop0)".
+                         >retri & >mem_transferred & >R0z & >R1z & >R2z & >rx_state & >[% [rx' [% mem_rx]]] & >other_rx & >%Htotal_rxs & prop0)".
 
     iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
     erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
@@ -38,6 +39,14 @@ Section fundamental.
     iDestruct (memory_pages_oea_transferred with "[$mem_owned $mem_transferred]") as (?) "mem";eauto.
     clear Htrans_disj trans_rel.
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans').
+
+    iAssert (⌜p_rx0 = p_rx⌝%I) with "[rx rx']" as %Hrx_eq.
+    {
+      iDestruct "rx" as "[rx ?]".
+      iApply (rx_agree with "rx' rx").
+    }
+    subst p_rx0.
+    iClear "rx'".
 
     iDestruct (memory_pages_disj_singleton with "[$mem $mem_rx]") as %Hnin_rx.
     iDestruct (memory_pages_disj_singleton with "[$mem $mem_tx]") as %Hnin_tx.

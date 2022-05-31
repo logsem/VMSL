@@ -35,6 +35,7 @@ Lemma ftlr_nop {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr} trans:
               ([∗ map] r↦w ∈ a, r @@ i ->r w) -∗
               TX@i:=p_tx -∗
               p_tx -@O> - ∗ p_tx -@E> true -∗
+              mailbox.rx_page i p_rx -∗
               i -@A> a0 -∗
               pagetable_entries_excl_owned i (a0 ∖ {[p_rx; p_tx]} ∖ currently_accessible_in_trans_memory_pages i a1) -∗
               transaction_hpool_global_transferred a1 -∗
@@ -43,7 +44,6 @@ Lemma ftlr_nop {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr} trans:
               R0 @@ V0 ->r encode_hvc_func Run -∗
               R1 @@ V0 ->r encode_vmid i -∗
               (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
-              mailbox.rx_page i p_rx -∗
               rx_state_get i a2 -∗
               rx_states_global (delete i a2) -∗
               ▷ VMProp V0 (vmprop_zero i p_tx p_rx a2) (1 / 2) -∗
