@@ -14,7 +14,8 @@ Section fundamental.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  (*TODO fix it, moved the position of rx_page in IH*)
+  (* TODO fix it, moved the position of rx_page in IH *)
+  (* TODO registers: encode x -> exists r, decode r = Some x *)
   Lemma ftlr (i:VMID) :
   ∀ p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.

@@ -4,14 +4,14 @@ From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base base_extra mem mailbox trans.
 From HypVeri.logrel Require Export logrel logrel_extra big_sepSS.
 
-Section slice.
+Section slice_trans.
   Context `{hypconst:HypervisorConstants}.
 
   Definition set_of_vmids : gset VMID := (list_to_set list_of_vmids).
 
   Context `{vmG: !gen_VMG Σ}.
-
   Context (Φ : (gmap Addr transaction) -> VMID -> VMID -> iProp Σ).
+
   (*TODO*)
   Definition trans_preserve_except i (trans trans': (gmap Addr transaction)) :=
     map_Forall (λ h tran, ¬(tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') trans.
@@ -23,23 +23,38 @@ Section slice.
   Definition trans_preserve_only i (trans trans': (gmap Addr transaction)) :=
     filter (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) trans
                         = filter (λ kv, kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) trans'.
-  Definition slice_wf :=
-    ∀ i j trans trans', trans_preserve_slice i j trans trans'->
-    (Φ trans i j ⊣⊢ Φ trans' i j).
 
-  Definition slice_wf2 :=
-    ∀ i j (trans trans' : gmap Addr transaction),
-    dom (gset _) (filter (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j)%type trans') ⊆ dom _ trans ->
-    ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1) ⊢
-    (Φ trans' i j) ∗-∗ (Φ (map_zip (fst<$>trans) (snd <$>trans')) i j).
-
-  Class SliceWf :=
+  Class SliceTransWf :=
     {
-      valid : slice_wf;
-      agree : slice_wf2
+      slice_trans_valid : ∀ i j trans trans',
+        trans_preserve_slice i j trans trans'->
+        (Φ trans i j ⊣⊢ Φ trans' i j);
+      slice_trans_agree : ∀ i j (trans trans' : gmap Addr transaction),
+        dom (gset _) (filter (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j)%type trans') ⊆ dom _ trans ->
+        ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1) ⊢
+        (Φ trans' i j) ∗-∗ (Φ (map_zip (fst<$>trans) (snd <$>trans')) i j);
+      slice_trans_timeless : ∀ i j trans, Timeless (Φ trans i j)
     }.
 
-  End slice.
+  End slice_trans.
+
+Section slice_rxs.
+  Context `{hypconst:HypervisorConstants}.
+  Context `{vmG: !gen_VMG Σ}.
+  Context (Φ :VMID -> option (Word * VMID)-> VMID -> iProp Σ).
+
+  Class SliceRxsWf :=
+    {
+      slice_rxs_empty :  ∀ i j, Φ i None j ⊣⊢ True;
+      slice_rxs_sym : ∀ i os k k',
+        (match os with
+         | None => True
+         | Some (_,j) => j ≠ V0
+         end) -> Φ i os k ⊣⊢ Φ i os k';
+      slice_rxs_timeless : ∀ i os j, Timeless (Φ i os j)
+    }.
+
+  End slice_rxs.
 
   Section vmprop.
   Context `{HypervisorConstants}.
@@ -86,7 +101,7 @@ Section slice.
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                big_sepSS_singleton set_of_vmids i (Φ_t trans') ∗
-               R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
+               (∃ r0, R0 @@ V0 ->r r0 ∗ ⌜decode_hvc_func r0 = Some Run⌝) ∗ (∃ r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝)∗ (∃ r2, R2 @@ V0 ->r r2) ∗
                (∀ rs : option (Addr * VMID), ⌜rxs !! i = Some rs⌝ -∗ rx_state_match i rs ∗ Φ_r i rs i) ∗
                (* rx pages for all other VMs *)
                (rx_states_global (delete i rxs)) ∗ ⌜is_total_gmap rxs⌝ ∗
@@ -116,7 +131,7 @@ Section slice.
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                big_sepSS_singleton set_of_vmids i (Φ_t trans') ∗
-               R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
+               (∃ r0, R0 @@ V0 ->r r0 ∗ ⌜decode_hvc_func r0 = Some Run⌝) ∗ (∃ r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝)∗ (∃ r2, R2 @@ V0 ->r r2) ∗
                (∀ rs : option (Addr * VMID), ⌜rxs !! i = Some rs⌝ -∗ rx_state_match i rs ∗ Φ_r i rs i) ∗
                (* rx pages for all other VMs *)
                (rx_states_global (delete i rxs)) ∗ ⌜is_total_gmap rxs⌝ ∗
@@ -133,7 +148,7 @@ Section slice.
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                big_sepSS_singleton set_of_vmids i (Φ_t trans') ∗
-               R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗
+               (∃ r0, R0 @@ V0 ->r r0 ∗ ⌜decode_hvc_func r0 = Some Run⌝) ∗ (∃ r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝)∗ (∃ r2, R2 @@ V0 ->r r2) ∗
                (∀ rs : option (Addr * VMID), ⌜rxs !! i = Some rs⌝ -∗ rx_state_match i rs ∗ Φ_r i rs i) ∗
                (* rx pages for all other VMs *)
                (rx_states_global (delete i rxs)) ∗ ⌜is_total_gmap rxs⌝ ∗
@@ -177,9 +192,8 @@ Section logrel_prim.
   Definition slice_rx_state (j : VMID) (os : option (Word * VMID)) : iProp Σ :=
     ∃ p_rx, RX@ j := p_rx ∗ (RX_state{1/2}@j := os) ∗ (∃ mem_rx, memory_page p_rx mem_rx).
 
-  Definition interp_access_prim (Φ_t : (gmap Addr transaction) -> VMID -> VMID -> iProp Σ)
-    (Φ_r : VMID -> option (Word * VMID)-> VMID -> iProp Σ) (p_tx p_rx :PID) (ps_acc: gset PID) (trans: gmap Word transaction)
-    (rxs : gmap VMID (option (Word * VMID))) `{!SliceWf Φ_t}: iPropO Σ:=
+  Definition interp_access_prim Φ_t Φ_r (p_tx p_rx :PID) (ps_acc: gset PID) (trans: gmap Word transaction)
+    (rxs : gmap VMID (option (Word * VMID))) `{!SliceTransWf Φ_t} `{!SliceRxsWf Φ_r}: iPropO Σ:=
     (
       (* making sure we have enough resources for V0 *)
       ⌜∀ i j trans, (i = V0 ∨ j = V0) -> Φ_t trans i j ⊣⊢ slice_transfer_all trans i j⌝ ∗
@@ -191,12 +205,7 @@ Section logrel_prim.
                  | None => True
                  | Some (_,j) => j = V0
                 end) -> j ≠ i -> Φ_r i os j ⊣⊢ True⌝ ∗
-      ⌜∀ i os k k', (match os with
-                 | None => True
-                 | Some (_,j) => j ≠ V0
-                end) -> Φ_r i os k ⊣⊢ Φ_r i os k'⌝ ∗
       ⌜∀ i, Φ_r V0 i V0 ⊣⊢ slice_rx_state V0 i⌝ ∗
-      ⌜∀ i j, Φ_r i None j ⊣⊢ True⌝ ∗
       let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in
       (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗
       (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
