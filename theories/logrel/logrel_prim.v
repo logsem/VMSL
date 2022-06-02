@@ -77,7 +77,7 @@ Section slice_rxs.
      ∗ R1 @@ V0 ->r encode_vmid(i) ∗ ∃ r2, R2 @@ V0 ->r r2) ∨
     (R0 @@ V0 ->r encode_hvc_func(Send)
       ∗ ∃ l j, Φ_r j (Some (l,i)) V0
-      ∗ rx_states_global (<[j:=Some(l,i)]>(delete i rxs))
+      ∗ rx_states_global (<[j:=Some(l,i)]>(delete i rxs)) ∗ ⌜rxs !! j = Some None⌝
       ∗ (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l).
 
   Definition only (trans: gmap Word transaction) := (filter (λ (kv :Word*transaction), (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)) trans).
@@ -87,7 +87,6 @@ Section slice_rxs.
   Definition vmprop_zero_pre (Ψ: iPropO Σ) : (gmap Word transaction) -d> (gmap VMID (option(Word * VMID))) -d> iPropO Σ :=
     λ trans rxs, (∃ (trans' :gmap Word transaction) rs',
                      let trans_ret := (only trans') ∪ trans in
-                           (* ⌜only trans' ##ₘ except trans⌝ *)
                            transaction_hpool_global_transferred (trans_ret) ∗
                            big_sepSS_singleton set_of_vmids i (Φ_t trans_ret) ∗
                            rx_state_match i rs' ∗ Φ_r i rs' V0 ∗
@@ -200,6 +199,10 @@ Section logrel_prim.
                  | None => True
                  | Some (_,j) => j = V0
                 end) -> Φ_r i os i ⊣⊢ slice_rx_state i os⌝ ∗
+      ⌜∀ i os, match os with
+               | None => True
+               | Some (_ ,k) => k = V0
+               end -> Φ_r i os i ⊣⊢ Φ_r i os V0⌝ ∗
       ⌜∀ i j os, (match os with
                  | None => True
                  | Some (_,j) => j = V0
