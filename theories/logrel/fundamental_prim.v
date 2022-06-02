@@ -14,11 +14,11 @@ Section fundamental_prim.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Lemma ftlr_p Φ_t Φ_r `(!SliceWf Φ_t):
+  Lemma ftlr_p Φ_t Φ_r `(!SliceTransWf Φ_t) `(!SliceRxsWf Φ_r):
   ∀ p_tx p_rx ps_acc trans rxs, interp_access_prim Φ_t Φ_r p_tx p_rx ps_acc trans rxs ⊢ interp_execute_prim.
   Proof.
     rewrite /interp_access_prim /=.
-    iIntros (?????) "(%HΦt & %HΦr1 & %HΦr2 & %HΦr3 & %HΦr4 & %HΦr5 & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & rx & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
+    iIntros (?????) "(%HΦt & %HΦr1 & %HΦr2 & %HΦr3 & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & rx & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
                            retri_owned & mem_owned & [% VMProp] & trans_hpool_global & %Htotal_rxs & rxs_global & rxs_transferred & rxs_owned & transferred & VMProps)".
 
     iDestruct (big_sepSS_difference_singleton _ V0 with "transferred") as "[transferred_except transferred_only]";eauto.
@@ -233,7 +233,7 @@ Section fundamental_prim.
                                       big_sepSS_singleton set_of_vmids v (Φ_t trans) ∗
                                       rx_states_global (delete v rxs) ∗
                                       (∀ rs : option (Addr * VMID), ⌜rxs !! v = Some rs⌝ -∗ rx_state_match v rs ∗ Φ_r v rs v)
-                            )%I (vmprop_zero v Φ_t Φ_r rxs)
+                            )%I (vmprop_zero v Φ_t Φ_r trans rxs)
                            with "[PC R0 R1 R2 pgt_acc $tx mem_instr rxs_global VMProp VMProp_v
                            trans_hpool_global transferred_only rx_state_v]"); iFrameAutoSolve.
                   {
@@ -261,15 +261,80 @@ Section fundamental_prim.
                   iEval (rewrite /vmprop_zero /vmprop_zero_pre) in "Hres".
                   iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (trans') "Hres".
                   iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rx_state_v') "Hres".
-                  iEval (rewrite 6!later_sep) in "Hres".
-                  iDestruct "Hres" as "(>trans_hpool_global & >transferred_only &
-                         >rx_state_v & >rx_transferred & >rxs_global & >regs_rx & VMProp_v)".
-                  iDestruct ("Hacc_regs" $! (ai ^+ 1)%f r0 with "[PC R0i]") as "[%regs' [%Htotal_regs' regs'']]"; iFrameAutoSolve.
-                  iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
-                  erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
-                  erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
-                  iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
-                  iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
+                  iEval (rewrite 5!later_sep) in "Hres".
+                  pose proof (slice_rxs_timeless Φ_r) as Htl1.
+                  pose proof (slice_trans_timeless Φ_t) as Htl2.
+                  iDestruct "Hres" as "(>trans_hpool_global & >transferred_only & >rx_state_v & >rx_transferred & >regs_rx & VMProp_v)".
+                  clear Htl1 Htl2.
+                  iDestruct (slice_trans_unify with "[$transferred_only $transferred_except]") as "transferred".
+
+                  iDestruct (big_sepSS_difference_singleton _ V0 with "transferred") as "[transferred_except transferred_only]";eauto.
+                  apply elem_of_set_of_vmids.
+                  iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Htrans_disj'.
+                  iDestruct (get_trans_neq with "trans_hpool_global") as %Htrans_neq'.
+                  iDestruct (transferred_only_equiv with "transferred_only") as "(tran_pgt_transferred & retri & mem_transferred)";eauto.
+                  iDestruct ("Hacc_mem" with "instr") as "mem_oea".
+
+      iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
+      erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
+      erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
+      iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
+      iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
+
+      set trans'' := (only v trans' ∪ trans).
+
+      iAssert (⌜(ps_acc ∖ {[p_tx]} ∖ ({[p_rx]} ∪ transferred_memory_pages i trans)
+                 = ps_acc ∖ {[p_rx; p_tx]} ∖ transferred_memory_pages i trans'')⌝)%I as "%H".
+      {
+        iDestruct (get_valid_accessible_in_trans_memory_pages with "[$trans_hpool_global $pgt_owned]") as %Hvalid_acc_in_tran'.
+        set_solver + Hsubset_acc.
+        iPureIntro.
+        rewrite difference_difference_L.
+        rewrite union_assoc_L (union_comm_L {[p_tx]}).
+        rewrite -(difference_difference_L _ {[p_rx; p_tx]}).
+        apply acc_transferred_memory_pages_difference;auto.
+        erewrite <-(trans_rel_secondary_currently_accessible_memory_pages _ trans trans'') in Hsubset_acc;eauto.
+        rewrite union_comm_L.
+        exact Hsubset_acc.
+      }
+      iAssert (∃ mem_all : mem, memory_pages (ps_acc ∖ {[p_rx; p_tx]} ∪ accessible_in_trans_memory_pages i trans'') mem_all)%I
+        with "[mem_oea mem_transferred]" as (?) "mem".
+      {
+        iAssert(∃ m: mem, memory_pages (ps_acc ∖ {[p_tx]} ∖ ({[p_rx]} ∪ transferred_memory_pages i trans)) m)%I with "[mem_oea]" as "mem_oea".
+        iExists _. iSplit; done.
+        rewrite H.
+        iDestruct(memory_pages_union' with "[$mem_oea $mem_transferred]") as "mem". iFrame.
+        rewrite acc_accessible_in_trans_memory_pages_union;auto.
+        rewrite union_comm_L //.
+      }
+
+      clear Htrans_disj Htrans_neq.
+
+      iDestruct ("regs_rx") as "[?|?]".
+
+      iDestruct (rx_states_split_zero with "[$rxs_global $rxs_transferred $rxs_owned]") as "(rxs_global & rxs_transferred & rxs_owned
+                                 & (rx_state & [% (_ & [% mem_rx])]))";auto.
+      iAssert (⌜p_rx0 = p_rx⌝%I) with "[rx rx']" as %Hrx_eq.
+      {
+        iDestruct "rx" as "[rx ?]".
+        iApply (rx_agree with "rx' rx").
+      }
+      subst p_rx0.
+
+      iDestruct ("Hacc_regs" $! (ai ^+ 1)%f r0 _ _ with "[PC R0 R1 R2]") as "[%regs' [%Htotal_regs' regs'']]"; iFrameAutoSolve.
+
+      set i := V0.
+      set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans).
+
+      iDestruct (memory_pages_disj_singleton with "[$mem $mem_rx]") as %Hnin_rx.
+      iDestruct (memory_pages_disj_singleton with "[$mem $mem_tx]") as %Hnin_tx.
+      (* merge all memory pages together *)
+      iDestruct (memory_pages_merge_mb with "[$mem mem_rx mem_tx]") as "mem";auto.
+      iCombine "mem_tx mem_rx" as "mem". iExact "mem".
+      iDestruct "tx" as "[tx pgt_tx]".
+      clear mem_rx mem_tx mem_all; subst ps_mem_in_trans.
+
+
 
                 }
 
