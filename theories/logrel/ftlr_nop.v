@@ -11,7 +11,7 @@ Section ftlr_nop.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_nop {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr} trans:
+Lemma ftlr_nop {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans} P:
   base_extra.is_total_gmap regs ->
   base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -41,16 +41,12 @@ Lemma ftlr_nop {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr} trans:
               transaction_hpool_global_transferred a1 -∗
               transaction_pagetable_entries_transferred i a1 -∗
               retrievable_transaction_transferred i a1 -∗
-              R0 @@ V0 ->r encode_hvc_func Run -∗
-              R1 @@ V0 ->r encode_vmid i -∗
-              (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
               rx_state_get i a2 -∗
               rx_states_global (delete i a2) -∗
-              ▷ VMProp V0 (vmprop_zero i p_tx p_rx a2) (1 / 2) -∗
-              VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
               transaction_pagetable_entries_owned i a1 -∗
               retrieved_transaction_owned i a1 -∗
               (∃ mem : lang.mem, memory_pages (a0 ∪ (accessible_in_trans_memory_pages i a1)) mem) -∗
+              (P a1 a2) -∗
               WP ExecI @ i {{ _, True }}) -∗
    ([∗ map] r↦w ∈ regs, r @@ i ->r w) -∗
    TX@i:=p_tx -∗
@@ -60,24 +56,20 @@ Lemma ftlr_nop {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr} trans:
    transaction_hpool_global_transferred trans -∗
    transaction_pagetable_entries_transferred i trans -∗
    retrievable_transaction_transferred i trans -∗
-   R0 @@ V0 ->r encode_hvc_func Run -∗
-   R1 @@ V0 ->r encode_vmid i -∗
-   (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
    rx_state_get i rxs -∗
    mailbox.rx_page i p_rx -∗
    rx_states_global (delete i rxs) -∗
-   ▷ VMProp V0 (vmprop_zero i p_tx p_rx rxs) (1 / 2) -∗
-   VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
    transaction_pagetable_entries_owned i trans -∗
    retrieved_transaction_owned i trans -∗
    (∃ mem1 : mem, memory_pages ((ps_acc ∪ (accessible_in_trans_memory_pages i trans)) ∖ ps_acc) mem1) -∗
    ([∗ map] k↦v ∈ mem_acc_tx, k ->a v) -∗
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
+   (P trans rxs) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
     iIntros (Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx Hlookup_mem_ai Heqn).
-    iIntros "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0 propi tran_pgt_owned
-                 retri_owned mem_rest mem_acc_tx mem_tx".
+    iIntros "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri rx_state rx other_rx tran_pgt_owned
+                 retri_owned mem_rest mem_acc_tx mem_tx P".
     (* getting the PC *)
     iDestruct (reg_big_sepM_split_upd i Hlookup_PC with "[$regs]")
       as "[PC Hacc_regs]";first done.
@@ -90,9 +82,9 @@ Lemma ftlr_nop {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr} trans:
     iIntros "(PC & mem_instr & pgt_acc & tx) _".
     iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "PC") as "[%Htotal_regs' regs]".
     iDestruct ("Hacc_mem_acc" with "[$mem_instr]") as "mem_acc_tx".
-    iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_owned
-                       trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi
-                           tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+    iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned
+                       trans_hpool_global tran_pgt_transferred retri rx_state other_rx
+                           tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
     {
       iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
       iExists mem_acc_tx;by iFrame "mem_acc_tx".

@@ -86,7 +86,7 @@ Section slice_rxs.
 
   Definition vmprop_zero_pre (Ψ: iPropO Σ) : (gmap Word transaction) -d> (gmap VMID (option(Word * VMID))) -d> iPropO Σ :=
     λ trans rxs, (∃ (trans' :gmap Word transaction) rs',
-                     let trans_ret := (only trans') ∪ trans in
+                     let trans_ret := (only trans') ∪ (except trans) in
                            transaction_hpool_global_transferred (trans_ret) ∗
                            big_sepSS_singleton set_of_vmids i (Φ_t trans_ret) ∗
                            rx_state_match i rs' ∗ Φ_r i rs' V0 ∗

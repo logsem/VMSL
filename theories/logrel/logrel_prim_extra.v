@@ -69,29 +69,6 @@ Section logrel_prim_extra.
     rewrite /slice_transfer_all /=.
   Admitted.
 
-  Lemma except_only_union i trans trans':
-    except i trans  = except i (only i trans' ∪ trans).
-  Proof.
-   rewrite /only.
-   induction trans' using map_ind.
-   rewrite map_filter_empty.
-   f_equal.
-   rewrite map_empty_union //.
-   rewrite map_filter_insert.
-   case_decide.
-   {
-     rewrite /except.
-     admit.
-   }
-   {
-     rewrite delete_notin //.
-   }
-   Admitted.
-
-  Lemma except_idemp i trans :
-    except i trans  = except i (except i trans).
-  Proof.
-  Admitted.
 
   (* TODO *)
   Lemma slice_preserve_except i (Φ : _ -> _ -> _ -> iProp Σ) `{!SliceTransWf Φ} trans trans':

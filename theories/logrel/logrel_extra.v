@@ -1203,10 +1203,10 @@ Section logrel_extra.
     iPureIntro. rewrite map_union_assoc //. set_solver + Hneq_tx_rx.
   Qed.
 
-  Lemma vmprop_zero_equiv_rxs i rxs rxs' :
+  Lemma vmprop_zero_equiv_rxs {i trans} rxs rxs' :
   delete i rxs = delete i rxs' ->
-  VMProp V0 (vmprop_zero i rxs) (1 / 2) ⊣⊢
-  VMProp V0 (vmprop_zero i rxs') (1 / 2).
+  VMProp V0 (vmprop_zero i trans rxs) (1 / 2) ⊣⊢
+  VMProp V0 (vmprop_zero i trans rxs') (1 / 2).
   Proof.
     intro.
     rewrite /VMProp /=.
@@ -1217,7 +1217,52 @@ Section logrel_extra.
     rewrite /return_reg_rx.
     do 4 f_equiv.
     done.
-    do 12 f_equiv.
+    rewrite H.
+    iStartProof. iSplit.
+    iIntros "[% ([? %Hneq] & (?&?&%&?))]".
+    iExists _. iFrame. iSplit;first done.
+    simpl in Hneq. iPureIntro. rewrite -(lookup_delete_ne _ i j) //. rewrite -H lookup_delete_ne //.
+    iIntros "[% ([? %Hneq] & (?&?&%&?))]".
+    iExists _. iFrame. iSplit;first done.
+    simpl in Hneq. iPureIntro. rewrite -(lookup_delete_ne _ i j) //. rewrite H lookup_delete_ne //.
+  Qed.
+
+
+  Lemma except_only_union i trans trans':
+    except i trans  = except i (only i trans' ∪ trans).
+  Proof.
+   rewrite /only.
+   induction trans' using map_ind.
+   rewrite map_filter_empty.
+   f_equal.
+   rewrite map_empty_union //.
+   rewrite map_filter_insert.
+   case_decide.
+   {
+     rewrite /except.
+     admit.
+   }
+   {
+     rewrite delete_notin //.
+   }
+   Admitted.
+
+  Lemma except_idemp i trans :
+    except i trans  = except i (except i trans).
+  Proof.
+  Admitted.
+
+  Lemma vmprop_zero_equiv_trans {i rxs} trans trans' :
+  except i trans = except i trans' ->
+  VMProp V0 (vmprop_zero i trans rxs) (1 / 2) ⊣⊢
+  VMProp V0 (vmprop_zero i trans' rxs) (1 / 2).
+  Proof.
+    intro.
+    rewrite /VMProp /=.
+    do 7 f_equiv.
+    rewrite /vmprop_zero.
+    rewrite /vmprop_zero_pre.
+    rewrite H.
     done.
   Qed.
 
