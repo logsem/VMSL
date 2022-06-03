@@ -1252,6 +1252,17 @@ Section logrel_extra.
   Proof.
   Admitted.
 
+  Lemma only_except_union i trans:
+    only i trans ∪ except i trans = trans.
+  Proof.
+  Admitted.
+
+  Lemma except_insert_False i trans h tran:
+    tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i ->
+    except i trans = except i (<[h := tran]>trans).
+  Proof.
+  Admitted.
+
   Lemma vmprop_zero_equiv_trans {i rxs} trans trans' :
   except i trans = except i trans' ->
   VMProp V0 (vmprop_zero i trans rxs) (1 / 2) ⊣⊢
