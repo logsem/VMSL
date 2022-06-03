@@ -12,7 +12,8 @@ Section ftlr_donate.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
+Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
+  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
   base_extra.is_total_gmap regs ->
   base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -39,22 +40,18 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
               ([∗ map] r↦w ∈ a, r @@ i ->r w) -∗
               TX@i:=p_tx -∗
               p_tx -@O> - ∗ p_tx -@E> true -∗
+              mailbox.rx_page i p_rx -∗
               i -@A> a0 -∗
               pagetable_entries_excl_owned i (a0 ∖ {[p_rx; p_tx]} ∖ currently_accessible_in_trans_memory_pages i a1) -∗
               transaction_hpool_global_transferred a1 -∗
               transaction_pagetable_entries_transferred i a1 -∗
               retrievable_transaction_transferred i a1 -∗
-              R0 @@ V0 ->r encode_hvc_func Run -∗
-              R1 @@ V0 ->r encode_vmid i -∗
-              (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
-              mailbox.rx_page i p_rx -∗
               rx_state_get i a2 -∗
               rx_states_global (delete i a2) -∗
-              ▷ VMProp V0 (vmprop_zero i p_tx p_rx a2) (1 / 2) -∗
-              VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
               transaction_pagetable_entries_owned i a1 -∗
               retrieved_transaction_owned i a1 -∗
               (∃ mem : lang.mem, memory_pages (a0 ∪ (accessible_in_trans_memory_pages i a1)) mem) -∗
+              (P a1 a2) -∗
               WP ExecI @ i {{ _, True }}) -∗
    ([∗ map] r↦w ∈ regs, r @@ i ->r w) -∗
    TX@i:=p_tx -∗
@@ -64,25 +61,21 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
    transaction_hpool_global_transferred trans -∗
    transaction_pagetable_entries_transferred i trans -∗
    retrievable_transaction_transferred i trans -∗
-   R0 @@ V0 ->r encode_hvc_func Run -∗
-   R1 @@ V0 ->r encode_vmid i -∗
-   (∃ r2 : Addr, R2 @@ V0 ->r r2) -∗
    rx_state_get i rxs -∗
    mailbox.rx_page i p_rx -∗
    rx_states_global (delete i rxs) -∗
-   ▷ VMProp V0 (vmprop_zero i p_tx p_rx rxs) (1 / 2) -∗
-   VMProp i (vmprop_unknown i p_tx p_rx) 1 -∗
    transaction_pagetable_entries_owned i trans -∗
    retrieved_transaction_owned i trans -∗
    (∃ mem1 : mem, memory_pages ((ps_acc ∪ (accessible_in_trans_memory_pages i trans)) ∖ ps_acc) mem1) -∗
    ([∗ map] k↦v ∈ mem_acc_tx, k ->a v) -∗
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
+   P trans rxs -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
-    iIntros (Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
-                         Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc).
-    iIntros (Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri R0z R1z R2z rx_state rx other_rx prop0
-             propi tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx".
+    iIntros (P_eq Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
+                         Hlookup_mem_ai Heqn Hlookup_reg_R0).
+    iIntros (Hdecode_hvc Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri rx_state rx other_rx
+             tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx P".
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans).
     pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
     pose proof (Htotal_regs R2) as[r2 Hlookup_reg_R2].
@@ -93,16 +86,13 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
     destruct (decide (page_size < r1)%Z).
     { (* the length of msg exceeds [page_size] *)
       iApply (mem_send_invalid_len ai with "[PC mem_instr pgt_acc R0 R1 R2 tx]");iFrameAutoSolve.
-      exact Hdecode_hvc.
-      simpl; reflexivity.
-      iNext.
-      iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx) _".
+      exact Hdecode_hvc. simpl; reflexivity.
+      iNext. iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx) _".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
 
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned  retri_owned [mem_rest mem_acc_tx mem_tx]
-                            ").
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned trans_hpool_global
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned  retri_owned [mem_rest mem_acc_tx mem_tx] P ").
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
         iExists mem_acc_tx;by iFrame "mem_acc_tx".
@@ -115,18 +105,13 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
     destruct (parse_transaction_descriptor mem_tx p_tx (Z.to_nat r1))  as [tran_des|] eqn:Heq_parse_tran.
     2:{ (* cannot parse the msg as a descriptor *)
       iApply (mem_send_invalid_msg ai with "[PC mem_instr pgt_acc R0 R1 R2 tx mem_tx]");iFrameAutoSolve.
-      exact Hdecode_hvc.
-      simpl; reflexivity.
-      lia.
-      exact Heq_parse_tran.
-      iFrame.
-      iNext.
-      iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx & mem_tx) _".
+      exact Hdecode_hvc. simpl; reflexivity. lia. exact Heq_parse_tran. iFrame.
+      iNext. iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx & mem_tx) _".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
 
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] ").
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned trans_hpool_global
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
         iSplitL "mem_acc_tx".
@@ -146,8 +131,8 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
 
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned trans_hpool_global
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
         iSplitL "mem_acc_tx".
@@ -169,8 +154,8 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
 
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned trans_hpool_global
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
         iSplitL "mem_acc_tx".
@@ -184,14 +169,13 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
     { (* tx is not owned by i, apply [mem_send_not_owned] *)
       iDestruct "pgt_tx" as "[own_tx excl_tx]".
       iApply (mem_send_not_owned1 ai with "[PC mem_instr pgt_acc R0 R1 R2 tx mem_tx own_tx]");iFrameAutoSolve.
-      exact Hdecode_hvc. simpl; reflexivity. lia. exact Heq_parse_tran. done. simpl; exact Hin_ptx_share.
-      iFrame. iNext.
-      iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx & mem_tx & own_tx) _".
+      exact Hdecode_hvc. simpl; reflexivity. lia. exact Heq_parse_tran. done. simpl; exact Hin_ptx_share. iFrame.
+      iNext. iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx & mem_tx & own_tx) _".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
 
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx [$own_tx $excl_tx] pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx [$own_tx $excl_tx] rx pgt_acc pgt_owned trans_hpool_global
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
         iSplitL "mem_acc_tx".
@@ -206,14 +190,13 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
     { (* rx is not owned by i, apply [mem_send_not_owned] *)
       iDestruct "rx" as "[rx [own_rx excl_rx]]".
       iApply (mem_send_not_owned1 ai with "[PC mem_instr pgt_acc R0 R1 R2 tx mem_tx own_rx]");iFrameAutoSolve.
-      exact Hdecode_hvc. simpl; reflexivity. lia. exact Heq_parse_tran. done. simpl; exact Hin_prx_share.
-      iFrame. iNext.
-      iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx & mem_tx & own_rx) _".
+      exact Hdecode_hvc. simpl; reflexivity. lia. exact Heq_parse_tran. done. simpl; exact Hin_prx_share. iFrame.
+      iNext. iIntros "(PC & mem_instr & pgt_acc & R0 & R1 & R2 & tx & mem_tx & own_rx) _".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
 
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri R0z R1z R2z [$rx $own_rx $excl_rx] rx_state other_rx prop0 propi tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]").
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx [$rx $own_rx $excl_rx] pgt_acc pgt_owned trans_hpool_global
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
         iSplitL "mem_acc_tx".
@@ -247,16 +230,15 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
       destruct (decide (hpool = ∅)).
       { (* no avaiable fresh handles, apply [mem_send_no_fresh_handles] *)
         iApply (mem_send_no_fresh_handles ai hpool j mem_tx ps_donate with "[PC mem_instr pgt_acc pgt_oe_donate R0 R1 R2 fresh_handles tx mem_tx]");iFrameAutoSolve.
-        exact Hdecode_hvc. simpl; reflexivity. lia. intro;apply Hneq_sr,symmetry;done. set_solver + Hsubseteq_donate'.
-        iFrame. iNext.
-        iIntros "(PC & mem_instr & pgt_oe_donate & pgt_acc & R0 & R1 & R2 & fresh_handles & tx & mem_tx ) _".
+        exact Hdecode_hvc. simpl; reflexivity. lia. intro;apply Hneq_sr,symmetry;done. set_solver + Hsubseteq_donate'. iFrame.
+        iNext. iIntros "(PC & mem_instr & pgt_oe_donate & pgt_acc & R0 & R1 & R2 & fresh_handles & tx & mem_tx ) _".
         iDestruct ("Hacc_pgt_oe" $! ps_donate with "[] pgt_oe_donate") as "pgt_owned".
         { iPureIntro;set_solver +. }
 
         iDestruct ("Hacc_regs" $! (ai ^+ 1)%f _ _ _ with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
         iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-        iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc [pgt_owned] [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned  retri_owned [mem_rest mem_acc_tx mem_tx]").
+        iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc [pgt_owned] [fresh_handles trans]
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned  retri_owned [mem_rest mem_acc_tx mem_tx] P").
         pose proof (union_split_difference_intersection_subseteq_L _ _ Hsubseteq) as [<- _]. iFrame.
         iExists hpool. by iFrame.
         {
@@ -300,9 +282,9 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
       rewrite half_of_half.
       iDestruct (pgt_split_quarter with "pgt_oe_donate") as "[pgt_donate_1 pgt_donate_3]".
 
-      iApply ("IH" $! _ (ps_acc∖ ps_donate) trans' _ Htotal_rxs Htotal_regs' with "[] [] [] [] regs tx pgt_tx pgt_acc [pgt_owned]
-                [fresh_handles tran_donate trans pgt_donate_3] [tran_pgt_transferred tran_donate' pgt_donate_1] [retri tran_donate'' retri_donate] R0z R1z R2z
-                rx rx_state other_rx prop0 propi [tran_pgt_owned]  [retri_owned] [mem_rest mem_acc_tx mem_tx]").
+      iApply ("IH" $! _ (ps_acc∖ ps_donate) trans' _ Htotal_rxs Htotal_regs' with "[] [] [] [] regs tx pgt_tx rx pgt_acc [pgt_owned]
+                [fresh_handles tran_donate trans pgt_donate_3] [tran_pgt_transferred tran_donate' pgt_donate_1] [retri tran_donate'' retri_donate]
+                rx_state other_rx [tran_pgt_owned] [retri_owned] [mem_rest mem_acc_tx mem_tx] [P]").
       { iPureIntro. set_solver + Hsubset_mb Hsubseteq_donate'. }
       { iPureIntro. rewrite (currently_accessible_in_trans_memory_pages_insert_False_None i trans wh) //=.
         2:{ intros [[]|[]];auto. inversion H0. }
@@ -404,6 +386,10 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
         set_solver + Hsubseteq_donate'.
         rewrite union_empty_l_L //.
       }
+      {
+        iApply (P_eq with "P"). done.
+        symmetry. apply except_insert_False. left;done.
+      }
     }
     { (* at least one page is not exclusively owned by i (i.e. is involved in a transaction) *)
       assert (∃ p, p ∈ ps_donate ∧ p ∈ pages_in_trans trans) as [p [Hin_p_share Hin_p_mem_in_trans]].
@@ -418,8 +404,8 @@ Lemma ftlr_donate {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
       iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
       iDestruct ("Hacc_trans" with "[$ tran_tran $pgt_tran]") as "trans".
 
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx pgt_acc pgt_owned  [fresh_handles trans]
-                            tran_pgt_transferred retri R0z R1z R2z rx rx_state other_rx prop0 propi tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] ").
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned [fresh_handles trans]
+                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
       iExists hpool;by iFrame.
       {
         iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
