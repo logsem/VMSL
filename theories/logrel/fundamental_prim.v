@@ -602,8 +602,137 @@ Section fundamental_prim.
                   rewrite Heq. set_solver +.
                 }
 
-                destruct (decide (tpa ai ∈ (transferred_memory_pages i (only v trans)))).
+                iAssert (⌜mem_rx ##ₘ mem_inters'⌝%I )with "[mem_rx mem_inters]" as "%Hdisj_rx_inters'".
                 {
+                  iDestruct "mem_rx" as "[%Hdom_mem_rx _]".
+                  iDestruct "mem_inters" as "[%Hdom_mem_inters' _]".
+                  iPureIntro.
+                  apply map_disjoint_dom.
+                  rewrite Hdom_mem_inters' Hdom_mem_rx.
+                  apply set_of_addr_disj.
+                  set_solver +.
+                }
+
+                iPoseProof (memory_pages_split_union ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ transferred_memory_pages i (only v trans))
+                                                     ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ transferred_memory_pages i (except v trans))
+                             )as "[Ht _]".
+                (* transferred_memory_pages i (only v trans) ## transferred_memory_pages i (except v trans) *)
+                admit.
+
+                iDestruct ("Ht" with "[mem_inters]") as "(%mem_inters_a & %mem_inters_b & mem_inters_a & mem_inters_b & %Heq_mem_inters)".
+                iExact "mem_inters".
+                iClear "Ht". subst mem_inters'.
+
+
+                (* organizing big_sepSS: merging i and splitting v *)
+                (* iDestruct (transferred_only_equiv with "[$tran_pgt_transferred $retri $mem_transferred]") as "transferred_only";eauto. *)
+                (* rewrite /big_sepSS_except. *)
+                (* assert (Hvmids_eq: set_of_vmids = (set_of_vmids ∖ {[i]} ∪ {[i]})). *)
+                (* { *)
+                (*   pose proof (elem_of_set_of_vmids i). *)
+                (*   rewrite union_comm_L. *)
+                (*   apply union_difference_L. *)
+                (*   set_solver + H. *)
+                (* } *)
+
+                (* TODO split the following two *)
+                (* "tran_pgt_transferred" : transaction_pagetable_entries_transferred i trans *)
+                (* "retri" : retrievable_transaction_transferred i trans *)
+
+                iDestruct "Running" as "([% VMProp] & VMProps & transferred_except & rxs_transferred)".
+                (* iDestruct (big_sepSS_union_singleton _ i with "[$transferred_except transferred_only]") as "transferred";auto. *)
+                (* set_solver +. rewrite -Hvmids_eq. iFrame. *)
+                (* rewrite -Hvmids_eq. *)
+                iDestruct (big_sepSS_difference_singleton _ v with "transferred_except") as "[transferred_except_v transferred_only_v]";eauto.
+                pose proof (elem_of_set_of_vmids v). set_solver + H0 n.
+
+                (* organizing rx_states: merging i and splitting v *)
+                iAssert(RX@i := p_rx)%I  with "[rx]"  as "#rx'".
+                iDestruct "rx" as "[$ _]".
+                iDestruct (rx_state_merge_zero with "[$rxs_global $rxs_transferred rx_state mem_rx]") as "[rxs_global rxs_transferred]"; auto.
+                iFrame "rx_state". iExists p_rx. iFrame "rx'". iExists mem_rx. rewrite memory_pages_singleton. iFrame "mem_rx".
+                iDestruct (rx_states_split v with "[$rxs_global $rxs_transferred]") as "(rxs_global & rxs_transferred & rx_state_v)";auto.
+
+                (* split VMProp v *)
+                iDestruct (big_sepS_elem_of_acc _ _ v with "VMProps") as "[VMProp_v VMProps_acc]".
+                pose proof (elem_of_set_of_vmids v). set_solver + H0 n i.
+
+                iDestruct ("tx") as "#tx".
+
+                rewrite intersection_union_l_L in Hin_ps_inters.
+                apply elem_of_union in Hin_ps_inters.
+                destruct Hin_ps_inters as [Hin_ps_only | Hnin_ps_only].
+                {
+                  assert (Hsubseteq_mem_acc: mem_inters_a ⊆ mem_acc_tx).
+                  rewrite Heq_mem_acc_tx'.
+                  apply map_union_subseteq_r'. done.
+                  apply map_union_subseteq_r'. done.
+                  apply map_union_subseteq_l.
+                  rewrite map_subseteq_spec in Hsubseteq_mem_acc.
+                  apply elem_of_set_of_addr_tpa in Hin_ps_only.
+                  iDestruct "mem_inters_a" as "[%Hdom_mem_inters_a mem_inters_a]".
+                  rewrite -Hdom_mem_inters_a in Hin_ps_only.
+                  rewrite elem_of_dom in Hin_ps_only.
+                  destruct Hin_ps_only as [? Hlookup_mem_ai'].
+                  specialize (Hsubseteq_mem_acc ai _ Hlookup_mem_ai').
+                  rewrite Hlookup_mem_ai in Hsubseteq_mem_acc.
+                  inversion Hsubseteq_mem_acc.
+                  subst x. clear Hsubseteq_mem_acc.
+
+                  iDestruct (memory_pages_union' with "[mem_inters_b $mem_rest_b]") as "mem_b".
+                  { iExists mem_inters_b. iExact "mem_inters_b". }
+                  iEval (rewrite union_comm_L) in "mem_b".
+                  rewrite (H (except v trans)). 2: (*except v trans ⊆ trans*) admit.
+
+                  (* getting instruction from [mem_inters_a] *)
+                  iDestruct (mem_big_sepM_split mem_inters_a Hlookup_mem_ai' with "mem_inters_a") as "[mem_instr Hacc_mem]".
+
+                  iApply (run ai v (transaction_hpool_global_transferred trans ∗
+                                      big_sepSS_singleton set_of_vmids v (Φ_t trans) ∗
+                                      rx_states_global (delete v rxs) ∗
+                                      (∀ rs : option (Addr * VMID), ⌜rxs !! v = Some rs⌝ -∗ rx_state_match v rs ∗ Φ_r v rs v)
+                            )%I (vmprop_zero v Φ_t Φ_r trans rxs)
+                           with "[PC R0 R1 R2 pgt_acc $tx mem_instr rxs_global VMProp VMProp_v
+                           trans_hpool_global tran_pgt_transferred retri Hacc_mem mem_rest_a transferred_only_v rx_state_v]"); iFrameAutoSolve.
+                {
+                    iSplitL "VMProp_v". iNext. iExact "VMProp_v".
+                    iSplitL "VMProp". iNext. iExact "VMProp".
+                    iSplitL "R2".
+                    {
+                      iNext. iIntros "((PC & instr & pgt_acc & _ & R0 & R1) & (trans_hpool_global & trans_transferred & rxs_global
+                      & rx_state_v) & vmprop0)".
+                      rewrite vmprop_unknown_eq.
+                      iSplitR "PC instr pgt_acc".
+                      iExists trans, rxs.
+                      iFrame "trans_hpool_global trans_transferred rx_state_v rxs_global vmprop0".
+                      iSplitL "R0". iExists _. iSplitL. iExact "R0". done.
+                      iSplitL "R1". iExists _. iSplitL. iExact "R1". done.
+                      iSplitL "R2". iExists _. iExact "R2". done.
+                      iCombine "PC instr pgt_acc" as "R". iExact "R".
+                    }
+                    {
+                      iNext. iFrame "trans_hpool_global rxs_global rx_state_v".
+                      rewrite /big_sepSS_singleton.
+                      iApply (big_sepS_delete _ _ i).
+                      apply elem_of_set_of_vmids.
+                      iFrame "transferred_only_v".
+                      rewrite 2?HΦt. 2: left;done. 2: right;done.
+                      rewrite /slice_transfer_all.
+                      (* TODO *)
+                    }
+
+                }
+
+                (* organizing big_sepSS: merging i and splitting v *)
+                (* iDestruct (transferred_only_equiv with "[$tran_pgt_transferred $retri $mem_transferred]") as "transferred_only";eauto. *)
+                (* rewrite /big_sepSS_except. *)
+                (* assert (Hvmids_eq: set_of_vmids = (set_of_vmids ∖ {[i]} ∪ {[i]})). *)
+                (* { *)
+                (*   pose proof (elem_of_set_of_vmids i). *)
+                (*   rewrite union_comm_L. *)
+                (*   apply union_difference_L. *)
+                (*   set_solver + H. *)
+                (* } *)
                   admit.
                 }
                 {
