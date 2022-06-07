@@ -5,8 +5,8 @@ From HypVeri.algebra Require Import base pagetable mem trans mailbox.
 From HypVeri.rules Require Import rules_base halt fail run.
 From HypVeri.logrel Require Import logrel_prim_extra.
 From HypVeri.logrel Require Import ftlr_nop ftlr_mov ftlr_ldr ftlr_str ftlr_cmp ftlr_add ftlr_sub ftlr_mult ftlr_bne ftlr_br.
-(* From HypVeri.logrel Require Import  ftlr_run ftlr_yield ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend *)
-(*   ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc. *)
+(* From HypVeri.logrel Require Import ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend *)
+(*  ftlr_msg_poll ftlr_invalid_hvc. *)
 From HypVeri Require Import proofmode.
 Import uPred.
 
@@ -517,21 +517,100 @@ Section fundamental_prim.
                   }
                 }
                 { (* instruction is in rx *)
-                iDestruct (memory_pages_union' with "[$mem_rest mem_inters]") as "mem_transferred";auto.
-                iExists _. iFrame "mem_inters".
 
+                (* iDestruct (memory_pages_union' with "[$mem_rest mem_inters]") as "mem_transferred";auto. *)
+                (* iExists mem_inters. iSplit. iPureIntro. exact Hdom_mem_inters. iFrame "mem_inters". *)
 
-                assert (tpa ai ∈ (ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ (transferred_memory_pages i trans))) as Hin_ps_inters.
+                (* spliting rx from mem_inters *)
+                assert (Hsplit_rx: ((ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ transferred_memory_pages i trans))
+                    = {[p_rx]} ∪ ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ (transferred_memory_pages i trans))).
+                rewrite intersection_union_l_L.
+                assert ((ps_acc ∖ {[p_tx]}) ∩ {[p_rx]} = {[p_rx]}) as ->. set_solver + Hneq_mb Hsubset_mb.
+                f_equal.
+                pose proof (transferred_accessible_memory_pages_subseteq i trans).
+                set_solver + H Hnin_rx.
+
+                rewrite Hsplit_rx in Hdom_mem_inters.
+
+                assert (Hnin_rx' : {[p_rx]} ## transferred_memory_pages i trans).
+                pose proof (transferred_accessible_memory_pages_subseteq i trans).
+                set_solver + H Hnin_rx.
+                iPoseProof (memory_pages_split_union {[p_rx]} ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ transferred_memory_pages i trans))as "[Ht _]".
+                set_solver + Hnin_rx'.
+
+                iDestruct ("Ht" with "[mem_inters]") as "(%mem_rx & %mem_inters' & mem_rx & mem_inters & %Heq_mem_inters)".
+                iSplit. iPureIntro. exact Hdom_mem_inters. iFrame "mem_inters".
+                iClear "Ht". subst mem_inters.
+
+                destruct (decide (tpa ai = p_rx)).
+                { (* TODO: in rx, easy? *)
+                  admit.
+                }
+                {
+
+                assert (Hin_ps_inters : tpa ai ∈ (ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ (transferred_memory_pages i trans)).
                 {
                   rewrite Heq_ps_acc_tx in Hin_ps_acc_tx.
                   rewrite elem_of_union in Hin_ps_acc_tx.
-                  destruct Hin_ps_acc_tx;done.
+                  destruct Hin_ps_acc_tx.
+                  set_solver + H Hnin_ps_oea.
+                  set_solver + H n0.
                 }
 
-                set ps_mem_i := (transferred_memory_pages i trans).
-                (* TODO: two more cases: if tpa ai ∈ trans *)
-                (* (* get instruction *) *)
-                (* iDestruct (mem_big_sepM_split mem_inters Hlookup_mem_ai' with "mem_inters") as "[mem_instr Hacc_mem_inters]". *)
+                assert (Hsplit_trans: (transferred_memory_pages i trans) = (transferred_memory_pages i (only v trans))
+                                                                        ∪ (transferred_memory_pages i (except v trans))).
+                (* TODO:also disj *)
+                admit.
+                iEval (rewrite Hsplit_trans intersection_union_l_L) in "mem_inters".
+
+                rewrite Hsplit_trans in Hin_ps_inters.
+
+                assert (ps_acc ∪ ps_mem_in_trans = ps_acc ∪ (transferred_memory_pages i trans)) as ->.
+                admit.
+
+                iEval (rewrite /ps_mem_in_trans Hsplit_trans) in "mem_rest".
+                assert (((ps_acc ∪ (transferred_memory_pages i (only v trans) ∪ transferred_memory_pages i (except v trans))) ∖ ps_acc) =
+                       ((transferred_memory_pages i (only v trans) ∪ transferred_memory_pages i (except v trans)) ∖ ps_acc)) as ->.
+                admit.
+
+                rewrite difference_union_distr_l_L.
+                iDestruct (memory_pages_split_union' with "mem_rest") as "[mem_rest_a mem_rest_b]".
+                {
+                  (* transferred_memory_pages i (only v trans) ∖ ps_acc ## transferred_memory_pages i (except v trans) ∖ ps_acc                  *)
+                  admit.
+                }
+
+                assert(∀ trans_sub,
+                         trans_sub ⊆ trans ->
+                      (ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ (transferred_memory_pages i trans_sub) ∪ (transferred_memory_pages i trans_sub) ∖ ps_acc =
+                          transferred_memory_pages i trans_sub).
+                {
+                  intros ? Hsubset_trans.
+                  rewrite intersection_comm_L.
+                  assert (∀ trans trans', trans ⊆ trans' -> transferred_memory_pages i trans ⊆ transferred_memory_pages i trans').
+                  admit.
+                  specialize (H trans_sub trans Hsubset_trans).
+                  pose proof (union_split_difference_intersection_L (transferred_memory_pages i trans_sub) ps_acc) as [Heq _].
+                  assert (transferred_memory_pages i trans_sub ∩ (ps_acc ∖ {[p_tx]} ∖ {[p_rx]})
+                          = transferred_memory_pages i trans_sub ∩ ps_acc) as ->.
+                  {
+                    assert (Hnin_tx' : {[p_tx]} ## transferred_memory_pages i trans).
+                    pose proof (transferred_accessible_memory_pages_subseteq i trans).
+                    set_solver + H0 Hnin_tx.
+                    set_solver + H Hnin_tx' Hnin_rx'.
+                  }
+                  rewrite Heq. set_solver +.
+                }
+
+                destruct (decide (tpa ai ∈ (transferred_memory_pages i (only v trans)))).
+                {
+                  admit.
+                }
+                {
+                  admit.
+                }
+                }
+                }
                 }
               }
             { admit. }
