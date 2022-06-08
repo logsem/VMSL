@@ -71,9 +71,9 @@ Section logrel_prim_extra.
 
 
   (* TODO *)
-  Lemma slice_preserve_except i (Φ : _ -> _ -> _ -> iProp Σ) `{!SliceTransWf Φ} trans trans':
+  Lemma slice_preserve_except i s {Φ : _ -> _ -> _ -> iProp Σ} `{!SliceTransWf Φ} trans trans':
     except i trans = except i trans' ->
-    big_sepSS_except set_of_vmids i (Φ trans) ⊣⊢ big_sepSS_except set_of_vmids i (Φ trans').
+    big_sepSS_except s i (Φ trans) ⊣⊢ big_sepSS_except s i (Φ trans').
   Proof.
     iIntros (Heq).
     rewrite /big_sepSS_except.
@@ -227,6 +227,13 @@ Section logrel_prim_extra.
   Definition trans_neq (trans: gmap Addr transaction) :=
       map_Forall (λ (k:Addr) (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans.
 
+  Lemma transaction_pagetable_entries_transferred_only_equiv i v (trans: gmap Addr transaction):
+    trans_neq trans ->
+    (transaction_pagetable_entries_transferred_slice trans i v) ∗ (transaction_pagetable_entries_transferred_slice trans v i) ⊣⊢
+      transaction_pagetable_entries_transferred i (only v trans).
+  Proof.
+  Admitted.
+
   Lemma transaction_pagetable_entries_transferred_equiv i (trans: gmap Addr transaction):
     trans_neq trans ->
     big_sepSS_singleton set_of_vmids i (transaction_pagetable_entries_transferred_slice trans) ⊣⊢
@@ -261,6 +268,20 @@ Section logrel_prim_extra.
     intros. iApply big_sepFM_iff.
     intros. split;intros [[] []];split;eauto.
    Qed.
+
+  Lemma transaction_pagetable_entries_transferred_split i j trans:
+    transaction_pagetable_entries_transferred i trans ⊣⊢
+    transaction_pagetable_entries_transferred i (only j trans) ∗
+    transaction_pagetable_entries_transferred i (except j trans).
+  Proof.
+  Admitted.
+
+  Lemma retrievable_transaction_transferred_only_equiv i v (trans: gmap Addr transaction):
+    trans_neq trans ->
+    (retrievable_transaction_transferred_slice trans i v) ∗ (retrievable_transaction_transferred_slice trans v i) ⊣⊢
+      retrievable_transaction_transferred i (only v trans).
+  Proof.
+  Admitted.
 
   Lemma retrievable_transaction_transferred_equiv i (trans: gmap Addr transaction):
     trans_neq trans ->
@@ -299,6 +320,21 @@ Section logrel_prim_extra.
     iApply big_sepS_mono; iFrame;
     iIntros (??) "H";iApply (big_sepFM_iff with "H"); (intros; split;intros [];done).
    Qed.
+
+  Lemma retrievable_transaction_transferred_split i j trans:
+    retrievable_transaction_transferred i trans ⊣⊢
+    retrievable_transaction_transferred i (only j trans) ∗
+    retrievable_transaction_transferred i (except j trans).
+  Proof.
+  Admitted.
+
+  Lemma transferred_memory_only_equiv i v trans:
+  trans_neq trans ->
+  trans_ps_disj trans ->
+  transferred_memory_slice trans v i ∗ transferred_memory_slice trans i v ⊣⊢
+    ∃ mem, memory_pages (transferred_memory_pages i (only v trans)) mem.
+  Proof.
+  Admitted.
 
   Lemma transferred_memory_slice_empty i j: ⊢ transferred_memory_slice ∅ i j.
   Proof.
@@ -403,6 +439,16 @@ Section logrel_prim_extra.
       }
     }
   Qed.
+
+  Lemma transferred_memory_split i v trans:
+    trans_neq trans ->
+    trans_ps_disj trans ->
+    (∃ mem, memory_pages (transferred_memory_pages i trans) mem)
+    ⊣⊢
+    (∃ mem, memory_pages (transferred_memory_pages i (only v trans)) mem) ∗
+    ∃ mem, memory_pages (transferred_memory_pages i (except v trans)) mem.
+  Proof.
+  Admitted.
 
   Lemma slice_transfer_all_equiv k (trans: gmap Addr transaction) Φ:
       (∀ i j trans, (i = k ∨ j = k) -> Φ trans i j ⊣⊢ slice_transfer_all trans i j) ->

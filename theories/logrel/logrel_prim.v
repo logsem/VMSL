@@ -80,13 +80,9 @@ Section slice_rxs.
       ∗ rx_states_global (<[j:=Some(l,i)]>(delete i rxs)) ∗ ⌜rxs !! j = Some None⌝
       ∗ (∃r1, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some j⌝) ∗  R2 @@ V0 ->r l).
 
-  Definition only (trans: gmap Word transaction) := (filter (λ (kv :Word*transaction), (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)) trans).
-
-  Definition except (trans: gmap Word transaction) := (filter (λ (kv :Word*transaction), ¬(kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)) trans).
-
   Definition vmprop_zero_pre (Ψ: iPropO Σ) : (gmap Word transaction) -d> (gmap VMID (option(Word * VMID))) -d> iPropO Σ :=
     λ trans rxs, (∃ (trans' :gmap Word transaction) rs',
-                     let trans_ret := (only trans') ∪ (except trans) in
+                     let trans_ret := (only i trans') ∪ (except i trans) in
                            transaction_hpool_global_transferred (trans_ret) ∗
                            big_sepSS_singleton set_of_vmids i (Φ_t trans_ret) ∗
                            rx_state_match i rs' ∗ Φ_r i rs' V0 ∗

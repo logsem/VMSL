@@ -43,7 +43,7 @@ Section lemmas.
   Admitted.
 
   Lemma big_sepSS_singletion_union s v v' Φ :
-    big_sepSS_singleton (s ∖ {[v]}) v' Φ ∗ big_sepSS_singleton {[v]} v' Φ ⊢ big_sepSS_singleton s v' Φ.
+    big_sepSS_singleton (s ∖ {[v]}) v' Φ ∗ big_sepSS_singleton {[v]} v' Φ ⊣⊢ big_sepSS_singleton s v' Φ.
   Proof.
   Admitted.
 
