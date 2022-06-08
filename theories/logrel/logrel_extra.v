@@ -1227,7 +1227,6 @@ Section logrel_extra.
     simpl in Hneq. iPureIntro. rewrite -(lookup_delete_ne _ i j) //. rewrite H lookup_delete_ne //.
   Qed.
 
-
   Lemma except_only_union i trans trans':
     except i trans  = except i (only i trans' ∪ trans).
   Proof.
@@ -1267,6 +1266,27 @@ Section logrel_extra.
     trans !! h = Some tran ->
     tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i ->
     except i trans = except i (delete h trans).
+  Proof.
+  Admitted.
+
+  Lemma except_subseteq i trans : except i trans ⊆ trans.
+  Proof.
+  Admitted.
+
+  Lemma only_subseteq i trans : only i trans ⊆ trans.
+  Proof.
+  Admitted.
+
+  Lemma transferred_memory_pages_split_only i v trans:
+  (transferred_memory_pages i trans) = (transferred_memory_pages i (only v trans))
+                                        ∪ (transferred_memory_pages i (except v trans)) ∧
+    (transferred_memory_pages i (only v trans)) ## (transferred_memory_pages i (except v trans)).
+  Proof.
+  Admitted.
+
+  Lemma transferred_memory_pages_subseteq trans trans':
+  trans ⊆ trans' ->
+  transferred_memory_pages i trans ⊆ transferred_memory_pages i trans'.
   Proof.
   Admitted.
 

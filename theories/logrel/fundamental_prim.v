@@ -556,10 +556,9 @@ Section fundamental_prim.
                   set_solver + H n0.
                 }
 
-                assert (Hsplit_trans: (transferred_memory_pages i trans) = (transferred_memory_pages i (only v trans))
-                                                                        ∪ (transferred_memory_pages i (except v trans))).
-                (* TODO:also disj *)
-                admit.
+                rewrite (difference_union_cancel_L_l ps_acc (transferred_memory_pages i trans)).
+
+                pose proof (transferred_memory_pages_split_only i v trans) as [Hsplit_trans Hsplit_trans_disj].
                 iEval (rewrite Hsplit_trans intersection_union_l_L) in "mem_inters".
 
                 rewrite Hsplit_trans in Hin_ps_inters.
@@ -568,16 +567,10 @@ Section fundamental_prim.
                 admit.
 
                 iEval (rewrite /ps_mem_in_trans Hsplit_trans) in "mem_rest".
-                assert (((ps_acc ∪ (transferred_memory_pages i (only v trans) ∪ transferred_memory_pages i (except v trans))) ∖ ps_acc) =
-                       ((transferred_memory_pages i (only v trans) ∪ transferred_memory_pages i (except v trans)) ∖ ps_acc)) as ->.
-                admit.
 
                 rewrite difference_union_distr_l_L.
                 iDestruct (memory_pages_split_union' with "mem_rest") as "[mem_rest_a mem_rest_b]".
-                {
-                  (* transferred_memory_pages i (only v trans) ∖ ps_acc ## transferred_memory_pages i (except v trans) ∖ ps_acc                  *)
-                  admit.
-                }
+                { set_solver + Hsplit_trans_disj. }
 
                 assert(∀ trans_sub,
                          trans_sub ⊆ trans ->
@@ -586,9 +579,7 @@ Section fundamental_prim.
                 {
                   intros ? Hsubset_trans.
                   rewrite intersection_comm_L.
-                  assert (∀ trans trans', trans ⊆ trans' -> transferred_memory_pages i trans ⊆ transferred_memory_pages i trans').
-                  admit.
-                  specialize (H trans_sub trans Hsubset_trans).
+                  pose proof (transferred_memory_pages_subseteq trans_sub trans Hsubset_trans) as H.
                   pose proof (union_split_difference_intersection_L (transferred_memory_pages i trans_sub) ps_acc) as [Heq _].
                   assert (transferred_memory_pages i trans_sub ∩ (ps_acc ∖ {[p_tx]} ∖ {[p_rx]})
                           = transferred_memory_pages i trans_sub ∩ ps_acc) as ->.
@@ -615,8 +606,7 @@ Section fundamental_prim.
                 iPoseProof (memory_pages_split_union ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ transferred_memory_pages i (only v trans))
                                                      ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ transferred_memory_pages i (except v trans))
                              )as "[Ht _]".
-                (* transferred_memory_pages i (only v trans) ## transferred_memory_pages i (except v trans) *)
-                admit.
+                apply Hsplit_trans_disj.
 
                 iDestruct ("Ht" with "[mem_inters]") as "(%mem_inters_a & %mem_inters_b & mem_inters_a & mem_inters_b & %Heq_mem_inters)".
                 iExact "mem_inters".
@@ -665,7 +655,7 @@ Section fundamental_prim.
                   iDestruct (memory_pages_union' with "[mem_inters_b $mem_rest_b]") as "mem_b".
                   { iExists mem_inters_b. iExact "mem_inters_b". }
                   iEval (rewrite union_comm_L) in "mem_b".
-                  rewrite (H (except v trans)). 2: (*except v trans ⊆ trans*) admit.
+                  rewrite (H (except v trans)). 2: apply except_subseteq.
 
                   (* getting instruction from [mem_inters_a] *)
                   iDestruct (mem_big_sepM_split mem_inters_a Hlookup_mem_ai' with "mem_inters_a") as "[mem_instr Hacc_mem]".
@@ -707,7 +697,7 @@ Section fundamental_prim.
                       iDestruct (memory_pages_union' with "[$mem_rest mem_inters]") as "mem".
                       iExists mem_inters_a. iSplit. iPureIntro. exact Hdom_mem_inters_a. iFrame.
                       rewrite (union_comm_L (transferred_memory_pages i (only v trans) ∖ ps_acc)).
-                      rewrite H. iFrame "mem".  (*only v trans ⊆ trans*) admit.
+                      rewrite H. iFrame "mem". apply only_subseteq.
                       iSplitL "R0". iExists _. iSplitL. iExact "R0". done.
                       iSplitL "R1". iExists _. iSplitL. iExact "R1". done.
                       iSplitL "R2". iExists _. iExact "R2". done.

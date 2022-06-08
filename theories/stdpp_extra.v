@@ -117,6 +117,7 @@ Section sets.
     }
   Qed.
 
+
   Lemma union_split_difference_2_L A B:
     A ∪ B = B ∪ (A ∖ B) ∧ B ## (A ∖ B).
   Proof.
@@ -129,6 +130,10 @@ Section sets.
       set_solver.
     }
   Qed.
+
+  Lemma difference_union_cancel_L_l A B:
+     (A ∪ B) ∖ A = B ∖ A.
+  Proof. set_solver. Qed.
 
   Lemma not_subseteq A B:
     A ⊈ B -> ∃ a, a ∈ A ∧ a ∉ B.
@@ -218,9 +223,7 @@ Section sets.
 
   Lemma intersection_difference A B:
     A ∖ B = A ∖ (A ∩ B).
-  Proof.
-    set_solver.
-  Qed.
+  Proof. set_solver. Qed.
 
 End sets.
 
