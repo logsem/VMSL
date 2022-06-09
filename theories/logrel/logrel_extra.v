@@ -494,6 +494,53 @@ Section logrel_extra.
     rewrite lookup_fmap Hlk //.
   Qed.
 
+  Lemma pages_in_trans_disj trans1 trans2 trans:
+    trans1 ⊆ trans ->
+    trans2 ⊆ trans ->
+    dom (gset _) trans1 ## dom (gset _) trans2 ->
+    trans_ps_disj trans ->
+    pages_in_trans trans1 ## pages_in_trans trans2.
+  Proof.
+    intros Hsub1 Hsub2 Hdisj Htrans_disj.
+    induction trans1 using map_ind.
+    rewrite pages_in_trans_empty. set_solver +.
+    rewrite pages_in_trans_insert //.
+    assert (trans !! i = Some x).
+    pose proof Hsub1.
+    rewrite map_subseteq_spec in H0.
+    specialize (H0 i x).
+    feed specialize H0.
+    simplify_map_eq /=. done. done.
+    pose proof Htrans_disj.
+    specialize (H1 i (Some x)).
+    feed specialize H1.
+    rewrite /lift_option_gmap.
+    simplify_map_eq /=. done.
+    simpl in H1.
+    assert (trans2 ⊆ (delete i trans)).
+    rewrite dom_insert_L in Hdisj.
+    rewrite map_subseteq_spec.
+    intros.
+    destruct (decide (i0 = i)).
+    subst i0.
+    apply mk_is_Some in H2.
+    rewrite -elem_of_dom in H2.
+    set_solver + H2 Hdisj.
+    rewrite lookup_delete_ne //.
+    rewrite map_subseteq_spec in Hsub2.
+    apply Hsub2. done.
+    pose proof (pages_in_trans_subseteq _ _ H2).
+    feed specialize IHtrans1.
+    pose proof (insert_subseteq m i x H).
+    transitivity (<[i:=x]> m). done.
+    done.
+    rewrite dom_insert_L in Hdisj.
+    set_solver + Hdisj.
+    rewrite /lift_option_gmap in H1.
+    rewrite -fmap_delete in H1.
+    set_solver + H1 H3 IHtrans1.
+Qed.
+
 (* lemmas for tran_rel *)
   Lemma get_trans_rel_secondary i trans trans':
     transaction_hpool_global_transferred trans' ∗ retrievable_transaction_transferred i trans' ∗
@@ -1228,67 +1275,216 @@ Section logrel_extra.
   Qed.
 
   Lemma except_only_union i trans trans':
+    (* TODO fix it in FLTR *)
+    dom (gset _ ) (only i trans') ## dom (gset _) (except i trans) ->
     except i trans  = except i (only i trans' ∪ trans).
   Proof.
-   rewrite /only.
+   revert trans.
+   rewrite /only /except.
    induction trans' using map_ind.
+   intro.
    rewrite map_filter_empty.
    f_equal.
    rewrite map_empty_union //.
+   intro.
    rewrite map_filter_insert.
    case_decide.
    {
-     rewrite /except.
-     admit.
+     rewrite -insert_union_l.
+     rewrite map_filter_insert_False.
+     rewrite map_filter_delete.
+     intros.
+     rewrite -IHtrans'.
+     rewrite dom_insert_L in H1.
+     rewrite delete_notin //.
+     rewrite -not_elem_of_dom.
+     set_solver + H1.
+     rewrite dom_insert_L in H1.
+     set_solver + H1.
+     intro.
+     apply H1. done.
    }
    {
      rewrite delete_notin //.
+     intros.
+     apply IHtrans'. done.
    }
-   Admitted.
+   Qed.
 
   Lemma except_idemp i trans :
     except i trans  = except i (except i trans).
   Proof.
-  Admitted.
+    rewrite /except.
+   induction trans using map_ind.
+   rewrite map_filter_empty //.
+   rewrite map_filter_insert.
+   case_decide.
+   {
+     rewrite map_filter_insert_True.
+     rewrite -IHtrans //.
+     done.
+   }
+   {
+     rewrite delete_notin //.
+   }
+  Qed.
 
   Lemma only_except_union i trans:
     only i trans ∪ except i trans = trans.
   Proof.
-  Admitted.
+    rewrite /only /except.
+    induction trans using map_ind.
+    rewrite ?map_filter_empty.
+    rewrite map_empty_union //.
+    rewrite map_filter_insert.
+    case_decide.
+    {
+      rewrite map_filter_insert_False.
+      rewrite delete_notin //.
+      rewrite -insert_union_l.
+      rewrite IHtrans //.
+      intro H';apply H';done.
+    }
+    {
+      rewrite map_filter_insert_True.
+      rewrite -insert_union_r.
+      rewrite delete_notin //.
+      rewrite IHtrans //.
+      rewrite map_filter_delete.
+      rewrite lookup_delete //.
+      done.
+    }
+  Qed.
+
 
   Lemma except_insert_False i trans h tran:
+    trans !! h = None ->
     tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i ->
     except i trans = except i (<[h := tran]>trans).
   Proof.
-  Admitted.
+    rewrite /except.
+    intros.
+    rewrite map_filter_insert_False.
+    rewrite delete_notin //.
+    intro H';apply H';done.
+  Qed.
 
   Lemma except_delete_False i trans h tran:
     trans !! h = Some tran ->
     tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i ->
     except i trans = except i (delete h trans).
   Proof.
-  Admitted.
+    rewrite /except.
+    intros.
+    rewrite map_filter_delete.
+    rewrite delete_notin //.
+    rewrite map_filter_lookup_None.
+    right.
+    intros.
+    rewrite H1 in H.
+    inversion H.
+    intro H';apply H';done.
+  Qed.
 
   Lemma except_subseteq i trans : except i trans ⊆ trans.
   Proof.
-  Admitted.
+    rewrite /except.
+    apply map_filter_subseteq.
+  Qed.
 
   Lemma only_subseteq i trans : only i trans ⊆ trans.
   Proof.
-  Admitted.
+    rewrite /only.
+    apply map_filter_subseteq.
+  Qed.
+
+  Lemma only_except_disjoint i trans:
+    dom (gset _) (only i trans) ## dom (gset _) (except i trans).
+  Proof.
+    rewrite /only /except.
+    induction trans using map_ind.
+    rewrite ?map_filter_empty.
+    set_solver +.
+    rewrite map_filter_insert.
+    case_decide.
+    {
+      rewrite dom_insert_L.
+      rewrite map_filter_insert_False.
+      rewrite map_filter_delete.
+      rewrite dom_delete.
+      set_solver + IHtrans.
+      intro H';apply H';done.
+    }
+    {
+      rewrite map_filter_insert_True.
+      rewrite dom_insert_L.
+      rewrite map_filter_delete.
+      rewrite dom_delete.
+      set_solver + IHtrans.
+      done.
+    }
+  Qed.
 
   Lemma transferred_memory_pages_split_only i v trans:
+    trans_ps_disj trans ->
   (transferred_memory_pages i trans) = (transferred_memory_pages i (only v trans))
                                         ∪ (transferred_memory_pages i (except v trans)) ∧
     (transferred_memory_pages i (only v trans)) ## (transferred_memory_pages i (except v trans)).
   Proof.
-  Admitted.
+    intro. split.
+    {
+      rewrite /transferred_memory_pages.
+      rewrite -pages_in_trans_union.
+      rewrite -map_filter_union.
+      rewrite only_except_union //.
+      rewrite map_disjoint_dom.
+      apply only_except_disjoint.
+      set m := ((λ kv : Addr *
+                  (leibnizO VMID * leibnizO VMID * gset PID *
+                   transaction_type * bool),
+             (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)
+             ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending))).
+      pose proof (map_filter_subseteq m (only v trans)).
+      pose proof (map_filter_subseteq m (except v trans)).
+      apply (subseteq_dom) in H0.
+      apply (subseteq_dom) in H1.
+      pose proof (only_except_disjoint v trans).
+      set_solver.
+    }
+    {
+      rewrite /transferred_memory_pages.
+      apply (pages_in_trans_disj _ _ trans).
+      transitivity (only v trans).
+      apply map_filter_subseteq.
+      apply only_subseteq.
+      transitivity (except v trans).
+      apply map_filter_subseteq.
+      apply except_subseteq.
+      set m := ((λ kv : Addr *
+                  (leibnizO VMID * leibnizO VMID * gset PID *
+                   transaction_type * bool),
+             (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)
+             ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending))).
+      pose proof (map_filter_subseteq m (only v trans)).
+      pose proof (map_filter_subseteq m (except v trans)).
+      apply (subseteq_dom) in H0.
+      apply (subseteq_dom) in H1.
+      pose proof (only_except_disjoint v trans).
+      set_solver.
+      done.
+    }
+  Qed.
 
-  Lemma transferred_memory_pages_subseteq trans trans':
+  Lemma transferred_memory_pages_subseteq i trans trans':
   trans ⊆ trans' ->
   transferred_memory_pages i trans ⊆ transferred_memory_pages i trans'.
   Proof.
-  Admitted.
+    rewrite /transferred_memory_pages.
+    intros.
+    apply pages_in_trans_subseteq.
+    apply map_filter_subseteq_mono.
+    done.
+  Qed.
 
   Lemma vmprop_zero_equiv_trans {i rxs} trans trans' :
   except i trans = except i trans' ->
