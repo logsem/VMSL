@@ -241,6 +241,7 @@ Section ftlr_msg_wait.
         }
         rewrite memory_pages_singleton'.
         iFrame "mem_trans rx_state".
+        iSplit. iPureIntro. apply only_except_disjoint.
         iSplitL "mem_rx". iExists p_rx. iFrame "rx' mem_rx".
         iSplitR "propi".
         iLeft. iSplitL "R0z". iRight. iFrame. done.
@@ -384,6 +385,7 @@ Section ftlr_msg_wait.
         iFrame "mem_trans".
         rewrite memory_pages_singleton'.
         iFrame "rx_state".
+        iSplit. iPureIntro. apply only_except_disjoint.
         iSplitL "mem_rx". iExists p_rx. iFrame "rx' mem_rx".
         iSplitR "propi".
         iLeft. iSplitL "R0z". iRight. iFrame. done.
@@ -433,8 +435,6 @@ Section ftlr_msg_wait.
         rewrite acc_accessible_in_trans_memory_pages_union;auto.
         rewrite union_comm_L //.
       }
-
-      
       iDestruct (mailbox.rx_agree with "rx'' rx'") as "%Heq". subst p_rx0.
       iDestruct (memory_pages_disj_singleton with "[$mem $mem_rx]") as %Hnin_rx'.
       iDestruct (memory_pages_disj_singleton with "[$mem $mem_tx]") as %Hnin_tx'.

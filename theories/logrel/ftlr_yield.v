@@ -183,6 +183,7 @@ Lemma ftlr_yield {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0}:
           set_solver + Hs Hnin_rx. }
         iFrame "mem_trans".
         rewrite memory_pages_singleton'.
+        iSplit. iPureIntro. apply only_except_disjoint.
         iSplitL "mem_rx". iExists p_rx. iFrame "rx' mem_rx".
         iSplitR "propi".
         iLeft. iFrame. iExists _. iFrame "R2z".
@@ -329,7 +330,9 @@ Lemma ftlr_yield {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0}:
           set_solver + Hs Hnin_rx.
         }
         iFrame "mem_trans".
-        rewrite memory_pages_singleton'. iSplitL "mem_rx". iExists p_rx. iFrame "rx' mem_rx".
+        rewrite memory_pages_singleton'.
+        iSplit. iPureIntro. apply only_except_disjoint.
+        iSplitL "mem_rx". iExists p_rx. iFrame "rx' mem_rx".
         iSplitR "propi".
         iLeft. iFrame. iExists _. iFrame.
         iExact "propi".

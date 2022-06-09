@@ -381,7 +381,7 @@ Lemma ftlr_share {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P:
       }
       {
         iApply (P_eq with "P"). done.
-        symmetry. apply except_insert_False. left;done.
+        symmetry. apply except_insert_False_None. done. left;done.
       }
     }
     { (* at least one page is not exclusively owned by i (i.e. is involved in a transaction) *)

@@ -371,7 +371,7 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}
     }
     {
       iApply (P_eq with "P"). done.
-      symmetry. apply except_insert_False. right;done.
+      symmetry. eapply except_insert_False_Some;eauto.
     }
   Qed.
 

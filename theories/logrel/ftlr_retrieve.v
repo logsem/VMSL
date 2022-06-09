@@ -821,7 +821,7 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
         {
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
-          symmetry. eapply except_insert_False. right;done.
+          symmetry. eapply except_insert_False_Some;eauto.
         }
       }
       { (* apply [mem_retrieve_sharing_rx]*)
@@ -997,7 +997,7 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
         {
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
-          symmetry. eapply except_insert_False. right;done.
+          symmetry. eapply except_insert_False_Some;eauto.
         }
       }
     }
@@ -1173,7 +1173,7 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
         {
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
-          symmetry. eapply except_insert_False. right;done.
+          symmetry. eapply except_insert_False_Some;eauto.
         }
       }
       { (* apply [mem_retrieve_lend_rx]*)
@@ -1349,7 +1349,7 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
         {
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
-          symmetry. eapply except_insert_False. right;done.
+          symmetry. eapply except_insert_False_Some;eauto.
         }
       }
     }

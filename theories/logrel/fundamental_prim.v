@@ -380,11 +380,12 @@ Section fundamental_prim.
                   iEval (rewrite 5!later_sep) in "Hres".
                   pose proof (slice_rxs_timeless Φ_r) as Htl1.
                   pose proof (slice_trans_timeless Φ_t) as Htl2.
-                  iDestruct "Hres" as "(>trans_hpool_global & >transferred_only & >rx_state_v & >rx_transferred & >regs_rx & VMProp_v)".
+                  iDestruct "Hres" as "(>%Hdisj & >trans_hpool_global & >transferred_only & >rx_state_v & >rx_transferred & >regs_rx & VMProp_v)".
                   clear Htl1 Htl2.
                   iDestruct (slice_preserve_except _ _ (except v trans) with "transferred_except") as "transferred_except".
                   symmetry. apply except_idemp.
                   iDestruct (slice_trans_unify with "[$transferred_only $transferred_except]") as "transferred".
+                  rewrite -except_idemp. done.
 
                   iDestruct (big_sepSS_difference_singleton _ V0 with "transferred") as "[transferred_except transferred_only]";eauto.
                   apply elem_of_set_of_vmids.
@@ -556,15 +557,14 @@ Section fundamental_prim.
                   set_solver + H n0.
                 }
 
-                rewrite (difference_union_cancel_L_l ps_acc (transferred_memory_pages i trans)).
+                assert (ps_acc ∪ ps_mem_in_trans = ps_acc ∪ (transferred_memory_pages i trans)) as ->.
+                admit.
+                rewrite (difference_union_cancel_L_l ps_acc).
 
-                pose proof (transferred_memory_pages_split_only i v trans) as [Hsplit_trans Hsplit_trans_disj].
+                pose proof (transferred_memory_pages_split_only i v trans) as [Hsplit_trans Hsplit_trans_disj];auto.
                 iEval (rewrite Hsplit_trans intersection_union_l_L) in "mem_inters".
 
                 rewrite Hsplit_trans in Hin_ps_inters.
-
-                assert (ps_acc ∪ ps_mem_in_trans = ps_acc ∪ (transferred_memory_pages i trans)) as ->.
-                admit.
 
                 iEval (rewrite /ps_mem_in_trans Hsplit_trans) in "mem_rest".
 
@@ -579,7 +579,7 @@ Section fundamental_prim.
                 {
                   intros ? Hsubset_trans.
                   rewrite intersection_comm_L.
-                  pose proof (transferred_memory_pages_subseteq trans_sub trans Hsubset_trans) as H.
+                  pose proof (transferred_memory_pages_subseteq i trans_sub trans Hsubset_trans) as H.
                   pose proof (union_split_difference_intersection_L (transferred_memory_pages i trans_sub) ps_acc) as [Heq _].
                   assert (transferred_memory_pages i trans_sub ∩ (ps_acc ∖ {[p_tx]} ∖ {[p_rx]})
                           = transferred_memory_pages i trans_sub ∩ ps_acc) as ->.
@@ -606,7 +606,7 @@ Section fundamental_prim.
                 iPoseProof (memory_pages_split_union ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ transferred_memory_pages i (only v trans))
                                                      ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ transferred_memory_pages i (except v trans))
                              )as "[Ht _]".
-                apply Hsplit_trans_disj.
+                set_solver + Hsplit_trans_disj.
 
                 iDestruct ("Ht" with "[mem_inters]") as "(%mem_inters_a & %mem_inters_b & mem_inters_a & mem_inters_b & %Heq_mem_inters)".
                 iExact "mem_inters".
@@ -716,10 +716,11 @@ Section fundamental_prim.
                 iEval (rewrite 5!later_sep) in "Hres".
                 pose proof (slice_rxs_timeless Φ_r) as Htl1.
                 pose proof (slice_trans_timeless Φ_t) as Htl2.
-                iDestruct "Hres" as "(>trans_hpool_global & >transferred_only & >rx_state_v & >rx_transferred & >regs_rx & VMProp_v)".
+                iDestruct "Hres" as "(>%Hdisj' & >trans_hpool_global & >transferred_only & >rx_state_v & >rx_transferred & >regs_rx & VMProp_v)".
                 clear Htl1 Htl2.
                 iDestruct (slice_preserve_except v _ (only v trans' ∪ except v trans) trans with "transferred_except_v") as "transferred_except_v".
                 symmetry. rewrite -(except_only_union v (except v trans) trans'). apply except_idemp.
+                rewrite -except_idemp;done.
 
                 iDestruct (big_sepSS_singletion_union _ i with "transferred_only") as "[transferred_only_v transferred_i_v]".
                  assert (Htemp: (set_of_vmids ∖ {[i]}) = (set_of_vmids ∖ {[i]} ∖ {[v]} ∪ {[v]})).
@@ -743,17 +744,19 @@ Section fundamental_prim.
                 iDestruct "transferred_i_v" as "[(tran_pgt_transferred_i_v & retri_transferred_i_v & transferred_mem_i_v) (tran_pgt_transferred_v_i & retri_transferred_v_i & transferred_mem_v_i)]".
                 iCombine "tran_pgt_transferred_v_i tran_pgt_transferred_i_v" as "tran_pgt_transferred".
                 iDestruct (transaction_pagetable_entries_transferred_only_equiv i with "tran_pgt_transferred") as "tran_pgt_transferred_only_v". auto.
-                iEval(rewrite except_idemp (except_only_union v _ trans')) in "tran_pgt_transferred_except_v".
+                pose proof (except_only_union v (except v trans) trans') as Htemp'.
+                feed specialize Htemp'. rewrite -except_idemp //.
+                iEval(rewrite except_idemp Htemp') in "tran_pgt_transferred_except_v".
                 iDestruct(transaction_pagetable_entries_transferred_split with "[$tran_pgt_transferred_only_v $tran_pgt_transferred_except_v ]") as "tran_pgt_transferred".
 
                 iCombine "retri_transferred_v_i retri_transferred_i_v" as "retri_transferred".
                 iDestruct (retrievable_transaction_transferred_only_equiv i with "retri_transferred") as "retri_transferred_only_v". auto.
-                iEval(rewrite except_idemp (except_only_union v _ trans')) in "retri_transferred_except_v".
+                iEval(rewrite except_idemp Htemp') in "retri_transferred_except_v".
                 iDestruct(retrievable_transaction_transferred_split with "[$retri_transferred_only_v $retri_transferred_except_v ]") as "retri_transferred".
 
                 iCombine "transferred_mem_i_v transferred_mem_v_i" as "transferred_mem".
                 iDestruct (transferred_memory_only_equiv i v with "transferred_mem") as "transferred_memory_only_v";auto.
-                iEval(rewrite except_idemp (except_only_union v _ trans')) in "mem_b".
+                iEval(rewrite except_idemp Htemp') in "mem_b".
                 iDestruct (transferred_memory_split i with "[mem_b transferred_memory_only_v]") as "mem_transferred";auto.
                 3: { iSplitR "mem_b". iExact "transferred_memory_only_v". iExact "mem_b". }
                 auto. auto.

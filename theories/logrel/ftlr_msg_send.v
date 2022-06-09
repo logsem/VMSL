@@ -307,6 +307,7 @@ Section ftlr_msg_send.
         }
         rewrite memory_pages_singleton'. iFrame "mem_trans".
         iDestruct (rx_state_split with "rx_state_v") as "[rx_state_v rx_state_v']".
+        iSplit. iPureIntro. apply only_except_disjoint.
         iSplitL "rx_state".
         iDestruct ("rx_state" $! rs with "[]") as "rx_state".
         done. iExact "rx_state".
@@ -463,6 +464,7 @@ Section ftlr_msg_send.
           set_solver + Hs Hnin_rx.
         }
         iFrame "mem2".
+        iSplit. iPureIntro. apply only_except_disjoint.
         rewrite memory_pages_singleton'.
         iDestruct (rx_state_split with "rx_state_v") as "[rx_state_v rx_state_v']".
         iSplitL "rx_state".

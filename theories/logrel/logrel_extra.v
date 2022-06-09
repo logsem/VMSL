@@ -1262,7 +1262,7 @@ Qed.
     rewrite /vmprop_zero_pre.
     do 11 f_equiv.
     rewrite /return_reg_rx.
-    do 4 f_equiv.
+    do 5 f_equiv.
     done.
     rewrite H.
     iStartProof. iSplit.
@@ -1356,8 +1356,27 @@ Qed.
     }
   Qed.
 
+  Lemma except_insert_False_Some i trans h tran tran0:
+    trans !! h = Some tran0 ->
+    tran0.1.1.1.1 = i ∨ tran0.1.1.1.2 = i ->
+    tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i ->
+    except i trans = except i (<[h := tran]>trans).
+  Proof.
+    rewrite /except.
+    intros.
+    rewrite map_filter_insert_False.
+    rewrite map_filter_delete.
+    rewrite delete_notin //.
+    apply map_filter_lookup_None.
+    right.
+    intros.
+    rewrite H2 in H.
+    inversion H.
+    intro H';apply H';done.
+    intro H';apply H';done.
+  Qed.
 
-  Lemma except_insert_False i trans h tran:
+  Lemma except_insert_False_None i trans h tran:
     trans !! h = None ->
     tran.1.1.1.1 = i ∨ tran.1.1.1.2 = i ->
     except i trans = except i (<[h := tran]>trans).

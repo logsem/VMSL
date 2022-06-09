@@ -97,11 +97,12 @@ Section logrel_prim_extra.
   Qed.
 
   Lemma slice_trans_unify (Φ: _ -> _ -> _ -> iProp Σ) `{Hwf:!SliceTransWf Φ} trans trans' i:
+    dom (gset Addr) (only i trans') ## dom (gset Addr) (except i trans) ->
     big_sepSS_except set_of_vmids i (Φ trans) ∗
       big_sepSS_singleton set_of_vmids i (Φ (only i trans' ∪ trans))
     ⊢  big_sepSS set_of_vmids (Φ (only i trans' ∪ trans)).
   Proof.
-    iIntros "(except & only)".
+    iIntros (Hdisj) "(except & only)".
     assert (set_of_vmids = (set_of_vmids ∖ {[i]}) ∪ {[i]}).
     pose proof (elem_of_set_of_vmids i). rewrite difference_union_L. set_solver + H.
     rewrite H.
@@ -110,7 +111,7 @@ Section logrel_prim_extra.
     {
       iApply (slice_preserve_except with "except").
       symmetry.
-      apply except_only_union.
+      rewrite -except_only_union //.
     }
     {
       done.

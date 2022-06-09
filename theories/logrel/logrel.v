@@ -126,6 +126,7 @@ Section logrel.
   Definition vmprop_zero_pre (Ψ: iPropO Σ) : (gmap Word transaction) -d> (gmap VMID (option(Word*VMID))) -d> iPropO Σ :=
     λ trans rxs, (∃ trans' rs',
                      let trans_ret := (only trans') ∪ (except trans) in
+                           ⌜dom (gset _ ) (only trans') ## dom (gset _ ) (except trans)⌝ ∗
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans_ret ∗
                            transaction_pagetable_entries_transferred i trans_ret ∗
