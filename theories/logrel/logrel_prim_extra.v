@@ -17,7 +17,19 @@ Section logrel_prim_extra.
   Lemma slice_wf_sep `{slice_wf1:!SliceTransWf Φ1} `{slice_wf2:!SliceTransWf Φ2} :
     SliceTransWf (λ trans i j, ((Φ1 trans i j) :iProp Σ) ∗ ((Φ2 trans i j) :iProp Σ))%I.
   Proof.
-  Admitted.
+    split.
+    {
+      intros.
+      rewrite (slice_trans_valid Φ1) //.
+      rewrite (slice_trans_valid Φ2) //.
+    }
+    {
+      intros.
+      pose proof (slice_trans_timeless Φ1).
+      pose proof (slice_trans_timeless Φ2).
+      apply _.
+    }
+  Qed.
 
   Instance slice_transaction_pagetable_entries_transferred_wf
     : SliceTransWf transaction_pagetable_entries_transferred_slice.
@@ -41,18 +53,89 @@ Section logrel_prim_extra.
         iIntros "_".
         iApply big_sepFM_empty.
       }
-      destruct (decide (((v.1.1.1.1 = i ∧ v.1.1.1.2 = j) ∧ v.1.2 = Donation))).
+      assert (trans_preserve_slice i j m (delete k trans')).
       {
-        admit.
+        rewrite /trans_preserve_slice in Heq.
+        rewrite /trans_preserve_slice.
+        destruct (decide (v.1.1.1.1 = i ∧ v.1.1.1.2 = j)).
+        rewrite map_filter_insert_True // in Heq.
+        rewrite map_filter_delete.
+        rewrite -Heq.
+        rewrite delete_insert //.
+        rewrite map_filter_lookup_None;left;done.
+        rewrite map_filter_insert_False // in Heq.
+        rewrite map_filter_delete in Heq.
+        rewrite map_filter_delete.
+        rewrite -Heq.
+        rewrite delete_idemp.
+        rewrite -map_filter_delete.
+        rewrite delete_notin //.
+      }
+      destruct (decide ((v.1.1.1.1 = i ∧ v.1.1.1.2 = j))).
+      {
+        iSpecialize ("IH" $! (delete k trans') H).
+        (*       k -{1 / 4}>t v.1 ∗ pgt_1_4 v.1.1.2 v.1.1.1.1 true *)
+        (* "H" : big_sepFM (delete k trans') *)
+        (*         (λ kv : Addr * transaction, *)
+        (*            ((kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j) ∧ kv.2.1.2 = Donation)%type) *)
+        (*         (λ (k0 : Addr) (v0 : transaction), k0 -{1 / 4}>t v0.1 ∗ *)
+        (*            pgt_1_4 v0.1.1.2 v0.1.1.1.1 true) *)
+        assert (trans' !! k = Some v).
+        {
+          rewrite /trans_preserve_slice in Heq.
+          rewrite map_filter_insert_True // in Heq.
+          assert (filter
+                    (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool),
+                        kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j) trans' !! k = Some v).
+          rewrite -Heq lookup_insert //.
+          rewrite map_filter_lookup_Some in H0.
+          destruct H0;done.
+        }
+        iSplit.
+        iIntros "H".
+        destruct (decide (v.1.2 = Donation)).
+        rewrite big_sepFM_insert_True //.
+        iApply big_sepFM_lookup_Some'. eauto.
+        split;done.
+        iDestruct "H" as "[$ ?]".
+        iApply "IH";done.
+        rewrite big_sepFM_insert_False //.
+        2: intros [_ ?];done.
+        iApply big_sepFM_delete_False.
+        eauto. intros [_ ?];done.
+        by iApply "IH".
+        iIntros "H".
+        destruct (decide (v.1.2 = Donation)).
+        rewrite big_sepFM_insert_True //.
+        iDestruct (big_sepFM_lookup_Some with "H") as "[$ H]". auto.
+        split;done.
+        by iApply "IH".
+        rewrite big_sepFM_insert_False //.
+        iApply "IH".
+        iApply (big_sepFM_delete_False with "H").
+        eauto. intros [_ ?];done.
+        intros [_ ?];done.
       }
       {
-        admit.
+        rewrite big_sepFM_insert_False //.
+        2: intros [? _];done.
+        assert (trans_preserve_slice i j m trans').
+        {
+          rewrite /trans_preserve_slice in Heq.
+          rewrite /trans_preserve_slice.
+          rewrite -Heq.
+          rewrite map_filter_insert_False.
+          2: intro;done.
+          rewrite delete_notin //.
+        }
+      iSpecialize ("IH" $! (delete k trans') H0).
+      iApply "IH".
       }
     }
     {
-      admit.
+      intros. apply _.
     }
-    Admitted.
+    Qed.
 
   Instance slice_retrievable_transaction_transferred_wf
     : SliceTransWf retrievable_transaction_transferred_slice.
@@ -67,25 +150,79 @@ Section logrel_prim_extra.
   Instance slice_transfer_all_wf : SliceTransWf slice_transfer_all.
   Proof.
     rewrite /slice_transfer_all /=.
-  Admitted.
+    split.
+    {
+      intros.
+     rewrite (slice_trans_valid transaction_pagetable_entries_transferred_slice) //.
+     rewrite (slice_trans_valid retrievable_transaction_transferred_slice) //.
+     rewrite (slice_trans_valid transferred_memory_slice) //.
+    }
+    {
+      intros. apply _.
+    }
+  Qed.
 
-
-  (* TODO *)
   Lemma slice_preserve_except i s {Φ : _ -> _ -> _ -> iProp Σ} `{!SliceTransWf Φ} trans trans':
     except i trans = except i trans' ->
     big_sepSS_except s i (Φ trans) ⊣⊢ big_sepSS_except s i (Φ trans').
   Proof.
     iIntros (Heq).
-    rewrite /big_sepSS_except.
-    rewrite /big_sepSS.
-    iApply big_sepS_proper.
-    iIntros (? Hin).
-    iApply big_sepS_proper.
-    iIntros (? Hin').
+    rewrite /big_sepSS_except. rewrite /big_sepSS.
+    iApply big_sepS_proper. iIntros (? Hin).
+    iApply big_sepS_proper. iIntros (? Hin').
     iApply (slice_trans_valid Φ).
     rewrite /trans_preserve_slice.
-    admit.
-  Admitted.
+    assert (x ≠ i). set_solver + Hin.
+    assert (x0 ≠ i). set_solver + Hin'.
+    rewrite /except in Heq.
+    apply map_eq. intros.
+    destruct (filter
+    (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool),
+       kv.2.1.1.1.1 = x ∧ kv.2.1.1.1.2 = x0) trans !! i0) eqn:Hlk.
+    symmetry.
+    rewrite map_filter_lookup_Some in Hlk.
+    destruct Hlk as [Hlk [? ?]].
+    assert (filter (λ kv : Addr * transaction, ¬ (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i))
+          trans !! i0 = Some t).
+    rewrite map_filter_lookup_Some.
+    split;first done.
+    intros [? |?];subst i;[subst x|subst x0];done.
+    rewrite Heq in H3.
+    rewrite map_filter_lookup_Some in H3.
+    destruct H3 as [Hlk' nP].
+    rewrite map_filter_lookup_Some.
+    split;first done. split;done.
+    symmetry.
+    rewrite map_filter_lookup_None in Hlk.
+    rewrite map_filter_lookup_None.
+    destruct Hlk as [Hlk | ?].
+    rewrite -(delete_notin trans i0 ) //in Heq.
+    rewrite map_filter_delete in Heq.
+    assert (filter (λ kv : Addr * transaction, ¬ (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i))
+          trans' !! i0 = None).
+    rewrite -Heq lookup_delete //.
+    rewrite map_filter_lookup_None in H1.
+    destruct H1.
+    { left;done. }
+    {
+      right. intros.
+      specialize (H1 x1 H2).
+      intros []. simpl in *. apply H1.
+      intros [|]. rewrite H5 in H3. done. rewrite H5 in H4. done.
+    }
+    right. intros. intros [].
+    assert (filter (λ kv : Addr * transaction, ¬ (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i))
+          trans' !! i0 = Some x1).
+    rewrite map_filter_lookup_Some.
+    split;first done.
+    intros [? |?];subst i;[subst x|subst x0];done.
+    rewrite -Heq in H5.
+    rewrite map_filter_lookup_Some in H5.
+    destruct H5.
+    specialize (H1 x1 H5).
+    apply H1.
+    split;done.
+  Qed.
 
   Lemma elem_of_set_of_vmids i:
     i ∈ set_of_vmids.
