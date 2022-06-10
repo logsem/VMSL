@@ -335,6 +335,24 @@ Section lemmas.
     intro Q'. by apply equiv in Q'.
   Qed.
 
+  Lemma big_sepFM_iff_weak {m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)} {Φ: K -> A -> PROP}:
+    map_Forall (λ k v, P (k, v) <-> Q (k, v)) m ->
+    big_sepFM m P Φ ⊣⊢ big_sepFM m Q Φ.
+  Proof.
+    intro equiv.
+    iInduction m as [| k v m Hlk] "IH" using map_ind.
+    iSplit; iIntros "?";iApply big_sepFM_empty.
+    rewrite map_Forall_insert in equiv.
+    destruct equiv as [eq equiv].
+    destruct (decide (P(k,v))).
+    rewrite 2?big_sepFM_insert_True //.
+    iSplit; iIntros "[$ ?]";by iApply ("IH" $! equiv).
+    by apply eq.
+    rewrite 2?big_sepFM_insert_False //.
+    by iApply ("IH" $! equiv).
+    intro Q'. by apply eq in Q'. done.
+  Qed.
+
   Lemma big_sepFM_split_decide {m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)}
                        {Φ: K -> A -> PROP}:
     big_sepFM m P Φ ⊣⊢ (big_sepFM m (λ kv, ((P kv) ∧ Q kv):Prop) Φ)
@@ -503,5 +521,27 @@ Section lemmas.
     destruct Hfalse;done.
   Qed.
 
+  Lemma big_sepFM_filter{m : gmap K A} `{∀x, (Decision (P x))} `{∀x, (Decision (Q x))}
+    {Φ: K -> A -> PROP}:
+    big_sepFM (filter P m) Q Φ
+    ⊣⊢ big_sepFM m (λ x, (Q x ∧ P x):Prop) Φ.
+  Proof.
+    iInduction m as [| k v m Hlk] "IH" using map_ind.
+    iSplit;iIntros "_"; iApply big_sepFM_empty.
+    rewrite map_filter_insert //.
+    case_decide.
+    destruct (decide (Q (k,v))).
+    rewrite big_sepFM_insert_True //.
+    rewrite big_sepFM_insert_True //.
+    iSplit;iIntros "[$ ?]";iApply "IH";done.
+    rewrite map_filter_lookup_None. left;done.
+    rewrite big_sepFM_insert_False //.
+    rewrite big_sepFM_insert_False //.
+    intros [];done.
+    rewrite map_filter_lookup_None. left;done.
+    rewrite delete_notin //.
+    rewrite big_sepFM_insert_False //.
+    intros [];done.
+  Qed.
 
 End lemmas.

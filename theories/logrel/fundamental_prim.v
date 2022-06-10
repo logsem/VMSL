@@ -518,10 +518,6 @@ Section fundamental_prim.
                   }
                 }
                 { (* instruction is in rx *)
-
-                (* iDestruct (memory_pages_union' with "[$mem_rest mem_inters]") as "mem_transferred";auto. *)
-                (* iExists mem_inters. iSplit. iPureIntro. exact Hdom_mem_inters. iFrame "mem_inters". *)
-
                 (* spliting rx from mem_inters *)
                 assert (Hsplit_rx: ((ps_acc ∖ {[p_tx]}) ∩ ({[p_rx]} ∪ transferred_memory_pages i trans))
                     = {[p_rx]} ∪ ((ps_acc ∖ {[p_tx]} ∖ {[p_rx]}) ∩ (transferred_memory_pages i trans))).
