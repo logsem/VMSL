@@ -30,7 +30,13 @@ Section slice_trans.
       slice_trans_timeless : ∀ i j trans, Timeless (Φ trans i j)
     }.
 
-  End slice_trans.
+
+End slice_trans.
+
+Global Arguments SliceTransWf {_} {_} _.
+Global Arguments slice_trans_valid {_} {_} _ {_} {_} {_} {_} {_} _.
+Global Arguments slice_trans_timeless {_} {_} _ {_} _ _ _.
+Global Hint Mode SliceTransWf + + ! : typeclass_instances.
 
 Section slice_rxs.
   Context `{hypconst:HypervisorConstants}.
@@ -39,7 +45,7 @@ Section slice_rxs.
 
   Class SliceRxsWf :=
     {
-      slice_rxs_empty :  ∀ i j, Φ i None j ⊣⊢ True;
+      slice_rxs_empty : ∀ i j, Φ i None j ⊣⊢ True;
       slice_rxs_sym : ∀ i os k k',
         (match os with
          | None => True
@@ -48,9 +54,15 @@ Section slice_rxs.
       slice_rxs_timeless : ∀ i os j, Timeless (Φ i os j)
     }.
 
-  End slice_rxs.
+End slice_rxs.
 
-  Section vmprop.
+Global Arguments SliceRxsWf {_} {_} _.
+Global Arguments slice_rxs_empty {_} {_} _ {_} _ _.
+Global Arguments slice_rxs_sym {_} {_} _ {_} {_} {_} _ _.
+Global Arguments slice_rxs_timeless {_} {_} _ {_} _ _ _.
+Global Hint Mode SliceRxsWf + + ! : typeclass_instances.
+
+Section vmprop.
   Context `{HypervisorConstants}.
   Context `{!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
