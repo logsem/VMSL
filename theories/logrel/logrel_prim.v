@@ -19,7 +19,7 @@ Section slice_trans.
   Class SliceTransWf :=
     {
       slice_trans_valid : ∀ i j trans trans',
-        trans_preserve_slice i j trans trans'-> (Φ trans i j ⊣⊢ Φ trans' i j);
+        trans_preserve_slice i j trans trans'-> (Φ trans i j ⊣⊢ Φ trans' i j)
       (* slice_trans_agree : ∀ i j (trans trans' : gmap Addr transaction), *)
       (*   dom (gset _) (filter (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j)%type trans') ⊆ dom _ trans -> *)
       (*   ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1) ⊢ *)
@@ -27,7 +27,7 @@ Section slice_trans.
       (* (* slice_trans_agree : ∀ i j (trans trans' : gmap Addr transaction), *) *)
       (* (*   ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1) ∗ (Φ trans' i j) ⊢ *) *)
       (* (*  ⌜trans_preserve_slice_fst i j trans trans'⌝; *) *)
-      slice_trans_timeless : ∀ i j trans, Timeless (Φ trans i j)
+      (* slice_trans_timeless : ∀ i j trans, Timeless (Φ trans i j) *)
     }.
 
 
@@ -35,7 +35,7 @@ End slice_trans.
 
 Global Arguments SliceTransWf {_} {_} _.
 Global Arguments slice_trans_valid {_} {_} _ {_} {_} {_} {_} {_} _.
-Global Arguments slice_trans_timeless {_} {_} _ {_} _ _ _.
+(* Global Arguments slice_trans_timeless {_} {_} _ {_} _ _ _. *)
 Global Hint Mode SliceTransWf + + ! : typeclass_instances.
 
 Section slice_rxs.
@@ -51,7 +51,7 @@ Section slice_rxs.
          | None => True
          | Some (_,j) => j ≠ V0
          end) -> Φ i os k ⊣⊢ Φ i os k';
-      slice_rxs_timeless : ∀ i os j, Timeless (Φ i os j)
+      (* slice_rxs_timeless : ∀ i os j, Timeless (Φ i os j) *)
     }.
 
 End slice_rxs.
@@ -59,7 +59,7 @@ End slice_rxs.
 Global Arguments SliceRxsWf {_} {_} _.
 Global Arguments slice_rxs_empty {_} {_} _ {_} _ _.
 Global Arguments slice_rxs_sym {_} {_} _ {_} {_} {_} _ _.
-Global Arguments slice_rxs_timeless {_} {_} _ {_} _ _ _.
+(* Global Arguments slice_rxs_timeless {_} {_} _ {_} _ _ _. *)
 Global Hint Mode SliceRxsWf + + ! : typeclass_instances.
 
 Section vmprop.
@@ -197,7 +197,7 @@ Section logrel_prim.
                 ∗ transferred_memory_slice trans i j)%I.
 
   Definition slice_rx_state (j : VMID) (os : option (Word * VMID)) : iProp Σ :=
-    ∃ p_rx, RX@ j := p_rx ∗ (RX_state{1/2}@j := os) ∗ (∃ mem_rx, memory_page p_rx mem_rx).
+    (RX_state{1/2}@j := os) ∗ ∃ p_rx, RX@ j := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx).
 
   Definition interp_access_prim Φ_t Φ_r (p_tx p_rx :PID) (ps_acc: gset PID) (trans: gmap Word transaction)
     (rxs : gmap VMID (option (Word * VMID))) `{!SliceTransWf Φ_t} `{!SliceRxsWf Φ_r}: iPropO Σ:=

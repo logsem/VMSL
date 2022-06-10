@@ -151,4 +151,38 @@ Section lemmas.
     set_solver.
   Qed.
 
+
+  Lemma big_sepSS_later (s : gset K) (Φ : K -> K -> PROP) `{!BiAffine PROP}:
+    ▷ big_sepSS s Φ ⊣⊢ big_sepSS s (λ i j, ▷ (Φ i j)).
+  Proof.
+    rewrite /big_sepSS.
+    rewrite (big_sepS_later (λ x1, [∗ set] x2 ∈ s, Φ x1 x2)%I s).
+    iApply big_sepS_proper.
+    intros. iApply big_sepS_later.
+  Qed.
+
+  Lemma big_sepSS_except_later (s : gset K) i (Φ : K -> K -> PROP) `{!BiAffine PROP}:
+    ▷ big_sepSS_except s i Φ ⊣⊢ big_sepSS_except s i (λ i j, ▷ (Φ i j)).
+  Proof.
+    rewrite /big_sepSS_except.
+    iApply big_sepSS_later.
+  Qed.
+
+  Lemma big_sepSS_singleton_later (s : gset K) i (Φ : K -> K -> PROP) `{!BiAffine PROP}:
+    ▷ big_sepSS_singleton s i Φ ⊣⊢ big_sepSS_singleton s i (λ i j, ▷ (Φ i j)).
+  Proof.
+    rewrite /big_sepSS_singleton.
+    case_decide.
+    rewrite later_sep.
+    rewrite big_sepS_later.
+    iSplitL; iIntros "[$ ?]".
+    iApply big_sepS_proper.
+    intros. symmetry. iApply later_sep. done.
+    iApply big_sepS_proper.
+    intros. iApply later_sep. done.
+    rewrite big_sepS_later.
+    iApply big_sepS_proper.
+    intros. iApply later_sep.
+  Qed.
+
 End lemmas.
