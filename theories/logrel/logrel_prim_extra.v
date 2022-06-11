@@ -992,6 +992,40 @@ Section logrel_prim_extra.
       is_total_gmap rxs ->
       (∀ j, Φ_r V0 j V0 ⊣⊢ slice_rx_state V0 j) ->
       rx_states_global (delete V0 rxs) ∗
+      rx_states_transferred Φ_r (delete V0 rxs) ∗
+      rx_state_get V0 rxs ∗
+      (∃ p_rx, RX@V0 := p_rx ∗
+      (∃ mem_rx, memory_page p_rx mem_rx))
+      ⊢
+      rx_states_global rxs ∗
+      rx_states_transferred Φ_r rxs.
+  Proof.
+    iIntros (Htotal Hequiv) "(global & transferred & rx_state & rx)".
+    rewrite /rx_states_global /rx_states_transferred.
+    pose proof (Htotal V0) as [rs Hlookup_rs].
+    rewrite (big_sepM_delete _ rxs V0 rs);auto.
+    iFrame "global".
+    rewrite (big_sepM_delete _ rxs V0 rs);auto.
+    iFrame "transferred".
+    iDestruct ("rx_state" $! rs with "[]") as "rx_state". done.
+    destruct rs.
+    {
+      rewrite /rx_state_match.
+      iDestruct (rx_state_split with "rx_state") as "[$ ?]".
+      rewrite (Hequiv (Some p)).
+      rewrite /slice_rx_state.
+      iFrame.
+    }
+    {
+      rewrite /rx_state_match.
+      iFrame.
+    }
+  Qed.
+
+  Lemma rx_state_merge_zero_later {Φ_r} rxs:
+      is_total_gmap rxs ->
+      (∀ j, Φ_r V0 j V0 ⊣⊢ slice_rx_state V0 j) ->
+      rx_states_global (delete V0 rxs) ∗
       ▷ rx_states_transferred Φ_r (delete V0 rxs) ∗
       rx_state_get V0 rxs ∗
       (∃ p_rx, RX@V0 := p_rx ∗
@@ -1024,6 +1058,44 @@ Section logrel_prim_extra.
   Qed.
 
   Lemma rx_states_split {Φ_r} `{!SliceRxsWf Φ_r} (i:VMID) rxs:
+      (∀ i os,
+         match os with
+         | None => True
+         | Some (_ ,k) => k = V0
+        end ->
+         Φ_r i os i ⊣⊢ Φ_r i os V0) ->
+      is_total_gmap rxs ->
+      rx_states_global rxs ∗
+      rx_states_transferred Φ_r rxs
+      ⊢
+      rx_states_global (delete i rxs) ∗
+      rx_states_transferred Φ_r (delete i rxs) ∗
+      (∀ rs : option (Addr * VMID), ⌜rxs !! i = Some rs⌝ -∗ rx_state_match i rs ∗ Φ_r i rs i).
+  Proof.
+    iIntros (H Htotal) "(global & transferred)".
+    rewrite /rx_states_global /rx_states_owned /rx_states_transferred.
+    pose proof (Htotal i) as [rs Hlookup_rs].
+    iDestruct (big_sepM_delete with "global") as "[rs global]";eauto.
+    iDestruct (big_sepM_delete with "transferred") as "[t transferred]";eauto.
+    iFrame.
+    iIntros (?) "%Hlk".
+    rewrite Hlookup_rs in Hlk.
+    inversion Hlk. subst rs0.
+    destruct rs.
+    {
+      iFrame.
+      destruct p.
+      destruct (decide (v = V0)).
+      iDestruct (H with "t") as "t";done.
+      iDestruct (slice_rxs_sym Φ_r i with "t") as "t";done.
+    }
+    {
+      rewrite (slice_rxs_empty).
+      iSplitL. iFrame "rs". done.
+    }
+  Qed.
+
+  Lemma rx_states_split_later {Φ_r} `{!SliceRxsWf Φ_r} (i:VMID) rxs:
       (∀ i os,
          match os with
          | None => True
