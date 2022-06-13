@@ -5,8 +5,8 @@ From HypVeri.algebra Require Import base pagetable mem trans mailbox.
 From HypVeri.rules Require Import rules_base halt fail run.
 From HypVeri.logrel Require Import logrel_prim_extra.
 From HypVeri.logrel Require Import ftlr_nop ftlr_mov ftlr_ldr ftlr_str ftlr_cmp ftlr_add ftlr_sub ftlr_mult ftlr_bne ftlr_br.
-From HypVeri.logrel Require Import ftlr_run_prim ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend
- ftlr_msg_poll ftlr_invalid_hvc.
+From HypVeri.logrel Require Import ftlr_run_prim ftlr_yield_prim ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend
+ ftlr_msg_wait_prim ftlr_msg_send_prim ftlr_msg_poll ftlr_invalid_hvc.
 From HypVeri Require Import proofmode.
 Import uPred.
 
@@ -59,10 +59,6 @@ Section fundamental_prim.
     iDestruct (later_intro with "VMProps") as "VMProps". rewrite big_sepS_later.
     iDestruct (later_intro with "transferred_except") as "transferred_except".
     iDestruct (later_intro with "rxs_transferred") as "rxs_transferred".
-
-    (* iAssert (∃ P0 : iProp Σ, VMProp i P0 1)%I with "VMProp" as "VMProp". *)
-    (* iAssert (big_sepSS_except set_of_vmids i (Φ_t trans)) with "transferred_except" as "transferred_except". *)
-    (* iAssert (rx_states_transferred Φ_r (delete i rxs)) with "rxs_transferred" as "rxs_transferred". *)
 
     iCombine "VMProp VMProps transferred_except rxs_transferred" as "Running".
 
@@ -200,31 +196,140 @@ Section fundamental_prim.
               iDestruct "pgt_tx" as "[_ excl_tx]".
               iApply (excl_ne with "[$ excl_tx $ excl_rx]").
             }
+            assert (∀ (trans0 trans' : gmap Addr transaction) (rxs0 rxs' : gmap VMID (option (Addr * VMID))),
+                      delete V0 rxs0 = delete V0 rxs'
+                      → except V0 trans0 = except V0 trans'
+                      → (∃ P0 : iProp Σ, VMProp i P0 1) ∗ ([∗ set] y ∈ (set_of_vmids ∖ {[i]}), ▷ VMProp (y:VMID) (vmprop_unknown y Φ_t Φ_r) (1 / 2)) ∗
+                          ▷ (big_sepSS_except set_of_vmids i (Φ_t trans0) ∗ rx_states_transferred Φ_r (delete i rxs0)) ⊣⊢ (∃ P0 : iProp Σ, VMProp i P0 1) ∗
+                      ([∗ set] y ∈ (set_of_vmids ∖ {[i]}), ▷ VMProp (y:VMID) (vmprop_unknown y Φ_t Φ_r) (1 / 2)) ∗
+                      ▷ (big_sepSS_except set_of_vmids i (Φ_t trans') ∗ rx_states_transferred Φ_r (delete i rxs'))).
+            {
+              intros.
+              do 4 f_equiv.
+              rewrite /big_sepSS_except /big_sepSS.
+              iApply big_sepS_proper.
+              intros.
+              iApply big_sepS_proper.
+              intros.
+              rewrite slice_trans_valid. reflexivity.
+              rewrite /trans_preserve_slice.
+              rewrite /except in H0.
+              pose proof (map_filter_subseteq_ext (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.1 = x ∧ kv.2.1.1.1.2 = x0)
+                (λ kv : Addr * transaction, ¬ (kv.2.1.1.1.1 = V0 ∨ kv.2.1.1.1.2 = V0))).
+              pose proof (H3 trans0) as [_ Hsub1].
+              feed specialize Hsub1. simpl.
+              intros ? ? ? [? ?].
+              rewrite H5 H6.
+              intros [H'|H']; [rewrite H' in H1 | rewrite H' in H2]. set_solver + H1. set_solver + H2.
+              pose proof (H3 trans') as [_ Hsub2].
+              feed specialize Hsub2. simpl.
+              intros ? ? ? [? ?].
+              rewrite H5 H6.
+              intros [H'|H']; [rewrite H' in H1 | rewrite H' in H2]. set_solver + H1. set_solver + H2.
+              apply map_eq.
+              intros. rewrite map_subseteq_spec in Hsub1. rewrite map_subseteq_spec in Hsub2.
+              destruct (filter (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.1 = x ∧ kv.2.1.1.1.2 = x0) trans0 !! i0) eqn:Heqn'.
+              specialize (Hsub1 i0 t Heqn').
+              destruct (filter (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.1 = x ∧ kv.2.1.1.1.2 = x0) trans' !! i0) eqn:Heqn''.
+              specialize (Hsub2 i0 t0 Heqn'').
+              rewrite H0 Hsub2 in Hsub1. done.
+              rewrite H0 in Hsub1.
+              rewrite map_filter_lookup_Some in Hsub1. destruct Hsub1.
+              rewrite map_filter_lookup_Some in Heqn'.
+              rewrite map_filter_lookup_None in Heqn''.
+              destruct Heqn''. rewrite H4 // in H6. specialize (H6 t H4). destruct Heqn'. done.
+              destruct (filter (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.1 = x ∧ kv.2.1.1.1.2 = x0) trans' !! i0) eqn:Heqn''.
+              specialize (Hsub2 i0 t Heqn'').
+              rewrite -H0 in Hsub2.
+              rewrite map_filter_lookup_Some in Hsub2. destruct Hsub2.
+              rewrite map_filter_lookup_Some in Heqn''.
+              rewrite map_filter_lookup_None in Heqn'.
+              destruct Heqn'. rewrite H4 // in H6. specialize (H6 t H4). destruct Heqn''. done.
+              done.
+              f_equiv.
+              done.
+            }
             destruct (hvc_f).
             { (* RUN *)
               iApply (ftlr_run_prim with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
                  rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx Running");iFrameAutoSolve.
               all:done.
-              }
-            { admit. }
-            { admit. }
-            { admit. }
-            { admit. }
-            { admit. }
-            { admit. }
-            { admit. }
-            { (* SEND *)
-              admit. }
-            { (* WAIT *)
-              admit. }
-            { admit. }
+            }
+            {
+              iApply (ftlr_yield_prim with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx Running");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Share*)
+              iApply (ftlr_share with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Lend*)
+              iApply (ftlr_lend with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Donate*)
+              iApply (ftlr_donate with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Retrieve*)
+              iApply (ftlr_retrieve with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Relinquish*)
+              iApply (ftlr_relinquish with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Reclaim*)
+              iApply (ftlr_reclaim with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Send*)
+              iApply (ftlr_msg_send_prim with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx Running");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Wait*)
+              iApply (ftlr_msg_wait_prim with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
+            { (*Poll*)
+              iApply (ftlr_msg_poll with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+              all:done.
+            }
           }
-          admit.
+          { (* decode_hvc_func r0 = None *)
+            iApply (ftlr_invalid_hvc with "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri
+                 rx_state rx rxs_global tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx");iFrameAutoSolve.
+            all:done.
+          }
         }
       }
-      admit.
+      { (*invalid instruction *)
+        iDestruct (reg_big_sepM_split i Hlookup_PC with "[$regs]") as "[PC _]".
+        (* we don't update pagetable *)
+        (* getting mem *)
+        iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx")
+          as "[mem_instr Hacc_mem_acc]".
+        iApply (not_valid_instr _ ai instr with "[PC pgt_acc tx mem_instr]"); iFrameAutoSolve.
+        iNext. iIntros "? _".
+        by iApply wp_terminated.
+      }
     }
-    admit.
-  Admitted.
+    { (* i doesn't have access *)
+      iDestruct (reg_big_sepM_split i Hlookup_PC with "[$regs]") as "[PC _]".
+      iApply (invalid_pc_not_accessible with "[PC pgt_acc]"); iFrameAutoSolve.
+      iNext;simpl. iIntros "? _".
+      by iApply wp_terminated.
+    }
+  Qed.
 
 End fundamental_prim.

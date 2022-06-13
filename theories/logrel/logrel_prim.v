@@ -20,14 +20,6 @@ Section slice_trans.
     {
       slice_trans_valid : ∀ i j trans trans',
         trans_preserve_slice i j trans trans'-> (Φ trans i j ⊣⊢ Φ trans' i j)
-      (* slice_trans_agree : ∀ i j (trans trans' : gmap Addr transaction), *)
-      (*   dom (gset _) (filter (λ kv, kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j)%type trans') ⊆ dom _ trans -> *)
-      (*   ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1) ⊢ *)
-      (*   (Φ trans' i j) ∗-∗ (Φ (map_zip (fst<$>trans) (snd <$>trans')) i j); *)
-      (* (* slice_trans_agree : ∀ i j (trans trans' : gmap Addr transaction), *) *)
-      (* (*   ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1) ∗ (Φ trans' i j) ⊢ *) *)
-      (* (*  ⌜trans_preserve_slice_fst i j trans trans'⌝; *) *)
-      (* slice_trans_timeless : ∀ i j trans, Timeless (Φ trans i j) *)
     }.
 
 
@@ -35,7 +27,6 @@ End slice_trans.
 
 Global Arguments SliceTransWf {_} {_} _.
 Global Arguments slice_trans_valid {_} {_} _ {_} {_} {_} {_} {_} _.
-(* Global Arguments slice_trans_timeless {_} {_} _ {_} _ _ _. *)
 Global Hint Mode SliceTransWf + + ! : typeclass_instances.
 
 Section slice_rxs.
@@ -51,7 +42,6 @@ Section slice_rxs.
          | None => True
          | Some (_,j) => j ≠ V0
          end) -> Φ i os k ⊣⊢ Φ i os k';
-      (* slice_rxs_timeless : ∀ i os j, Timeless (Φ i os j) *)
     }.
 
 End slice_rxs.
@@ -59,7 +49,6 @@ End slice_rxs.
 Global Arguments SliceRxsWf {_} {_} _.
 Global Arguments slice_rxs_empty {_} {_} _ {_} _ _.
 Global Arguments slice_rxs_sym {_} {_} _ {_} {_} {_} _ _.
-(* Global Arguments slice_rxs_timeless {_} {_} _ {_} _ _ _. *)
 Global Hint Mode SliceRxsWf + + ! : typeclass_instances.
 
 Section vmprop.
@@ -174,13 +163,6 @@ Section logrel_prim.
   Context `{!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  (* Definition trans_rel_primary (i:VMID) (trans trans': gmap Word transaction): Prop := *)
-  (*  map_Forall (λ h tran, *)
-  (*         ((tran.1.1.1.1 ≠ i ∧ tran.1.1.1.2 ≠ i) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧ *)
-  (*         ((tran.1.1.1.2 = V0 ∧ tran.2 = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran') ∧ *)
-  (*         ((tran.1.1.1.1 = V0 ∧ tran.1.2 ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1) *)
-  (*    ) trans. *)
-
   Definition transferred_memory_slice (trans : gmap Addr transaction) (i: VMID) (j:VMID): iProp Σ:=
     big_sepFM trans (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.1.1.2 = j) ∧ ¬(kv.2.2 = true ∧ kv.2.1.2 = Lending)) (λ _ tran, (∃ mem , memory_pages tran.1.1.2 mem)%I).
 
@@ -233,7 +215,6 @@ Section logrel_prim.
       ⌜is_total_gmap rxs⌝ ∗
       rx_states_global rxs ∗
       rx_states_transferred Φ_r rxs ∗
-      (* rx_states_owned Φ_r rxs ∗ *)
       (big_sepSS set_of_vmids (Φ_t trans)) ∗
       [∗ set] i ∈ set_of_vmids ∖ {[V0]}, VMProp (i:VMID) (vmprop_unknown i Φ_t Φ_r) (1/2)%Qp
     )%I.
