@@ -478,7 +478,7 @@ Definition write_retrieve_msg (st:state) (dst: Addr) (wh:Word) (trn: transaction
     | Some l =>
       let des := ([of_imm (encode_vmid vs); wh; encode_transaction_type t ;(l ^- 4)%f]
                     ++ map of_pid (elements ls)) in
-      fill_rx (write_mem_segment st dst des) l vr vr
+      fill_rx (write_mem_segment st dst des) l vs vr
     | None => throw InvParam
     end
  end.

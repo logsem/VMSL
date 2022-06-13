@@ -110,7 +110,7 @@ Proof.
     rewrite (preserve_get_rx_gmap (empty_rx σ1) (update_incr_PC _)).
     2: rewrite p_upd_pc_mb 3!p_upd_reg_mb //.
     rewrite (u_empty_rx_mb) Heq_cur.
-    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]".
+    iDestruct (rx_state_update with "rx_state rx_s") as ">[$ rx_s]". done.
     iModIntro.
     iSplit. iPureIntro. auto.
     (* just_schedule *)

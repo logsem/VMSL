@@ -10,7 +10,7 @@ Section mailbox_rules.
     RX_state@i := x -∗  RX_state@i := x' -∗ False.
   Proof.
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
-    iIntros "Ha1 Ha2".
+    iIntros "[Ha1 ?] [Ha2 ?]".
     iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %Hvalid.
     destruct Hvalid as [Hvalid _].
     apply dfrac_valid_own_r in Hvalid.
@@ -21,14 +21,20 @@ Section mailbox_rules.
     RX_state{q}@i := x ⊣⊢ RX_state{q/2}@i := x ∗ RX_state{q/2}@i := x.
   Proof.
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
-    iApply (ghost_map_elem_split i _ q x).
+    iSplit.
+    iIntros "[H %]".
+    iDestruct (ghost_map_elem_split i _ q x with "H") as "[$ $]".
+    iSplit;auto.
+    iIntros "[[H1 %] [H2 _]]".
+    iSplit;auto.
+    iApply (ghost_map_elem_split i _ q x). iFrame.
   Qed.
 
   Lemma rx_state_agree i q1 q2 x x':
      RX_state{q1}@i := x -∗ RX_state{q2}@i := x' -∗ ⌜x = x'⌝.
   Proof.
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
-    iIntros "Ha1 Ha2".
+    iIntros "[Ha1 %] [Ha2 ?]".
     iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %Hvalid.
     destruct Hvalid as [_ Hvalid].
     done.
@@ -39,7 +45,7 @@ Section mailbox_rules.
     RX_state{q}@i := x-∗
     ⌜(get_mail_box σ @ i).2.2 = x⌝.
   Proof.
-    iIntros "Hrxown Hrx".
+    iIntros "Hrxown [Hrx %]".
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
     iDestruct (ghost_map_lookup with "Hrxown Hrx") as "%Hsome".
     iPureIntro.
@@ -82,12 +88,16 @@ Section mailbox_rules.
   Qed.
 
   Lemma rx_state_update {σ} i x x' :
+    match x' with
+    |None => True
+    |Some s => s.2 ≠ i
+    end->
     ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
     RX_state@i := x ==∗
     ghost_map_auth gen_rx_state_name 1 (<[i:=x']>(get_rx_gmap σ)) ∗
     RX_state@i := x'.
   Proof.
-    iIntros "Hσ Hrx".
+    iIntros (Hneq) "Hσ [Hrx %]".
     rewrite rx_state_mapsto_eq /rx_state_mapsto_def.
     iDestruct (ghost_map_update (x') with "Hσ Hrx") as ">[Hσ2 Hrx]".
     iFrame.
@@ -95,12 +105,13 @@ Section mailbox_rules.
   Qed.
   
   Lemma rx_state_fill {σ} i l x:
+     x ≠ i ->
      ghost_map_auth gen_rx_state_name 1 (get_rx_gmap σ) -∗
      RX_state@i := None ==∗
      ghost_map_auth gen_rx_state_name 1 (<[i:=Some (l, x)]>(get_rx_gmap σ)) ∗
      RX_state@i:= Some(l,x).
   Proof.
-    iIntros "Hσ Hrx".
+    iIntros (Hneq) "Hσ Hrx".
     by iApply (rx_state_update with "Hσ Hrx").
   Qed.
 
@@ -158,6 +169,16 @@ Section mailbox_rules.
     done.
     subst.
     set_solver + H3.
+  Qed.
+
+  Lemma rx_agree i x x' :
+    RX@i := x -∗  RX@i := x' -∗ ⌜x = x'⌝.
+  Proof.
+    rewrite mb_mapsto_eq /mb_mapsto_def.
+    iIntros "Ha1 Ha2".
+    iDestruct (ghost_map_elem_valid_2 with "Ha1 Ha2") as %Hvalid.
+    destruct Hvalid as [_ Hvalid].
+    done.
   Qed.
 
   Definition rx_page i p_rx := (RX@i := p_rx ∗ p_rx -@O> - ∗ p_rx -@E> true)%I.

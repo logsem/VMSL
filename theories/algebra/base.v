@@ -48,8 +48,7 @@ Class gen_VMPreG  (A V W R P F: Type) (Σ:gFunctors)
   gen_excl_preG_inG :> ghost_mapG Σ P boolO;
   gen_trans_preG_inG :> ghost_mapG Σ W (option (V * V * (gset P) * F));
   gen_hpool_preG_inG :> inG Σ (frac_authR (agreeR (gsetR W)));
-  gen_retri_preG_inG :> ghost_mapG Σ W (option bool);
-  gen_lower_bound_preG_inG :> inG Σ (authR (gmapUR V (exclR (gsetR (leibnizO P)))))
+  gen_retri_preG_inG :> ghost_mapG Σ W (option bool)
   }.
 
 Section gen_vmG.
@@ -71,8 +70,7 @@ Section gen_vmG.
                             gen_excl_name : gname;
                             gen_trans_name : gname;
                             gen_hpool_name : gname;
-                            gen_retri_name : gname;
-                            gen_lower_bound_name: gname
+                            gen_retri_name : gname
                        }.
 
   Global Arguments gen_mem_name {Σ} {_}.
@@ -86,7 +84,6 @@ Section gen_vmG.
   Global Arguments gen_hpool_name {Σ} {_}.
   Global Arguments gen_retri_name {Σ} {_}.
   Global Arguments gen_name_map_name {Σ} {_}.
-  Global Arguments gen_lower_bound_name {Σ} {_}.
 
   Definition gen_VMΣ : gFunctors :=
     #[
@@ -101,8 +98,7 @@ Section gen_vmG.
            ghost_mapΣ PID boolO;
            ghost_mapΣ Word (option (VMID * VMID * (gset PID) * transaction_type));
            GFunctor (frac_authR (agreeR (gsetR Word)));
-           ghost_mapΣ Word (option bool);
-           GFunctor (authR (gmapUR VMID (exclR (gsetR (leibnizO PID)))))
+           ghost_mapΣ Word (option bool)
       ].
 
   Global Instance subG_gen_VMPreG {Σ}:
@@ -300,18 +296,6 @@ Section definitions.
   Definition retri_mapsto := retri_mapsto_aux.(unseal).
   Definition retri_mapsto_eq : @retri_mapsto = @retri_mapsto_def := retri_mapsto_aux.(seal_eq).
 
-  Definition lower_bound_frag_mapsto_def (i:VMID) (s: gset PID) : iProp Σ :=
-    own (gen_lower_bound_name) (◯ {[i:= Excl s]}).
-  Definition lower_bound_frag_mapsto_aux : seal (@lower_bound_frag_mapsto_def). Proof. by eexists. Qed.
-  Definition lower_bound_frag_mapsto := lower_bound_frag_mapsto_aux.(unseal).
-  Definition lower_bound_frag_mapsto_eq : @lower_bound_frag_mapsto = @lower_bound_frag_mapsto_def := lower_bound_frag_mapsto_aux.(seal_eq).
-
-  Definition lower_bound_auth_mapsto_def (gm : gmap VMID (gset PID)) : iProp Σ :=
-    own (gen_lower_bound_name) (● (((λ (v: (gset PID)), Excl v) <$> gm): gmap VMID (exclR (gsetR PID)))).
-  Definition lower_bound_auth_mapsto_aux : seal (@lower_bound_auth_mapsto_def). Proof. by eexists. Qed.
-  Definition lower_bound_auth_mapsto := lower_bound_auth_mapsto_aux.(unseal).
-  Definition lower_bound_auth_mapsto_eq : @lower_bound_auth_mapsto = @lower_bound_auth_mapsto_def := lower_bound_auth_mapsto_aux.(seal_eq).
-
 End definitions.
 
 (* point-to predicates for registers and memory *)
@@ -325,7 +309,11 @@ Notation "a ->a w" := (mem_mapsto a 1 w) (at level 20) : bi_scope.
 (* predicates for TX and RX *)
 Notation "TX@ i := p" := (mb_mapsto i TX p)
                               (at level 20, format "TX@ i := p"): bi_scope.
-Notation "RX_state{ q }@ i := o" := ((rx_state_mapsto i q o))%I
+
+Notation "RX_state{ q }@ i := o" := ((rx_state_mapsto i q o) ∗ ⌜((λ (oo: option (Word*VMID)), match oo with
+                                      | None => True
+                                      | Some s => s.2 ≠ i
+                                      end) o)⌝)%I
                                         (at level 20, format "RX_state{ q }@ i :=  o"):bi_scope.
 Notation "RX_state@ i := o" := (RX_state{1}@i := o)%I
                                         (at level 20, format "RX_state@ i :=  o"):bi_scope.
@@ -359,10 +347,6 @@ Notation "w ->re -" := (w -{ 1 }>re -)%I (at level 20, format "w  ->re  -"):bi_s
 Notation "'hp' { q }[ s ]" := (hpool_mapsto q s)  (at level 20, format "hp  { q }[ s ]"):bi_scope.
 Notation "'hp' [ s ]" := ( hp {1}[s] )%I (at level 20, format "hp  [ s ]"):bi_scope.
 
-(* predicates for lower_bound *)
-Notation "'LB_auth' m" := (lower_bound_auth_mapsto m) (at level 20, format "'LB_auth' m"):bi_scope.
-Notation "LB@ i := [ s ]" := (lower_bound_frag_mapsto i s) (at level 20, format "LB@  i  :=  [ s ]"):bi_scope.
-
 Section alloc_rules.
   (* these rules cannot be parametrized by gen_vmG, otherwise it is not possible to prove any
    adequacy lemmas for examples. *)
@@ -370,28 +354,6 @@ Section alloc_rules.
   Context `{HyperConst : !HypervisorConstants}.
   Context `{HyperParams : !HypervisorParameters}.
   Context `{!gen_VMPreG Addr VMID Word reg_name PID transaction_type Σ}.
-
-  Lemma gen_lower_bound_alloc (gm: gmap VMID (gset PID)):
-   ⊢ |==> ∃ γ, own γ (● (((λ (v: (gset PID)), Excl v) <$> gm): gmap VMID (exclR (gsetR PID)))) ∗ [∗ map] k ↦ v ∈ gm, own γ (◯ {[k:= Excl v]}) .
-  Proof.
-    iIntros.
-    set gm' := ((λ (v: (gset PID)), Excl v) <$> gm).
-    iMod (own_alloc ((● gm') ⋅ (◯ gm'))) as (γ) "Halloc".
-    { apply auth_both_valid;split;first done. intro.
-      rewrite lookup_fmap /=.
-      destruct (gm !! i) eqn:Hlookup;  last done.
-      apply Some_valid.
-      done.
-    }
-    rewrite own_op.
-    iDestruct "Halloc" as "[Hauth Hfrag]".
-    iExists γ.
-    iSplitR "Hfrag"; first done.
-    rewrite -big_opM_own_1 -big_opM_auth_frag.
-    rewrite -big_opM_fmap.
-    rewrite big_opM_singletons //.
-  Qed.
-
   Context (σ : state).
 
   Lemma gen_reg_alloc:
@@ -540,13 +502,6 @@ Section timeless.
 
   Global Instance retri_mapsto_timeless_None w q : Timeless (w -{q}>re -).
   Proof. rewrite retri_mapsto_eq /retri_mapsto_def. apply _. Qed.
-
-  Global Instance lower_bound_frag_mapsto_timeless (i:VMID) (s:gset PID) : Timeless (LB@ i := [s]).
-  Proof. rewrite lower_bound_frag_mapsto_eq /lower_bound_frag_mapsto_def. apply _. Qed.
-
-  Global Instance lower_bound_auth_mapsto_timeless (gm :gmap VMID (gset PID)) : Timeless (LB_auth gm).
-  Proof. rewrite lower_bound_auth_mapsto_eq /lower_bound_auth_mapsto_def. apply _. Qed.
-
 End timeless.
 
 From machine_program_logic.program_logic Require Import weakestpre.

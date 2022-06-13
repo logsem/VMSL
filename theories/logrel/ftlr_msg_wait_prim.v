@@ -1,18 +1,19 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base pagetable mem trans mailbox.
-From HypVeri.rules Require Import msg_poll.
+From HypVeri.rules Require Import msg_wait.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
 
-Section ftlr_msg_poll.
+Section ftlr_msg_wait_prim.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Lemma ftlr_msg_poll {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
-  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
+  Lemma ftlr_msg_wait_prim {P mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
+    let i := V0 in
+    (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
     base_extra.is_total_gmap regs ->
     base_extra.is_total_gmap rxs ->
     {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -27,7 +28,7 @@ Section ftlr_msg_poll.
     mem_acc_tx !! ai = Some instr ->
     decode_instruction instr = Some Hvc ->
     regs !! R0 = Some r0 ->
-    decode_hvc_func r0 = Some Poll ->
+    decode_hvc_func r0 = Some Wait ->
     p_tx ≠ p_rx ->
   ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : gmap VMID (option (Addr * VMID))),
               ⌜base_extra.is_total_gmap a2⌝ -∗
@@ -68,12 +69,12 @@ Section ftlr_msg_poll.
    (∃ mem1 : mem, memory_pages ((ps_acc ∪ (accessible_in_trans_memory_pages i trans)) ∖ ps_acc) mem1) -∗
    ([∗ map] k↦v ∈ mem_acc_tx, k ->a v) -∗
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
-   P trans rxs -∗
+   (P trans rxs) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
-    iIntros (P_eq Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
+    iIntros (i P_eq Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
                          Hlookup_mem_ai Heqn).
-    iIntros (Hlookup_reg_R0 Hdecode_hvc Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri rx_state rx other_rx
+    iIntros ( Hlookup_reg_R0 Hdecode_hvc Hneq_mb) "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri rx_state rx other_rx
              tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx P".
     set ps_mem_in_trans := accessible_in_trans_memory_pages i trans.
     pose proof (Htotal_regs R1) as[r1 Hlookup_reg_R1].
@@ -86,13 +87,13 @@ Section ftlr_msg_poll.
     iDestruct ("rx_state" $! rx_state with "[]") as "rx_state". done.
 
     destruct (rx_state).
-    { (* apply [msg_poll_full] *)
+    { (* apply [msg_wait_filled] *)
       destruct p.
-      iApply (msg_poll_full ai with "[PC mem_instr pgt_acc R0 R1 R2 tx rx_state]");iFrameAutoSolve.
+      iApply (msg_wait_filled ai with "[PC mem_instr pgt_acc R0 R1 R2 tx rx_state]");iFrameAutoSolve.
       iNext. iIntros "(PC & mem_instr & tx & pgt_acc & R0 & R1 & R2 & rx_state ) _".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
-      iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
 
+      iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
       set rxs' := <[i:= None]> rxs.
       iApply ("IH" $! _ ps_acc trans rxs' with "[] [] [] [] [] [] regs tx pgt_tx rx pgt_acc pgt_owned trans_hpool_global
                             tran_pgt_transferred retri [rx_state] [other_rx] tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]
@@ -128,32 +129,44 @@ Section ftlr_msg_poll.
       }
       {
         iApply (P_eq with "P").
-        rewrite /rxs' delete_insert_delete //.
+        rewrite /rxs'. rewrite delete_insert_delete //.
         done.
       }
     }
-    (* apply [msg_poll_empty] *)
-      iApply (msg_poll_empty ai with "[PC mem_instr pgt_acc R0 R2 tx rx_state]");iFrameAutoSolve.
-      iNext. iIntros "(PC & mem_instr & tx & pgt_acc & R0 & R2 & rx_state ) _".
-      iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R1 $ R2]") as (regs') "[%Htotal_regs' regs]".
-      iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
 
-      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri [rx_state] other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]
-                            P").
+    (* apply [msg_wait_empty] *)
+    iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Hdisj.
+
+    iDestruct (get_valid_accessible_in_trans_memory_pages with "[$trans_hpool_global $pgt_owned]") as %Hvalid_acc_in_tran.
+    set_solver + Hsubset_acc.
+    iDestruct "mem_tx" as "[%mem_tx mem_tx]".
+
+    iAssert (RX@i := p_rx)%I  with "[rx]" as "#rx'". iDestruct "rx" as "[$ ?]".
+    iApply (msg_wait_empty_primary ai
+             with "[PC R0 R1 pgt_acc tx mem_instr rx_state]"); iFrameAutoSolve.
+    {
+      iNext. iIntros "(PC & R0 & R1 & mem_instr & pgt_acc & tx & rx_state) _".
+      iDestruct ("Hacc_regs" $! (ai ^+ 1)%f _ _ r2 with "[PC R0 R1 R2]") as "[%regs' [%Htotal_regs' regs'']]"; iFrameAutoSolve.
+      iDestruct ("Hacc_mem_acc_tx" with "mem_instr") as "mem_acc_tx".
+
+      iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs'' tx pgt_tx rx pgt_acc pgt_owned
+                       trans_hpool_global tran_pgt_transferred retri [rx_state] other_rx
+                           tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
       {
-        rewrite /rx_state_get.
-        iIntros (?) "%Hlookup_rs'".
-        rewrite Hlookup_rs in Hlookup_rs'.
-        inversion Hlookup_rs'.
+        rewrite /rx_state_get. iIntros (?) "%Hlookup_rs'".
+        rewrite Hlookup_rs' in Hlookup_rs.
+        inversion Hlookup_rs. subst rs.
         done.
       }
       {
-        iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
-        iExists mem_acc_tx;by iFrame "mem_acc_tx".
+        iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
+        iSplitL "mem_acc_tx".
+        iExists mem_acc_tx; by iFrame "mem_acc_tx".
+        iExists mem_tx. iFrame "mem_tx".
         iApply (memory_pages_split_diff' _ ps_acc with "[$mem_rest $mem_acc]").
         set_solver +.
       }
-Qed.
+    }
+  Qed.
 
-End ftlr_msg_poll.
+End ftlr_msg_wait_prim.

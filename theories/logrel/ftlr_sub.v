@@ -1,17 +1,17 @@
 From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base pagetable mem trans.
-From HypVeri.rules Require Import rules_base.
+From HypVeri.rules Require Import rules_base sub.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode.
 Import uPred.
 
-Section ftlr_invalid_hvc.
+Section ftlr_sub.
   Context `{hypconst:HypervisorConstants}.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-Lemma ftlr_invalid_hvc {i mem_acc_tx ai regs ps_acc p_tx p_rx instr r0 trans rxs} P:
+Lemma ftlr_sub {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans op1 op2} P:
   base_extra.is_total_gmap regs ->
   base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -21,13 +21,11 @@ Lemma ftlr_invalid_hvc {i mem_acc_tx ai regs ps_acc p_tx p_rx instr r0 trans rxs
   regs !! PC = Some ai ->
   tpa ai ∈ ps_acc ->
   tpa ai ≠ p_tx ->
-  dom (gset Addr) mem_acc_tx = set_of_addr (ps_acc ∖ {[p_tx]}) ->
+  dom (gset Word) mem_acc_tx = set_of_addr (ps_acc ∖ {[p_tx]}) ->
   tpa ai ∈ ps_acc ∖ {[p_tx]} ->
   mem_acc_tx !! ai = Some instr ->
-  decode_instruction instr = Some Hvc ->
-  regs !! R0 = Some r0 ->
-  decode_hvc_func r0 = None ->
-  ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : gmap VMID (option (Addr * VMID))),
+  decode_instruction instr = Some (Sub op1 op2) ->
+  ⊢ ▷ (∀ (a : gmap reg_name Word) (a0 : gset PID) (a1 : gmap Word transaction) (a2 : gmap VMID (option (Word * VMID))),
               ⌜base_extra.is_total_gmap a2⌝ -∗
               ⌜base_extra.is_total_gmap a⌝ -∗
               ⌜{[p_tx; p_rx]} ⊆ a0⌝ -∗
@@ -66,27 +64,56 @@ Lemma ftlr_invalid_hvc {i mem_acc_tx ai regs ps_acc p_tx p_rx instr r0 trans rxs
    (∃ mem1 : mem, memory_pages ((ps_acc ∪ (accessible_in_trans_memory_pages i trans)) ∖ ps_acc) mem1) -∗
    ([∗ map] k↦v ∈ mem_acc_tx, k ->a v) -∗
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
-   P trans rxs -∗
+   (P trans rxs) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
-    iIntros (Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx
-                         Hlookup_mem_ai Heqn Hlookup_reg_R0 Hdecode_hvc).
-    iIntros "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri rx_state rx other_rx
-             tran_pgt_owned retri_owned mem_rest mem_acc_tx mem_tx P".
-    set ps_mem_in_trans := accessible_in_trans_memory_pages i trans.
-    pose proof (Htotal_regs R2) as[r2 Hlookup_reg_R2].
-    iDestruct (reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_reg_R0 Hlookup_reg_R2 with "[$regs]")
-      as "(PC & R0 & R2 & Hacc_regs)";eauto.
-    iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "mem_acc_tx") as "[mem_instr Hacc_mem_acc_tx]".
-
-    iApply (invalid_hvc_func with "[PC mem_instr pgt_acc R0 R2 tx]");iFrameAutoSolve.
-    iNext. iIntros "(PC & mem_instr & pgt_acc & tx & R0 & R2 ) _".
-    iDestruct ("Hacc_regs" $! (ai ^+ 1)%f with "[$ PC $ R0 $ R2]") as (regs') "[%Htotal_regs' regs]".
-
-    iDestruct ("Hacc_mem_acc_tx" with "[$mem_instr]") as "mem_acc_tx".
-    iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned trans_hpool_global
-                            tran_pgt_transferred retri rx_state other_rx tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx]
-                            P").
+    iIntros (Htotal_regs Htotal_rxs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx Hlookup_mem_ai Heqn).
+    iIntros "IH regs tx pgt_tx pgt_acc pgt_owned trans_hpool_global tran_pgt_transferred retri rx_state rx other_rx tran_pgt_owned
+                 retri_owned mem_rest mem_acc_tx mem_tx P".
+    destruct op1 as [| | n nle].
+    {
+      apply decode_instruction_valid in Heqn.
+      inversion Heqn.
+      unfold reg_valid_cond in *.
+      exfalso. naive_solver.
+    }
+    {
+      apply decode_instruction_valid in Heqn.
+      inversion Heqn.
+      unfold reg_valid_cond in *.
+      exfalso. naive_solver.
+    }
+    destruct op2 as [| | n' nle'].
+    {
+      apply decode_instruction_valid in Heqn.
+      inversion Heqn.
+      unfold reg_valid_cond in *.
+      exfalso. naive_solver.
+    }
+    {
+      apply decode_instruction_valid in Heqn.
+      inversion Heqn.
+      unfold reg_valid_cond in *.
+      exfalso. naive_solver.
+    }
+    pose proof (Htotal_regs (R n nle)) as [a_arg1 Hlookup_arg1].
+    pose proof (Htotal_regs (R n' nle')) as [a_arg2 Hlookup_arg2].
+    (* getting registers *)
+    iDestruct ((reg_big_sepM_split_upd3 i Hlookup_PC Hlookup_arg1 Hlookup_arg2)
+                with "[$regs]") as "(PC & r_arg1 & r_arg2 & Hacc_regs)"; [done | done | | done |].
+    apply decode_instruction_valid in Heqn.
+    inversion Heqn.
+    done.
+    (* getting mem *)
+    iDestruct (mem_big_sepM_split mem_acc_tx Hlookup_mem_ai with "[$mem_acc_tx]")
+      as "[mem_instr Hacc_mem_acc_tx]".
+    iApply (sub (p := p_tx)  _ (R n nle) (R n' nle') with "[PC tx pgt_acc mem_instr r_arg1 r_arg2]"); iFrameAutoSolve.
+    iNext. iIntros "(PC & mem_instr & r_arg1 & r_arg2 & pgt_acc & tx) _".
+    iDestruct ("Hacc_regs" with "[$PC $r_arg1 $r_arg2]") as (regs') "[%Htotal_regs' regs]";iFrame.
+    iDestruct ("Hacc_mem_acc_tx" with "mem_instr") as "mem_acc_tx".
+    iApply ("IH" $! _ ps_acc trans _ Htotal_rxs Htotal_regs' Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx with "regs tx pgt_tx rx pgt_acc pgt_owned
+                       trans_hpool_global tran_pgt_transferred retri rx_state other_rx
+                           tran_pgt_owned retri_owned [mem_rest mem_acc_tx mem_tx] P").
     {
       iDestruct (memory_pages_split_singleton' p_tx ps_acc with "[mem_acc_tx $mem_tx]") as "mem_acc". set_solver + Hsubset_mb.
       iExists mem_acc_tx;by iFrame "mem_acc_tx".
@@ -95,4 +122,4 @@ Lemma ftlr_invalid_hvc {i mem_acc_tx ai regs ps_acc p_tx p_rx instr r0 trans rxs
     }
   Qed.
 
-End ftlr_invalid_hvc.
+End ftlr_sub.

@@ -6,9 +6,16 @@ Section predicates.
   Context `{hypconst : !HypervisorConstants}.
   Context `{Countable K} {V: Type}.
 
-  Definition is_total_gmap  (m : gmap K V) : Prop := ∀ (k : K), is_Some (m !! k).
+  Definition is_total_gmap (m : gmap K V) := ∀ (k : K), is_Some (m !! k).
 
-  Context {PROP : bi}.
+  Lemma is_total_gmap_insert (m : gmap K V) k v:
+    is_total_gmap m -> is_total_gmap (<[k := v]>m).
+  Proof.
+    intros Ht. intros k'.
+    destruct (decide (k'=k)).
+    subst k'. rewrite lookup_insert //.
+    rewrite lookup_insert_ne //.
+  Qed.
 
 End predicates.
 
