@@ -1275,7 +1275,6 @@ Qed.
   Qed.
 
   Lemma except_only_union i trans trans':
-    (* TODO fix it in FLTR *)
     dom (gset _ ) (only i trans') ## dom (gset _) (except i trans) ->
     except i trans  = except i (only i trans' ∪ trans).
   Proof.
