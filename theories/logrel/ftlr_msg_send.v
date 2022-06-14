@@ -22,7 +22,7 @@ Section ftlr_msg_send.
     regs !! PC = Some ai ->
     tpa ai ∈ ps_acc ->
     tpa ai ≠ p_tx ->
-    dom (gset Addr) mem_acc_tx = set_of_addr (ps_acc ∖ {[p_tx]}) ->
+    dom mem_acc_tx = set_of_addr (ps_acc ∖ {[p_tx]}) ->
     tpa ai ∈ ps_acc ∖ {[p_tx]} ->
     mem_acc_tx !! ai = Some instr ->
     decode_instruction instr = Some Hvc ->

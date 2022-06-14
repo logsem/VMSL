@@ -491,7 +491,7 @@ Definition transfer_msg (st : state) (v : VMID) (r : VMID) (l : Word) : hvc_resu
     in fill_rx st' l v r.
 
 Definition get_fresh_handles (trans: transactions): gset Word:=
-  (dom (gset _) (filter (λ kv, kv.2 = None) trans)) ∩ valid_handles.
+  (dom (filter (λ kv, kv.2 = None) trans)) ∩ valid_handles.
 
 Definition fresh_handle (trans : transactions) : hvc_result Word:=
     let hds := elements (get_fresh_handles trans) in

@@ -107,7 +107,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     iFrame "Hnum mb pgt_owned pgt_acc pgt_excl trans hpool retri".
     (* mem *)
     rewrite p_upd_id_mem p_upd_pc_mem p_fill_rx_mem.
-    iAssert(⌜dom (gset _) mem_tx = list_to_set (addr_of_page p_tx)⌝%I) as %Hdom_mem_tx.
+    iAssert(⌜dom mem_tx = list_to_set (addr_of_page p_tx)⌝%I) as %Hdom_mem_tx.
     { iDestruct ("mem_tx") as "[H _]". done. }
     iDestruct ("mem_rx") as "[%Hdom_mem_rx mem_rx]". 
     feed pose proof (rd_mem_mem_Some mem_tx σ1.1.2 p_tx l);auto.
@@ -118,7 +118,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     2: exact Hsome.
     simpl in Heq_rx. subst p.
     set des' := (list_to_map _).
-    assert (Heq_dom : dom (gset Addr) mem_rx = dom (gset Addr) (des' ∪ mem_rx)).
+    assert (Heq_dom : dom mem_rx = dom (des' ∪ mem_rx)).
     { symmetry. apply dom_wr_mem_subseteq.
       rewrite Hlen.
       lia. done.
@@ -287,7 +287,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     iFrame "mb pgt_owned pgt_acc pgt_excl trans hpool retri".
     (* mem *)
     rewrite p_upd_id_mem p_upd_pc_mem 3!p_upd_reg_mem p_fill_rx_mem.
-    iAssert(⌜dom (gset _) mem_tx = list_to_set (addr_of_page p_tx)⌝%I) as %Hdom_mem_tx.
+    iAssert(⌜dom mem_tx = list_to_set (addr_of_page p_tx)⌝%I) as %Hdom_mem_tx.
     { iDestruct ("mem_tx") as "[H _]". done. }
     iDestruct ("mem_rx") as "[%Hdom_mem_rx mem_rx]".
     feed pose proof (rd_mem_mem_Some mem_tx σ1.1.2 p_tx l);auto.
@@ -298,7 +298,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     2: exact Hsome.
     simpl in Heq_rx. subst p.
     set des' := (list_to_map _).
-    assert (Heq_dom : dom (gset Addr) mem_rx = dom (gset Addr) (des' ∪ mem_rx)).
+    assert (Heq_dom : dom mem_rx = dom (des' ∪ mem_rx)).
     { symmetry. apply dom_wr_mem_subseteq.
       rewrite Hlen.
       lia. done.
@@ -309,8 +309,7 @@ Lemma msg_send_primary {E wi r0 w sacc p_tx mem_tx q p_rx mem_rx l} ai j :
     { apply map_subseteq_spec. intros. apply Hlookup_mem_rx;auto. }
     iEval (rewrite H0) in "mem". clear H0. iFrame "mem".
     (* reg *)
-    rewrite (preserve_get_reg_gmap (update_incr_PC
-                                      (update_reg_global
+    rewrite (preserve_get_reg_gmap (update_incr_PC (update_reg_global
                    (update_reg_global
                       (update_reg_global (fill_rx_unsafe (copy_page_segment σ1 p_tx p_rx (Z.to_nat l)) l i j t p_rx) V0 R0
                          (encode_hvc_func Send)) V0 R1 w) V0 R2 l)) (update_current_vmid _ _)).

@@ -194,8 +194,7 @@ Section pagetable_rules.
     simplify_eq.
     iPureIntro.
     assert (get_access_gmap σ !! v = Some(to_frac_agree 1
-                (dom (gset PID)
-                   (map_filter (λ kv : PID * gset VMID, v ∈ kv.2) (λ x1 : PID * gset VMID, decide_rel elem_of v x1.2)
+                (dom (map_filter (λ kv : PID * gset VMID, v ∈ kv.2) (λ x1 : PID * gset VMID, decide_rel elem_of v x1.2)
                       ((λ p : option VMID * bool * gset VMID, p.2) <$> σ.1.1.1.2))))) as Hlookup.
     { rewrite /get_access_gmap.
       apply (elem_of_list_to_map_1 _ v).

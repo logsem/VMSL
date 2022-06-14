@@ -145,7 +145,7 @@ Section lang_extra.
   Qed.
 
   Lemma sequence_a_map_Forall_Some {A: Type} len p (m1 :gmap _ A):
-     (list_to_set (finz.seq p len)) ⊆ dom (gset _) m1 ->
+     (list_to_set (finz.seq p len)) ⊆ dom m1 ->
      ∃ ws, (sequence_a (map (λ v : Addr, m1 !! v) (finz.seq p len))) = Some ws ∧ length ws = len.
   Proof.
     intros.
@@ -160,7 +160,7 @@ Section lang_extra.
     simpl.
     simpl in IHlen.
     intros.
-    assert (p ∈ dom (gset _) m1). set_solver + H.
+    assert (p ∈ dom m1). set_solver + H.
     rewrite elem_of_dom in H0.
     destruct H0 as [? ?].
     rewrite H0.

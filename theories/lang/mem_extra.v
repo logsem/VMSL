@@ -102,7 +102,7 @@ Qed.
 
 Lemma rd_mem_mem_Some (m1 m2 : mem) (src:PID) (l:Word) :
   (l <= page_size)%Z ->
-  dom (gset _) m1 = list_to_set (addr_of_page src) ->
+  dom m1 = list_to_set (addr_of_page src) ->
   m1 ⊆ m2 ->
   ∃ wl, read_mem_segment m2 src (Z.to_nat l) = Some wl ∧ length wl = (Z.to_nat l).
 Proof.
@@ -120,7 +120,7 @@ Qed.
 
 Lemma rd_mem_mem_Some' (m1 m2 : mem) (src:PID) (l:Word) wl :
   (l <= page_size)%Z ->
-  dom (gset _) m1 = list_to_set (addr_of_page src) ->
+  dom m1 = list_to_set (addr_of_page src) ->
   read_mem_segment m2 src (Z.to_nat l) = Some wl ->
   m1 ⊆ m2 ->
   read_mem_segment m1 src (Z.to_nat l) = Some wl.
@@ -190,8 +190,8 @@ Qed.
 
 Lemma dom_wr_mem_subseteq (mem: gmap Addr Word) (dst: PID) ws:
   (length ws) <= (Z.to_nat page_size) ->
-  dom (gset _) mem = list_to_set (addr_of_page dst) ->
-  dom (gset _) (list_to_map (zip (finz.seq dst (length ws)) ws) ∪ mem) = dom (gset _) mem.
+  dom mem = list_to_set (addr_of_page dst) ->
+  dom (list_to_map (zip (finz.seq dst (length ws)) ws) ∪ mem) = dom mem.
 Proof.
   intros Hle Hdom.
   destruct ws.

@@ -239,7 +239,7 @@ Section logrel_extra.
   Qed.
 
   Lemma pages_in_trans_union trans trans':
-    dom (gset _) trans ## dom (gset _) trans' ->
+    dom trans ## dom trans' ->
     pages_in_trans (trans ∪ trans') = pages_in_trans trans ∪ pages_in_trans trans'.
   Proof.
     intros Hdisj.
@@ -497,7 +497,7 @@ Section logrel_extra.
   Lemma pages_in_trans_disj trans1 trans2 trans:
     trans1 ⊆ trans ->
     trans2 ⊆ trans ->
-    dom (gset _) trans1 ## dom (gset _) trans2 ->
+    dom trans1 ## dom trans2 ->
     trans_ps_disj trans ->
     pages_in_trans trans1 ## pages_in_trans trans2.
   Proof.
@@ -558,7 +558,7 @@ Qed.
       iDestruct (big_sepFM_insert_True with "tran1") as "[[tran _] tran1]";auto.
       iDestruct (trans.not_elem_of_fresh_handles with "[$fresh $tran]") as "%Hnin".
       iDestruct (trans.trans_valid_handle_Some with "tran") as "%Hvalid".
-      assert (Hlk': h ∈ dom (gset Addr) trans') by set_solver + Hvalid Hnin Hall.
+      assert (Hlk': h ∈ dom trans') by set_solver + Hvalid Hnin Hall.
       rewrite elem_of_dom in Hlk'.
       destruct Hlk' as [tran' Hlk'].
       iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[[tran' pgt] global_tran_acc]";eauto.
@@ -586,7 +586,7 @@ Qed.
       iDestruct (big_sepFM_insert_True with "tran2") as "[[tran re] tran2]";auto.
       iDestruct (trans.not_elem_of_fresh_handles with "[$fresh $tran]") as "%Hnin".
       iDestruct (trans.trans_valid_handle_Some with "tran") as "%Hvalid".
-      assert (Hlk': h ∈ dom (gset Addr) trans') by set_solver + Hvalid Hnin Hall.
+      assert (Hlk': h ∈ dom trans') by set_solver + Hvalid Hnin Hall.
       rewrite elem_of_dom in Hlk'.
       destruct Hlk' as [tran' Hlk'].
       iDestruct (big_sepM_lookup_acc _ _ h with "global_tran") as "[[tran' pgt] global_tran_acc]";eauto.
@@ -781,17 +781,14 @@ Qed.
       rewrite delete_notin //.
       case_decide.
       destruct H0, H1;done.
-      assert (i0 ∉ dom (gset Addr)
-                (filter (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m)).
+      assert (i0 ∉ dom (filter (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) m)).
       apply not_elem_of_dom.
       rewrite map_filter_lookup_None;left;done.
       set_solver + H2 IHtrans.
       case_decide.
       rewrite dom_insert_L.
       rewrite delete_notin //.
-      assert (i0 ∉ dom (gset Addr)
-                (filter
-                   (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+      assert (i0 ∉ dom (filter (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
                        (kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i) ∧ ¬ (kv.2.2 = true ∧ kv.2.1.2 = Lending)) m)).
       apply not_elem_of_dom.
       rewrite map_filter_lookup_None;left;done.
@@ -1275,7 +1272,7 @@ Qed.
   Qed.
 
   Lemma except_only_union i trans trans':
-    dom (gset _ ) (only i trans') ## dom (gset _) (except i trans) ->
+    dom (only i trans') ## dom (except i trans) ->
     except i trans  = except i (only i trans' ∪ trans).
   Proof.
    revert trans.
@@ -1417,7 +1414,7 @@ Qed.
   Qed.
 
   Lemma only_except_disjoint i trans:
-    dom (gset _) (only i trans) ## dom (gset _) (except i trans).
+    dom (only i trans) ## dom (except i trans).
   Proof.
     rewrite /only /except.
     induction trans using map_ind.

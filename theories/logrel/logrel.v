@@ -69,7 +69,7 @@ Section logrel.
   (* We need the pure proposition to ensure all transaction entries are transferred.
      Only half is needed so that the invokers can remember transactions by keeping the other half.*)
   Definition transaction_hpool_global_transferred (trans: gmap Addr transaction) : iProp Σ:=
-    ∃ hpool,  ⌜hpool ∪ dom (gset _ ) trans = valid_handles⌝ ∗ fresh_handles 1 hpool
+    ∃ hpool,  ⌜hpool ∪ dom trans = valid_handles⌝ ∗ fresh_handles 1 hpool
        ∗ ([∗ map] h ↦ tran ∈ trans, h -{1/2}>t tran.1 ∗ pgt_3_4 tran.1.1.2 tran.1.1.1.1 (bool_decide (tran.1.2 ≠ Sharing))).
 
   (* [transferred_memory_pages]: some memory points-to predicates are transferred by VMProp.
@@ -126,7 +126,7 @@ Section logrel.
   Definition vmprop_zero_pre (Ψ: iPropO Σ) : (gmap Word transaction) -d> (gmap VMID (option(Word*VMID))) -d> iPropO Σ :=
     λ trans rxs, (∃ trans' rs',
                      let trans_ret := (only trans') ∪ (except trans) in
-                           ⌜dom (gset _ ) (only trans') ## dom (gset _ ) (except trans)⌝ ∗
+                           ⌜dom (only trans') ## dom (except trans)⌝ ∗
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans_ret ∗
                            transaction_pagetable_entries_transferred i trans_ret ∗

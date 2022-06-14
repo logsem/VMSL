@@ -16,12 +16,12 @@ Section lemmas.
   Context {PROP : bi}.
   Implicit Types m : gmap K A.
 
-  Lemma big_sepM_union_acc m m' (Φ: K → A → PROP) `{!∀ m m'', Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
+  Lemma big_sepM_union_acc (m m' : gmap K A) (Φ: K → A → PROP) `{!∀ (m m'' : gmap K A), Absorbing (([∗ map] k↦y ∈ m'', Φ k y)
               -∗ [∗ map] k↦y ∈ (m'' ∪  m) , Φ k y)} :
     m' ⊆ m ->
     ([∗ map] k↦y ∈ m, Φ k y) ⊢
     ([∗ map] k↦y ∈ m', Φ k y) ∗
-      (∀ m'', ⌜ (dom (gset K) m') = (dom (gset K) m'') ⌝
+      (∀ (m'' : gmap K A), ⌜ (dom m') = (dom m'') ⌝
               -∗ ([∗ map] k↦y ∈ m'', Φ k y)
               -∗ [∗ map] k↦y ∈ (m'' ∪  m) , Φ k y).
   Proof.

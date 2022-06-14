@@ -289,7 +289,7 @@ Section trans_rules.
 
   Lemma fresh_handles_disj hs q (trans : gmap Addr transaction) q':
     fresh_handles q hs ∗
-    ([∗ map] w ↦ tran ∈ trans, w -{q'}>t tran.1) ⊢ ⌜hs ## dom (gset _) trans⌝.
+    ([∗ map] w ↦ tran ∈ trans, w -{q'}>t tran.1) ⊢ ⌜hs ## dom trans⌝.
   Proof.
     iIntros "[fresh map]".
     rewrite elem_of_disjoint.

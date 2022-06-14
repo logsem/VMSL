@@ -23,7 +23,7 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
   regs !! PC = Some ai ->
   tpa ai ∈ ps_acc ->
   tpa ai ≠ p_tx ->
-  dom (gset Addr) mem_acc_tx = set_of_addr (ps_acc ∖ {[p_tx]}) ->
+  dom mem_acc_tx = set_of_addr (ps_acc ∖ {[p_tx]}) ->
   tpa ai ∈ ps_acc ∖ {[p_tx]} ->
   mem_acc_tx !! ai = Some instr ->
   decode_instruction instr = Some Hvc ->
@@ -132,7 +132,7 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
         set_solver +.
       }
     }
-    assert(r1 ∈ dom (gset _ ) trans) as Hin_trans_dom.
+    assert(r1 ∈ dom trans) as Hin_trans_dom.
     {
       rewrite -Heq_hsall in Hin_hs_all.
       rewrite elem_of_union in Hin_hs_all.
@@ -321,7 +321,7 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
       iExists (hpool ∪ {[r1]}).
       iFrame "fresh_handles trans".
       iPureIntro.
-      assert (r1 ∈ dom (gset _) trans).
+      assert (r1 ∈ dom trans).
       {
         rewrite elem_of_dom.
         exists tran;done.
@@ -450,7 +450,7 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
       iExists (hpool ∪ {[r1]}).
       iFrame "fresh_handles trans".
       iPureIntro.
-      assert (r1 ∈ dom (gset _) trans).
+      assert (r1 ∈ dom trans).
       {
         rewrite elem_of_dom.
         exists tran;done.
@@ -565,7 +565,7 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
       iExists (hpool ∪ {[r1]}).
       iFrame "fresh_handles trans".
       iPureIntro.
-      assert (r1 ∈ dom (gset _) trans).
+      assert (r1 ∈ dom trans).
       {
         rewrite elem_of_dom.
         exists tran;done.

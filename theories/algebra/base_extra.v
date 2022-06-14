@@ -924,19 +924,9 @@ Section ghost_map_extra.
   Lemma ghost_map_elem_split (k :K) γ q (v:V) :
     k ↪[γ]{#q} v ⊣⊢ k ↪[γ]{#q / 2} v ∗ k ↪[γ]{#q / 2} v.
   Proof.
-    iSplit.
-    iIntros "elem".
-    rewrite ghost_map_elem_eq /ghost_map_elem_def.
-    rewrite -own_op.
-    rewrite -gmap_view_frag_op.
-    rewrite dfrac_op_own.
-    rewrite (Qp_div_2 q).
-    done.
-    iIntros "[elem1 elem2]".
-    iDestruct (ghost_map_elem_combine with "elem1 elem2") as "[elem _]".
-    rewrite dfrac_op_own.
-    rewrite (Qp_div_2 q).
-    done.
+    set q' := (q / 2)%Qp.
+    rewrite -(Qp_div_2 q) /q'.
+    iApply (ghost_map_elem_fractional).
   Qed.
 
 End ghost_map_extra.

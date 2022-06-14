@@ -58,7 +58,7 @@ Qed.
 Lemma parse_transaction_descriptor_tx_None mem_tx mem p_tx len:
  parse_transaction_descriptor mem_tx (of_pid p_tx) len = None ->
  (len <= page_size)%Z ->
- dom (gset _) mem_tx = list_to_set (addr_of_page p_tx) ->
+ dom mem_tx = list_to_set (addr_of_page p_tx) ->
  map_Forall (λ k v, mem !! k = Some v) mem_tx ->
  parse_transaction_descriptor mem (of_pid p_tx) len = None.
 Proof.
@@ -1331,7 +1331,7 @@ Proof.
     clear H1 H2.
     rewrite /new_transaction /= /fresh_handle /= -Heq_hp in Heqc2.
     destruct (elements sh) as [| h fhs] eqn:Hfhs.
-    { exfalso. rewrite -elements_empty in Hfhs.  apply Hneq_hp. apply set_eq.
+    { exfalso. rewrite -(elements_empty (A:= Word) (C:= gset Word)) in Hfhs. apply Hneq_hp. apply set_eq.
       intro. rewrite -elem_of_elements Hfhs elem_of_elements. split;intro;set_solver. }
     destruct HstepP;subst m2 σ2; subst c2; simpl.
     rewrite /gen_vm_interp.
@@ -1628,7 +1628,7 @@ Proof.
     clear H1 H2.
     rewrite /new_transaction /= /fresh_handle /= -Heq_hp in Heqc2.
     destruct (elements sh) as [| h fhs] eqn:Hfhs.
-    { exfalso. rewrite -elements_empty in Hfhs.  apply Hneq_hp. apply set_eq.
+    { exfalso. rewrite -(elements_empty (C:= gset Word)) in Hfhs. apply Hneq_hp. apply set_eq.
       intro. rewrite -elem_of_elements Hfhs elem_of_elements. split;intro;set_solver. }
     assert (Heq_c2 : (m2,σ2) = (ExecI, (update_incr_PC (update_reg
                       (update_reg

@@ -213,7 +213,7 @@ Proof.
     rewrite p_fill_rx_mem u_wr_mem_mem.
     iDestruct "mem_rx" as "[%Hdom_mem_rx mem_rx]".
     set des := (list_to_map _).
-    assert (Heq_dom : dom (gset Addr) mem_rx = dom (gset Addr) (des ∪ mem_rx)).
+    assert (Heq_dom : dom mem_rx = dom (des ∪ mem_rx)).
     { symmetry. apply dom_wr_mem_subseteq.
       destruct Hwf as [Hub _].
       specialize (Hub wh _ Hlookup_tran).
@@ -1071,7 +1071,7 @@ Proof.
     rewrite p_upd_pc_mem p_upd_reg_mem p_grnt_acc_mem p_upd_tran_mem p_fill_rx_mem u_wr_mem_mem.
     iDestruct "mem_rx" as "[%Hdom_mem_rx mem_rx]".
     set des := (list_to_map _).
-    assert (Heq_dom : dom (gset Addr) mem_rx = dom (gset Addr) (des ∪ mem_rx)).
+    assert (Heq_dom : dom mem_rx = dom (des ∪ mem_rx)).
     { symmetry. apply dom_wr_mem_subseteq.
       destruct Hwf as [Hub _].
       specialize (Hub wh _ Hlookup_tran).

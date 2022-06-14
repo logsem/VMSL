@@ -443,7 +443,7 @@ Proof.
     rewrite (map_filter_insert_True _ _ p').
     2: { set_solver + e. }
     rewrite dom_insert_L.
-    assert (p' ∈ dom (gset PID) (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
+    assert (p' ∈ dom (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
     {
       rewrite elem_of_dom.
       exists g.
@@ -458,7 +458,7 @@ Proof.
     2: { set_solver + n0 n. }
     rewrite map_filter_delete.
     rewrite dom_delete_L.
-    assert (p' ∉ dom (gset PID) (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
+    assert (p' ∉ dom (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
     {
       rewrite elem_of_dom.
       intro.
@@ -694,7 +694,7 @@ Proof.
     rewrite (map_filter_insert_True _ _ p').
     2: { set_solver + e n. }
     rewrite dom_insert_L.
-    assert (p' ∈ dom (gset PID) (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
+    assert (p' ∈ dom (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
     {
       rewrite elem_of_dom.
       exists g.
@@ -709,7 +709,7 @@ Proof.
     2: { set_solver + n0 n. }
     rewrite map_filter_delete.
     rewrite dom_delete_L.
-    assert (p' ∉ dom (gset PID) (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
+    assert (p' ∉ dom (filter (λ kv : PID * gset VMID, i ∈ kv.2) ((λ p2 : option VMID * bool * gset VMID, p2.2) <$> p0))).
     {
       rewrite elem_of_dom.
       intro.

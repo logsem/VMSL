@@ -135,7 +135,7 @@ Section definitions.
 
   Definition get_access_gmap σ : gmap VMID (dfrac_agreeR (gsetO PID)):=
     let pt := (get_page_table σ) in
-    list_to_map (map (λ i, (i,(to_frac_agree 1 (dom (gset PID) (filter
+    list_to_map (map (λ i, (i,(to_frac_agree 1 (dom (filter
                                           (λ (kv: PID * gset VMID), i ∈ kv.2) ((λ (p: ( _ * gset VMID)), p.2) <$> pt)))))) (list_of_vmids)).
 
   Definition get_excl_gmap σ : gmap PID bool:=
@@ -172,7 +172,7 @@ Section definitions.
                            end) trans.
 
   Definition inv_finite_handles (trans: gmap Word (option transaction)) :=
-   valid_handles = dom (gset Word) trans.
+   valid_handles = dom trans.
 
   Definition valid_transaction (tran: VMID * VMID  * gset PID  * transaction_type):= tran.1.1.1 ≠ tran.1.1.2.
 

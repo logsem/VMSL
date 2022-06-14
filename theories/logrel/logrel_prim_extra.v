@@ -442,7 +442,7 @@ Section logrel_prim_extra.
   Qed.
 
   Lemma slice_trans_unify (Φ: _ -> _ -> _ -> iProp Σ) `{Hwf:!SliceTransWf Φ} trans trans' i:
-    dom (gset Addr) (only i trans') ## dom (gset Addr) (except i trans) ->
+    dom (only i trans') ## dom (except i trans) ->
     big_sepSS_except set_of_vmids i (Φ trans) ∗
     big_sepSS_singleton set_of_vmids i (Φ (only i trans' ∪ trans))
     ⊢  big_sepSS set_of_vmids (Φ (only i trans' ∪ trans)).

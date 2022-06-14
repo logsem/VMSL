@@ -98,7 +98,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_update_SepM {σ} (mem mem': gmap Addr Word):
-    dom (gset _) mem = dom (gset _) mem' ->
+    dom mem = dom mem' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ map] a↦w ∈ mem, a ->a w) ==∗
     ghost_map_auth gen_mem_name 1 (mem' ∪ (get_mem σ)) ∗
@@ -114,7 +114,7 @@ Section mem_rules.
     ([∗ list] a;w ∈ (addr_of_page p);ws, (a ->a w))%I.
 
   Definition memory_page (p : PID) (mem: mem): iProp Σ:=
-    ⌜dom (gset Addr) mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+    ⌜dom mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
 
   (* Lemma memory_page_m_to_l {p : PID} (m: mem): *)
   (*   memory_page p m ⊢ ∃ l, memory_page_l p l ∗ *)
@@ -148,7 +148,7 @@ Section mem_rules.
   Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
 
   Definition memory_pages (ps :gset PID) (mem:mem): iProp Σ:=
-    ⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+    ⌜dom mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
 
   (* lemmas about [memory_pages] *)
   Notation fold_union_addr_of_page b ps :=
@@ -326,7 +326,7 @@ Section mem_rules.
 
   Lemma elem_of_memory_pages_lookup (m: gmap Addr Word) a ps:
     (tpa a) ∈ ps ->
-    dom (gset Addr) m = set_of_addr ps ->
+    dom m = set_of_addr ps ->
     is_Some (m !! a).
   Proof.
     intros Hin Heq_dom.
@@ -623,7 +623,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_update_pages{σ mem_ps} ps (mem_ps': mem):
-    dom (gset _) mem_ps = dom (gset _) mem_ps' ->
+    dom mem_ps = dom mem_ps' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     memory_pages ps mem_ps ==∗
     ghost_map_auth gen_mem_name 1 (mem_ps' ∪ (get_mem σ)) ∗
@@ -638,7 +638,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_update_page{σ mem_p} p (mem_p': mem):
-    dom (gset _) mem_p = dom (gset _) mem_p' ->
+    dom mem_p = dom mem_p' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     memory_page p mem_p ==∗
     ghost_map_auth gen_mem_name 1 (mem_p' ∪ (get_mem σ)) ∗
