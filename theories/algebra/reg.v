@@ -218,7 +218,7 @@ Section reg_rules.
   Qed.
 
   Lemma gen_reg_update_Sep {σ} regs regs':
-   dom (gset (reg_name * VMID)) regs = dom (gset (reg_name * VMID )) regs' ->
+   dom regs = dom regs' ->
    ghost_map_auth gen_reg_name 1 (get_reg_gmap σ) -∗
    ([∗ map] r↦w ∈ regs,  r.1 @@ r.2 ->r w) ==∗
    ghost_map_auth gen_reg_name 1 (regs' ∪ (get_reg_gmap σ)) ∗

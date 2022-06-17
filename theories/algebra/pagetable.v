@@ -29,10 +29,10 @@ Section pagetable_rules.
     iApply (ghost_map_elem_split p _ q (Some o)).
   Qed.
 
-  Lemma own_agree {σ q γ} p s:
-   ghost_map_auth γ 1 (get_own_gmap σ)  -∗
+  Lemma own_agree {gm: gmap PID (option VMID )} { q γ} p s:
+   ghost_map_auth γ 1 gm  -∗
    ghost_map_elem γ p (DfracOwn q) s -∗
-   ⌜(get_own_gmap σ) !! p = Some s⌝.
+   ⌜gm !! p = Some s⌝.
   Proof.
     iIntros  "Hσ Hpt".
     iApply (ghost_map_lookup with "Hσ Hpt").
@@ -60,42 +60,16 @@ Section pagetable_rules.
     iApply (ghost_map_elem_split p _ q o).
   Qed.
 
-  Lemma excl_agree {σ q γ} p s:
-   ghost_map_auth γ 1 (get_excl_gmap σ)  -∗
+  Lemma excl_agree {gm: gmap PID bool} {q γ} p s:
+   ghost_map_auth γ 1 gm -∗
    ghost_map_elem γ p (DfracOwn q) s -∗
-   ⌜(get_excl_gmap σ) !! p = Some s⌝.
+   ⌜gm !! p = Some s⌝.
   Proof.
     iIntros  "Hσ Hpt".
     iApply (ghost_map_lookup with "Hσ Hpt").
   Qed.
 
   (* access *)
-  (* Lemma access_split_set_union {v} q1 q2 (s1 s2 : gset PID): *)
-  (*  s1 ## s2 -> *)
-  (*  v -@{(q1+q2)%Qp}A> [s1 ∪ s2] -∗ v -@{q1}A> [s1] ∗ v -@{q2}A> [s2]. *)
-  (* Proof using. *)
-  (*   iIntros (Hdisj) "HO". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iApply own_op. *)
-  (*   rewrite -auth_frag_op singleton_op. *)
-  (*   rewrite -pair_op. *)
-  (*   rewrite (gset_disj_union _ _ Hdisj). *)
-  (*   naive_solver. *)
-  (* Qed. *)
-
-  (* Lemma access_split_set_diff {v} q1 q2 (s1 s2 : gset PID): *)
-  (*  s2 ⊆ s1 -> v -@{(q1+q2)%Qp}A> [s1] -∗ v -@{q1}A> [s2] ∗ v -@{q2}A> [s1 ∖ s2]. *)
-  (* Proof using. *)
-  (*   iIntros (Hsub) "HO". *)
-  (*   rewrite access_mapsto_eq. *)
-  (*   iApply own_op. *)
-  (*   rewrite -auth_frag_op singleton_op. *)
-  (*   rewrite -pair_op. *)
-  (*   rewrite (gset_disj_union _ _); *)
-  (*   last set_solver+ . *)
-  (*   rewrite -(union_difference_L _ _ Hsub). *)
-  (*   naive_solver. *)
-  (* Qed. *)
 
   Lemma access_split {q} v (s : gset PID) :
     v -@{ q }A> s ⊣⊢
@@ -151,6 +125,27 @@ Section pagetable_rules.
     split;eauto.
   Qed.
 
+  Lemma access_pgt_elem_of {σ} {s:gset PID} (v:VMID) p:
+    (get_access_gmap σ) !! v = Some (to_frac_agree 1 s) ->
+    (∃ (o:permission), (get_page_table σ) !! p = Some o ∧ v ∈ o.2) ->
+    p ∈ s.
+  Proof.
+    intros Hlookup [? [Hlookup_pgt Hin]].
+    rewrite /get_access_gmap in Hlookup.
+    apply (elem_of_list_to_map_2 _ v) in Hlookup.
+    apply elem_of_list_In in Hlookup.
+    apply in_map_iff in Hlookup.
+    destruct Hlookup as [? [Heqp _]].
+    inversion Heqp;subst;clear Heqp.
+    rewrite elem_of_dom.
+    exists x.2.
+    rewrite map_filter_lookup_Some.
+    split;auto.
+    apply lookup_fmap_Some.
+    exists x.
+    split;done.
+  Qed.
+
   Lemma own_pgt_lookup {σ} {i:option VMID} (p:PID):
   (get_own_gmap σ) !! p = Some i ->
   ∃ b s, (get_page_table σ) !! p = Some(i, b, s).
@@ -166,13 +161,13 @@ Section pagetable_rules.
 
   Lemma excl_pgt_lookup {σ} {b:bool} (p:PID):
   (get_excl_gmap σ) !! p = Some b ->
-  ∃ o s, (get_page_table σ) !! p = Some(o, b, s).
+  ∃ o b' s, (get_page_table σ) !! p = Some(o, b', s) ∧ b = b' && bool_decide (size s <= 1).
   Proof.
     rewrite /get_excl_gmap.
     rewrite lookup_fmap_Some.
     intros [? [Helem Hlookup]].
     subst.
-    exists x.1.1, x.2.
+    exists x.1.1, x.1.2,  x.2.
     destruct x; destruct p0;done.
   Qed.
 
@@ -180,12 +175,13 @@ Section pagetable_rules.
 
   (* single pt *)
 
-  Lemma access_agree {σ γ} (v:VMID) q s:
-   own γ (● (get_access_gmap σ)) -∗
-   own γ (◯ {[v := to_frac_agree q s]}) -∗
+  Lemma access_agree {σ} (v:VMID) q s:
+   own gen_access_name (● (get_access_gmap σ)) -∗
+   (v -@{q}A> s) -∗
    ⌜(get_access_gmap σ) !! v = Some (to_frac_agree 1 s)⌝.
   Proof.
-    iIntros  "Hσ Hpt".
+    iIntros "Hσ Hpt".
+    rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (own_valid_2 with "Hσ Hpt") as "%Hvalid".
     setoid_rewrite auth_both_valid_discrete in Hvalid.
     destruct Hvalid as [Hvalid1 Hvalid2].
@@ -198,8 +194,7 @@ Section pagetable_rules.
     simplify_eq.
     iPureIntro.
     assert (get_access_gmap σ !! v = Some(to_frac_agree 1
-                (dom (gset PID)
-                   (map_filter (λ kv : PID * gset VMID, v ∈ kv.2) (λ x1 : PID * gset VMID, decide_rel elem_of v x1.2)
+                (dom (map_filter (λ kv : PID * gset VMID, v ∈ kv.2) (λ x1 : PID * gset VMID, decide_rel elem_of v x1.2)
                       ((λ p : option VMID * bool * gset VMID, p.2) <$> σ.1.1.1.2))))) as Hlookup.
     { rewrite /get_access_gmap.
       apply (elem_of_list_to_map_1 _ v).
@@ -242,11 +237,22 @@ Section pagetable_rules.
    ⌜set_Forall (λ p, ∃ o b s, (get_page_table σ) !! p = Some (o,b,s) ∧ v ∈ s) s⌝.
   Proof.
     iIntros "Hauth Hfrag".
-    rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (access_agree with "Hauth Hfrag") as %Hvalid.
     iPureIntro.
     apply access_pgt_lookup in Hvalid as Hvalid.
     done.
+  Qed.
+
+  Lemma access_agree_elem_of {σ} v s p:
+    (∃ (o:permission), (get_page_table σ) !! p = Some o ∧ v ∈ o.2) ->
+   own gen_access_name (●(get_access_gmap σ)) -∗
+   (v -@A> s) -∗
+   ⌜p ∈ s⌝.
+  Proof.
+    iIntros (H) "Hauth Hfrag".
+    iDestruct (access_agree with "Hauth Hfrag") as %Hvalid.
+    iPureIntro.
+    eapply (access_pgt_elem_of);eauto.
   Qed.
 
   Lemma access_agree_check_false {σ v} p s:
@@ -256,7 +262,6 @@ Section pagetable_rules.
    ⌜(check_access_page σ v p)= false⌝.
   Proof.
     iIntros (Hnin) "Hauth Hfrag".
-     rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (access_agree with "Hauth Hfrag") as %Hlookup.
     iPureIntro.
     rewrite /get_access_gmap in Hlookup.
@@ -283,10 +288,9 @@ Section pagetable_rules.
   Lemma access_agree_check_true_forall {q} σ v s :
     own gen_access_name (●(get_access_gmap σ)) -∗
     v -@{ q }A> s -∗
-    ⌜∀ p, p ∈ s -> check_access_page σ v p = true⌝.
+    ⌜set_Forall (λ p, check_access_page σ v p = true) s⌝.
   Proof.
     iIntros "Hσ Hacc".
-    rewrite access_mapsto_eq /access_mapsto_def.
     iDestruct (access_agree with "Hσ Hacc") as %Hvalid.
     apply access_pgt_lookup in Hvalid as Hvalid.
     iPureIntro.
@@ -314,12 +318,26 @@ Section pagetable_rules.
    (p -@O> i) -∗
    ⌜∃ b s, (get_page_table σ) !! p= Some (Some i,b,s)⌝.
   Proof.
-    iIntros  "Hσ Hown".
+    iIntros "Hσ Hown".
     rewrite own_mapsto_eq /own_mapsto_def.
     iDestruct (own_agree with "Hσ Hown") as %Hvalid.
     iPureIntro.
     apply own_pgt_lookup in Hvalid as [? Hvalid].
     exists x.
+    done.
+  Qed.
+
+  Lemma own_agree_None_lookup {σ} p:
+   ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
+   (p -@O> -) -∗
+   ⌜∃ b s, (get_page_table σ) !! p= Some (None,b,s)⌝.
+  Proof.
+    iIntros "Hσ Hown".
+    rewrite own_mapsto_eq /own_mapsto_def.
+    iDestruct (own_agree with "Hσ Hown") as %Hvalid.
+    iPureIntro.
+    apply own_pgt_lookup in Hvalid as [? [? Hvalid]].
+    do 2 eexists.
     done.
   Qed.
 
@@ -336,10 +354,36 @@ Section pagetable_rules.
     rewrite decide_True;eauto.
   Qed.
 
+  Lemma own_agree_Some_check_false {σ} p i j:
+    j ≠ i ->
+    ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
+    (p -@O> j) -∗
+    ⌜(check_ownership_page σ i p)= false⌝.
+  Proof.
+    iIntros (Hneq) "Hσ Hown".
+    iDestruct (own_agree_Some_lookup with "Hσ Hown") as %[b [s Hlookup]].
+    iPureIntro.
+    rewrite /check_ownership_page.
+    rewrite Hlookup.
+    rewrite decide_False;eauto.
+  Qed.
+
+  Lemma own_agree_None_check {σ} p i:
+    ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
+    (p -@O> -) -∗
+    ⌜(check_ownership_page σ i p)= false⌝.
+  Proof.
+    iIntros "Hσ Hown".
+    iDestruct (own_agree_None_lookup with "Hσ Hown") as %[b [s Hlookup]].
+    iPureIntro.
+    rewrite /check_ownership_page.
+    rewrite Hlookup //.
+  Qed.
+
   Lemma excl_agree_Some_lookup {σ} p b:
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
    (p -@E> b) -∗
-   ⌜∃ o s, (get_page_table σ) !! p= Some (o,b,s)⌝.
+   ⌜∃ o b' s, (get_page_table σ) !! p= Some (o,b',s) ∧ b = b' && bool_decide (size s <= 1)⌝.
   Proof.
     iIntros  "Hσ Hexcl".
     rewrite excl_mapsto_eq /excl_mapsto_def.
@@ -350,56 +394,23 @@ Section pagetable_rules.
     done.
   Qed.
 
-  Lemma excl_agree_Some_check_true {σ} p b:
+  Lemma excl_agree_Some_check_true {σ} p:
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
-   (p -@E> b) -∗
-   ⌜(check_excl_page σ p)= b⌝.
+   (p -@E> true) -∗
+   ⌜(check_excl_page σ p)= true⌝.
   Proof.
     iIntros  "Hσ Hexcl".
-    iDestruct (excl_agree_Some_lookup with "Hσ Hexcl") as %[o [s Hlookup]].
+    iDestruct (excl_agree_Some_lookup with "Hσ Hexcl") as %[o [b [s [Hlookup Heq]]]].
     iPureIntro.
     rewrite /check_excl_page.
-    rewrite Hlookup //.
+    rewrite Hlookup.
+    symmetry in Heq.
+    rewrite andb_true_iff in Heq.
+    destruct Heq;done.
   Qed.
 
-  (* bigS *)
-
-  (* Lemma access_agree_1_lookup_bigS {σ} (s:gset PID) (sacc: gset VMID): *)
-  (*  own (gen_access_name vmG) (●(get_access_gmap σ)) -∗ *)
-  (*  ([∗ set] p ∈ s, p -@A> [sacc]) -∗ *)
-  (*  ⌜set_Forall (λ p, ∃ v,  get_page_table σ !! p = Some (v,sacc) ) s⌝. *)
-  (* Proof. *)
-  (*   iIntros "Hauth Hfrags". *)
-  (*   iIntros (p Hin_p). *)
-  (*   iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hfrags") as "Hfrags". *)
-  (*   iApply (access_agree_1_lookup with "Hauth Hfrags"). *)
-  (* Qed. *)
-
-  (* Lemma access_agree_check_true_bigS {σ i} (s:gset PID): *)
-  (*  own (gen_access_name vmG) (●(get_access_gmap σ)) -∗ *)
-  (*  ([∗ set] p ∈ s, ∃ q, p -@{q}A> i) -∗ *)
-  (*  ⌜set_Forall (λ p, check_access_page σ i p = true) s⌝. *)
-  (* Proof. *)
-  (*   iIntros "Hacc Hpgt". *)
-  (*   iIntros (p Hin_p). *)
-  (*   iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as (q) "Hpgt". *)
-  (*   iApply (access_agree_check_true with "Hacc Hpgt"). *)
-  (*   by apply elem_of_singleton. *)
-  (* Qed. *)
-
-  (* Lemma access_agree_1_excl_check_true_bigS {σ i} (s:gset PID): *)
-  (*  own (gen_access_name vmG) (●(get_access_gmap σ)) -∗ *)
-  (*  ([∗ set] p ∈ s, p -@A> i) -∗ *)
-  (*  ⌜set_Forall (λ p, check_excl_access_page σ i p = true) s⌝. *)
-  (* Proof. *)
-  (*   iIntros "Hacc Hpgt". *)
-  (*   iIntros (p Hin_p). *)
-  (*   iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt". *)
-  (*   iApply (access_agree_1_excl_check_true with "Hacc Hpgt"). *)
-  (* Qed. *)
-
   (* own *)
-  Lemma owne_agree_Some_lookup_bigS {σ i} (s:gset PID):
+  Lemma own_agree_Some_lookup_bigS {σ i} (s:gset PID):
    ghost_map_auth gen_own_name 1 (get_own_gmap σ) -∗
    ([∗ set] p ∈ s, p -@O> i) -∗
    ⌜set_Forall (λ p, ∃ b s,  get_page_table σ !! p = Some (Some i,b,s) ) s⌝.
@@ -422,21 +433,21 @@ Section pagetable_rules.
   Qed.
 
   (* excl *)
-  Lemma excle_agree_Some_lookup_bigS {σ b} (s:gset PID):
+  Lemma excl_agree_Some_lookup_bigS {σ b} (s:gset PID):
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
    ([∗ set] p ∈ s, p -@E> b) -∗
-   ⌜set_Forall (λ p, ∃ o s,  get_page_table σ !! p = Some (o,b,s)) s⌝.
+   ⌜set_Forall (λ p, ∃ o b' s,  get_page_table σ !! p = Some (o,b',s) ∧ b = b' && bool_decide(size s <= 1)) s⌝.
   Proof.
     iIntros "Hexcl Hpgt".
     iIntros (p Hin_p).
     iDestruct (big_sepS_elem_of _ _ p Hin_p with "Hpgt") as "Hpgt".
-    iApply (excl_agree_Some_lookup with "Hexcl Hpgt").
+    iApply  (excl_agree_Some_lookup with "Hexcl Hpgt").
   Qed.
 
-  Lemma excl_agree_Some_check_true_bigS {σ b} (s:gset PID):
+  Lemma excl_agree_Some_check_true_bigS {σ} (s:gset PID):
    ghost_map_auth gen_excl_name 1 (get_excl_gmap σ) -∗
-   ([∗ set] p ∈ s, p -@E> b) -∗
-   ⌜set_Forall (λ p, check_excl_page σ p = b) s⌝.
+   ([∗ set] p ∈ s, p -@E> true) -∗
+   ⌜set_Forall (λ p, check_excl_page σ p = true) s⌝.
   Proof.
     iIntros "Hexcl Hpgt".
     iIntros (p Hin_p).
@@ -444,113 +455,115 @@ Section pagetable_rules.
     iApply (excl_agree_Some_check_true with "Hexcl Hpgt").
   Qed.
 
-  (* Lemma access_update{gm x s} s': *)
-  (*   own (gen_access_name vmG) (● gm) -∗ x -@A> [s] ==∗ own (gen_access_name vmG) (● <[x := (1%Qp,GSet s')]>gm) ∗ x -@A> [s']. *)
-  (* Proof. *)
-  (*   iIntros "Hauth Hfrag". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iDestruct (access_agree_1 with "Hauth Hfrag") as %Hlookup. *)
-  (*   rewrite -own_op. *)
-  (*   iApply ((own_update _ (● gm ⋅ ◯ {[x := (1%Qp, GSet s)]}) _ ) with "[Hauth Hfrag]"). *)
-  (*   2: { rewrite own_op. iFrame. } *)
-  (*   apply auth_update. *)
-  (*   apply (singleton_local_update gm x (1%Qp,GSet s)). *)
-  (*   done. *)
-  (*   apply exclusive_local_update. *)
-  (*   done. *)
-  (* Qed. *)
+  Lemma excl_update{gm x b} b':
+    gm !! x = Some b ->
+    ghost_map_auth gen_excl_name 1 gm -∗ x -@E> b ==∗
+    ghost_map_auth gen_excl_name 1  (<[x := b']>gm) ∗ x -@E> b'.
+  Proof.
+    iIntros (Hlookup) "Hauth Hfrag".
+    rewrite excl_mapsto_eq /excl_mapsto_def.
+    iApply ((ghost_map_update b') with "Hauth Hfrag").
+  Qed.
 
-  (* Lemma access_update_revoke {gm i s} sps: *)
-  (*   i ∈ s -> *)
-  (*   own (gen_access_name vmG) (● gm) -∗ *)
-  (*   ([∗ set] p ∈ sps, p -@A> [s])%I==∗ *)
-  (*   own (gen_access_name vmG) (●(revoke_acc_gmap gm i sps)) ∗ *)
-  (*   ([∗ set] p ∈ sps, p -@A> [s∖ {[i]}])%I. *)
-  (* Proof. *)
-  (*   iIntros (Hin_s ) "Hauth Hfrag". *)
-  (*   rewrite /revoke_acc_gmap /update_acc_gmap /=. *)
-  (*   iInduction sps as [|] "IH" using set_ind_L forall (gm). *)
-  (*   rewrite set_fold_empty. *)
-  (*   rewrite !big_sepS_empty. *)
-  (*   by iFrame. *)
-  (*   rewrite set_fold_disj_union_strong. *)
-  (*   rewrite set_fold_singleton. *)
-  (*   iDestruct (big_sepS_union with "Hfrag") as "[Hsingle Hfrag]". *)
-  (*   set_solver + H. *)
-  (*   rewrite big_sepS_singleton. *)
-  (*   iDestruct (access_agree_1 with "Hauth [Hsingle]") as %Hlookup. *)
-  (*   { rewrite access_mapsto_eq /access_mapsto_def. iFrame. } *)
-  (*   rewrite Hlookup. *)
-  (*   { *)
-  (*     iDestruct (access_update (s ∖ {[i]}) with "Hauth Hsingle") as ">[Hauth Hsingle]". *)
-  (*     rewrite big_sepS_union;last set_solver + H. *)
-  (*     rewrite big_sepS_singleton. *)
-  (*     iFrame "Hsingle". *)
-  (*     iApply ("IH" with "Hauth Hfrag"). *)
-  (*    } *)
-  (*   { *)
-  (*     intros. *)
-  (*     destruct (b' !! x2) as [p2|] eqn: Hlookup2, (b' !! x1) as [p1|] eqn:Hlookup1; *)
-  (*       try destruct p1 as [q1 []]; try destruct p2 as [q2 []]; rewrite ?lookup_insert_ne ?Hlookup1 ?Hlookup2 //;last eauto. *)
-  (*     apply insert_commute. *)
-  (*     done. *)
-  (*   } *)
-  (*   set_solver + H. *)
-  (* Qed. *)
+  Lemma owned_update{gm x i} j:
+    gm !! x = Some (Some i) ->
+    ghost_map_auth gen_own_name 1 gm -∗ x -@O> i ==∗
+    ghost_map_auth gen_own_name 1  (<[x := (Some j)]>gm) ∗ x -@O> j.
+  Proof.
+    iIntros (Hlookup) "Hauth Hfrag".
+    rewrite own_mapsto_eq /own_mapsto_def.
+    iApply ((ghost_map_update (Some j)) with "Hauth Hfrag").
+  Qed.
 
-  (* Lemma gen_access_update_diff{σ i sacc} sps: *)
-  (*  A@i:={1}[sacc] -∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ)==∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (<[i:= (sacc∖sps)]>(get_access_gmap σ)) ∗ *)
-  (*  A@i:={1}[sacc∖sps]. *)
-  (* Proof. *)
-  (*   iIntros "HA Hacc". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iApply (gen_pagetable_update_diff with "HA Hacc");eauto. *)
-  (* Qed. *)
+  Lemma access_update{gm x s} s':
+    gm !! x = Some (to_frac_agree 1 s) ->
+    own gen_access_name (● gm) -∗ x -@A> s ==∗
+    own gen_access_name (● <[x := (to_frac_agree 1 s')]>gm) ∗ x -@A> s'.
+  Proof.
+    iIntros (Hlookup) "Hauth Hfrag".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    rewrite -own_op.
+    iApply ((own_update _ (● gm ⋅ ◯ {[x := (to_frac_agree 1 s)]}) _ ) with "[Hauth Hfrag]").
+    2: { rewrite own_op. iFrame. }
+    apply auth_update.
+    apply (singleton_local_update gm x (to_frac_agree 1 s)).
+    done.
+    apply exclusive_local_update.
+    done.
+  Qed.
 
-  (* Lemma gen_pagetable_update_union {Perm: Type} {σ i γ s ps} proj (checkb: Perm -> bool) sps: *)
-  (*  sps = (list_to_set ps) -> *)
-  (*  ghost_map_elem γ i (DfracOwn 1)  s -∗ *)
-  (*  ghost_map_auth γ 1 (get_pagetable_gmap σ proj checkb) ==∗ *)
-  (*  ghost_map_auth γ 1 (<[i:= s ∪ sps]>(get_pagetable_gmap σ proj checkb)) ∗ *)
-  (*  ghost_map_elem γ i (DfracOwn 1)  (s ∪ sps). *)
-  (* Proof. *)
-  (*   iIntros (Hsps) "Hpt Hσ". *)
-  (*   iApply ((ghost_map_update (s ∪ sps)) with "Hσ Hpt"). *)
-  (* Qed. *)
+  Lemma excl_update_flip {gm b} sps:
+    ghost_map_auth gen_excl_name 1 gm -∗
+    ([∗ set] p ∈ sps, p -@E> b)%I==∗
+    ghost_map_auth gen_excl_name 1 (flip_excl_gmap gm sps) ∗
+    ([∗ set] p ∈ sps, p -@E> (negb b))%I.
+  Proof.
+    iIntros "Hauth Hfrag".
+    rewrite /flip_excl_gmap /update_pgt_gmap /=.
+    iInduction sps as [|] "IH" using set_ind_L forall (gm).
+    rewrite set_fold_empty.
+    rewrite !big_sepS_empty.
+    by iFrame.
+    rewrite set_fold_disj_union_strong.
+    rewrite set_fold_singleton.
+    iDestruct (big_sepS_union with "Hfrag") as "[Hsingle Hfrag]".
+    set_solver + H.
+    rewrite big_sepS_singleton.
+    iDestruct (excl_agree with "Hauth [Hsingle]") as %Hlookup.
+    { rewrite excl_mapsto_eq /excl_mapsto_def. iFrame. }
+    rewrite Hlookup.
+    {
+      iDestruct (excl_update (negb b) with "Hauth Hsingle") as ">[Hauth Hsingle]";auto.
+      rewrite big_sepS_union;last set_solver + H.
+      rewrite big_sepS_singleton.
+      iFrame "Hsingle".
+      iApply ("IH" with "Hauth Hfrag").
+     }
+    {
+      intros.
+      destruct (b' !! x2) as [p2|] eqn: Hlookup2, (b' !! x1) as [p1|] eqn:Hlookup1;
+        try destruct p1 as [q1 []]; try destruct p2 as [q2 []]; rewrite ?lookup_insert_ne ?Hlookup1 ?Hlookup2 //;last eauto.
+      apply insert_commute.
+      done.
+    }
+    set_solver + H.
+  Qed.
 
-  (* Lemma gen_access_update_union{σ i sacc psd} sps: *)
-  (*  sps = (list_to_set psd) -> *)
-  (*  A@i:={1}[sacc] -∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (get_access_gmap σ)==∗ *)
-  (*  ghost_map_auth (gen_access_name vmG) 1 (<[i:= (sacc ∪ sps)]>(get_access_gmap σ)) ∗ *)
-  (*  A@i:={1}[sacc ∪ sps]. *)
-  (* Proof. *)
-  (*   iIntros (Hsps) "HA Hacc". *)
-  (*   rewrite access_mapsto_eq /access_mapsto_def. *)
-  (*   iApply (gen_pagetable_update_union with "HA Hacc");eauto. *)
-  (* Qed. *)
-
-  (* Lemma gen_own_update_union{σ i sown psd} sps: *)
-  (*  sps = (list_to_set psd) -> *)
-  (*  O@i:={1}[sown] -∗ *)
-  (*  ghost_map_auth gen_own_name 1 (get_own_gmap σ)==∗ *)
-  (*  ghost_map_auth gen_own_name 1 (<[i:= (sown ∪ sps)]>(get_own_gmap σ)) ∗ *)
-  (*  O@i:={1}[sown ∪ sps]. *)
-  (* Proof. *)
-  (*   iIntros (Hsps) "HO Hown". *)
-  (*   rewrite own_mapsto_eq /own_mapsto_def. *)
-  (*   iApply (gen_pagetable_update_union with "HO Hown");eauto. *)
-  (* Qed. *)
-
-  (* TODO: a general lemma (in [base_extra.v]? ) to cover both *)
-  Lemma own_split_bigS {q} s o :
-    ([∗ set] p ∈ s, p -@{ q }O> o) ⊣⊢ ([∗ set] p ∈ s, p -@{ q/2 }O> o) ∗ [∗ set] p ∈ s, p -@{q/2}O> o.
-  Admitted.
-
-  Lemma excl_split_bigS {q} s o :
-    ([∗ set] p ∈ s, p -@{ q }E> o) ⊣⊢ ([∗ set] p ∈ s, p -@{ q/2 }E> o) ∗ [∗ set] p ∈ s, p -@{q/2}E> o.
-  Admitted.
+  Lemma own_update_upd {gm i} j ps:
+    ghost_map_auth gen_own_name 1 gm -∗
+    ([∗ set] p ∈ ps, p -@O> i)%I==∗
+    ghost_map_auth gen_own_name 1 (upd_own_gmap j gm ps) ∗
+    ([∗ set] p ∈ ps, p -@O> j)%I.
+  Proof.
+    iIntros "Hauth Hfrag".
+    rewrite /upd_own_gmap /update_pgt_gmap /=.
+    iInduction ps as [|] "IH" using set_ind_L forall (gm).
+    rewrite set_fold_empty.
+    rewrite !big_sepS_empty.
+    by iFrame.
+    rewrite set_fold_disj_union_strong.
+    rewrite set_fold_singleton.
+    iDestruct (big_sepS_union with "Hfrag") as "[Hsingle Hfrag]".
+    set_solver + H.
+    rewrite big_sepS_singleton.
+    iDestruct (own_agree with "Hauth [Hsingle]") as %Hlookup.
+    { rewrite own_mapsto_eq /own_mapsto_def. iFrame. }
+    rewrite Hlookup.
+    {
+      iDestruct (owned_update j with "Hauth Hsingle") as ">[Hauth Hsingle]";auto.
+      rewrite big_sepS_union;last set_solver + H.
+      rewrite big_sepS_singleton.
+      iFrame "Hsingle".
+      iApply ("IH" with "Hauth Hfrag").
+     }
+    {
+      intros.
+      destruct (b' !! x2) as [p2|] eqn: Hlookup2, (b' !! x1) as [p1|] eqn:Hlookup1;
+        try destruct p1 as [q1 []]; try destruct p2 as [q2 []]; rewrite ?lookup_insert_ne ?Hlookup1 ?Hlookup2 //;last eauto.
+      apply insert_commute.
+      done.
+    }
+    set_solver + H.
+  Qed.
 
 End pagetable_rules.

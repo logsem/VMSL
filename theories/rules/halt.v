@@ -64,6 +64,7 @@ Proof.
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_trans_ps_disj σ1).
     all: try rewrite p_upd_pc_pgt //.
     all: try rewrite p_upd_pc_trans //.
     all: try rewrite p_upd_pc_mb //.
@@ -71,7 +72,7 @@ Proof.
     iFrame.
     (* updated part *)
     iDestruct ((gen_reg_update1_global PC i ai (ai ^+ 1)%f) with "Hreg Hpc") as ">[Hreg Hpc]";eauto.
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
     iModIntro.
     iFrame "Hreg".
     iSplitL "PAuth".

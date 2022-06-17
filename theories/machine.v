@@ -1,5 +1,5 @@
 (* This file defines some basic types that will be used in the operational semantics *)
-From stdpp Require Import countable fin vector.
+From stdpp Require Import countable fin vector gmap.
 From Coq Require Import ssreflect Bool Eqdep_dec ZArith.
 From machine_utils Require Export finz.
 
@@ -23,9 +23,11 @@ Notation Word := (finz word_size).
 
 Notation Addr := Word.
 
+(** page identifier *)
+(* TODO: page_id or PGID would be better *)
 (* we introduce PID as there will be some operations on pagetables *)
 Inductive PID: Type :=
-| P (z : Addr) (align: (Z.rem z page_size =? 0)%Z = true) .
+| P (z : Addr) (align: (Z.rem z page_size =? 0)%Z = true).
 
 Definition of_pid (p: PID): Word :=
   match p with
@@ -316,9 +318,11 @@ Qed.
 
 Section hyp_config.
 (* there are only fixed number of VMs in the machine *)
+
 Class HypervisorConstants := {
   vm_count : nat;
   vm_count_pos : 0 < vm_count;
+  valid_handles : gset Word;
 }.
 
 End hyp_config.
@@ -374,9 +378,7 @@ Class HypervisorParameters := {
   decode_transaction_type : Word -> option transaction_type;
   encode_transaction_type : transaction_type -> Word;
   decode_encode_transaction_type : forall (ty : transaction_type),
-      decode_transaction_type (encode_transaction_type ty) = Some ty
+      decode_transaction_type (encode_transaction_type ty) = Some ty;
 }.
-
-
 
 End hyp_def.

@@ -11,7 +11,7 @@ build: [
 ]
 install: [make]
 depends: [
-  "coq" { (>= "8.13" ) }
+  "coq" { (>= "8.13") }
   "coq-iris" { (>= "dev") }
   "coq-stdpp" { (>= "dev") }
   "coq-iris-staging" { (>= "dev") }

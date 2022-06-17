@@ -36,7 +36,7 @@ Section Utils.
   
   Definition excl_layout (σ : state) (m : gmap PID bool) :=
     map_Forall (λ (k : PID) (v : bool),
-                (((λ (p: (_ * bool * _)), p.1.2) <$> (get_page_table σ !! k)) = Some v)) m.  
+                (((λ (p: (_ * bool * gset VMID)), p.1.2 && bool_decide (size p.2 <= 1)) <$> (get_page_table σ !! k)) = Some v)) m.
 
   Definition own_layout (σ : state) (m : gmap PID (option VMID)) :=
     map_Forall (λ (k : PID) (v : option VMID),
@@ -345,9 +345,7 @@ Section Utils.
     - apply insert_subseteq_l.
       + apply map_Forall_insert_1_1 in H.
         unfold get_excl_gmap.
-        rewrite (lookup_fmap (λ (p : option VMID * bool * gset VMID), p.1.2) σ.1.1.1.2 i').
-        rewrite H.
-        reflexivity.
+        rewrite (lookup_fmap _ σ.1.1.1.2 i') //.
       + apply IH.
         apply map_Forall_insert_1_2 in H.
         * apply H.
@@ -363,9 +361,7 @@ Section Utils.
     - apply insert_subseteq_l.
       + apply map_Forall_insert_1_1 in H.
         unfold get_own_gmap.
-        rewrite (lookup_fmap (λ (p : option VMID * bool * gset VMID), p.1.1) σ.1.1.1.2 i').
-        rewrite H.
-        reflexivity.
+        rewrite (lookup_fmap _ σ.1.1.1.2 i') //.
       + apply IH.
         apply map_Forall_insert_1_2 in H.
         * apply H.

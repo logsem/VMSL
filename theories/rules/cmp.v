@@ -65,14 +65,15 @@ Proof.
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_trans_ps_disj σ1).
     rewrite p_upd_pc_mem p_upd_reg_mem.
     all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
     all: try rewrite p_upd_pc_mb p_upd_reg_mb //.
     rewrite Hcur. iFrame.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-    rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
+    rewrite u_upd_reg_regs.
     + destruct (w3 <? (of_imm w2))%f,  ((of_imm w2) <? w3)%f.
       iDestruct ((gen_reg_update2_global PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
@@ -234,7 +235,7 @@ Proof.
       iSplit; first done.
       iApply ("Hϕ" with "[Hapc Hacc Hra Hpc Hnz HTX]").
       iFrame.
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    + rewrite u_upd_reg_regs.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
       by simplify_map_eq /=.
     + by rewrite Htx.
@@ -298,14 +299,15 @@ Proof.
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_trans_ps_disj σ1).
     rewrite p_upd_pc_mem p_upd_reg_mem.
     all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
     all: try rewrite p_upd_pc_mb p_upd_reg_mb //.
     rewrite Hcur. iFrame.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i ai 1);eauto.
-    rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    rewrite -> (u_upd_pc_regs _ i ai 1);eauto.
+    rewrite u_upd_reg_regs.
     + destruct (w2 <? w3)%f,  (w3 <? w2)%f.
       iDestruct ((gen_reg_update2_global PC i ai (ai ^+ 1)%f NZ i w4 W2 ) with "Hreg Hpc Hnz") as ">[Hreg [Hpc Hnz]]";eauto.
       iModIntro.
@@ -467,7 +469,7 @@ Proof.
       simpl.
       iApply ("Hϕ" with "[Hapc Hacc Hra Hrb Hpc Hnz HTX]").
       iFrame.
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    + rewrite u_upd_reg_regs.
       apply (get_reg_gmap_get_reg_Some _ _ _ i) in HPC;eauto.
       by simplify_map_eq /=.
     + by rewrite Htx.
