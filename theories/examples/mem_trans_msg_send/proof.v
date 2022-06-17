@@ -1,14 +1,17 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base lower_bound mem.
+From HypVeri.algebra Require Import base mem.
 From HypVeri.rules Require Import rules_base mov halt run yield mem_send mem_retrieve mem_relinquish mem_reclaim ldr str msg_send msg_wait msg_poll add.
 From HypVeri.examples Require Import instr utils.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode machine_extra.
 Require Import Setoid.
 
-Program Instance rywu_vmconfig : HypervisorConstants :=
+Section proof.
+
+Local Program Instance rywu_vmconfig : HypervisorConstants :=
     {vm_count := 3;
-     vm_count_pos:= _}.
+     vm_count_pos := _;
+     valid_handles := {[W0]}}.
 
 Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
 Program Definition V2 : VMID := (@nat_to_fin 2 _ _).
@@ -19,11 +22,9 @@ Program Definition two : Imm := I (finz.FinZ 2 _ _) _.
 Program Definition four : Imm := I (finz.FinZ 4 _ _) _.
 Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
 
-Section proof.
+  Context `{hypparams: !HypervisorParameters}.
 
-  Context `{hypparams: !HypervisorParameters}.  
-
-  Definition rywu_program0 (addr tx_base : Imm) : list Word :=
+  Definition lending_program0 (addr tx_base : Imm) : list Word :=
     [
       (* Store 2 to mem *)
       mov_word_I R4 two;
@@ -58,6 +59,10 @@ Section proof.
       mov_word_I R1 (encode_vmid V1);
       mov_word_I R2 one;
       hvc_I;
+      (* Run VM 2 (unknown vm *)
+      mov_word_I R0 run_I;
+      mov_word_I R1 (encode_vmid V2);
+      hvc_I;
       (* Run VM 1 *)
       mov_word_I R0 run_I;
       mov_word_I R1 (encode_vmid V1);
@@ -66,15 +71,12 @@ Section proof.
       mov_word_I R0 mem_reclaim_I;
       mov_reg_I R1 R3;
       hvc_I;
-      (* Run VM 2 (unknown vm *)
-      mov_word_I R0 run_I;
-      mov_word_I R1 (encode_vmid V2);
-      hvc_I;
+      (* maybe read the page again? *)
       (* Stop *)
       halt_I
     ].
 
-  Definition rywu_program1 (addr rx_base : Imm) : list Word :=
+  Definition lending_program1 (addr rx_base : Imm) : list Word :=
     [
       (* Fetch handle *)
       mov_word_I R5 rx_base;
@@ -106,13 +108,13 @@ Section proof.
   (* Qed. *)
 
   Context `{!gen_VMG Σ}.
-  Notation VMProp_2 p_tx p_rx:= (vmprop_unknown V2 p_tx p_rx ∅) (only parsing).
+  Notation VMProp_2 p_tx p_rx:= (vmprop_unknown V2) (only parsing).
   
-  Lemma rywu_machine0 p_pg0 (p_tx0 : PID) p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 (addr : Imm) p_tx0imm (p_pg0imm : Imm) :
+  Lemma lending_machine0 p_pg0 (p_tx0 : PID) p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 (addr : Imm) p_tx0imm (p_pg0imm : Imm) :
     let RX0 := (RX_state@V0 := None ∗ mailbox.rx_page V0 p_rx0 ∗ ∃ mem_rx, memory_page p_rx0 mem_rx)%I in
     let RX1 := (RX_state@V1 := None ∗ mailbox.rx_page V1 p_rx1 ∗ ∃ mem_rx, memory_page p_rx1 mem_rx)%I in
     let RX2 := (RX_state@V2 := None ∗ mailbox.rx_page V2 p_rx2 ∗ ∃ mem_rx, memory_page p_rx2 mem_rx)%I in
-    let program0 := rywu_program0 addr p_tx0imm in
+    let program0 := lending_program0 addr p_tx0imm in
     (* Disjoint pages *)
     (of_pid p_tx0 = p_tx0imm) ->
     (of_pid p_pg0 = p_pg0imm) ->
@@ -153,8 +155,7 @@ Section proof.
       VMProp V2 (VMProp_2 p_tx2 p_rx2) (1/2)%Qp ∗
       (* Pages for unknown VM *)            
       V2 -@{1/2}A> {[p_pg2;p_tx2;p_rx2]} ∗
-      LB_auth ∅ ∗
-      trans.fresh_handles 1 hs_all ∗
+      trans.fresh_handles 1 valid_handles ∗
       (* RX states *)               
       RX0 ∗ RX1 ∗ RX2 
       ⊢ WP ExecI @ V0
@@ -177,7 +178,7 @@ Section proof.
             & p_35 & p_36 & p_37 & p_38 & p_39 & _) 
          & (%memv & mem) & (%txmemgm & txmem) & OE & acc & tx & PCz & (%r0 & R0z) & (%r1 & R1z) & (%r2 & R2z) 
          & (%r3 & R3z) & (%r4 & R4z) & (%r5 & R5z) 
-         & prop0 & prop1 & prop2 & acc2 & LB_auth & hp & (RX0st & (RX0page & RX0own & RX0excl) & RX0mem) 
+         & prop0 & prop1 & prop2 & acc2 & hp & (RX0st & (RX0page & RX0own & RX0excl) & RX0mem)
          & (RX1st & (RX1page & RX1own & RX1excl) & RX1mem) & (RX2st & (RX2page & RX2own & RX2excl) & RX2mem))".
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     clear HIn; rename Hforall into HIn.
@@ -263,356 +264,35 @@ Section proof.
     rewrite wp_sswp.
     iEval (unfold memory_page) in "txmem".
     iDestruct "txmem" as "(%domtxmem & txmem)".
-    About mem_big_sepM_split_upd5.
-    (* Set *)
-    iDestruct (@mem_big_sepM_split_upd5 _ txmemgm p_tx0imm (p_tx0 ^+ 1)%f ((p_tx0 ^+ 1) ^+ 1)%f (((p_tx0 ^+ 1) ^+ 1) ^+ 1)%f ((((p_tx0 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f with "txmem") as "txmem".
+    assert (Hdom: (of_imm p_tx0imm) ∈ dom txmemgm).
     {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      rewrite <-elem_of_dom.
       rewrite domtxmem.
       rewrite elem_of_list_to_set.
-      rewrite Htxeq.        
+      rewrite Htxeq.
       apply elem_of_addr_of_page_tpa.
     }
-    {
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.      
-      apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      symmetry.
-      apply to_pid_aligned_in_page.
-      unfold addr_in_page.
-      split.
-      apply Is_true_true_2.
-      solve_finz.
-      apply Is_true_true_2.
-      solve_finz.
-    }
-    {
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.      
-      apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      symmetry.
-      apply to_pid_aligned_in_page.
-      unfold addr_in_page.
-      split.
-      apply Is_true_true_2.
-      solve_finz.
-      apply Is_true_true_2.
-      solve_finz.
-    }
-    {
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.      
-      apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      symmetry.
-      apply to_pid_aligned_in_page.
-      unfold addr_in_page.
-      split.
-      apply Is_true_true_2.
-      solve_finz.
-      apply Is_true_true_2.
-      solve_finz.
-    }
-    {
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.      
-      apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      symmetry.
-      apply to_pid_aligned_in_page.
-      unfold addr_in_page.
-      split.
-      apply Is_true_true_2.
-      solve_finz.
-      apply Is_true_true_2.
-      solve_finz.
-    }
-    iDestruct "txmem" as "(%w1 & %w2 & %w3 & %w4 & %w5 & txmem1 & txmem2 & txmem3 & txmem4 & txmem5 & txacc)".    
-    iApply ((@str _ _ _ _ _ V0 (str_I R4 R5) (encode_vmid V0) w1 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) ((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f p_tx0imm R4 R5) with "[PCz p_7 acc txmem1 RX0page tx R4z R5z]").
+    rewrite elem_of_dom in Hdom.
+    destruct Hdom as [w1 Hlk].
+    iDestruct (@mem_big_sepM_split_upd _ txmemgm p_tx0imm with "txmem") as "[addr txacc]".
+    apply Hlk. clear Hlk.
+    (* { *)
+    (*   rewrite <-elem_of_dom. *)
+    (*   rewrite domtxmem. *)
+    (*   rewrite elem_of_list_to_set.       *)
+    (*   apply elem_of_addr_of_page_iff. *)
+    (*   rewrite to_pid_aligned_eq. *)
+    (*   symmetry. *)
+    (*   apply to_pid_aligned_in_page. *)
+    (*   unfold addr_in_page. *)
+    (*   split. *)
+    (*   apply Is_true_true_2. *)
+    (*   solve_finz. *)
+    (*   apply Is_true_true_2. *)
+    (*   solve_finz. *)
+    (* } *)
+    (* iDestruct "txmem" as "(%w1 & %w2 & %w3 & %w4 & %w5 & txmem1 & txmem2 & txmem3 & txmem4 & txmem5 & txacc)".     *)
+    iApply ((@str _ _ _ _ _ V0 (str_I R4 R5) (encode_vmid V0) w1 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})
+               ((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f p_tx0imm R4 R5) with "[PCz p_7 acc addr RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -636,7 +316,7 @@ Section proof.
     assumption.
     iFrame.
     iModIntro.
-    iIntros "(PCz & _ & R5z & txmem1 & R4z & acc & tx & RX0page) _".
+    iIntros "(PCz & _ & R5z & addr & R4z & acc & tx & RX0page) _".
     (* add_I R5 R3 *)
     rewrite wp_sswp.
     iApply ((@add _ _ _ _ _ _ (add_I R5 R3) p_tx0imm one 1%Qp (tpa p_tx0) (((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f R5 R3 ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) with "[p_8 PCz acc R5z R3z tx]").
@@ -673,7 +353,29 @@ Section proof.
     iIntros "(PCz & _ & acc & tx & R4z) _".
     (* str_I R4 R5 *)
     rewrite wp_sswp.
-    iApply ((@str _ _ _ _ _ _ _ zero w2 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (((((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (p_tx0 ^+ 1)%f R4 R5) with "[p_10 PCz acc txmem2 RX0page tx R4z R5z]").
+    iDestruct ("txacc" with "addr") as "txmem".
+    assert (Hdom: (p_tx0 ^+ 1)%f ∈ dom (<[(of_imm p_tx0imm):= (of_imm (encode_vmid V0))]>txmemgm)).
+    {
+      rewrite dom_insert_L.
+      rewrite domtxmem.
+      apply elem_of_union_r.
+      rewrite elem_of_list_to_set.
+      apply elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      symmetry.
+      apply to_pid_aligned_in_page.
+      unfold addr_in_page.
+      split.
+      apply Is_true_true_2.
+      solve_finz.
+      apply Is_true_true_2.
+      solve_finz.
+    }
+    rewrite elem_of_dom in Hdom.
+    destruct Hdom as [w2 Hlk].
+    iDestruct (@mem_big_sepM_split_upd _ _ (p_tx0 ^+ 1)%f with "txmem") as "[addr txacc]".
+    apply Hlk. clear Hlk.
+    iApply ((@str _ _ _ _ _ _ _ zero w2 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (((((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f (p_tx0 ^+ 1)%f R4 R5) with "[p_10 PCz acc addr RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -713,9 +415,33 @@ Section proof.
     rewrite Htxeq.
     iFrame.
     iModIntro.
-    iIntros "(PCz & _ & R5z & txmem2 & R4z & acc & tx & RX0page) _".
+    iIntros "(PCz & _ & R5z & addr & R4z & acc & tx & RX0page) _".
     (* add_I R5 R3 *)
     rewrite wp_sswp.
+
+
+    (* iDestruct ("txacc" with "addr") as "txmem". *)
+    (* assert (Hdom: (p_tx0 ^+ 2)%f ∈ dom ( <[(p_tx0 ^+ 1)%f:=w2]> (<[(of_imm p_tx0imm):= (of_imm (encode_vmid V0))]> txmemgm))). *)
+    (* { *)
+    (*   rewrite !dom_insert_L. *)
+    (*   rewrite domtxmem. *)
+    (*   apply elem_of_union_r. *)
+    (*   apply elem_of_union_r. *)
+    (*   rewrite elem_of_list_to_set. *)
+    (*   apply elem_of_addr_of_page_iff. *)
+    (*   rewrite to_pid_aligned_eq. *)
+    (*   symmetry. *)
+    (*   apply to_pid_aligned_in_page. *)
+    (*   unfold addr_in_page. *)
+    (*   split. *)
+    (*   apply Is_true_true_2. *)
+    (*   solve_finz. *)
+    (*   apply Is_true_true_2. *)
+    (*   solve_finz. *)
+    (* } *)
+    (* rewrite elem_of_dom in Hdom. *)
+    (* destruct Hdom as [w3 Hlk]. *)
+    (* iDestruct (@mem_big_sepM_split_upd _ _ (p_tx0 ^+ 2)%f with "txmem") as "[addr txacc]". apply Hlk. *)
     
     (* iApply ((add _ R5 R3 _) with "[p_11 PCz acc R5z R3z tx]"); iFrameAutoSolve. *)
     (* apply elem_of_union_r. *)
