@@ -840,6 +840,156 @@ Section logrel_extra.
     }
   Qed.
 
+  Lemma ra_big_sepM_split_upd5 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3 k4 k5 : K) (v1 v2 v3 v4 v5 : V)
+        (total:= (λ m, (∀ k, is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ):
+    k1 ≠ k2 ->
+    k1 ≠ k3 ->
+    k1 ≠ k4 ->
+    k1 ≠ k5 ->
+    k2 ≠ k3 ->
+    k2 ≠ k4 ->
+    k2 ≠ k5 ->
+    k3 ≠ k4 ->
+    k3 ≠ k5 ->
+    k4 ≠ k5 ->    
+    map !! k1 = Some v1 ->
+    map !! k2 = Some v2 ->
+    map !! k3 = Some v3 ->
+    map !! k4 = Some v4 ->
+    map !! k5 = Some v5 ->
+    ((⌜total map⌝ ∗ [∗ map] k↦y ∈ map, f k y)%I
+     ⊢ f k1 v1 ∗ f k2 v2 ∗ f k3 v3 ∗ f k4 v4 ∗ f k5 v5 ∗
+         (∀ v1' v2' v3' v4' v5', f k1 v1' ∗ f k2 v2' ∗ f k3 v3' ∗ f k4 v4' ∗ f k5 v5' -∗ ∃ map', (⌜total map'⌝ ∗ [∗ map] k↦y ∈ map', f k y)))%I.
+  Proof.
+    iIntros (Hneq1 Hneq2 Hneq3 Hneq4 Hneq5 Hneq6 Hneq7 Hneq8 Hneq9 Hneq10 Hlookup1 Hlookup2 Hlookup3 Hlookup4 Hlookup5) "[%Htotal Hmaps]".
+    pose proof (Htotal k1) as Hlookup_k1.
+    pose proof (Htotal k2) as Hlookup_k2.
+    pose proof (Htotal k3) as Hlookup_k3.
+    pose proof (Htotal k4) as Hlookup_k4.
+    pose proof (Htotal k5) as Hlookup_k5.
+    simplify_map_eq.
+    iDestruct (big_sepM_union_acc map {[k1 := v1 ; k2 := v2 ; k3 := v3 ; k4 := v4; k5 := v5]} f with "Hmaps")
+      as "[Hsingle Hrestore]".
+    {
+      repeat apply insert_subseteq_l;eauto.
+      apply map_empty_subseteq.
+    }
+    rewrite !big_opM_insert;try rewrite !lookup_insert_None;eauto.
+    iDestruct "Hsingle" as "(single1 & single2 & single3 & single4 & single5 & _)".
+    iFrame "single1 single2 single3 single4 single5".
+    iIntros (v1' v2' v3' v4' v5') "Hsingle_upd".
+    iExists ({[k1 := v1'; k2:= v2'; k3 := v3'; k4:= v4'; k5 := v5']} ∪ map).
+    iSplitL "".
+    {
+      iPureIntro.
+      intro k0.
+      rewrite -elem_of_dom.
+      rewrite dom_union_L.
+      specialize (Htotal k0).
+      rewrite -elem_of_dom in Htotal.
+      apply elem_of_union_r.
+      done.
+    }
+    {
+      iApply "Hrestore".
+      iPureIntro. set_solver +.
+      rewrite !big_opM_insert.
+      iDestruct "Hsingle_upd" as "(single_upd1 & single_upd2 & single_upd3 & single_upd4 & single_upd5)".
+      iFrame.
+      done.
+      done.
+      apply lookup_insert_None.
+      split;done.
+      rewrite !lookup_insert_None.
+      repeat split;done.
+      rewrite !lookup_insert_None.
+      repeat split;done.
+      rewrite !lookup_insert_None.
+      repeat split;done.
+    }
+  Qed.
+
+  Lemma ra_big_sepM_split_upd5' `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3 k4 k5 : K) (v1 v2 v3 v4 v5 : V)
+        (f: K -> V -> iProp Σ):
+    k1 ≠ k2 ->
+    k1 ≠ k3 ->
+    k1 ≠ k4 ->
+    k1 ≠ k5 ->
+    k2 ≠ k3 ->
+    k2 ≠ k4 ->
+    k2 ≠ k5 ->
+    k3 ≠ k4 ->
+    k3 ≠ k5 ->
+    k4 ≠ k5 ->
+    map !! k1 = Some v1 ->
+    map !! k2 = Some v2 ->
+    map !! k3 = Some v3 ->
+    map !! k4 = Some v4 ->
+    map !! k5 = Some v5 ->
+    (([∗ map] k↦y ∈ map, f k y)%I
+     ⊢  (f k1 v1) ∗ (f k2 v2) ∗ (f k3 v3) ∗ (f k4 v4) ∗ (f k5 v5) ∗
+          (∀ v1' v2' v3' v4' v5', f k1 v1' ∗ f k2 v2' ∗ f k3 v3' ∗ f k4 v4' ∗ f k5 v5' -∗ ([∗ map] k↦y ∈ <[k1 := v1']>(<[k2 := v2']>(<[k3 := v3']>(<[k4 := v4']>(<[k5 := v5']>map)))), f k y)))%I.
+  Proof.
+    iIntros (Hneq1 Hneq2 Hneq3 Hneq4 Hneq5 Hneq6 Hneq7 Hneq8 Hneq9 Hneq10 Hlookup1 Hlookup2 Hlookup3 Hlookup4 Hlookup5) "Hmaps".
+    simplify_map_eq.
+    iDestruct (big_sepM_union_acc map {[k1 := v1 ; k2 := v2; k3 := v3; k4 := v4; k5 := v5 ]} f with "Hmaps")
+      as "[Hsingle Hrestore]".
+    {
+      apply insert_subseteq_l ;first done.
+      apply insert_subseteq_l ;first done.
+      apply insert_subseteq_l ;first done.
+      apply insert_subseteq_l ;first done.
+      apply insert_subseteq_l ;first done.
+      apply map_empty_subseteq.
+    }
+    rewrite !big_opM_insert.
+    2: {
+      done.
+    }
+    2: {
+      apply lookup_singleton_None.
+      done.
+    }
+    2: {
+      rewrite !lookup_insert_None.
+      repeat split;done.
+    }
+    2: {
+      rewrite !lookup_insert_None.
+      repeat split;done.
+    }
+    2: {
+      rewrite !lookup_insert_None.
+      repeat split;done.
+    }    
+    iDestruct "Hsingle" as "(Hsingle1 & Hsingle2 & Hsingle3 & Hsingle4 & Hsingle5 & _)".
+    iFrame "Hsingle1 Hsingle2 Hsingle3 Hsingle4 Hsingle5".
+    iIntros (v1' v2' v3' v4' v5') "Hsingle_upd".
+    assert (<[k1:=v1']> (<[k2:=v2']> (<[k3 := v3']>(<[k4 := v4']>(<[k5 := v5']>map)))) = ({[k1 := v1'; k2:= v2'; k3 := v3'; k4 := v4'; k5 := v5']} ∪ map)) as ->.
+    {      
+      rewrite !insert_union_singleton_l.
+      rewrite <-!insert_union_singleton_l.
+      rewrite <-!insert_union_l.
+      rewrite <-insert_union_singleton_l.
+      reflexivity.
+    }
+    iApply "Hrestore".
+    iPureIntro. set_solver +.
+    rewrite !big_opM_insert.
+    iDestruct "Hsingle_upd" as "(Hsingle_upd1 & Hsingle_upd2 & Hsingle_upd3 & Hsingle_upd4 & Hsingle_upd5)".
+    iFrame.
+    done.
+    done.
+    apply lookup_insert_None.
+    repeat split;done.
+    rewrite !lookup_insert_None.
+    repeat split;done.
+    rewrite !lookup_insert_None.
+    repeat split;done.
+    rewrite !lookup_insert_None.
+    repeat split;done.
+  Qed.
+
   (** registers **)
   (* we provide lookup, so r and w can be implicit *)
   Lemma reg_big_sepM_split i {reg r w}:
@@ -953,6 +1103,32 @@ Section logrel_extra.
   Proof.
     iIntros (Hne Hlookup1 Hlookup2).
     iApply (ra_big_sepM_split_upd2' mem a1 a2 w1 w2 f Hne Hlookup1 Hlookup2).
+  Qed.
+
+  Lemma mem_big_sepM_split_upd5 (mem: gmap Addr Word) {a1 a2 a3 a4 a5} {f: _ -> _ -> iProp Σ}:
+    a1 ≠ a2 ->
+    a1 ≠ a3 ->
+    a1 ≠ a4 ->
+    a1 ≠ a5 ->
+    a2 ≠ a3 ->
+    a2 ≠ a4 ->
+    a2 ≠ a5 ->
+    a3 ≠ a4 ->
+    a3 ≠ a5 ->
+    a4 ≠ a5 ->
+    is_Some (mem !! a1) ->
+    is_Some (mem !! a2) ->
+    is_Some (mem !! a3) ->
+    is_Some (mem !! a4) ->
+    is_Some (mem !! a5) ->
+    (([∗ map] k↦y ∈ mem, f k y)%I
+     ⊢  ∃ w1 w2 w3 w4 w5, f a1 w1 ∗ f a2 w2 ∗ f a3 w3 ∗ f a4 w4 ∗ f a5 w5 ∗ (∀ (w1' w2' w3' w4' w5' : Word) , (f a1 w1' ∗ f a2 w2' ∗ f a3 w3' ∗ f a4 w4' ∗ f a5 w5') -∗
+                          ([∗ map] k↦y ∈ <[a1 := w1']>(<[a2 := w2']>(<[a3 := w3']>(<[a4 := w4']>(<[a5 := w5']>mem)))), f k y)))%I.
+  Proof.
+    iIntros (Hne1 Hne2 Hne3 Hne4 Hne5 Hne6 Hne7 Hne8 Hne9 Hne10 (w1 & Hlookup1) (w2 & Hlookup2) (w3 & Hlookup3) (w4 & Hlookup4) (w5 & Hlookup5)) "H".
+    iDestruct (ra_big_sepM_split_upd5' mem a1 a2 a3 a4 a5 w1 w2 w3 w4 w5 f Hne1 Hne2 Hne3 Hne4 Hne5 Hne6 Hne7 Hne8 Hne9 Hne10 Hlookup1 Hlookup2 Hlookup3 Hlookup4 Hlookup5 with "H") as "H".
+    iExists w1, w2, w3, w4, w5.
+    iAssumption.
   Qed.
 
   (* TODO: For memory chunks *)
