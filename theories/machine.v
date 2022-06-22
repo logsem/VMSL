@@ -225,18 +225,19 @@ Proof.
   solve_decision.
 Qed.
 
-(* only essiential regular instructions are included *)
+(* only essential regular instructions are included *)
 (* Halt and Fail are introduced to model termination and exception *)
-(* Hvc is for invoking FFA calls *)
+(* Hvc is `hypervisor call`, to invoke FF-A calls *)
+(* TODO: label arguments so that a reader can understand what each does! *)
 Inductive instruction : Type :=
 | Nop
 | Mov (dst : reg_name) (src : Imm + reg_name)
 | Ldr (dst : reg_name) (src : reg_name)
 | Str (src : reg_name) (dst : reg_name)
 | Cmp (arg1 : reg_name) (arg2 : Imm + reg_name)
-| Add (op1: reg_name) (op2: reg_name)
-| Sub (op1: reg_name) (op2: reg_name)
-| Mult (op1: reg_name) (op2: Imm)
+| Add (op1 : reg_name) (op2 : reg_name)
+| Sub (op1 : reg_name) (op2 : reg_name)
+| Mult (op1 : reg_name) (op2 : Imm)
 | Bne (arg : reg_name)
 | Br (arg : reg_name)
 | Halt
