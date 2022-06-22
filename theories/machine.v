@@ -160,9 +160,12 @@ destruct (finz_eq_dec w w0).
 Defined.
 
 
-(* there are 31 general purpose registers and three system registers PC NZ *)
+(** There are 31 general purpose registers and three system registers PC NZ *)
+(* TODO: three? *)
 Inductive reg_name : Type :=
+(* program counter *)
 | PC
+(* TODO: ??? *)
 | NZ
 | R (n : nat) (fin : n < reg_count).
 
@@ -213,7 +216,7 @@ Proof.
   solve_decision.
 Qed.
 
-(* by the FFA specs, a VM has the following three ways to share memory *)
+(** by the FF-A specs ("Arm Firmware Framework for Armv8-A"), a VM has the following three ways to share memory *)
 Inductive transaction_type : Type :=
 | Donation
 | Sharing
@@ -227,7 +230,7 @@ Qed.
 
 (* only essential regular instructions are included *)
 (* Halt and Fail are introduced to model termination and exception *)
-(* Hvc is `hypervisor call`, to invoke FF-A calls *)
+(* Hvc is "hypervisor call" (aka. "hypercall"), to invoke FF-A calls *)
 (* TODO: label arguments so that a reader can understand what each does! *)
 Inductive instruction : Type :=
 | Nop
@@ -331,7 +334,7 @@ End hyp_config.
 Section hyp_def.
 Context `{_: HypervisorConstants}.
 
-(* all FFA hypercalls that we support *)
+(** All the FF-A hypercalls that we support *)
 Inductive hvc_func : Type :=
   Run
 | Yield
