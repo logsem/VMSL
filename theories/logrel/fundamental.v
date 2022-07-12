@@ -5,8 +5,9 @@ From HypVeri.algebra Require Import base pagetable mem trans mailbox.
 From HypVeri.rules Require Import rules_base halt fail.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri.logrel Require Import ftlr_nop ftlr_mov ftlr_ldr ftlr_str ftlr_cmp ftlr_add ftlr_sub ftlr_mult ftlr_bne ftlr_br
-  ftlr_run ftlr_yield ftlr_share ftlr_lend ftlr_donate ftlr_retrieve ftlr_relinquish ftlr_reclaim
-  ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc.
+  ftlr_run ftlr_yield ftlr_share.
+  (* ftlr_lend ftlr_donate ftlr_retrieve ftlr_relinquish ftlr_reclaim *)
+  (* ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc. *)
 From HypVeri Require Import proofmode.
 Import uPred.
 
@@ -26,10 +27,8 @@ Section fundamental.
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (trans') "Hres".
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rxs') "Hres".
     iEval (rewrite 11!later_sep) in "Hres".
-    iDestruct "Hres" as "(>trans_hpool_global & >tran_pgt_transferred &
+    iDestruct "Hres" as "(>%trans_rel & >trans_hpool_global & >tran_pgt_transferred &
                          >retri & >mem_transferred & >R0z & >R1z & >R2z & (>rx_state & >[% [rx' [% mem_rx]]]) & >other_rx & >%Htotal_rxs & prop0)".
-
-    iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
     erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
@@ -79,6 +78,8 @@ Section fundamental.
     }
     iDestruct "tx" as "[tx pgt_tx]".
     clear mem_rx mem_tx mem_all; subst ps_mem_in_trans.
+    iAssert (∃ (P: iProp Σ), VMProp i P (1%Qp))%I with "[propi]" as "propi".
+    iExists _;done.
     iCombine "R0z R1z R2z prop0 propi" as "Yielding".
 
     iLöb as "IH" forall (regs ps_acc trans' rxs' Htotal_rxs Htotal_regs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx).
@@ -220,16 +221,17 @@ Section fundamental.
             assert (∀ (trans0 trans'0 : gmap Addr transaction) (rxs rxs'0 : gmap VMID (option (Addr * VMID))),
                       delete i rxs = delete i rxs'0
                       → except i trans0 = except i trans'0
-                      → (∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
-                          (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans0 rxs) (1 / 2) ∗ VMProp i (vmprop_unknown i) 1
+                      → (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans0 trans'0)
+                      → ((∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
+                          (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans0 rxs) (1 / 2) ∗ (∃ P, VMProp i P 1)
                         ⊣⊢ (∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
-                             (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans'0 rxs'0) (1 / 2) ∗ VMProp i (vmprop_unknown i) 1).
+                             (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans'0 rxs'0) (1 / 2) ∗ ∃ P, VMProp i P 1)%I).
             {
               intros.
-              do 5 f_equiv.
+              do 4 f_equiv.
               rewrite (vmprop_zero_equiv_trans trans0 trans'0);last auto.
               rewrite (vmprop_zero_equiv_rxs rxs rxs'0);last auto.
-              done.
+              done. done.
             }
             destruct (hvc_f).
             { (*RUN*)

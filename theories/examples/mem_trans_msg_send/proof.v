@@ -1,12 +1,135 @@
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base mem.
-From HypVeri.rules Require Import rules_base mov halt run yield mem_send mem_retrieve mem_relinquish mem_reclaim ldr str msg_send msg_wait msg_poll add.
-From HypVeri.examples Require Import instr utils.
-From HypVeri.logrel Require Import logrel logrel_extra.
-From HypVeri Require Import proofmode machine_extra.
-Require Import Setoid.
+(* From HypVeri.rules Require Import rules_base mov halt run yield mem_send mem_retrieve mem_relinquish mem_reclaim ldr str msg_send msg_wait msg_poll add. *)
+(* From HypVeri.examples Require Import instr utils. *)
+(* From HypVeri.logrel Require Import logrel logrel_extra. *)
+(* From HypVeri Require Import proofmode machine_extra. *)
+(* Require Import Setoid. *)
 
 Section proof.
+
+Fixpoint finz_succN_def {z : Z} (f : finz z) (n : nat) : finz.finz z :=
+  match n with
+  | 0 => f
+  | S n' => ((finz_succN_def f n') ^+ 1)%f
+  end.
+
+Local Definition finz_succN_aux : seal (@finz_succN_def). Proof. by eexists. Qed.
+Definition finz_succN := finz_succN_aux.(unseal).
+Global Arguments finz_succN {_} _ _.
+Local Definition finz_succN_unseal :
+  @finz_succN = @finz_succN_def := finz_succN_aux.(seal_eq).
+
+Lemma finz_succN_correct {z : Z} (f : finz z) (n : nat) : finz_succN f n = (f ^+ n)%f.
+Proof.
+  rewrite finz_succN_unseal.
+  induction n; simpl; solve_finz.
+Qed.
+
+Lemma finz_succN_one {z : Z} (f : finz z) : (f ^+ 1)%f = finz_succN f 1.
+Proof.
+  rewrite finz_succN_correct.
+  reflexivity.
+Qed.
+
+Lemma finz_succN_assoc {z : Z} (f : finz z) (n m : nat) : finz_succN (f ^+ m)%f n = ((finz_succN f n) ^+ m)%f.
+Proof.
+  rewrite finz_succN_unseal.
+  induction n.
+  - reflexivity.
+  - simpl.
+    rewrite IHn.
+    rewrite finz_plus_assoc.
+    assert (m + 1 = 1 + m)%Z as ->.
+    { lia. }
+    rewrite finz_plus_assoc.
+    reflexivity.
+    all: lia.
+Qed.
+
+Lemma finz_succN_idemp {z : Z} (f : finz z) (n m : nat) : finz_succN (finz_succN f n) m = finz_succN f (n + m).
+Proof.
+  rewrite finz_succN_unseal.
+  induction n.
+  - reflexivity.
+  - simpl.
+    rewrite <-IHn.
+    rewrite <-finz_succN_unseal.
+    rewrite (finz_succN_assoc _ _ 1).
+    reflexivity.
+Qed.
+
+Lemma finz_succN_pid (p : PID) (n : nat) (lt : n < 1000) : tpa (finz_succN p n) = p.
+Proof.
+  apply to_pid_aligned_in_page.
+  rewrite finz_succN_correct.
+  unfold addr_in_page.
+  destruct p.
+  simpl in *.
+  destruct z.
+  simpl in *.
+  assert ((z <=? 1999000)%Z = true).
+  {
+    rewrite Z.eqb_eq in align.
+    rewrite Z.rem_mod_nonneg in align; [| lia | lia].
+    rewrite Zmod_divides in align; last lia.
+    destruct align as [c align].
+    simplify_eq.
+    assert (c <? 2000 = true)%Z.
+    lia.
+    assert (1999000 = 1000 * 1999)%Z as ->.
+    lia.
+    apply Zle_imp_le_bool.
+    apply Zmult_le_compat_l; lia.
+  }
+  split.
+  - apply Is_true_true_2.
+    solve_finz.
+  - apply Is_true_true_2.
+    solve_finz.
+Qed.
+
+Lemma finz_succN_pid' (p : PID) (n : nat) (lt : n < 1000) : tpa (p ^+ n)%f = p.
+Proof.
+  rewrite <-finz_succN_correct.
+  apply finz_succN_pid; assumption.
+Qed.
+
+Lemma finz_succN_in_seq (p : PID) (n m : nat) (lt : n < m) : (p ^+ n)%f ∈ finz.seq p m.
+Proof.
+  induction m.
+  - inversion lt.
+  - assert (S m = m + 1) as ->.
+    { rewrite <-PeanoNat.Nat.add_1_r; reflexivity. }
+    apply finz_seq_in_inv.
+    + solve_finz.
+    + solve_finz.
+Qed.
+
+Lemma finz_nat_add_assoc (p : PID) (n m : nat) : ((p ^+ n) ^+ m)%f = (p ^+ (n + m))%f.
+Proof.
+  rewrite finz_plus_assoc.
+  reflexivity.
+  all: lia.
+Qed.
+
+Lemma finz_plus_one_simpl {z : Z} (f : finz z) (n : nat) : ((f ^+ (Z.of_nat n)) ^+ 1)%f = (f ^+ (n + 1%nat))%f.
+Proof.
+  rewrite finz_plus_assoc.
+  reflexivity.
+  all: lia.
+Qed.
+
+Lemma Z_of_nat_simpl (n m : nat) : (n%nat + m%nat)%Z = ((n + m)%nat)%Z.
+Proof.
+  lia.
+Qed.
+
+Ltac fold_finz_plus_one :=
+  repeat (rewrite finz_succN_one);
+  repeat (rewrite finz_succN_idemp);
+  iEval (simpl) in "∗".
+
 
 Local Program Instance rywu_vmconfig : HypervisorConstants :=
     {vm_count := 3;
@@ -109,7 +232,8 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
 
   Context `{!gen_VMG Σ}.
   Notation VMProp_2 p_tx p_rx:= (vmprop_unknown V2) (only parsing).
-  
+
+
   Lemma lending_machine0 p_pg0 (p_tx0 : PID) p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 (addr : Imm) p_tx0imm (p_pg0imm : Imm) :
     let RX0 := (RX_state@V0 := None ∗ mailbox.rx_page V0 p_rx0 ∗ ∃ mem_rx, memory_page p_rx0 mem_rx)%I in
     let RX1 := (RX_state@V1 := None ∗ mailbox.rx_page V1 p_rx1 ∗ ∃ mem_rx, memory_page p_rx1 mem_rx)%I in
@@ -181,6 +305,8 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
          & prop0 & prop1 & prop2 & acc2 & hp & (RX0st & (RX0page & RX0own & RX0excl) & RX0mem)
          & (RX1st & (RX1page & RX1own & RX1excl) & RX1mem) & (RX2st & (RX2page & RX2own & RX2excl) & RX2mem))".
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
+    fold_finz_plus_one.
+    repeat (rewrite finz_succN_correct).
     clear HIn; rename Hforall into HIn.
     assert (p_pg0 ≠ p_tx0) as Hnottx. set_solver + HnIn_p.
     (* mov_word_I R4 two *)
@@ -210,58 +336,76 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
     iIntros "(PCz & _ & acc & tx & R5z) _".
     (* str_I R4 R5 *)
     rewrite wp_sswp.
+    iEval (repeat (rewrite finz_succN_one)) in "PCz".
+    iEval (repeat (rewrite finz_succN_idemp)) in "PCz".
+    iEval (simpl) in "PCz".
+    iEval (repeat (rewrite finz_succN_correct)) in "PCz".
     iApply ((str _ addr R4 R5) with "[p_3 PCz acc mem RX0page tx R4z R5z]"); iFrameAutoSolve.
     apply union_mono_l.
     apply union_subseteq_l'.
     rewrite singleton_subseteq.
     rewrite HIn.
     reflexivity.
-    set_solver +.
+    apply finz_succN_in_seq.
+    simpl.
+    lia.
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     intros contra.
     contradiction.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     iModIntro.
     iIntros "(PCz & _ & R5z & mem & R4z & acc & tx & RX0page) _".
     (* mov_word_I R5 tx_addr *)
     rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCz".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCz".
     iApply ((mov_word _ p_tx0imm R5) with "[p_4 PCz acc tx R5z]"); iFrameAutoSolve.
     rewrite HIn.
     set_solver +.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     assumption.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R5z) _".
     (* mov_word_I R3 one *)
     rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCz".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCz".
     iApply ((mov_word _ one R3) with "[p_5 PCz acc tx R3z]"); iFrameAutoSolve.
     rewrite HIn.
     set_solver +.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     assumption.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R3z) _".
     (* mov_word_I R4 (encode_vmid V0) *)
     rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCz".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCz".
     iApply ((mov_word _ (encode_vmid V0) R4) with "[p_6 PCz acc tx R4z]"); iFrameAutoSolve.
     rewrite HIn.
     set_solver +.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     assumption.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R4z) _".
     (* str_I R4 R5 *)
     rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCz".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCz".
     iEval (unfold memory_page) in "txmem".
     iDestruct "txmem" as "(%domtxmem & txmem)".
     assert (Hdom: (of_imm p_tx0imm) ∈ dom txmemgm).
@@ -290,9 +434,15 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
     (*   apply Is_true_true_2. *)
     (*   solve_finz. *)
     (* } *)
+    Locate iFrameAutoSolve.
+    Set Debug "RAKAM".
+
+    set
+
     (* iDestruct "txmem" as "(%w1 & %w2 & %w3 & %w4 & %w5 & txmem1 & txmem2 & txmem3 & txmem4 & txmem5 & txacc)".     *)
+    simpl in domtxmem.
     iApply ((@str _ _ _ _ _ V0 (str_I R4 R5) (encode_vmid V0) w1 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})
-               ((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f p_tx0imm R4 R5) with "[PCz p_7 acc addr RX0page tx R4z R5z]").
+               _ p_tx0imm R4 R5) with "[$PCz p_7 acc addr RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -306,7 +456,8 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
     rewrite HIn.
     apply elem_of_singleton_2.
     reflexivity.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
+    auto.
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     assumption.
@@ -363,13 +514,13 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
       apply elem_of_addr_of_page_iff.
       rewrite to_pid_aligned_eq.
       symmetry.
-      apply to_pid_aligned_in_page.
-      unfold addr_in_page.
-      split.
-      apply Is_true_true_2.
-      solve_finz.
-      apply Is_true_true_2.
-      solve_finz.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' p_tx0 4).
+      reflexivity.
+      lia.
     }
     rewrite elem_of_dom in Hdom.
     destruct Hdom as [w2 Hlk].

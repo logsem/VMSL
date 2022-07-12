@@ -52,7 +52,7 @@ Section ftlr_msg_send.
               (∃ mem : lang.mem, memory_pages (a0 ∪ (accessible_in_trans_memory_pages i a1)) mem) -∗
               ((∃ r0 : Addr, R0 @@ V0 ->r r0 ∗ ⌜decode_hvc_func r0 = Some Run⌝) ∗
               (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗ (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗
-              ▷ VMProp V0 (vmprop_zero i a1 a2) (1 / 2) ∗ VMProp i (vmprop_unknown i) 1) -∗
+              ▷ VMProp V0 (vmprop_zero i a1 a2) (1 / 2) ∗ VMProp i (vmprop_unknown i a1) 1) -∗
               WP ExecI @ i {{ _, True }}) -∗
    ([∗ map] r↦w ∈ regs, r @@ i ->r w) -∗
    TX@i:=p_tx -∗

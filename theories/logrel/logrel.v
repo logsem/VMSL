@@ -123,10 +123,29 @@ Section logrel.
 
   Definition except (trans: gmap Word transaction) := (filter (λ (kv :Word*transaction), ¬(kv.2.1.1.1.1 = i ∨ kv.2.1.1.1.2 = i)) trans).
 
-  Definition vmprop_zero_pre (Ψ: iPropO Σ) : (gmap Word transaction) -d> (gmap VMID (option(Word*VMID))) -d> iPropO Σ :=
+  (* [trans_rel_secondary] relates [trans], the transactions at the beginning of the proof, and
+                [trans'], those at the point of switching to i. These assumptions are (I believe) necessary to prove FTLR.
+                Moreover, they are provable because of that fact that i as the invoker is the only vm can manipulate
+                the state of some transactions, and since, i is not scheduled during the time between starting pvm
+                and switching to i, states of those transactions are immutable. *)
+  Definition trans_rel_secondary (i:VMID) (trans trans': gmap Word transaction): Prop :=
+    (λ tran, tran.1) <$> filter (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.2 ≠ Donation)) trans' =
+    (λ tran, tran.1) <$> filter (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.2 ≠ Donation)) trans
+    ∧
+    (filter (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans') =
+    (filter (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans).
+  (* Definition trans_rel_pre (i:VMID) (trans trans': gmap Word transaction): Prop := *)
+  (*   dom (filter (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.2 ≠ Donation)) trans') *)
+  (*     ⊆ dom (filter (λ kv, (kv.2.1.1.1.1 = i ∧ kv.2.1.2 ≠ Donation)) trans) *)
+  (*   ∧ *)
+  (*   dom (filter (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans') *)
+  (*   ⊆ dom (filter (λ kv, (kv.2.1.1.1.2 = i ∧ kv.2.2 = true)) trans). *)
+
+  Definition vmprop_zero_pre (Ψ: (gmap Word transaction) -d> iPropO Σ) : (gmap Word transaction) -d> (gmap VMID (option(Word*VMID))) -d> iPropO Σ :=
     λ trans rxs, (∃ trans' rs',
                      let trans_ret := (only trans') ∪ (except trans) in
                            ⌜dom (only trans') ## dom (except trans)⌝ ∗
+                           ⌜∀ x, x ≠ i -> trans_rel_secondary x trans trans_ret⌝ ∗
                            (* transaction and pagetable entries *)
                            transaction_hpool_global_transferred trans_ret ∗
                            transaction_pagetable_entries_transferred i trans_ret ∗
@@ -135,10 +154,11 @@ Section logrel.
                            (∃ mem_trans, memory_pages (transferred_memory_pages trans_ret) mem_trans) ∗
                            (RX_state@i:= rs') ∗ (∃p_rx, RX@i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx)) ∗
                            return_reg_rx i rs' rxs ∗
-                           VMProp i (Ψ) (1/2)%Qp)%I.
+                           VMProp i (Ψ trans_ret) (1/2)%Qp)%I.
 
-  Definition vmprop_unknown_pre (Φ: iPropO Σ) :iPropO Σ :=
-    (∃ (trans' : gmap Word transaction) (rxs : gmap VMID (option(Word * VMID))),
+  Definition vmprop_unknown_pre (Φ: (gmap Word transaction) -d> iPropO Σ) : (gmap Word transaction) -d> iPropO Σ :=
+   λ trans, (∃ (trans' : gmap Word transaction) (rxs : gmap VMID (option(Word * VMID))),
+               ⌜trans_rel_secondary i trans trans'⌝ ∗
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred i trans' ∗
@@ -154,43 +174,25 @@ Section logrel.
 
   Local Instance vmprop_unknown_pre_contractive : Contractive (vmprop_unknown_pre).
   Proof.
-    rewrite /vmprop_unknown_pre => n vmprop_unknown vmprop_unknown' Hvmprop_unknown /=.
-    do 14 f_equiv.
+    rewrite /vmprop_unknown_pre => n vmprop_unknown vmprop_unknown' Hvmprop_unknown trans /=.
+    do 15 f_equiv.
     rewrite /VMProp /=.
     do 6 f_equiv.
     f_contractive.
     rewrite /vmprop_zero_pre.
-    do 11 f_equiv.
+    do 12 f_equiv.
     rewrite /VMProp.
     repeat f_equiv.
-    apply Hvmprop_unknown.
+    (* apply Hvmprop_unknown. *)
   Qed.
 
-  Definition vmprop_unknown:= fixpoint (vmprop_unknown_pre).
+  Definition vmprop_unknown := fixpoint (vmprop_unknown_pre).
 
   Definition vmprop_zero := vmprop_zero_pre vmprop_unknown.
 
-  (* Lemma vmprop_unknown_def : vmprop_unknown ≡ *)
-  (*     (∃ (trans' : gmap Word transaction) rxs, *)
-  (*         let ps_macc_trans' := (transferred_memory_pages trans') in *)
-  (*         transaction_hpool_global_transferred trans' ∗ *)
-  (*         transaction_pagetable_entries_transferred i trans' ∗ *)
-  (*         retrievable_transaction_transferred i trans' ∗ *)
-  (*         (∃ mem_trans, memory_pages ps_macc_trans' mem_trans) ∗ *)
-  (*         R0 @@ V0 ->r encode_hvc_func(Run) ∗ R1 @@ V0 ->r encode_vmid(i) ∗ (∃ r2, R2 @@ V0 ->r r2) ∗ *)
-  (*         rx_state_get i rxs ∗ *)
-  (*         (∃p_rx, RX@i := p_rx ∗ (∃ mem_rx, memory_page p_rx mem_rx)) ∗ *)
-  (*         (* rx pages for all other VMs *) *)
-  (*         rx_states_global (delete i rxs) ∗ ⌜is_total_gmap rxs⌝ ∗ *)
-  (*         VMProp V0 (vmprop_zero rxs) (1/2)%Qp)%I. *)
-  (* Proof. *)
-  (*   rewrite /vmprop_unknown //. *)
-  (*   rewrite (fixpoint_unfold vmprop_unknown_pre). *)
-  (*   setoid_reflexivity. *)
-  (* Qed. *)
-
-  Lemma vmprop_unknown_eq : vmprop_unknown ⊣⊢
+  Lemma vmprop_unknown_eq trans : vmprop_unknown trans ⊣⊢
     (∃ (trans' : gmap Word transaction) (rxs : gmap VMID (option(Word * VMID))),
+               ⌜trans_rel_secondary i trans trans'⌝ ∗
                (* transaction and pagetable entries *)
                transaction_hpool_global_transferred trans' ∗
                transaction_pagetable_entries_transferred i trans' ∗
@@ -226,18 +228,7 @@ Section logrel.
       transaction_pagetable_entries_owned i trans ∗
       retrieved_transaction_owned i trans ∗
       (∃ mem_oea, memory_pages (ps_oea ∪ (retrieved_lending_memory_pages trans)) mem_oea) ∗
-      VMProp i (vmprop_unknown) (1/2)%Qp
+      VMProp i (vmprop_unknown trans) (1/2)%Qp
     )%I.
-
-  (* [trans_rel_secondary] relates [trans], the transactions at the beginning of the proof, and
-                [trans'], those at the point of switching to i. These assumptions are (I believe) necessary to prove FTLR.
-                Moreover, they are provable because of that fact that i as the invoker is the only vm can manipulate
-                the state of some transactions, and since, i is not scheduled during the time between starting pvm
-                and switching to i, states of those transactions are immutable. *)
-  Definition trans_rel_secondary (i:VMID) (trans trans': gmap Word transaction): Prop :=
-   map_Forall (λ h tran,
-            ((tran.1.1.1.1 = i ∧ tran.1.2 ≠ Donation) -> ∃ tran', trans' !! h = Some tran' ∧ tran.1 = tran'.1) ∧
-            ((tran.1.1.1.2 = i ∧ tran.2 = true) -> ∃ tran', trans' !! h = Some tran' ∧ tran = tran')
-     ) trans.
 
 End logrel.
