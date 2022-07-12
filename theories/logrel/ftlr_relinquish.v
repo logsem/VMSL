@@ -13,7 +13,9 @@ Section ftlr_relinquish.
   Context `{vmG: !gen_VMG Σ}.
 
 Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
-  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
+  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' ->
+                            (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans trans') ->
+                            P trans rxs ⊣⊢ P trans' rxs') ->
   base_extra.is_total_gmap regs ->
   base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -372,6 +374,40 @@ Lemma ftlr_relinquish {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}
     {
       iApply (P_eq with "P"). done.
       symmetry. eapply except_insert_False_Some;eauto.
+      intros.
+      destruct (decide (x = tran.1.1.1.1)).
+      subst x.
+      split.
+      destruct (decide (tran.1.2 = Donation)).
+      rewrite map_filter_insert_not' /=. done.
+      intros [_ ?]. auto.
+      intros ? ?.
+      intros [_ ?].
+      rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+      rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+      rewrite -(insert_id _ _ _ Hlookup_tran).
+      rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+      rewrite insert_insert. auto.
+      split. auto. auto.
+      split. auto. auto.
+      rewrite map_filter_insert_not' /=. auto.
+      intros [? _].
+      rewrite -H0 in H. auto.
+      intros ? ?.
+      intros [? _].
+      rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+      rewrite -H1 in H. auto.
+      split.
+      rewrite map_filter_insert_not' /=. auto.
+      intros [? _]. auto.
+      intros ? ?.
+      intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+      rewrite map_filter_insert_not' /=. auto.
+      intros [? _]. auto.
+      rewrite -Heq_tran in H. auto.
+      intros ? ?.
+      intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+      rewrite Heq_tran in H1. auto.
     }
   Qed.
 

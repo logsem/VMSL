@@ -5,7 +5,7 @@ From HypVeri.algebra Require Import base pagetable mem trans mailbox.
 From HypVeri.rules Require Import rules_base halt fail run.
 From HypVeri.logrel Require Import logrel_prim_extra.
 From HypVeri.logrel Require Import ftlr_nop ftlr_mov ftlr_ldr ftlr_str ftlr_cmp ftlr_add ftlr_sub ftlr_mult ftlr_bne ftlr_br.
-From HypVeri.logrel Require Import ftlr_run_prim ftlr_yield_prim ftlr_share. (*ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend *)
+From HypVeri.logrel Require Import ftlr_run_prim ftlr_yield_prim ftlr_share ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_donate ftlr_lend.
 (*  ftlr_msg_wait_prim ftlr_msg_send_prim ftlr_msg_poll ftlr_invalid_hvc. *)
 From HypVeri Require Import proofmode.
 Import uPred.

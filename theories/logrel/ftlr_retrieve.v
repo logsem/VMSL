@@ -13,7 +13,9 @@ Section ftlr_retrieve.
   Context `{vmG: !gen_VMG Σ}.
 
 Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P:
-  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
+  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' ->
+                            (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans trans') ->
+                            P trans rxs ⊣⊢ P trans' rxs') ->
   base_extra.is_total_gmap regs ->
   base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -85,6 +87,7 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
     iDestruct "rx" as "[rx pgt_rx]".
 
     iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Htrans_disj.
+    iDestruct (get_trans_neq with "trans_hpool_global") as "%Htrans_neq".
     iDestruct "trans_hpool_global" as (hpool) "(%Heq_hsall & fresh_handles & trans)".
 
     destruct (decide (r1 ∈ valid_handles)) as [Hin_hs_all |Hnotin_hs_all].
@@ -312,6 +315,7 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
         set_solver +.
     }
 
+    
     destruct (tran.1.2) eqn:Heq_tran_tt.
     { (* retrieve donate*)
       iDestruct (big_sepFM_lookup_Some Hlookup_tran with "tran_pgt_transferred") as "[[tran' oe_tran] tran_pgt_transferred]".
@@ -350,7 +354,6 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
         iDestruct ("Hacc_mem_acc_tx_rx" with "[$mem_instr]") as "mem_acc_tx_rx".
 
         set rxs' := <[(i:VMID):= Some (wl, tran.1.1.1.1)]>rxs.
-
         iApply ("IH" $! _ _ (delete r1 trans) rxs' with "[] [] [] [] [] [] regs tx pgt_tx [$rx $pgt_rx]  pgt_acc [own_tran excl_tran pgt_owned]
                             [fresh_handles trans] [tran_pgt_transferred] [retri retri'] [rx_state] [other_rx] [tran_pgt_owned]
                             [retri_owned] [mem_rest mem_acc_tx_rx mem_rx mem_tx] [P]").
@@ -485,6 +488,27 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
           symmetry. eapply except_delete_False. done. right;done.
+          intros.
+          destruct (decide (x = tran.1.1.1.1)).
+          subst x.
+          split.
+          rewrite map_filter_delete_not //=.
+          intros ? ?.
+          intros [_ ?].
+          rewrite H0 // in Hlookup_tran. inversion Hlookup_tran. subst y. done.
+          rewrite map_filter_delete_not //=.
+          intros ? ?.
+          intros [? _]. rewrite H0 // in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite H1 // in Heq_tran.
+          split.
+          rewrite map_filter_delete_not //=.
+          intros ? ?.
+          intros [? _]. rewrite H0 // in Hlookup_tran. inversion Hlookup_tran. subst y.
+          done.
+          rewrite map_filter_delete_not //=.
+          intros ? ?.
+          intros [? _]. rewrite H0 // in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite Heq_tran // in H1.
         }
       }
       { (* apply [mem_retrieve_donate_rx]*)
@@ -646,6 +670,26 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
           symmetry. eapply except_delete_False. done. right;done.
+          intros.
+          destruct (decide (x = tran.1.1.1.1)).
+          subst x.
+          split.
+          rewrite map_filter_delete_not /=. auto.
+          intros ? ?.
+          intros [_ ?].
+          rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+          rewrite map_filter_delete_not /=. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite H1 in Heq_tran. auto.
+          split.
+          rewrite map_filter_delete_not /=. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+          rewrite map_filter_delete_not /=. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite Heq_tran in H1. auto.
         }
       }
     }
@@ -822,6 +866,34 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
           symmetry. eapply except_insert_False_Some;eauto.
+          intros.
+          destruct (decide (x = tran.1.1.1.1)).
+          subst x.
+          split.
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite -(insert_id _ _ _ Hlookup_tran).
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite insert_insert. auto.
+          split;auto. rewrite Heq_tran_tt. auto.
+          split;auto. rewrite Heq_tran_tt. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _].
+          rewrite -H0 in H. auto.
+          intros ? ?.
+          intros [? _].
+          rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite -H1 in H. auto.
+          split.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          rewrite -Heq_tran in H. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite Heq_tran in H1. auto.
         }
       }
       { (* apply [mem_retrieve_sharing_rx]*)
@@ -998,6 +1070,34 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
           symmetry. eapply except_insert_False_Some;eauto.
+          intros.
+          destruct (decide (x = tran.1.1.1.1)).
+          subst x.
+          split.
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite -(insert_id _ _ _ Hlookup_tran).
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite insert_insert. auto.
+          split. auto. rewrite Heq_tran_tt. auto.
+          split. auto. rewrite Heq_tran_tt. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _].
+          rewrite -H0 in H. auto.
+          intros ? ?.
+          intros [? _].
+          rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite -H1 in H. auto.
+          split.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          rewrite -Heq_tran in H. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite Heq_tran in H1. auto.
         }
       }
     }
@@ -1174,6 +1274,34 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
           symmetry. eapply except_insert_False_Some;eauto.
+          intros.
+          destruct (decide (x = tran.1.1.1.1)).
+          subst x.
+          split.
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite -(insert_id _ _ _ Hlookup_tran).
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite insert_insert. auto.
+          split. auto. rewrite Heq_tran_tt. auto.
+          split. auto. rewrite Heq_tran_tt. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _].
+          rewrite -H0 in H. auto.
+          intros ? ?.
+          intros [? _].
+          rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite -H1 in H. auto.
+          split.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          rewrite -Heq_tran in H. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite Heq_tran in H1. auto.
         }
       }
       { (* apply [mem_retrieve_lend_rx]*)
@@ -1350,6 +1478,34 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iApply (P_eq with "P").
           rewrite /rxs' delete_insert_delete //.
           symmetry. eapply except_insert_False_Some;eauto.
+          intros.
+          destruct (decide (x = tran.1.1.1.1)).
+          subst x.
+          split.
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite -(insert_id _ _ _ Hlookup_tran).
+          rewrite map_filter_insert_True /=. rewrite fmap_insert /=.
+          rewrite insert_insert. auto.
+          split. auto. rewrite Heq_tran_tt. auto.
+          split. auto. rewrite Heq_tran_tt. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _].
+          rewrite -H0 in H. auto.
+          intros ? ?.
+          intros [? _].
+          rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite -H1 in H. auto.
+          split.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+          rewrite map_filter_insert_not' /=. auto.
+          intros [? _]. auto.
+          rewrite -Heq_tran in H. auto.
+          intros ? ?.
+          intros [? _]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+          rewrite Heq_tran in H1. auto.
         }
       }
     }
