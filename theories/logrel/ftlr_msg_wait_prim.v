@@ -13,7 +13,9 @@ Section ftlr_msg_wait_prim.
 
   Lemma ftlr_msg_wait_prim {P mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
     let i := V0 in
-    (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
+    (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' ->
+                              (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans trans') ->
+                              P trans rxs ⊣⊢ P trans' rxs') ->
     base_extra.is_total_gmap regs ->
     base_extra.is_total_gmap rxs ->
     {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -131,6 +133,7 @@ Section ftlr_msg_wait_prim.
         iApply (P_eq with "P").
         rewrite /rxs'. rewrite delete_insert_delete //.
         done.
+        intros. done.
       }
     }
 

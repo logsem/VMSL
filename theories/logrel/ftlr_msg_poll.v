@@ -12,7 +12,9 @@ Section ftlr_msg_poll.
   Context `{vmG: !gen_VMG Σ}.
 
   Lemma ftlr_msg_poll {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
-  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
+  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' ->
+                            (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans trans') ->
+                            P trans rxs ⊣⊢ P trans' rxs') ->
     base_extra.is_total_gmap regs ->
     base_extra.is_total_gmap rxs ->
     {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -130,6 +132,7 @@ Section ftlr_msg_poll.
         iApply (P_eq with "P").
         rewrite /rxs' delete_insert_delete //.
         done.
+        intros. done.
       }
     }
     (* apply [msg_poll_empty] *)
