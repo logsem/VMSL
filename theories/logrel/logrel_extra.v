@@ -753,6 +753,47 @@ Qed.
     intro.
     rewrite /retrieved_lending_memory_pages.
     destruct H.
+    f_equal.
+    feed pose proof (map_filter_imp trans (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
+       kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending)
+     (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true)).
+    intros ? [? [? ?]]. done.
+    feed pose proof (map_filter_imp trans' (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
+       kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending)
+     (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true)).
+    intros ? [? [? ?]]. done.
+    rewrite map_subseteq_spec in H1.
+    rewrite map_subseteq_spec in H2.
+    apply map_eq.
+    intros.
+    destruct (filter
+    (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
+       kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) trans' !! i0) eqn:Heqn.
+    specialize (H2 i0 t Heqn).
+    apply map_filter_lookup_Some in Heqn.
+    rewrite H0 in H2.
+    apply map_filter_lookup_Some in H2.
+    apply map_filter_lookup_Some.
+    destruct H2 as [? []].
+    destruct Heqn as [? []].
+    done.
+    apply map_filter_lookup_None in Heqn.
+    apply map_filter_lookup_None.
+    destruct Heqn as [|].
+    assert (filter (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true) trans' !! i0 = None).
+    apply map_filter_lookup_None.
+    left;done.
+    rewrite H0 in H4.
+    apply map_filter_lookup_None in H4.
+    destruct H4 as [|].
+    left;done.
+    right.
+    intros. intros [?[]].
+    eapply H4.
+    done.
+    split;done.
+    right.
+    intros.
     admit.
   Admitted.
 
@@ -765,11 +806,11 @@ Qed.
     rewrite /trans_rel_eq.
     intro.
     rewrite /currently_accessible_in_trans_memory_pages.
+    rewrite map_filter_land.
     destruct H.
     admit.
   Admitted.
 
-  (* TODO *)
   Lemma trans_rel_secondary_transaction_pagetable_entries_owned i trans trans':
     trans_rel_secondary i trans trans' ->
     ⊢ trans_rel_wand (transaction_pagetable_entries_owned i) trans trans'.
@@ -779,10 +820,22 @@ Qed.
     intros [].
     rewrite /transaction_pagetable_entries_owned.
     iModIntro.
-    admit.
-  Admitted.
+    rewrite /big_sepFM.
+    rewrite (big_sepM_proper _ (λ k v,
+                 k -{1 / 4}>t ((λ tran : meta_info * bool, tran.1) v) ∗
+                  pgt_1_4 ((λ tran : meta_info * bool, tran.1) v).1.2 ((λ tran : meta_info * bool, tran.1) v).1.1.1 (bool_decide (((λ tran : meta_info * bool, tran.1) v).2 ≠ Sharing))))%I.
+    2: {
+      intros. done.
+    }
+    iIntros "?".
+    iApply (big_sepM_fmap (λ tran : meta_info * bool, tran.1) (λ k v,
+                 k -{1 / 4}>t v ∗
+                  pgt_1_4 v.1.2 v.1.1.1 (bool_decide (v.2 ≠ Sharing)))%I).
+    rewrite H.
+    rewrite big_sepM_fmap.
+    done.
+  Qed.
 
-  (* TODO *)
   Lemma trans_rel_secondary_retrieved_transaction_owned i trans trans':
     trans_rel_secondary i trans trans' ->
     ⊢ trans_rel_wand (retrieved_transaction_owned i) trans trans'.
@@ -792,8 +845,11 @@ Qed.
     intros [].
     rewrite /retrieved_transaction_owned.
     iModIntro.
-    admit.
-  Admitted.
+    rewrite /big_sepFM.
+    rewrite H0.
+    iIntros.
+    done.
+  Qed.
 
   (* lemmas *)
   Lemma transferred_accessible_memory_pages_subseteq i trans:
