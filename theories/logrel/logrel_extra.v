@@ -744,6 +744,63 @@ Qed.
   Definition valid_accessible_in_trans_memory_pages ps_acc i trans :=
     ps_acc ∩ (accessible_in_trans_memory_pages i trans) = currently_accessible_in_trans_memory_pages i trans.
 
+  Lemma map_filter_imp_eq `{Countable K} (V: Type) (m m': gmap K V) P Q `{∀ x : K * V, Decision (P x)}
+    `{∀ x : K * V, Decision (Q x)}:
+    (∀ x, Q x -> P x) ->
+    filter P m = filter P m' ->
+    filter Q m = filter Q m'.
+  Proof.
+    intros Himp Heq.
+    apply map_eq.
+    intros.
+    destruct (filter P m !! i) eqn:Hlk.
+    {
+    pose proof Hlk as Hlk'.
+    apply map_filter_lookup_Some in Hlk.
+    destruct Hlk as [Hlk HP].
+    rewrite Heq in Hlk'.
+    apply map_filter_lookup_Some in Hlk'.
+    destruct Hlk' as [Hlk' HP'].
+    destruct (decide (Q (i,v))).
+    erewrite map_filter_lookup_Some_2;eauto.
+    symmetry.
+    apply map_filter_lookup_Some.
+    split;done.
+    rewrite map_filter_lookup_None_2.
+    2:{ right. intros. rewrite H2 in Hlk. inversion Hlk. done. }
+    symmetry.
+    rewrite map_filter_lookup_None_2 //.
+    right. intros. rewrite H2 in Hlk'. inversion Hlk'. done.
+    }
+    {
+    pose proof Hlk as Hlk'.
+    apply map_filter_lookup_None in Hlk.
+    destruct Hlk.
+    {
+    erewrite map_filter_lookup_None_2;eauto.
+    symmetry.
+    rewrite map_filter_lookup_None_2 //.
+    rewrite Heq in Hlk'.
+    apply map_filter_lookup_None in Hlk'.
+    destruct Hlk'.
+    left;done.
+    right. intros. intro. apply (H3 _ H4). apply Himp. done.
+    }
+    erewrite map_filter_lookup_None_2;eauto.
+    symmetry.
+    rewrite map_filter_lookup_None_2 //.
+    rewrite Heq in Hlk'.
+    apply map_filter_lookup_None in Hlk'.
+    destruct Hlk'.
+    left;done.
+    right. intros. intro. apply (H3 _ H4). apply Himp. done.
+    apply map_filter_lookup_None in Hlk'.
+    destruct Hlk'.
+    left;done.
+    right. intros. intro. apply (H3 _ H4). apply Himp. done.
+    }
+Qed.
+
   Lemma trans_rel_secondary_retrieved_lending_memory_pages i trans trans':
     trans_rel_secondary i trans trans' ->
     trans_rel_eq (retrieved_lending_memory_pages i) trans trans'.
@@ -754,48 +811,14 @@ Qed.
     rewrite /retrieved_lending_memory_pages.
     destruct H.
     f_equal.
-    feed pose proof (map_filter_imp trans (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
-       kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending)
-     (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true)).
-    intros ? [? [? ?]]. done.
-    feed pose proof (map_filter_imp trans' (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
-       kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending)
-     (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true)).
-    intros ? [? [? ?]]. done.
-    rewrite map_subseteq_spec in H1.
-    rewrite map_subseteq_spec in H2.
-    apply map_eq.
-    intros.
-    destruct (filter
-    (λ kv : Addr * (VMID * leibnizO VMID * gset PID * transaction_type * bool),
-       kv.2.1.1.1.2 = i ∧ kv.2.2 = true ∧ kv.2.1.2 = Lending) trans' !! i0) eqn:Heqn.
-    specialize (H2 i0 t Heqn).
-    apply map_filter_lookup_Some in Heqn.
-    rewrite H0 in H2.
-    apply map_filter_lookup_Some in H2.
-    apply map_filter_lookup_Some.
-    destruct H2 as [? []].
-    destruct Heqn as [? []].
+    eapply map_filter_imp_eq.
+    2:{
+      symmetry.
+      exact H0.
+    }
+    intros ? [? []].
     done.
-    apply map_filter_lookup_None in Heqn.
-    apply map_filter_lookup_None.
-    destruct Heqn as [|].
-    assert (filter (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true) trans' !! i0 = None).
-    apply map_filter_lookup_None.
-    left;done.
-    rewrite H0 in H4.
-    apply map_filter_lookup_None in H4.
-    destruct H4 as [|].
-    left;done.
-    right.
-    intros. intros [?[]].
-    eapply H4.
-    done.
-    split;done.
-    right.
-    intros.
-    admit.
-  Admitted.
+  Qed.
 
   (* TODO *)
   Lemma trans_rel_secondary_currently_accessible_memory_pages i trans trans':
