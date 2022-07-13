@@ -17,6 +17,7 @@ Section instr.
   Definition run_I := encode_hvc_func Run.
   Definition yield_I := encode_hvc_func Yield.
   Definition mem_lend_I := encode_hvc_func Lend.
+  Definition mem_share_I := encode_hvc_func Share.
   Definition mem_reclaim_I := encode_hvc_func Reclaim.
   Definition mem_retrieve_I := encode_hvc_func Retrieve.
   Definition mem_relinquish_I := encode_hvc_func Relinquish.
