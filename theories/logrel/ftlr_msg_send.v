@@ -338,12 +338,13 @@ Section ftlr_msg_send.
       iDestruct "Hres" as "(>%trans_rel & >trans_hpool_global & >tran_pgt_transferred &
                          >retri & >mem_transferred & >R0z & >R1z & >R2z & (>rx_state & >[% [rx'' [% mem_rx]]]) & >other_rx & >%Htotal_rxs' & prop0)".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f r0 r1 r2 with "[PC R0 R1 R2]") as "[%regs' [%Htotal_regs' regs'']]"; iFrameAutoSolve.
+      iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Hdisj'.
+      iDestruct (get_trans_neq with "trans_hpool_global") as %Hneq'.
       erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
       erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
       iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
       iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
 
-      iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Hdisj'.
       iAssert (⌜(ps_acc ∖ {[p_tx]} ∖ ({[p_rx]} ∪ transferred_memory_pages i trans)
                  = ps_acc ∖ {[p_rx; p_tx]} ∖ transferred_memory_pages i trans')⌝)%I as "%Hrewrite".
       {
@@ -502,12 +503,13 @@ Section ftlr_msg_send.
       iDestruct "Hres" as "(>%trans_rel & >trans_hpool_global & >tran_pgt_transferred &
                          >retri & >mem_transferred & >R0z & >R1z & >R2z & (>rx_state & >[% [rx'' [% mem_rx]]]) & >other_rx & >%Htotal_rxs' & prop0)".
       iDestruct ("Hacc_regs" $! (ai ^+ 1)%f r0 r1 r2 with "[PC R0 R1 R2]") as "[%regs' [%Htotal_regs' regs'']]"; iFrameAutoSolve.
+      iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Hdisj'.
+      iDestruct (get_trans_neq with "trans_hpool_global") as %Hneq'.
       erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
       erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
       iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
       iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
 
-      iDestruct (get_trans_ps_disj with "trans_hpool_global") as %Hdisj'.
       iAssert (⌜(ps_acc ∖ {[p_tx]} ∖ ({[p_rx]} ∪ transferred_memory_pages i trans)
                  = ps_acc ∖ {[p_rx; p_tx]} ∖ transferred_memory_pages i trans')⌝)%I as "%Hrewrite".
       {

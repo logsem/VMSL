@@ -799,7 +799,7 @@ Qed.
     left;done.
     right. intros. intro. apply (H3 _ H4). apply Himp. done.
     }
-Qed.
+  Qed.
 
   Lemma trans_rel_secondary_retrieved_lending_memory_pages i trans trans':
     trans_rel_secondary i trans trans' ->
@@ -820,19 +820,176 @@ Qed.
     done.
   Qed.
 
-  (* TODO *)
+  Lemma map_filter_lor_weak `{Countable K} {A : Type} {m: gmap K A} {P Q: K * A -> Prop} `{∀ x, Decision (P x)} `{∀ x, Decision (Q x)} :
+    map_Forall (λ k v, P (k,v) ∧ Q (k,v) -> False) m
+    ->
+    filter (λ kv, ((P kv) ∨ Q kv):Prop) m = filter P m ∪ filter Q m ∧ (dom (filter P m) ## dom (filter Q m)).
+  Proof.
+    intro Hfalse.
+    {
+      induction m as [|k v m Hlk] using map_ind.
+      rewrite !map_filter_empty. split. rewrite map_union_empty //. set_solver+.
+      assert (Hfalse': map_Forall (λ (k0 : K) (v0 : A), P (k0, v0) ∧ Q (k0, v0) → False) m).
+      {
+        rewrite map_Forall_insert //in Hfalse.
+        destruct Hfalse;done.
+      }
+      specialize (IHm Hfalse') as [].
+      destruct (decide (P (k,v)));destruct (decide (Q (k,v))).
+      {
+        exfalso.
+        eapply (Hfalse k v).
+        rewrite lookup_insert //.
+        split;done.
+      }
+      {
+        rewrite map_filter_insert_True//.
+        rewrite map_filter_insert_True//.
+        rewrite map_filter_insert_False//.
+        2:{ left;done. }
+        rewrite map_filter_delete.
+        split.
+        rewrite H2.
+        rewrite delete_notin.
+        rewrite insert_union_l.
+        done.
+        rewrite map_filter_lookup_None.
+        left;done.
+        rewrite dom_insert.
+        rewrite dom_delete.
+        set_solver + H3.
+      }
+      {
+        rewrite map_filter_insert_True//.
+        rewrite map_filter_insert_False//.
+        rewrite map_filter_insert_True//.
+        2:{ right;done. }
+        rewrite map_filter_delete.
+        split.
+        rewrite H2.
+        rewrite -insert_union_r.
+        rewrite delete_notin.
+        done.
+        rewrite map_filter_lookup_None.
+        left;done.
+        rewrite lookup_delete //.
+        rewrite dom_insert.
+        rewrite dom_delete.
+        set_solver + H3.
+      }
+      {
+        rewrite 3?map_filter_insert_False//.
+        rewrite delete_notin//.
+        intros [? | ?]; done.
+      }
+    }
+  Qed.
+
+  Lemma map_fold_fmap `{Countable K} {A B C: Type} {m: gmap K A} (f : A -> C) g (b:B):
+    (∀ j1 j2 z1 z2 y, g j1 z1 (g j2 z2 y) = g j2 z2 (g j1 z1 y))->
+    map_fold (λ k v b, g k (f v) b) b m = map_fold g b (f <$> m).
+  Proof.
+    intro.
+    induction m using map_ind.
+    rewrite fmap_empty.
+    rewrite 2!map_fold_empty //.
+    rewrite fmap_insert.
+    rewrite map_fold_insert_L //.
+    rewrite map_fold_insert_L //.
+    rewrite IHm //.
+    rewrite lookup_fmap.
+    rewrite H1 //.
+  Qed.
+
   Lemma trans_rel_secondary_currently_accessible_memory_pages i trans trans':
+    trans_neq trans' ->
+    trans_ps_disj trans' ->
     trans_rel_secondary i trans trans' ->
     trans_rel_eq (currently_accessible_in_trans_memory_pages i) trans trans'.
   Proof.
     rewrite /trans_rel_secondary.
     rewrite /trans_rel_eq.
-    intro.
+    intros.
     rewrite /currently_accessible_in_trans_memory_pages.
-    rewrite map_filter_land.
-    destruct H.
-    admit.
-  Admitted.
+    feed pose proof (map_filter_lor_weak (m:= trans') (P:=(λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+          kv.2.1.1.1.1 = i ∧ kv.2.1.2 = Sharing )) (Q:=(λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+          kv.2.1.1.1.2 = i ∧ kv.2.2 = true ))).
+    intros ? ? Hlk [[] []].
+    specialize (H _ _ Hlk).
+    apply H.
+    simpl in *.
+    rewrite H2 H4 //.
+    destruct H2 as [Heq' Hdom'].
+    rewrite Heq'.
+    rewrite pages_in_trans_union //.
+    destruct H1.
+    feed pose proof (map_filter_lor_weak (m:= trans) (P:=(λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+          kv.2.1.1.1.1 = i ∧ kv.2.1.2 = Sharing )) (Q:=(λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+          kv.2.1.1.1.2 = i ∧ kv.2.2 = true ))).
+    intros ? ? Hlk [[] []].
+    simpl in *.
+    assert (filter (λ kv : Addr * (VMID * VMID * gset PID * transaction_type * bool), kv.2.1.1.1.2 = i ∧ kv.2.2 = true) trans !! i0 = Some x).
+    rewrite map_filter_lookup_Some.
+    split; done.
+    rewrite -H2 in H7.
+    rewrite map_filter_lookup_Some in H7.
+    destruct H7 as [Hlk' []].
+    specialize (H _ _ Hlk').
+    apply H.
+    rewrite H3 H5 //.
+    destruct H3 as [Heq Hdom].
+    rewrite Heq.
+    rewrite pages_in_trans_union //.
+    f_equal.
+    2:{
+      f_equal.
+      done.
+    }
+    rewrite /pages_in_trans.
+    rewrite /pages_in_trans'.
+    rewrite /lift_option_gmap.
+    rewrite -map_fold_fmap.
+    2:{
+      intros. destruct z1, z2; set_solver +.
+    }
+    rewrite -map_fold_fmap.
+    2:{
+      intros. destruct z1, z2; set_solver +.
+    }
+    rewrite (map_fold_fmap (λ (v: transaction), v.1)
+             (λ (_ : Addr) (v : VMID * VMID * gset PID * transaction_type) (b : gset PID), v.1.2 ∪ b) ∅
+             (m:=(filter
+       (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+          kv.2.1.1.1.1 = i ∧ kv.2.1.2 = Sharing) trans))).
+    rewrite (map_fold_fmap (λ (v: transaction), v.1)
+             (λ (_ : Addr) (v : VMID * VMID * gset PID * transaction_type) (b : gset PID), v.1.2 ∪ b) ∅
+             (m:=(filter
+       (λ kv : Addr * (leibnizO VMID * leibnizO VMID * gset PID * transaction_type * bool),
+          kv.2.1.1.1.1 = i ∧ kv.2.1.2 = Sharing) trans'))).
+    f_equal.
+    pose proof (map_filter_fmap (λ kv : Addr * (VMID * VMID * gset PID * transaction_type), kv.2.1.1.1 = i ∧ kv.2.2 ≠ Donation) (λ tran : meta_info * bool, tran.1) trans').
+    simpl in H3.
+    rewrite -H3 in H1.
+    pose proof (map_filter_fmap (λ kv : Addr * (VMID * VMID * gset PID * transaction_type), kv.2.1.1.1 = i ∧ kv.2.2 ≠ Donation) (λ tran : meta_info * bool, tran.1) trans).
+    simpl in H4.
+    rewrite -H4 in H1.
+    clear H3 H4.
+    pose proof (map_filter_fmap (λ kv : Addr * (VMID * VMID * gset PID * transaction_type), kv.2.1.1.1 = i ∧ kv.2.2 = Sharing) (λ tran : meta_info * bool, tran.1) trans').
+    simpl in H3.
+    rewrite -H3.
+    pose proof (map_filter_fmap (λ kv : Addr * (VMID * VMID * gset PID * transaction_type), kv.2.1.1.1 = i ∧ kv.2.2 = Sharing) (λ tran : meta_info * bool, tran.1) trans).
+    simpl in H4.
+    rewrite -H4.
+    eapply map_filter_imp_eq.
+    2:{
+      symmetry.
+      exact H1.
+    }
+    intros ? [].
+    split. done. rewrite H6. done.
+    intros. destruct z1, z2; set_solver +.
+    intros. destruct z1, z2; set_solver +.
+  Qed.
 
   Lemma trans_rel_secondary_transaction_pagetable_entries_owned i trans trans':
     trans_rel_secondary i trans trans' ->
@@ -1110,6 +1267,7 @@ Qed.
 
   Lemma acc_transferred_memory_pages_difference ps_acc i trans trans':
     trans_rel_secondary i trans trans' ->
+    trans_neq trans' ->
     currently_accessible_in_trans_memory_pages i trans ⊆ ps_acc ->
     valid_accessible_in_trans_memory_pages ps_acc i trans ->
     trans_ps_disj trans ->
@@ -1117,7 +1275,7 @@ Qed.
     trans_ps_disj trans' ->
     ps_acc ∖ transferred_memory_pages i trans = ps_acc ∖ transferred_memory_pages i trans'.
   Proof.
-    intros Hrel Hsubset Hvalid Hdisj Hvalid' Hdisj'.
+    intros Hrel Hneq Hsubset Hvalid Hdisj Hvalid' Hdisj'.
     rewrite 2?accessible_retrieved_lending_memory_pages_difference;auto.
     rewrite 2?difference_difference_union.
     2 : {

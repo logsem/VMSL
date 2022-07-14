@@ -28,14 +28,15 @@ Section fundamental.
     iEval (rewrite 11!later_sep) in "Hres".
     iDestruct "Hres" as "(>%trans_rel & >trans_hpool_global & >tran_pgt_transferred &
                          >retri & >mem_transferred & >R0z & >R1z & >R2z & (>rx_state & >[% [rx' [% mem_rx]]]) & >other_rx & >%Htotal_rxs & prop0)".
+    iDestruct (get_trans_ps_disj with "[$trans_hpool_global]" ) as %Htrans_disj.
+    iDestruct (get_trans_neq with "[$trans_hpool_global]" ) as %Htrans_neq.
     erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
     iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
     iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
-    iDestruct (get_trans_ps_disj with "[$trans_hpool_global]" ) as %Htrans_disj.
     iDestruct (memory_pages_oea_transferred with "[$mem_owned $mem_transferred]") as (?) "mem";eauto.
-    clear Htrans_disj trans_rel.
+    clear Htrans_disj Htrans_neq trans_rel.
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans').
 
     iAssert (⌜p_rx0 = p_rx⌝%I) with "[rx rx']" as %Hrx_eq.
