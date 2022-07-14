@@ -190,13 +190,11 @@ Proof.
   unfold get_reg,get_reg_global;subst;done.
 Qed.
 
-
-Lemma update_reg_global_update_reg σ i r w :
-  is_Some((get_reg_gmap σ) !! (r,i)) ->
+Lemma u_upd_reg_regs σ i r w :
   get_reg_gmap (update_reg_global σ i r w) = <[(r,i) := w]>(get_reg_gmap σ).
 Proof.
   intros.
-  rewrite  /update_reg_global.
+  rewrite /update_reg_global.
   apply map_eq.
   intro j.
   destruct( decide (j=(r,i)) ).
@@ -226,7 +224,7 @@ Proof.
     + by rewrite vlookup_insert_ne ;[|done].
 Qed.
 
-Lemma update_offset_PC_update_PC1 σ i (w:Word) (o:Z):
+Lemma u_upd_pc_regs σ i (w:Word) (o:Z):
   (i= get_current_vm σ) -> ((get_reg_gmap σ) !! (PC,i) = Some w) ->
   get_reg_gmap (update_offset_PC σ o) = <[(PC,i) := (w ^+ o)%f]>(get_reg_gmap σ).
 Proof.
@@ -248,28 +246,10 @@ Proof.
   apply elem_of_map_to_list' in H2.
   rewrite H2.
   rewrite /update_reg.
-  apply update_reg_global_update_reg.
-  exists x0.2.
-  by rewrite H4.
+  apply u_upd_reg_regs.
 Qed.
 
 End reg_extra.
-
-
-(* Ltac rewrite_reg_global := *)
-(*   match goal with *)
-(*   | |- _ => *)
-(*     try rewrite -> update_reg_global_preserve_current_vm; *)
-(*     try rewrite -> update_reg_global_preserve_mem; *)
-(*     try rewrite -> update_reg_global_preserve_mb; *)
-(*     try rewrite -> update_reg_global_preserve_rx; *)
-(*     try rewrite -> update_reg_global_preserve_owned; *)
-(*     try rewrite -> update_reg_global_preserve_access; *)
-(*     try rewrite -> update_reg_global_preserve_trans; *)
-(*     try rewrite -> update_reg_global_preserve_trans'; *)
-(*     try rewrite -> update_reg_global_preserve_hpool; *)
-(*     try rewrite -> update_reg_global_preserve_retri *)
-(*   end. *)
 
 Ltac solve_reg_lookup :=
   match goal with
@@ -278,18 +258,3 @@ Ltac solve_reg_lookup :=
   | _ : get_reg ?σ ?r1 = Some ?w, _ : ?r1 ≠ ?r2 |- <[(?r2, ?i):= ?w2]>(get_reg_gmap ?σ) !! (?r1, ?i) = Some ?w =>
     rewrite lookup_insert_ne; eauto
   end.
-
-(* Ltac rewrite_reg_pc := *)
-(*   match goal with *)
-(*   | |- _ => *)
-(*     try rewrite -> update_offset_PC_preserve_current_vm; *)
-(*     try rewrite -> update_offset_PC_preserve_mem; *)
-(*     try rewrite -> update_offset_PC_preserve_mb; *)
-(*     try rewrite -> update_offset_PC_preserve_rx; *)
-(*     try rewrite -> update_offset_PC_preserve_owned; *)
-(*     try rewrite -> update_offset_PC_preserve_access; *)
-(*     try rewrite -> update_offset_PC_preserve_trans; *)
-(*     try rewrite -> update_offset_PC_preserve_trans'; *)
-(*     try rewrite -> update_offset_PC_preserve_hpool; *)
-(*     try rewrite -> update_offset_PC_preserve_retri *)
-(*   end. *)

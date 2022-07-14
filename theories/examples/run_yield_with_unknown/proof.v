@@ -1,20 +1,22 @@
+From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base lower_bound mem.
+From HypVeri.algebra Require Import base mem.
 From HypVeri.rules Require Import rules_base mov halt run yield.
 From HypVeri.examples Require Import instr.
 From HypVeri.logrel Require Import logrel logrel_extra.
 From HypVeri Require Import proofmode machine_extra.
+Import uPred.
 Require Import Setoid.
 
 Program Instance rywu_vmconfig : HypervisorConstants :=
     {vm_count := 3;
-     vm_count_pos:= _}.
+     vm_count_pos:= _;
+     valid_handles := {[W0]}}.
 
 Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
 Program Definition V2 : VMID := (@nat_to_fin 2 _ _).
 
 Section proof.
-
   Context `{hypparams: !HypervisorParameters}.
 
   Definition rywu_program0 : list Word :=
@@ -35,7 +37,7 @@ Section proof.
     ].
 
   Context `{!gen_VMG Σ}.
-  Notation VMProp_2 p_tx p_rx:= (vmprop_unknown V2 p_tx p_rx ∅) (only parsing).
+  Notation VMProp_2 p_tx p_rx:= (vmprop_unknown V2 p_tx p_rx) (only parsing).
 
   Lemma rywu_machine0 p_pg0 p_tx0 p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 :
     let R2' := (RX_state@V2 := None ∗ mailbox.rx_page V2 p_rx2 ∗ ∃ mem_rx, memory_page p_rx2 mem_rx)%I in
@@ -56,9 +58,7 @@ Section proof.
                     VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1) ∗
                                  VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp ∗
       VMProp V2 (VMProp_2 p_tx2 p_rx2) (1/2)%Qp ∗
-      V2 -@{1/2}A> {[p_pg2;p_tx2;p_rx2]} ∗
-      LB_auth ∅ ∗
-      trans.fresh_handles 1 hs_all ∗
+      trans.fresh_handles 1 valid_handles ∗
       R0' ∗ R1' ∗ R2' 
       ⊢ WP ExecI @ V0
             {{ (λ m,
@@ -73,7 +73,7 @@ Section proof.
   Proof.
     rewrite /vmprop_unknown.
     iIntros (HnIn_p HIn) "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 & _) & acc & tx & PCz & (%r0 & R0z) & (%r1 & R1z) & (%r2 & R2z)
-                            & prop0 & prop1 & prop2 & acc2 & LB_auth & hp & R0 & R1 &R2)".
+                            & prop0 & prop1 & prop2 & hp & R0 & R1 & R2)".
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     clear HIn; rename Hforall into HIn.
     assert (p_pg0 ≠ p_tx0) as Hnottx. set_solver + HnIn_p.
@@ -88,12 +88,11 @@ Section proof.
     iModIntro.
     iIntros "(PCz & p_2 & acc & tx & R1z) _".
     (* hvc_I *)
-    iDestruct (lb_update_alloc V2 {[p_pg0]} with "LB_auth") as ">[LB_auth LB2]";first done.
     rewrite wp_sswp.
     iApply ((run (((p_pg0 ^+ 1) ^+ 1))%f V2 (R := True%I)
                 (R' := PC @@ V0 ->r (((p_pg0 ^+ 1) ^+ 1) ^+ 1)%f
                                  ∗((p_pg0 ^+ 1) ^+ 1)%f ->a hvc_I ∗ V0 -@A> {[p_pg0]} ∗ TX@ V0 := p_tx0)
-                ) with "[PCz p_3 acc tx R0z R1z R2z prop0 prop2 acc2 LB2 hp R0 R1 R2]"); try rewrite HIn //; iFrameAutoSolve.
+                ) with "[PCz p_3 acc tx R0z R1z R2z prop0 prop2 hp R0 R1 R2]"); try rewrite HIn //; iFrameAutoSolve.
     { set_solver +. }
     { set_solver +. }
     { set_solver +. }
@@ -101,123 +100,76 @@ Section proof.
     { apply decode_encode_vmid. }
     { iSplitL "prop2".
       iFrame.
-      iSplitL "prop0".
-      done.
+      iSplitL "prop0". done.
       iSplitR "";last done.
-      iNext.
-      iIntros "((PC & addr & acc & tx & R0' & R1') & _ & prop0)".
+      iNext. iIntros "((PC & addr & acc & tx & R0' & R1') & _ & prop0)".
+      setoid_rewrite vmprop_unknown_eq.
       iFrame "PC addr R0' R1' acc tx".
-      iExists {[p_pg0]}, {[p_pg2;p_tx2;p_rx2]} , ∅, None.
-      iFrame "acc2 LB2".
-      iSplitL "".
-      iPureIntro. set_solver + HnIn_p.
+      iExists ∅, None.
       iSplitL "hp".
       {
-        iExists hs_all.
-        iSplitL "".
-        iPureIntro.
-        rewrite dom_empty_L union_empty_r_L //.
+        iExists valid_handles.
+        iSplitL "". iPureIntro. rewrite dom_empty_L union_empty_r_L //.
         iFrame.
         rewrite big_sepM_empty //.
       }
+      iSplitL "". iApply (big_sepFM_empty).
+      iSplitL "". iSplitL; iApply (big_sepFM_empty).
       iSplitL "".
       {
-        rewrite /transaction_pagetable_entries_transferred.
-        rewrite /base_extra.big_sepFM.
-        rewrite map_filter_empty big_sepM_empty //.
-      }
-      iSplitL "".
-      {
-        rewrite /retrieval_entries_transferred.
-        rewrite /base_extra.big_sepFM.
-        rewrite map_filter_empty big_sepM_empty //.
-      }
-      iSplitL "".
-      {
-        rewrite /memory_transferred.
-        rewrite /trans_memory_in_trans /pages_in_trans.
-        rewrite map_filter_empty map_fold_empty.
+        rewrite /transferred_memory_pages.
+        rewrite map_filter_empty pages_in_trans_empty.
         iExists ∅.
         iApply memory_pages_empty.
       }
       iDestruct "R2" as "(R1' & R2 & R3)".
-      iFrame "R1' R2 R3 prop0".
+      iFrame "R1' R2 R3".
       iSplitL "R2z"; first (iExists r2; done).
       iSplitL "R0 R1".
       {
-        rewrite /rx_pages.
-        rewrite /list_of_vmids.
-        rewrite /vm_count /rywu_vmconfig.
-        simpl.
-        rewrite /V2.
-        simpl.
-        assert (({[2%fin]} ∪ ∅) = {[2%fin]}) as ->.
-        { set_solver. }
+        rewrite /rx_pages /list_of_vmids.
+        rewrite /vm_count /rywu_vmconfig /=.
+        rewrite /V2 /=.
+        rewrite union_empty_r_L.
         assert (({[0%fin]} ∪ {[1%fin; 2%fin]}) = ({[2%fin]} ∪ {[0%fin; 1%fin]})) as ->.
         { set_solver. }
         rewrite difference_union_distr_l_L.
         rewrite difference_diag_L.
+        rewrite union_empty_l_L.
         set p := {[0%fin; 1%fin]}.
         set q := {[2%fin]}.
-        assert ((∅ ∪ p ∖ q) = p) as ->.
+        assert (p ∖ q = p) as ->.
         { subst p q; set_solver. }
-        subst p.
-        clear q.
+        subst p. clear q.
         rewrite big_sepS_union; last set_solver.
         iSplitL "R0".
         - rewrite big_sepS_singleton.
-          iExists p_rx0.
-          iDestruct "R0" as "(R0 & R1 & R2)".
-          iFrame.
+          iExists p_rx0. iDestruct "R0" as "(R0 & R1 & $)".
           rewrite /mailbox.rx_page.
-          iDestruct "R1" as "(R1 & R2)".
-          iFrame.
-          iExists None.
-          rewrite mailbox.rx_state_split.
-          iDestruct "R0" as "(R0 & R0')".
-          iFrame.
+          iDestruct "R1" as "($ & R2)".
+          iExists None. rewrite mailbox.rx_state_split //. iDestruct "R0" as "($ & $)".
           done.
         - rewrite big_sepS_singleton.
-          iExists p_rx1.
-          iDestruct "R1" as "(R0 & R1 & R2)".
-          iFrame.
+          iExists p_rx1. iDestruct "R1" as "(R0 & R1 & $)".
           rewrite /mailbox.rx_page.
-          iDestruct "R1" as "(R1 & R2)".
-          iFrame.
-          iExists None.
-          rewrite mailbox.rx_state_split.
-          iDestruct "R0" as "(R0 & R0')".
-          iFrame.
+          iDestruct "R1" as "($ & R2)".
+          iExists None. rewrite mailbox.rx_state_split //. iDestruct "R0" as "($ & $)".
           done.
       }
-      iSplit.
-      iIntros;done.
-      iSplitL "".
-      iIntros;done.
-      iSplitL "".
-      iIntros;done.
-      {
-        rewrite /trans_memory_in_trans /pages_in_trans.
-        rewrite map_filter_empty map_fold_empty.
-        iIntros "[? _]".
-        rewrite difference_empty_L union_empty_r_L.
-        done.
+      iExact "prop0".
       }
-    }
     iNext.
     iIntros "((PCz & p_3 & acc & tx) & Hprop0) Hholds0".
-    iDestruct (VMProp_holds_agree with "[Hholds0 Hprop0]") as "[P' prop0]".
+    iDestruct (VMProp_holds_agree with "[Hholds0 Hprop0]") as "[P prop0]".
     iSplitR "Hprop0".
     2: { iFrame "Hprop0". }
-    iSimpl.
-    iSimpl in "Hholds0".
-    done.
+    iSimpl. iSimpl in "Hholds0". done.
     (* getting back resources *)
-    iDestruct "P'" as ">[(% & % & % & ? & ? & % & ? & ? & ? & ? & ? & ? & ? & returnreg)|False]".
-    2: { (* V2 does not yield *)
-    iExFalso.
-    iExact "False".
-    }
+    iEval(rewrite /vmprop_zero /vmprop_zero_pre) in "P".
+    iEval (rewrite later_exist) in "P". iDestruct "P" as (trans') "P".
+    iEval (rewrite 8!later_sep) in "P".
+    iDestruct "P" as "(>trans_hpool_global & >tran_pgt_transferred &
+                         >retri & >mem_transferred &  >mem_rx_2 & >rx_2 & >other_rx &>returnreg & prop2)".
     (* mov_word_I R0 run *)
     rewrite wp_sswp.
     rewrite /return_reg_rx.

@@ -72,14 +72,15 @@ Proof.
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_trans_ps_disj σ1).
     rewrite p_upd_pc_mem p_upd_reg_mem.
     all: try rewrite p_upd_pc_pgt p_upd_reg_pgt //.
     all: try rewrite p_upd_pc_trans p_upd_reg_trans //.
     all: try rewrite p_upd_pc_mb p_upd_reg_mb //.
     rewrite Hcur. iFrame.
     (* updated part *)
-    rewrite -> (update_offset_PC_update_PC1 _ i a 1);eauto.
-    + rewrite  update_reg_global_update_reg; [|eexists; rewrite get_reg_gmap_get_reg_Some; eauto ].
+    rewrite -> (u_upd_pc_regs _ i a 1);eauto.
+    + rewrite  u_upd_reg_regs.
       iDestruct ((gen_reg_update2_global PC i a (a ^+ 1)%f ra i w3 (w3 ^* w2)%f ) with "Hreg Hpc Hra") as ">[Hσ Hreg]";eauto.
       iModIntro.
       iSplitL "PAuth".
@@ -121,7 +122,7 @@ Proof.
       iApply ("Hϕ" with "[Hapc Hacc Hreg HTX]").
       iFrame.
       iFrame.
-    + rewrite update_reg_global_update_reg;[|solve_reg_lookup].
+    + rewrite u_upd_reg_regs.
       repeat solve_reg_lookup.
       intros P'; symmetry in P';inversion P'; contradiction.
     + by rewrite Htx.

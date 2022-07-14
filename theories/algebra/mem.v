@@ -45,7 +45,7 @@ Section mem_rules.
   Lemma gen_mem_valid_SepM {σ} mem:
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ map] a↦w ∈ mem, a ->a w)-∗
-    ([∗ map] a↦w ∈ mem, ⌜(get_mem σ) !! a = Some w⌝).
+    (⌜map_Forall (λ k v, (get_mem σ) !! k = Some v) mem⌝).
   Proof.
     iIntros "Hσ Hmem".
     rewrite mem_mapsto_eq /mem_mapsto_def.
@@ -56,33 +56,15 @@ Section mem_rules.
     apply (lookup_weaken mem (get_mem σ) _ _ H Hincl) .
   Qed.
 
-  Lemma gen_mem_valid_SepL {σ} al ml:
-    NoDup al ->
+  Lemma gen_mem_valid_SepM_subseteq {σ} mem:
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
-    ([∗ list] a;w ∈ al;ml, a ->a w)-∗
-    ([∗ list] a;w ∈ al;ml, ⌜(get_mem σ) !! a = Some w⌝).
+    ([∗ map] a↦w ∈ mem, a ->a w)-∗
+    ⌜ mem ⊆ (get_mem σ)⌝.
   Proof.
-    iIntros (Hnodup) "Hσ Hmem".
-    iDestruct (big_sepL2_alt with "Hmem") as "[%Heqlen Hmem]".
-    iApply big_sepL2_alt.
-    iSplitR;eauto.
-    rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word (zip al ml)).
-    2: { rewrite fst_zip;[eauto|lia].  }
-    rewrite -(big_opM_map_to_list (λ a w, ⌜(get_mem σ) !! a = Some w ⌝%I)).
-    rewrite -(big_opM_map_to_list (λ a w, (a ->a w)%I)).
-    iApply (gen_mem_valid_SepM with "Hσ Hmem").
-  Qed.
-
-  Lemma gen_mem_valid_SepL_pure {σ} al ml:
-    NoDup al ->
-    ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
-    ([∗ list] a;w ∈ al;ml,  a ->a w) -∗
-    ⌜∀ (k : nat) (y1 y2 : Addr),
-      al !! k = Some y1 → ml !! k = Some y2 → get_mem σ !! y1 = Some y2⌝.
-  Proof.
-    iIntros (Hnodup) "Hσ Hmem".
-    iDestruct (gen_mem_valid_SepL with "Hσ Hmem") as "H";eauto.
-    iApply (big_sepL2_pure_1 with "H").
+    iIntros "Hσ Hmem".
+    rewrite mem_mapsto_eq /mem_mapsto_def.
+    iDestruct ((ghost_map_lookup_big mem) with "Hσ Hmem") as "%Hincl".
+    done.
   Qed.
 
   Lemma gen_mem_valid2 {σ} a1 w1 a2 w2:
@@ -115,40 +97,29 @@ Section mem_rules.
     by iFrame.
   Qed.
 
-  Lemma gen_mem_update_SepM {σ} (mem mem': mem):
-    dom (gset _) mem = dom (gset _) mem' ->
+  Lemma gen_mem_update_SepM {σ} (mem mem': gmap Addr Word):
+    dom mem = dom mem' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     ([∗ map] a↦w ∈ mem, a ->a w) ==∗
     ghost_map_auth gen_mem_name 1 (mem' ∪ (get_mem σ)) ∗
     [∗ map] a↦w ∈ mem', a ->a w.
   Proof.
-    Admitted.
-    (* iIntros (Hnodup Hlen) "Hσ Hmm". *)
-    (* iDestruct (big_sepL2_alt with "Hmm") as "[% Hmm]". *)
-    (* rewrite <- (@map_to_list_to_map Addr (gmap Addr) _  _  _  _ _ _ _ _ _ Word _). *)
-    (* 2: { rewrite fst_zip //;lia. } *)
-    (* rewrite -(big_opM_map_to_list (λ a w,  (a ->a w)%I) _ ). *)
-    (* rewrite  mem_mapsto_eq /mem_mapsto_def. *)
-    (* iDestruct ((ghost_map_update_big _  (list_to_map (zip ads wl'))) with "Hσ Hmm") as ">[Hσ Hmm]". *)
-    (* { rewrite  !dom_list_to_map_L. f_equal.  rewrite !fst_zip  //. lia. lia. } *)
-    (* rewrite (big_opM_map_to_list (λ a w,  (a ↪[gen_mem_name] w)%I) _ ). *)
-    (* rewrite map_to_list_to_map. *)
-    (* 2 : { rewrite fst_zip //. lia. } *)
-    (* rewrite big_sepL2_alt. *)
-    (* iFrame "Hσ Hmm". rewrite -Hlen H //. *)
-  (* Qed. *)
-
+    iIntros (Hdom) "Hσ Hmm".
+    rewrite mem_mapsto_eq /mem_mapsto_def.
+    iApply (ghost_map_update_big with "Hσ Hmm").
+    done.
+  Qed.
 
   Definition memory_page_l (p: PID) (ws: list Word): iProp Σ:=
     ([∗ list] a;w ∈ (addr_of_page p);ws, (a ->a w))%I.
 
   Definition memory_page (p : PID) (mem: mem): iProp Σ:=
-    ⌜dom (gset Addr) mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+    ⌜dom mem = list_to_set (addr_of_page p)⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
 
-  Lemma memory_page_m_to_l {p : PID} (m: mem):
-    memory_page p m ⊢ ∃ l, memory_page_l p l ∗
-                             ⌜l = l⌝.
-  Admitted.
+  (* Lemma memory_page_m_to_l {p : PID} (m: mem): *)
+  (*   memory_page p m ⊢ ∃ l, memory_page_l p l ∗ *)
+  (*                            ⌜l = l⌝. *)
+  (* Admitted. *)
 
   Lemma memory_page_l_to_m {p : PID} (l: list Word):
     memory_page_l p l ⊢ memory_page p (list_to_map (zip (addr_of_page p) l)).
@@ -177,7 +148,7 @@ Section mem_rules.
   Definition set_of_addr (ps:gset PID) := (set_fold (λ p (acc:gset Addr), list_to_set (addr_of_page p) ∪ acc) ∅ ps).
 
   Definition memory_pages (ps :gset PID) (mem:mem): iProp Σ:=
-    ⌜dom (gset Addr) mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
+    ⌜dom mem = set_of_addr ps⌝ ∗ [∗ map] k ↦ v ∈ mem, k ->a v.
 
   (* lemmas about [memory_pages] *)
   Notation fold_union_addr_of_page b ps :=
@@ -355,7 +326,7 @@ Section mem_rules.
 
   Lemma elem_of_memory_pages_lookup (m: gmap Addr Word) a ps:
     (tpa a) ∈ ps ->
-    dom (gset Addr) m = set_of_addr ps ->
+    dom m = set_of_addr ps ->
     is_Some (m !! a).
   Proof.
     intros Hin Heq_dom.
@@ -420,7 +391,7 @@ Section mem_rules.
     }
   Qed.
 
-   Lemma memory_pages_split_union' (ps1 ps2 :gset PID):
+  Lemma memory_pages_split_union' (ps1 ps2 :gset PID):
     ps1 ## ps2 ->
     (∃ mem, memory_pages (ps1 ∪ ps2) mem) ⊣⊢ (∃ mem1 , memory_pages ps1 mem1) ∗ ∃mem2, memory_pages ps2 mem2.
   Proof.
@@ -633,6 +604,15 @@ Section mem_rules.
     iApply (memory_page_false with "[$mem1_p $mem2]").
   Qed.
 
+  Lemma memory_pages_union' (ps1 ps2 :gset PID):
+    ((∃ mem1 , memory_pages ps1 mem1) ∗ ∃mem2, memory_pages ps2 mem2) ⊢ (∃ mem, memory_pages (ps1 ∪ ps2) mem).
+  Proof.
+    iIntros "((%m1 & mem1) & (%m2 & mem2))".
+    iDestruct (memory_pages_disj with "[$mem1 $mem2]") as "%Hdisj".
+    iApply (memory_pages_split_union' with "[mem1 mem2]");auto.
+    iSplitL "mem1"; iExists _; iFrame.
+  Qed.
+
   Lemma memory_pages_empty : ⊢ memory_pages ∅ ∅.
   Proof.
     iIntros.
@@ -643,7 +623,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_update_pages{σ mem_ps} ps (mem_ps': mem):
-    dom (gset _) mem_ps = dom (gset _) mem_ps' ->
+    dom mem_ps = dom mem_ps' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     memory_pages ps mem_ps ==∗
     ghost_map_auth gen_mem_name 1 (mem_ps' ∪ (get_mem σ)) ∗
@@ -658,7 +638,7 @@ Section mem_rules.
   Qed.
 
   Lemma gen_mem_update_page{σ mem_p} p (mem_p': mem):
-    dom (gset _) mem_p = dom (gset _) mem_p' ->
+    dom mem_p = dom mem_p' ->
     ghost_map_auth gen_mem_name 1 (get_mem σ) -∗
     memory_page p mem_p ==∗
     ghost_map_auth gen_mem_name 1 (mem_p' ∪ (get_mem σ)) ∗

@@ -11,7 +11,7 @@ Context `{hypparams:HypervisorParameters}.
   
 Context `{vmG: !gen_VMG Σ}.
 
-Lemma run {E w1 w2 w3 q s p_tx R R' Q P P'} ai i :
+Lemma run {E w1 w2 w3 q s p_tx R' Q P} ai i R P':
   let T := (▷ (PC @@ V0 ->r ai)
             ∗ ▷ (ai ->a w1)
             ∗ ▷ (V0 -@{q}A> s)
@@ -92,6 +92,7 @@ Proof.
     rewrite (preserve_get_retri_gmap σ1).
     rewrite (preserve_inv_trans_pgt_consistent σ1).
     rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_trans_ps_disj σ1).
     all: try rewrite p_upd_id_mb p_upd_pc_mb //.
     all: try rewrite p_upd_id_pgt p_upd_pc_pgt //.
     all: try rewrite p_upd_id_trans p_upd_pc_trans //.
@@ -99,7 +100,7 @@ Proof.
     iFrame.
     iDestruct ((gen_reg_update1_global PC V0 ai (ai ^+ 1)%f) with "Hreg Hpc") as "HpcUpd".
     rewrite (preserve_get_reg_gmap (update_offset_PC σ1 1) (update_current_vmid _ _));last rewrite p_upd_id_reg //.
-    rewrite ->(update_offset_PC_update_PC1 _ V0 ai 1); auto.
+    rewrite ->(u_upd_pc_regs _ V0 ai 1); auto.
     + iDestruct (VMProp_update V0 U P P' with "PAuth HPropz") as "HTemp".
       iMod "HpcUpd".
       iMod "HTemp".
@@ -208,72 +209,246 @@ Proof.
     + apply get_reg_gmap_get_reg_Some; auto.
 Qed.
 
-Lemma run_not_primary {E w1 w2 q s p_tx } ai i :
+Lemma run_not_primary {E wi r0 r2 q s p_tx } ai i :
   (tpa ai) ∈ s ->
   (tpa ai) ≠ p_tx ->
+  decode_instruction wi = Some Hvc ->
+  decode_hvc_func r0 = Some Run ->
   i ≠ V0 ->
-  decode_instruction w1 = Some Hvc ->
-  decode_hvc_func w2 = Some Run ->
   {SS{{ ▷ (PC @@ i ->r ai)
-            ∗ ▷ (ai ->a w1)
+            ∗ ▷ (ai ->a wi)
             ∗ ▷ (i -@{q}A> s)
             ∗ ▷ (TX@ i := p_tx)
-            ∗ ▷ (R0 @@ i ->r w2)
-            ∗ ▷ (∃r, R2 @@ i ->r r)
+            ∗ ▷ (R0 @@ i ->r r0)
+            ∗ ▷ (R2 @@ i ->r r2)
             }}}
     ExecI @ i ;E
     {{{ RET (false, ExecI); PC @@ i ->r (ai ^+ 1)%f
-               ∗ ai ->a w1
+               ∗ ai ->a wi
                ∗ i -@{q}A> s
                ∗ TX@ i := p_tx
                ∗ R0 @@ i ->r (encode_hvc_ret_code Error)
                ∗ R2 @@ i ->r (encode_hvc_error Denied) }}}.
-  Admitted.
+  Proof.
+  iIntros (Hin_acc Hneq_tx Hdecode_i Hdecode_f Hneq_v0 Φ)
+          "(>PC & >mem_ins & >acc & >tx & >R0 & >R2) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = i) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 i PC ai R0 r0 R2 r2 Heq_cur) with "regs PC R0 R2")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R2)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) i with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  (* valid tx *)
+  iDestruct (mb_valid_tx i p_tx with "mb tx") as %Heq_tx.
+  (* valid tran *)
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal i Hvc ai wi);auto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal i Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /= /lang.run /is_primary  in Heqc2.
+    case_bool_decide. rewrite H0 in Heq_cur. rewrite Heq_cur // in Hneq_v0.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    iDestruct (hvc_error_update (E:= E) Denied with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    as ">[[$ $] ?]";auto.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    iFrame.
+    by iFrame.
+  Qed.
 
-
-Lemma run_invalid_vmid {E w1 w2 w3 q s p_tx } ai i :
+Lemma run_invalid_vmid {E wi r0 r1 r2 q s p_tx } ai :
   (tpa ai) ∈ s ->
   (tpa ai) ≠ p_tx ->
-  i ≠ V0 ->
-  decode_instruction w1 = Some Hvc ->
-  decode_hvc_func w2 = Some Run ->
-  decode_vmid w3 = None ->
+  decode_instruction wi = Some Hvc ->
+  decode_hvc_func r0 = Some Run ->
+  decode_vmid r1 = None ->
   {SS{{ ▷ (PC @@ V0 ->r ai)
-            ∗ ▷ (ai ->a w1)
+            ∗ ▷ (ai ->a wi)
             ∗ ▷ (V0 -@{q}A> s)
             ∗ ▷ (TX@ V0 := p_tx)
-            ∗ ▷ (R0 @@ V0 ->r w2)
-            ∗ ▷ (R1 @@ V0 ->r w3)
-            ∗ ▷ (∃r, R2 @@ V0 ->r r)
+            ∗ ▷ (R0 @@ V0 ->r r0)
+            ∗ ▷ (R1 @@ V0 ->r r1)
+            ∗ ▷ (R2 @@ V0 ->r r2)
             }}}
     ExecI @ V0 ;E
     {{{ RET (false, ExecI); PC @@ V0 ->r (ai ^+ 1)%f
-               ∗ ai ->a w1
+               ∗ ai ->a wi
                ∗ V0 -@{q}A> s
                ∗ TX@ V0 := p_tx
                ∗ R0 @@ V0 ->r (encode_hvc_ret_code Error)
-               ∗ R1 @@ V0 ->r w3
+               ∗ R1 @@ V0 ->r r1
                ∗ R2 @@ V0 ->r (encode_hvc_error InvParam) }}}.
-  Admitted.
+  Proof.
+  iIntros (Hin_acc Hneq_tx Hdecode_i Hdecode_f Hdecode_vmid Φ)
+          "(>PC & >mem_ins & >acc & >tx & >R0 &>R1 & >R2) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = V0) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid4 V0 PC ai R0 r0 R1 r1 R2 r2 Heq_cur) with "regs PC R0 R1 R2")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1 & %Hlookup_R2)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) V0 with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  (* valid tx *)
+  iDestruct (mb_valid_tx V0 p_tx with "mb tx") as %Heq_tx.
+  (* valid tran *)
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal V0 Hvc ai wi);auto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal V0 Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /= /lang.run /is_primary in Heqc2.
+    case_bool_decide;last contradiction.
+    rewrite Hlookup_R1 /= Hdecode_vmid /= in Heqc2.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    iDestruct (hvc_error_update (E:= E) InvParam with "PC R0 R2 [$Hnum $mem $regs $mb $rx_state $pgt_owned $pgt_acc $pgt_excl $ trans $hpool $retri]")
+    as ">[[$ $] ?]";auto.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite p_upd_pc_current_vm 2!p_upd_reg_current_vm Heq_cur.
+    case_bool_decide;last contradiction.
+    simpl. iApply "HΦ".
+    iFrame.
+    by iFrame.
+  Qed.
 
-Lemma run_primay {E w1 w2 w3 q s p_tx} ai :
+Lemma run_primary {E wi r0 r1 q s p_tx} ai :
   (tpa ai) ∈ s ->
   (tpa ai) ≠ p_tx ->
-  decode_instruction w1 = Some Hvc ->
-  decode_hvc_func w2 = Some Run ->
-  decode_vmid w3 = Some V0 ->
+  decode_instruction wi = Some Hvc ->
+  decode_hvc_func r0 = Some Run ->
+  decode_vmid r1 = Some V0 ->
   {SS{{ ▷ (PC @@ V0 ->r ai)
-            ∗ ▷ (ai ->a w1)
+            ∗ ▷ (ai ->a wi)
             ∗ ▷ (V0 -@{q}A> s)
             ∗ ▷ (TX@ V0 := p_tx)
-            ∗ ▷ (R0 @@ V0 ->r w2)}}}
+            ∗ ▷ (R0 @@ V0 ->r r0)
+            ∗ ▷ (R1 @@ V0 ->r r1)}}}
     ExecI @ V0 ;E
     {{{ RET (false, ExecI); PC @@ V0 ->r (ai ^+ 1)%f
-               ∗ ai ->a w1
+               ∗ ai ->a wi
                ∗ V0 -@{q}A> s
                ∗ TX@ V0 := p_tx
-               ∗ R0 @@ V0 ->r w2}}}.
-  Admitted.
-
+               ∗ R0 @@ V0 ->r r0
+               ∗ R1 @@ V0 ->r r1}}}.
+  Proof.
+  iIntros (Hin_acc Hneq_tx Hdecode_i Hdecode_f Hdecode_vmid Φ)
+          "(>PC & >mem_ins & >acc & >tx & >R0 & >R1) HΦ".
+  iApply (sswp_lift_atomic_step ExecI);[done|].
+  iIntros (n σ1) "%Hsche state".
+  rewrite /scheduled /= /scheduler in Hsche.
+  assert (σ1.1.1.2 = V0) as Heq_cur. { case_bool_decide;last done. by apply fin_to_nat_inj. }
+  clear Hsche.
+  iModIntro.
+  iDestruct "state" as "(Hnum & mem & regs & mb & rx_state & pgt_owned & pgt_acc & pgt_excl &
+                            trans & hpool & retri & %Hwf & %Hdisj & %Hconsis)".
+  (* valid regs *)
+  iDestruct ((gen_reg_valid3 V0 PC ai R0 r0 R1 r1 Heq_cur) with "regs PC R0 R1")
+    as "(%Hlookup_PC & %Hlookup_R0 & %Hlookup_R1)";eauto.
+  (* valid pt *)
+  iDestruct (access_agree_check_true (tpa ai) V0 with "pgt_acc acc") as %Hcheckpg_ai;eauto.
+  (* valid mem *)
+  iDestruct (gen_mem_valid ai wi with "mem mem_ins") as %Hlookup_ai.
+  (* valid tx *)
+  iDestruct (mb_valid_tx V0 p_tx with "mb tx") as %Heq_tx.
+  (* valid tran *)
+  iSplit.
+  - (* reducible *)
+    iPureIntro.
+    apply (reducible_normal V0 Hvc ai wi);auto.
+    rewrite Heq_tx //.
+  - iModIntro.
+    iIntros (m2 σ2) "vmprop_auth %HstepP".
+    iFrame "vmprop_auth".
+    apply (step_ExecI_normal V0 Hvc ai wi) in HstepP;eauto.
+    2: rewrite Heq_tx //.
+    remember (exec Hvc σ1) as c2 eqn:Heqc2.
+    rewrite /exec /hvc Hlookup_R0 /= Hdecode_f /= /lang.run /is_primary in Heqc2.
+    case_bool_decide;last contradiction.
+    rewrite Hlookup_R1 /= Hdecode_vmid /= in Heqc2.
+    destruct HstepP;subst m2 σ2; subst c2; simpl.
+    rewrite /gen_vm_interp.
+    rewrite (preserve_get_mb_gmap σ1).
+    rewrite (preserve_get_rx_gmap σ1).
+    rewrite (preserve_get_own_gmap σ1).
+    rewrite (preserve_get_access_gmap σ1).
+    rewrite (preserve_get_excl_gmap σ1).
+    rewrite (preserve_get_trans_gmap σ1).
+    rewrite (preserve_get_hpool_gset σ1).
+    rewrite (preserve_get_retri_gmap σ1).
+    rewrite (preserve_inv_trans_pgt_consistent σ1).
+    rewrite (preserve_inv_trans_wellformed σ1).
+    rewrite (preserve_inv_trans_ps_disj σ1).
+    all: try rewrite p_upd_id_mb p_upd_pc_mb //.
+    all: try rewrite p_upd_id_pgt p_upd_pc_pgt //.
+    all: try rewrite p_upd_id_trans p_upd_pc_trans //.
+    rewrite p_upd_id_mem p_upd_pc_mem.
+    iFrame.
+    (* upd reg*)
+    rewrite (preserve_get_reg_gmap (update_incr_PC σ1) (update_current_vmid _ _)).
+    2: rewrite p_upd_id_reg //.
+    rewrite (u_upd_pc_regs _ V0 ai).
+    2: rewrite //.
+    2: solve_reg_lookup.
+    iDestruct ((gen_reg_update1_global PC V0 _ (ai ^+ 1)%f) with "regs PC")
+      as ">($ & PC)";eauto.
+    iModIntro.
+    iSplit. iPureIntro. auto.
+    (* just_schedule *)
+    rewrite /just_scheduled_vms /just_scheduled.
+    rewrite /scheduled /machine.scheduler /= /scheduler.
+    rewrite /update_current_vmid /= Heq_cur.
+    set fl := (filter _ _).
+    assert (fl = []) as ->.
+    {
+      rewrite /fl.
+      induction n.
+      - simpl.
+        rewrite filter_nil //=.
+      - rewrite seq_S.
+        rewrite list.filter_app.
+        rewrite IHn.
+        simpl.
+        rewrite filter_cons_False /=.
+        rewrite filter_nil. auto.
+        rewrite andb_negb_l.
+        done.
+    }
+    iSplitR;first done.
+    case_bool_decide; last contradiction.
+    simpl.
+    iApply "HΦ".
+    iFrame.
+  Qed.
 
 End run.
