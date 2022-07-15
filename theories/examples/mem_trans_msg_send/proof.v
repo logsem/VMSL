@@ -1,5 +1,5 @@
 From machine_program_logic.program_logic Require Import weakestpre.
-From HypVeri.algebra Require Import base mem.
+From HypVeri.algebra Require Import base base_extra mem pagetable trans.
 From HypVeri.rules Require Import rules_base mov halt run yield mem_send mem_retrieve mem_relinquish mem_reclaim ldr str msg_send msg_wait msg_poll add.
 From HypVeri.examples Require Import instr utils.
 From HypVeri.logrel Require Import logrel logrel_extra.
@@ -278,10 +278,10 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       (* Protocol for VM 0 *)            
       VMProp V0 True%I 1 ∗
       (* Protocol for VM 1 *)            
-      VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr) (β : mem), (trans_mapsto wh (DfracOwn 1) (Some (V0, V1, singleton (tpa addr), Sharing)) ∗ ⌜valid_transaction (V0, V1, singleton (tpa addr), Sharing)⌝) ∗
-                                                                                    retri_mapsto wh (DfracOwn 1) (Some false) ∗ rx_state_mapsto V1 1 (Some (of_imm one, V0)) ∗ ⌜V0 ≠ V1⌝ ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗
-                    VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four) ∗
-                                 VMProp V1 False%I (1/2)%Qp) (1/2)%Qp)%I (1/2)%Qp ∗
+      VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗
+                                                                                    wh ->re false ∗ RX_state@V1 := Some (of_imm one, V0) ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗
+                    VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ RX_state@V1 := None ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗
+                                 VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I (1/2)%Qp ∗
       (* Protocol for unknown vm *)
       VMProp V2 (VMProp_2 (* p_tx2 p_rx2 *)) (1/2)%Qp ∗
       (* Pages for unknown VM *)            
@@ -296,9 +296,9 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
                  addr ->a four ∗       
                  V0 -@A> (union (singleton (tpa addr)) (union (singleton p_pg0) (singleton (tpa p_tx0)))) ∗
                  TX@ V0 := (tpa p_tx0) ∗
-                 PC @@ V0 ->r ((of_pid p_pg0) ^+ (length program0))%f ∗
-                 R0 @@ V0 ->r yield_I ∗
-                 R1 @@ V0 ->r encode_vmid V2
+                 PC @@ V0 ->r ((of_pid p_pg0) ^+ (length program0))%f
+                 (* R0 @@ V0 ->r yield_I ∗ *)
+                 (* R1 @@ V0 ->r encode_vmid V2 *)
                  )}}%I.
   Proof.
     rewrite /vmprop_unknown.
@@ -311,7 +311,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
          & (%r3 & R3z) & (%r4 & R4z) & (%r5 & R5z) 
          & prop0 & prop1 & prop2 & acc2 & hp & ((RX0st & _) & (RX0page & RX0own & RX0excl) & RX0mem)
          & ((RX1st & _) & (RX1page & RX1own & RX1excl) & RX1mem) & ((RX2st & _) & (RX2page & RX2own & RX2excl) & RX2mem))". 
-   pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
+    pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     fold_finz_plus_one.
     repeat (rewrite finz_succN_correct).
     (* iEval (rewrite finz_succN_one) in "p_2". *)
@@ -1955,24 +1955,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       lia.
     }
     iModIntro.
-    iIntros "(PCz & _ & OE & acc & R0z & R1z & (%wh & whin & R2z & whtans & whretri & whfresh) & tx & txmem) _".
-    (* assert ((({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) ∖ {[tpa addr]}) = {[p_pg0; tpa p_tx0]}) as ->. *)
-    (* { *)
-    (*   rewrite difference_union_distr_l_L. *)
-    (*   rewrite difference_diag_L. *)
-    (*   rewrite union_empty_l_L. *)
-    (*   rewrite difference_disjoint_L. *)
-    (*   reflexivity. *)
-    (*   rewrite disjoint_singleton_r. *)
-    (*   apply not_elem_of_union. *)
-    (*   split. *)
-    (*   - apply not_elem_of_singleton_2. *)
-    (*     assumption. *)
-    (*   - apply not_elem_of_singleton_2. *)
-    (*     rewrite to_pid_aligned_eq. *)
-    (*     assumption. *)
-    (* }  *)
-    (* mov_word_I R5 p_tx0 *)
+    iIntros "(PCz & _ & OE & acc & R0z & R1z & (%wh & %whin & R2z & whtans & whretri & whfresh) & tx & txmem) _".
+    assert (wh = W0) as wheq.
+    {
+      unfold valid_handles in whin.
+      unfold rywu_vmconfig in whin.
+      apply elem_of_singleton_1 in whin.
+      assumption.      
+    }
     rewrite wp_sswp.    
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
@@ -2232,9 +2222,10 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       }
       rewrite Hrxeq.
       apply lookup_insert.
-    }
-    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V1) 1%Qp ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) ((PC @@ V0 ->r (p_pg0 ^+ 32%nat)%f) ∗ (V0 -@A> ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) ∗ (TX@V0:=tpa p_tx0))%I (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two ∗ (∃ (wh0 : Addr) (β0 : mem), (trans_mapsto wh0 (DfracOwn 1) (Some (V0, V1, {[tpa addr]}, Sharing)) ∗ ⌜valid_transaction (V0, V1, {[tpa addr]}, Sharing)⌝) ∗ retri_mapsto wh0 (DfracOwn 1) (Some false) ∗ rx_state_mapsto V1 1 (Some (finz.FinZ 1 one_obligation_1 one_obligation_2, V0)) ∗ ⌜
-                  V0 ≠ V1⌝ ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β0 ∗ ⌜β0 !! (of_imm p_rx1imm) = Some wh0⌝) ∗ VMProp 0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four) ∗ VMProp 1 False (1 / 2)) (1 / 2)) True%I (p_pg0 ^+ 31%nat)%f V1 True%I ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four) ∗ VMProp 1 False (1 / 2))%I) with "[PCz p_32 acc tx R0z R1z prop0 prop1 mem rxmem whretri whtans RX1page RX1st]").
+    }    
+    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V1) 1%Qp ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) ((PC @@ V0 ->r (p_pg0 ^+ 32%nat)%f) ∗ (V0 -@A> ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) ∗ (TX@V0:=tpa p_tx0))%I (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ wh ->re false ∗ (rx_state_mapsto V1 1 (Some (of_imm one, V0)) ∗ ⌜V0 ≠ V1⌝) ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗
+              VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗
+              VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I True%I (p_pg0 ^+ 31%nat)%f V1 True%I ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I) with "[PCz p_32 acc tx R0z R1z prop0 prop1 mem rxmem whretri whtans RX1page RX1st]").
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
@@ -2265,26 +2256,22 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       rewrite Z_of_nat_simpl.
       iEval (simpl) in "PCz".
       iFrame.
-      iExists wh, β.
+      iExists wh.
+      iSplitR "prop0".
+      iExists β.
       simpl.
       iFrame.
-      iSplitL "whtans".
-      iDestruct "whtans" as "(whtans & %whprop)".
-      iFrame.
-      iPureIntro.
       done.
-      iDestruct "whretri" as "(whretri & %whprop)".
-      iDestruct "RX1st" as "(RX1st & %whprop')".
+      simpl.
       iFrame.
-      iSplit; done.
     }
     iModIntro.
     iIntros "[(PCz & acc & tx) prop0] Hholds".
     iDestruct (VMProp_holds_agree with "[Hholds prop0]") as "[P' prop0]".
     simpl.
     iFrame "Hholds prop0".
-    (* getting back resources *)
-    iDestruct "P'" as "((>R0z & >R1z & >mem) & prop1)".
+    iDestruct "P'" as "(P' & prop1)".
+    iDestruct "P'" as "(>R0z & >R1z & >mem & >whtrans & >RX1page & >RX1st & >RX1mem)".
     rewrite wp_sswp.
     iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 32%nat)%f run_I R0) with "[p_33 PCz acc tx R0z]").
     apply decode_encode_instruction.
@@ -2324,7 +2311,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".    
-    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V2) 1%Qp ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) ((PC @@ V0 ->r (p_pg0 ^+ 35%nat)%f) ∗ (V0 -@A> ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) ∗ (TX@V0:=tpa p_tx0))%I (fixpoint (vmprop_unknown_pre V2) ∅) ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a finz.FinZ 4 four_obligation_1 four_obligation_2) ∗ VMProp 1 False (1 / 2))%I (p_pg0 ^+ 34%nat)%f V2 True%I ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V2) ∗ VMProp 1 False (1 / 2))%I) with "[PCz p_35 acc tx R0z R1z prop0 prop2]").
+    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V2) 1%Qp ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) ((PC @@ V0 ->r (p_pg0 ^+ 35%nat)%f) ∗ (V0 -@A> ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) ∗ (TX@V0:=tpa p_tx0))%I (fixpoint (vmprop_unknown_pre V2) ∅) ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a finz.FinZ 4 four_obligation_1 four_obligation_2 ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx : mem, memory_page p_rx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I (p_pg0 ^+ 34%nat)%f V2 (trans.fresh_handles 1 (valid_handles ∖ {[wh]}) ∗ (∃ mem_rx : mem, memory_page p_rx0 mem_rx) ∗ (∃ mem_rx : mem, memory_page p_rx1 mem_rx) ∗ (∃ mem_rx : mem, memory_page p_rx2 mem_rx) ∗ RX@V0:=p_rx0 ∗ RX@V1:=p_rx1 ∗ RX@V2:=p_rx2 ∗ rx_state_mapsto V0 1 None ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ rx_state_mapsto V2 1 None ∗ ([∗ set] p ∈ {[tpa addr]}, p -@O> V0 ∗ p -@E> false) ∗ R2 @@ V0 ->r one)%I (vmprop_zero V2 (<[wh := ((V0, V1, ({[tpa addr]} : gset PID), Sharing), true)]> ∅) (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))))%I) with "[PCz p_35 acc tx R0z R1z prop0 prop2 whfresh RX0page RX0mem RX0st RX1page RX1mem RX1st RX2page RX2mem RX2st R2z OE whtrans]").
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
@@ -2340,17 +2327,168 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     by rewrite decode_encode_hvc_func.
     by rewrite decode_encode_vmid.
     iFrame.
-    {
-      iSplitL.
+    {    
       iNext.
-      iIntros "((PCz & _ & acc & tx & R0z & R1z) & _ & prop0)".
+      iIntros "((PCz & _ & acc & tx & R0z & R1z) & (whfresh & RX0mem & RX1mem & RX2mem & RX0page & RX1page & RX2page & RX0st & RX1st & RX2st & OE & R2z) & prop0)".
       iEval (rewrite finz_plus_one_simpl) in "PCz".
       rewrite Z_of_nat_simpl.
       iEval (simpl) in "PCz".    
       iFrame.
-      unfold vmprop_unknown_pre.
-      admit.
-      done.
+      iApply vmprop_unknown_eq.
+      iExists (<[wh := ((V0, V1, ({[tpa addr]} : gset PID), Sharing), true)]> ∅), (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))).
+      iSplit.
+      - iPureIntro.
+        unfold trans_rel_secondary.
+        split.
+        rewrite insert_empty.
+        rewrite map_filter_singleton_False.
+        rewrite map_filter_empty.
+        rewrite fmap_empty.
+        reflexivity.
+        intros contra.
+        simpl in contra.
+        destruct contra.
+        discriminate.
+        rewrite map_filter_singleton_False.
+        rewrite map_filter_empty.
+        reflexivity.
+        intros contra.
+        simpl in contra.
+        destruct contra.
+        discriminate.
+      - iSplitL "whfresh OE whtrans".
+        + unfold transaction_hpool_global_transferred.
+          iExists (valid_handles ∖ {[wh]}).
+          simpl.
+          iSplit.
+          rewrite wheq.
+          rewrite difference_diag_L.
+          rewrite insert_empty.
+          rewrite union_empty_l_L.
+          iPureIntro.
+          set_solver +.
+          rewrite wheq.
+          rewrite difference_diag_L.
+          rewrite insert_empty.
+          rewrite big_opM_singleton.
+          rewrite elem_of_singleton.
+          simpl.
+          rewrite bool_decide_eq_false_2.
+          unfold pgt_3_4.
+          unfold pgt.
+          rewrite !big_opS_singleton.
+          unfold valid_transaction.
+          simpl.
+          iFrame.
+          iSplitL "whtrans".
+          * iDestruct "whtrans" as "(whtrans & %P1 & %P2)".
+            iSplit.
+            rewrite trans_mapsto_eq /trans_mapsto_def.            
+            iDestruct (ghost_map_elem_split with "whtrans") as "[H1 H2]".
+            iFrame.
+            iPureIntro.
+            split; done.            
+          * iDestruct "OE" as "(O & E)".            
+            iDestruct (own_split with "O") as "(O1 & O2)".
+            iDestruct (own_split with "O2") as "(O2 & O3)".
+            iDestruct (excl_split with "E") as "(E1 & E2)".
+            iDestruct (excl_split with "E2") as "(E2 & E3)".
+            rewrite half_of_half.
+            iFrame.
+          * intros contra; contradiction.
+        + iSplitR.
+          * unfold transaction_pagetable_entries_transferred.
+            rewrite big_sepFM_insert_False.
+            iApply big_sepFM_empty.
+            intros contra.
+            destruct contra; discriminate.
+            apply lookup_empty.
+          * iSplitR.
+            -- unfold retrievable_transaction_transferred.
+               iSplitL.
+               rewrite big_sepFM_insert_False.
+               iApply big_sepFM_empty.
+               intros contra.
+               destruct contra; discriminate.
+               apply lookup_empty.
+               rewrite big_sepFM_insert_False.
+               iApply big_sepFM_empty.
+               intros contra.
+               destruct contra; discriminate.
+               apply lookup_empty.
+            -- iSplitR.
+               ++ iExists ∅.
+                  unfold memory_pages.
+                  iSplit; last done.
+                  iPureIntro.
+                  unfold transferred_memory_pages.
+                  rewrite dom_empty_L.
+                  rewrite insert_empty.
+                  rewrite map_filter_singleton_False.
+                  rewrite pages_in_trans_empty.
+                  rewrite set_of_addr_empty.
+                  reflexivity.
+                  intros contra.
+                  destruct contra as [contra ?].
+                  destruct contra; discriminate.
+               ++ iSplitL "R0z".
+                  ** iExists run_I.
+                     iFrame.
+                     iPureIntro.
+                     apply decode_encode_hvc_func.
+                  ** iSplitL "R1z".
+                     --- iExists (encode_vmid V2).
+                         iFrame.
+                         iPureIntro.
+                         apply decode_encode_vmid.
+                     --- iSplitL "R2z".
+                         +++ iExists one.
+                             iFrame.
+                         +++ iSplitL "RX2mem RX2page RX2st".
+                             unfold rx_state_get.
+                             iSplitR "RX2mem RX2page".
+                             *** iIntros (rs) "%contra".
+                                 apply lookup_insert_rev in contra.
+                                 rewrite <-contra.
+                                 iFrame.
+                             *** iExists p_rx2.
+                                 iFrame.
+                             *** iSplitR "prop0".
+                                 ---- unfold rx_states_global.
+                                      rewrite delete_insert.
+                                      unfold rx_state_match.
+                                      rewrite insert_empty.
+                                      rewrite big_opM_insert_delete.
+                                      iFrame "RX1st".
+                                      iSplitL "RX1page RX1mem".
+                                      iExists p_rx1.
+                                      iFrame.
+                                      assert (delete V1 {[V0 := None]} = {[V0 := None]}) as ->.
+                                      {
+                                        rewrite delete_notin.
+                                        reflexivity.
+                                        apply lookup_singleton_ne.
+                                        done.
+                                      }
+                                      rewrite big_opM_singleton.
+                                      iSplitL "RX0st"; first iFrame.
+                                      iExists p_rx0.
+                                      iFrame.
+                                      rewrite insert_empty.
+                                      rewrite lookup_insert_None.
+                                      split; last done.
+                                      by apply lookup_singleton_ne.
+                                 ---- iSplit.
+                                      ++++ iPureIntro.
+                                           unfold base_extra.is_total_gmap.
+                                           intros k.
+                                           rewrite insert_empty.
+                                           pose proof (in_list_of_vmids k) as G.
+                                           unfold list_of_vmids in G.
+                                           rewrite /vm_count /rywu_vmconfig /= in G.
+                                           rewrite /V2 /V1 /V0 /=.
+                                           destruct G as [<- | [<- | [<- | ?]]]; last contradiction; done.
+                                      ++++ iFrame.
     }
     iModIntro.
     iIntros "[(PCz & acc & tx) prop0] Hholds".
@@ -2358,7 +2496,6 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     simpl.
     iFrame "Hholds prop0".
     (* getting back resources *)
-    iDestruct "P'" as "((>R0z & >R1z) & prop1')".
     rewrite wp_sswp.
     clear -HIn Hnottx.
     iApply ((halt (p_pg0 ^+ 35%nat)%f) with "[PCz p_36 acc tx]"); iFrameAutoSolve.
@@ -2382,6 +2519,8 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (simpl) in "PCz".
     iSplit; first done.
     done.
-  Admitted.
+  Qed.
 
+
+  
 End proof.
