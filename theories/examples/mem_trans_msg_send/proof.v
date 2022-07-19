@@ -222,6 +222,8 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       (* mov_word_I R0 mem_relinquish_I; *)
       (* mov_reg_I R1 R4; *)
       (* hvc_I; *)
+      mov_word_I R0 msg_poll_I;
+      hvc_I;
       (* Yield back *)
       mov_word_I R0 yield_I;
       hvc_I
@@ -2521,6 +2523,355 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     done.
   Qed.
 
-
+  Lemma lending_machine1 p_pg1 (p_tx1 : PID) p_rx1 (addr : Imm) p_tx1imm (p_rx1imm p_pg1imm : Imm) :
+    let program1 := lending_program1 addr p_rx1imm in
+    of_pid (tpa addr) = addr ->
+    (* Disjoint pages *)
+    (of_pid p_tx1 = p_tx1imm) ->
+    (of_pid p_rx1 = p_rx1imm) ->
+    (of_pid p_pg1 = p_pg1imm) ->
+    (p_pg1 ∉ ({[(tpa addr); p_tx1; p_rx1]}:gset _)) ->
+    tpa addr ≠ p_rx1 ->
+    tpa addr ≠ p_pg1 ->
+    tpa addr ≠ p_tx1 ->
+    p_tx1 ≠ p_rx1 ->
+    (* Addresses-values connection *)
+    seq_in_page (of_pid p_pg1) (length program1) p_pg1 ->
+    (* Mem for program *)
+    (program (program1) (of_pid p_pg1)) ∗
+    (* TX mem *)
+    (∃ txmem, memory_page (tpa p_tx1) txmem) ∗
+    V1 -@A> (union (union (singleton p_pg1) (singleton (tpa p_tx1))) (singleton (tpa p_rx1))) ∗
+    (* TX page *)            
+    TX@ V1 := (tpa p_tx1) ∗
+    (* Program counter *)                      
+    PC @@ V1 ->r (of_pid p_pg1) ∗
+    (* Work registers *)                        
+    (∃ r0, R0 @@ V1 ->r r0) ∗
+    (∃ r1, R1 @@ V1 ->r r1) ∗
+    (∃ r2, R2 @@ V1 ->r r2) ∗            
+    (∃ r3, R3 @@ V1 ->r r3) ∗
+    (∃ r4, R4 @@ V1 ->r r4) ∗
+    (∃ r5, R5 @@ V1 ->r r5) ∗                        
+    VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗
+               wh ->re false ∗ RX_state@V1 := Some (of_imm one, V0) ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗
+      VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ RX_state@V1 := None ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗
+        VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I (1/2)%Qp
+    ⊢ VMProp_holds V1 (1/2)%Qp -∗ WP ExecI @ V1 {{ (λ m, False) }}%I.
+  Proof.
+    iIntros (program1 Haddr Htxeq Hrxeq Hpgeq HnIn_p HneAddr_RX1 HneAddr_PG1 HneAddr_TX1 HneTX1_RX1 HIn).
+    iIntros "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 
+            & p_8 & p_9 & p_10 & p_11 & p_12 & p_13 & p_14 & _)
+         & (%txmemgm & txmem) & acc & tx & PCs & (%r0 & R0s) & (%r1 & R1s) & (%r2 & R2s)
+         & (%r3 & R3s) & (%r4 & R4s) & (%r5 & R5s) 
+         & prop1)".
+    iIntros "Hholds".
+    iDestruct (VMProp_holds_agree V1 with "[Hholds prop1]") as "[P prop1]".
+    iFrame.
+    pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
+    fold_finz_plus_one.
+    repeat (rewrite finz_succN_correct).
+    clear HIn; rename Hforall into HIn.
+    assert (p_pg1 ≠ p_tx1) as Hnottx. set_solver + HnIn_p.
+    rewrite wp_sswp.
+    iDestruct "P" as "(R0z & R1z & mem & temp)".
+    iApply ((mov_word (of_pid p_pg1) p_rx1imm R5) with "[p_1 PCs acc tx R5s]"); iFrameAutoSolve.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    by rewrite to_pid_aligned_eq.
+    rewrite !to_pid_aligned_eq.
+    assumption.
+    iNext.
+    iDestruct "temp" as "(%wh & (%rxmem & (whtrans & whretri & RX1st & RX1page & RX1mem & %Hrxmem)) & prop0)".
+    iIntros "(PCs & _ & acc & tx & R5s) _".
+    rewrite wp_sswp.
+    iEval (unfold memory_page) in "RX1mem".
+    iDestruct "RX1mem" as "(%rxmemdom & RX1mem)".
+    iDestruct (@mem_big_sepM_split_upd _ _ p_rx1imm wh with "RX1mem") as "(rxbase & rxmemacc)"; auto.
+    iApply ((ldr (p := p_tx1) (w1 := ldr_I R4 R5) (s := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (w2 := wh) (w3 := r4) (q := 1%Qp) (p_pg1 ^+ 1)%f p_rx1imm R4 R5) with "[PCs p_2 acc tx R4s R5s rxbase]").
+    by rewrite decode_encode_instruction.
+    apply union_subseteq.
+    split; rewrite singleton_subseteq_l.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.    
+    rewrite HIn.
+    reflexivity.
+    set_solver +.
+    rewrite <-Hrxeq.
+    set_solver +.
+    rewrite <-Hrxeq.
+    rewrite to_pid_aligned_eq.
+    intros contra; exfalso; apply HneTX1_RX1; symmetry; assumption.
+    rewrite HIn.
+    assumption.
+    set_solver +.
+    rewrite to_pid_aligned_eq.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & R5s & rxbase & R4s & acc & tx) _".
+    rewrite wp_sswp.
+    iEval (repeat (rewrite finz_succN_one)) in "PCs".
+    iEval (repeat (rewrite finz_succN_idemp)) in "PCs".
+    iEval (simpl) in "PCs".
+    iEval (repeat (rewrite finz_succN_correct)) in "PCs".
+    iApply ((mov_word (w3 := r0) (p_tx := p_tx1) (w1 := mov_word_I R0 msg_poll_I) (q := 1%Qp) (s := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 2%nat)%f msg_poll_I R0) with "[p_3 PCs acc tx R0s]").
+    by rewrite decode_encode_instruction.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.    
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & acc & tx & R0s) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((msg_poll_full (r0 := msg_poll_I) (r1 := r1) (r2 := r2) (wi := hvc_I) (l := one) (i := V1) (j := V0) (p_tx := p_tx1) (q := 1%Qp) (s := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 3%nat)%f) with "[p_4 PCs acc tx R0s R1s R2s RX1st]").
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.    
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    by rewrite decode_encode_instruction.
+    by rewrite decode_encode_hvc_func.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & tx & acc & R0s & R1s & R2s & RX1st & _) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((@mov_reg _ _ _ _ _ _ _ wh 1%Qp {[p_pg1; tpa p_tx1; tpa p_rx1]} (tpa p_tx1) (p_pg1 ^+ 4%nat)%f one R1 R4) with "[PCs p_5 acc tx R1s R4s]").
+    apply decode_encode_instruction.
+    do 2 apply elem_of_union_l.    
+    apply elem_of_singleton_2.
+    apply HIn.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite to_pid_aligned_eq.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & acc & tx & R1s & R4s) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[p_pg1; tpa p_tx1; tpa p_rx1]} (tpa p_tx1) (p_pg1 ^+ 5%nat)%f mem_retrieve_I R0) with "[p_6 PCs acc tx R0s]").
+    apply decode_encode_instruction.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & acc & tx & R0s) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iSpecialize ("rxmemacc" $! wh with "rxbase").
+    iApply ((mem_retrieve_share (sacc := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_tx := tpa p_tx1) (p_pg1 ^+ 6%nat)%f wh) with "[PCs p_7 R0s R1s acc tx whretri whtrans RX1page RX1st rxmemacc]").
+    rewrite to_pid_aligned_eq.
+    rewrite HIn.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    apply decode_encode_instruction.
+    apply decode_encode_hvc_func.
+    iFrame.
+    iNext.
+    iPureIntro.
+    rewrite dom_insert_lookup_L.
+    assumption.
+    exists wh.
+    assumption.
+    iModIntro.
+    iIntros "(PCs & _ & R0s & R1s & acc & tx & whretri & whtrans & RX1page & (%l & %des & (RX1st & _) & %deslen & %desshape & RX1mem)) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (tpa p_tx1) (p_pg1 ^+ 7%nat)%f four R3) with "[p_8 PCs acc tx R3s]").
+    apply decode_encode_instruction.
+    apply elem_of_union_r.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & acc & tx & R3s) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (tpa p_tx1) (p_pg1 ^+ 8%nat)%f addr R5) with "[p_9 PCs acc tx R5s]").
+    apply decode_encode_instruction.
+    apply elem_of_union_r.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & acc & tx & R5s) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((@str _ _ _ _ _ _ _ four two 1%Qp p_rx1 (tpa p_tx1) ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 9%nat)%f addr R3 R5) with "[p_10 PCs acc mem RX1page tx R3s R5s]").
+    apply decode_encode_instruction.
+    apply union_subseteq.
+    split; rewrite singleton_subseteq_l.
+    apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    reflexivity.    
+    apply elem_of_union_r.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    rewrite (finz_succN_pid' p_pg1 9).
+    reflexivity.
+    lia.    
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    assumption.    
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & R5s & mem & R3s & acc & tx & RX1page) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((mov_word (w3 := encode_hvc_ret_code Succ) (p_tx := p_tx1) (w1 := mov_word_I R0 msg_poll_I) (q := 1%Qp) (s := {[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 10%nat)%f msg_poll_I R0) with "[p_11 PCs acc tx R0s]").
+    by rewrite decode_encode_instruction.
+    apply elem_of_union_r.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.    
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite to_pid_aligned_eq.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & acc & tx & R0s) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((msg_poll_full (r0 := msg_poll_I) (r1 := wh) (r2 := encode_vmid V0) (wi := hvc_I) (l := l) (i := V1) (j := V0) (p_tx := p_tx1) (q := 1%Qp) (s := {[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 11%nat)%f) with "[p_12 PCs acc tx R0s R1s R2s RX1st]").
+    apply elem_of_union_r.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.    
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    by rewrite decode_encode_instruction.
+    by rewrite decode_encode_hvc_func.
+    iFrame.
+    done.
+    iModIntro.
+    iIntros "(PCs & _ & tx & acc & R0s & R1s & R2s & RX1st & _) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (tpa p_tx1) (p_pg1 ^+ 12%nat)%f yield_I R0) with "[p_13 PCs acc tx R0s]").
+    apply decode_encode_instruction.
+    apply elem_of_union_r.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite to_pid_aligned_eq.
+    iFrame.
+    iModIntro.
+    iIntros "(PCs & _ & acc & tx & R0s) _".
+    rewrite wp_sswp.
+    iEval (rewrite finz_plus_one_simpl) in "PCs".
+    rewrite Z_of_nat_simpl.
+    iEval (simpl) in "PCs".
+    iApply ((yield (s := {[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_tx := tpa p_tx1) (p_pg1 ^+ 13%nat)%f True False%I) with "[PCs p_14 acc tx R0s R0z R1z prop0 prop1 mem whtrans RX1page RX1st RX1mem]").
+    apply elem_of_union_r.
+    do 2 apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    rewrite HIn.
+    reflexivity.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    apply finz_succN_in_seq; simpl; lia.
+    done.
+    apply decode_encode_instruction.
+    apply decode_encode_hvc_func.
+    {
+      iSplitL "PCs p_14 acc tx R0s R0z R1z".
+      iFrame.
+      iFrame "prop0".
+      iFrame "prop1".
+      iSplit; last done.
+      iNext.
+      iIntros "((H1 & H2 & H3 & H4 & H5 & H6 & H7) & _ & H8)".
+      iFrame.
+      iSplitL "RX1mem".
+      match goal with
+        |- context G [memory_page _ ?a] => set m := a
+      end.
+      iExists m.
+      iFrame "RX1mem".
+      iCombine "H1 H2 H3 H4 H5" as "R'".
+      iExact "R'".
+    }
+    iModIntro.
+    iIntros "[? prop1] Hholds".
+    simpl.
+    iDestruct (VMProp_holds_agree V1 with "[prop1 Hholds]") as "[P prop1]".
+    iFrame.
+    iMod "P".
+    by iExFalso.
+  Qed.
   
 End proof.
