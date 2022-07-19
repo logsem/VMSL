@@ -6,8 +6,6 @@ From HypVeri.algebra Require Import base mem.
 (* From HypVeri Require Import proofmode machine_extra. *)
 (* Require Import Setoid. *)
 
-Section proof.
-
 Fixpoint finz_succN_def {z : Z} (f : finz z) (n : nat) : finz.finz z :=
   match n with
   | 0 => f
@@ -124,14 +122,12 @@ Lemma Z_of_nat_simpl (n m : nat) : (n%nat + m%nat)%Z = ((n + m)%nat)%Z.
 Proof.
   lia.
 Qed.
-
 Ltac fold_finz_plus_one :=
   repeat (rewrite finz_succN_one);
   repeat (rewrite finz_succN_idemp);
   iEval (simpl) in "∗".
 
-
-Local Program Instance rywu_vmconfig : HypervisorConstants :=
+Program Instance rywu_vmconfig : HypervisorConstants :=
     {vm_count := 3;
      vm_count_pos := _;
      valid_handles := {[W0]}}.
@@ -224,15 +220,8 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
       hvc_I
     ].
 
-  (* Lemma tpa_plus_one_simple : ∀ p, tpa (p ^+ 1)%f = tpa p. *)
-  (* Proof. *)
-  (*   intros p. *)
-    
-  (* Qed. *)
-
   Context `{!gen_VMG Σ}.
   Notation VMProp_2 p_tx p_rx:= (vmprop_unknown V2) (only parsing).
-
 
   Lemma lending_machine0 p_pg0 (p_tx0 : PID) p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 (addr : Imm) p_tx0imm (p_pg0imm : Imm) :
     let RX0 := (RX_state@V0 := None ∗ mailbox.rx_page V0 p_rx0 ∗ ∃ mem_rx, memory_page p_rx0 mem_rx)%I in
@@ -343,7 +332,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
     iApply ((str _ addr R4 R5) with "[p_3 PCz acc mem RX0page tx R4z R5z]"); iFrameAutoSolve.
     apply union_mono_l.
     apply union_subseteq_l'.
-    rewrite singleton_subseteq.
+    rewrite singleton_subseteq.    
     rewrite HIn.
     reflexivity.
     apply finz_succN_in_seq.
@@ -408,41 +397,72 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
     iEval (simpl) in "PCz".
     iEval (unfold memory_page) in "txmem".
     iDestruct "txmem" as "(%domtxmem & txmem)".
-    assert (Hdom: (of_imm p_tx0imm) ∈ dom txmemgm).
+    (* Set *)
+    iDestruct (@mem_big_sepM_split_upd5 _ txmemgm p_tx0imm (p_tx0 ^+ 1)%f ((p_tx0 ^+ 1) ^+ 1)%f (((p_tx0 ^+ 1) ^+ 1) ^+ 1)%f ((((p_tx0 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f with "txmem") as "txmem".
     {
       rewrite domtxmem.
       rewrite elem_of_list_to_set.
       rewrite Htxeq.
       apply elem_of_addr_of_page_tpa.
     }
-    rewrite elem_of_dom in Hdom.
-    destruct Hdom as [w1 Hlk].
-    iDestruct (@mem_big_sepM_split_upd _ txmemgm p_tx0imm with "txmem") as "[addr txacc]".
-    apply Hlk. clear Hlk.
-    (* { *)
-    (*   rewrite <-elem_of_dom. *)
-    (*   rewrite domtxmem. *)
-    (*   rewrite elem_of_list_to_set.       *)
-    (*   apply elem_of_addr_of_page_iff. *)
-    (*   rewrite to_pid_aligned_eq. *)
-    (*   symmetry. *)
-    (*   apply to_pid_aligned_in_page. *)
-    (*   unfold addr_in_page. *)
-    (*   split. *)
-    (*   apply Is_true_true_2. *)
-    (*   solve_finz. *)
-    (*   apply Is_true_true_2. *)
-    (*   solve_finz. *)
-    (* } *)
-    Locate iFrameAutoSolve.
-    Set Debug "RAKAM".
-
-    set
-
-    (* iDestruct "txmem" as "(%w1 & %w2 & %w3 & %w4 & %w5 & txmem1 & txmem2 & txmem3 & txmem4 & txmem5 & txacc)".     *)
-    simpl in domtxmem.
-    iApply ((@str _ _ _ _ _ V0 (str_I R4 R5) (encode_vmid V0) w1 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})
-               _ p_tx0imm R4 R5) with "[$PCz p_7 acc addr RX0page tx R4z R5z]").
+    {
+      rewrite <-elem_of_dom.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.      
+      apply elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      symmetry.
+      rewrite (finz_succN_pid' p_tx0 1).
+      reflexivity.
+      lia.
+    }
+    {
+      rewrite <-elem_of_dom.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.      
+      apply elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      symmetry.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' p_tx0 2).
+      reflexivity.
+      lia.
+    }
+    {
+      rewrite <-elem_of_dom.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.      
+      apply elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      symmetry.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' p_tx0 3).
+      reflexivity.
+      lia.
+    }
+    {
+      rewrite <-elem_of_dom.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.      
+      apply elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      symmetry.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' p_tx0 4).
+      reflexivity.
+      lia.
+    }
+    iDestruct "txmem" as "(%w1 & %w2 & %w3 & %w4 & %w5 & txmem1 & txmem2 & txmem3 & txmem4 & txmem5 & txacc)".    
+    iApply ((@str _ _ _ _ _ V0 (str_I R4 R5) (encode_vmid V0) w1 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (p_pg0 ^+ 6%nat)%f p_tx0imm R4 R5) with "[PCz p_7 acc txmem1 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -457,11 +477,18 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
     apply elem_of_singleton_2.
     reflexivity.
     apply finz_succN_in_seq; simpl; lia.
+    simpl.
+    TODO: bug
+  Abort.
+    cbn in domtxmem.
+    simpl in domtxmem.
+    clear HnIn_p domtxmem.
+    (* clear -HnIn_p HIn Hnottx. *)
     auto.
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     assumption.
-    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
     rewrite <-Htxeq.
     rewrite to_pid_aligned_eq.
     assumption.
@@ -569,45 +596,56 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 6 _ _) _.
     iIntros "(PCz & _ & R5z & addr & R4z & acc & tx & RX0page) _".
     (* add_I R5 R3 *)
     rewrite wp_sswp.
-
-
-    (* iDestruct ("txacc" with "addr") as "txmem". *)
-    (* assert (Hdom: (p_tx0 ^+ 2)%f ∈ dom ( <[(p_tx0 ^+ 1)%f:=w2]> (<[(of_imm p_tx0imm):= (of_imm (encode_vmid V0))]> txmemgm))). *)
-    (* { *)
-    (*   rewrite !dom_insert_L. *)
-    (*   rewrite domtxmem. *)
-    (*   apply elem_of_union_r. *)
-    (*   apply elem_of_union_r. *)
-    (*   rewrite elem_of_list_to_set. *)
-    (*   apply elem_of_addr_of_page_iff. *)
-    (*   rewrite to_pid_aligned_eq. *)
-    (*   symmetry. *)
-    (*   apply to_pid_aligned_in_page. *)
-    (*   unfold addr_in_page. *)
-    (*   split. *)
-    (*   apply Is_true_true_2. *)
-    (*   solve_finz. *)
-    (*   apply Is_true_true_2. *)
-    (*   solve_finz. *)
-    (* } *)
-    (* rewrite elem_of_dom in Hdom. *)
-    (* destruct Hdom as [w3 Hlk]. *)
-    (* iDestruct (@mem_big_sepM_split_upd _ _ (p_tx0 ^+ 2)%f with "txmem") as "[addr txacc]". apply Hlk. *)
-    
-    (* iApply ((add _ R5 R3 _) with "[p_11 PCz acc R5z R3z tx]"); iFrameAutoSolve. *)
-    (* apply elem_of_union_r. *)
-    (* apply elem_of_union_l. *)
-    (* apply elem_of_singleton_2. *)
-    (* rewrite HIn. *)
-    (* reflexivity. *)
-    (* set_solver +. *)
-    (* rewrite HIn. *)
-    (* assumption. *)
-    (* set_solver +. *)
-    (* iModIntro. *)
-    (* iIntros "(PCz & _ & R5z & R3z & acc & tx) _". *)
+    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (p_tx0imm ^+ 1)%f one 1%Qp (tpa p_tx0)
+              ((((((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f
+              R5 R3 ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) with "[p_11 PCz acc R5z R3z tx]").
+    apply decode_encode_instruction. 
+    apply elem_of_union_r.
+    apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    {
+      apply to_pid_aligned_in_page.
+      unfold addr_in_page.
+      split.
+      apply Is_true_true_2.
+      solve_finz.
+      apply Is_true_true_2.
+      solve_finz.
+    }
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    set_solver +.
+    rewrite Htxeq.
+    iFrame.
+    iModIntro.
+    iIntros "(PCz & _ & R5z & R3z & acc & tx) _".
     (* (* mov_word_I R4 one *) *)
-    (* rewrite wp_sswp. *)
+    rewrite wp_sswp.
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0)
+               (((((((((((p_pg0 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f
+               one R4) with "[p_12 PCz acc tx R4z]").
+    apply decode_encode_instruction.
+    apply elem_of_union_r.
+    apply elem_of_union_l.
+    apply elem_of_singleton_2.
+    {
+      apply to_pid_aligned_in_page.
+      unfold addr_in_page.
+      split.
+      apply Is_true_true_2.
+      solve_finz.
+      apply Is_true_true_2.
+      solve_finz.
+    }
+    rewrite HIn.
+    rewrite to_pid_aligned_eq.
+    assumption.
+    set_solver +.
+    rewrite Htxeq.
+    iFrame.
+    iModIntro.
+    iIntros "(PCz & _ & R5z & R3z & acc & tx) _".
     (* iApply ((mov_word _ one R4) with "[p_12 PCz acc tx R4z]"); iFrameAutoSolve. *)
     (* rewrite HIn. *)
     (* set_solver +. *)
