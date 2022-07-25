@@ -232,16 +232,16 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
   Notation VMProp_2 (* p_tx p_rx *) := (vmprop_unknown V2 (* p_tx p_rx  *) ∅) (only parsing).
 
 
-  Lemma lending_machine0 p_pg0 (p_tx0 : PID) p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 (addr : Imm) p_tx0imm (p_rx1imm p_pg0imm : Imm) :
+  Lemma lending_machine0 p_pg0 (p_tx0 : PID) p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 (addr : Imm) p_tx0imm (p_rx1imm : Imm) :
     let RX0 := (RX_state@V0 := None ∗ mailbox.rx_page V0 p_rx0 ∗ ∃ mem_rx, memory_page p_rx0 mem_rx)%I in
     let RX1 := (RX_state@V1 := None ∗ mailbox.rx_page V1 p_rx1 ∗ ∃ mem_rx, memory_page p_rx1 mem_rx)%I in
-    let RX2 := (RX_state@V2 := None ∗ mailbox.rx_page V2 p_rx2 ∗ ∃ mem_rx, memory_page p_rx2 mem_rx)%I in
+    let RX2 := (RX_state@V2 := None ∗ RX@V2:=p_rx2 ∗ ∃ mem_rx, memory_page p_rx2 mem_rx)%I in
     let program0 := lending_program0 addr p_tx0imm in
     of_pid (tpa addr) = addr ->
     (* Disjoint pages *)
     (of_pid p_tx0 = p_tx0imm) ->
     (of_pid p_rx1 = p_rx1imm) ->
-    (of_pid p_pg0 = p_pg0imm) ->
+    (* (of_pid p_pg0 = p_pg0imm) -> *)
     (p_pg0 ∉ ({[(tpa addr); p_tx0; p_pg2; p_tx2; p_rx2]}:gset _)) ->
     tpa addr ≠ p_rx0 ->
     tpa addr ≠ p_pg0 ->
@@ -280,7 +280,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       (* Protocol for unknown vm *)
       VMProp V2 (VMProp_2 (* p_tx2 p_rx2 *)) (1/2)%Qp ∗
       (* Pages for unknown VM *)            
-      V2 -@{1/2}A> {[p_pg2;p_tx2;p_rx2]} ∗
+      (* V2 -@{1/2}A> {[p_pg2;p_tx2;p_rx2]} ∗ *)
       trans.fresh_handles 1 valid_handles ∗
       (* RX states *)               
       RX0 ∗ RX1 ∗ RX2 
@@ -297,15 +297,15 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
                  )}}%I.
   Proof.
     rewrite /vmprop_unknown.
-    iIntros (Haddr Htxeq Hrxeq Hpgeq HnIn_p HneAddr_RX0 HneAddr_PG0 HneAddr_TX0 HneTX0_RX0 HIn) "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 
+    iIntros (Haddr Htxeq Hrxeq (* Hpgeq *) HnIn_p HneAddr_RX0 HneAddr_PG0 HneAddr_TX0 HneTX0_RX0 HIn) "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 
             & p_8 & p_9 & p_10 & p_11 & p_12 & p_13 & p_14 & p_15 & p_16 
             & p_17 & p_18 & p_19 & p_20 & p_21 & p_22 & p_23 & p_24 & p_25
             & p_26 & p_27 & p_28 & p_29 & p_30 & p_31 & p_32 & p_33 & p_34
             & p_35 & p_36 & _) 
          & (%memv & mem) & (%txmemgm & txmem) & OE & acc & tx & PCz & (%r0 & R0z) & (%r1 & R1z) & (%r2 & R2z) 
          & (%r3 & R3z) & (%r4 & R4z) & (%r5 & R5z) 
-         & prop0 & prop1 & prop2 & acc2 & hp & ((RX0st & _) & (RX0page & RX0own & RX0excl) & RX0mem)
-         & ((RX1st & _) & (RX1page & RX1own & RX1excl) & RX1mem) & ((RX2st & _) & (RX2page & RX2own & RX2excl) & RX2mem))". 
+         & prop0 & prop1 & prop2 & hp & ((RX0st & _) & (RX0page & RX0own & RX0excl) & RX0mem)
+         & ((RX1st & _) & (RX1page & RX1own & RX1excl) & RX1mem) & ((RX2st & _) & RX2page & RX2mem))". 
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     fold_finz_plus_one.
     repeat (rewrite finz_succN_correct).
@@ -2516,13 +2516,13 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     done.
   Qed.
 
-  Lemma lending_machine1 p_pg1 (p_tx1 : PID) p_rx1 (addr : Imm) p_tx1imm (p_rx1imm p_pg1imm : Imm) :
+  Lemma lending_machine1 p_pg1 (p_tx1 : PID) p_rx1 (addr : Imm) (p_rx1imm : Imm) :
     let program1 := lending_program1 addr p_rx1imm in
     of_pid (tpa addr) = addr ->
     (* Disjoint pages *)
-    (of_pid p_tx1 = p_tx1imm) ->
+    (* (of_pid p_tx1 = p_tx1imm) -> *)
     (of_pid p_rx1 = p_rx1imm) ->
-    (of_pid p_pg1 = p_pg1imm) ->
+    (* (of_pid p_pg1 = p_pg1imm) -> *)
     (p_pg1 ∉ ({[(tpa addr); p_tx1; p_rx1]}:gset _)) ->
     tpa addr ≠ p_rx1 ->
     tpa addr ≠ p_pg1 ->
@@ -2552,7 +2552,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
         VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I (1/2)%Qp
     ⊢ VMProp_holds V1 (1/2)%Qp -∗ WP ExecI @ V1 {{ (λ m, False) }}%I.
   Proof.
-    iIntros (program1 Haddr Htxeq Hrxeq Hpgeq HnIn_p HneAddr_RX1 HneAddr_PG1 HneAddr_TX1 HneTX1_RX1 HIn).
+    iIntros (program1 Haddr (* Htxeq *) Hrxeq (* Hpgeq *) HnIn_p HneAddr_RX1 HneAddr_PG1 HneAddr_TX1 HneTX1_RX1 HIn).
     iIntros "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 
             & p_8 & p_9 & p_10 & p_11 & p_12 & p_13 & p_14 & _)
          & (%txmemgm & txmem) & acc & tx & PCs & (%r0 & R0s) & (%r1 & R1s) & (%r2 & R2s)
