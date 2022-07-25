@@ -26,18 +26,17 @@ Section fundamental.
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (trans') "Hres".
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rxs') "Hres".
     iEval (rewrite 11!later_sep) in "Hres".
-    iDestruct "Hres" as "(>trans_hpool_global & >tran_pgt_transferred &
+    iDestruct "Hres" as "(>%trans_rel & >trans_hpool_global & >tran_pgt_transferred &
                          >retri & >mem_transferred & >R0z & >R1z & >R2z & (>rx_state & >[% [rx' [% mem_rx]]]) & >other_rx & >%Htotal_rxs & prop0)".
-
-    iDestruct (get_trans_rel_secondary with "[$trans_hpool_global $retri $tran_pgt_owned $retri_owned]") as "%trans_rel".
+    iDestruct (get_trans_ps_disj with "[$trans_hpool_global]" ) as %Htrans_disj.
+    iDestruct (get_trans_neq with "[$trans_hpool_global]" ) as %Htrans_neq.
     erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
     iDestruct (trans_rel_secondary_transaction_pagetable_entries_owned with "tran_pgt_owned") as "tran_pgt_owned";eauto.
     iDestruct (trans_rel_secondary_retrieved_transaction_owned with "retri_owned") as "retri_owned";eauto.
-    iDestruct (get_trans_ps_disj with "[$trans_hpool_global]" ) as %Htrans_disj.
     iDestruct (memory_pages_oea_transferred with "[$mem_owned $mem_transferred]") as (?) "mem";eauto.
-    clear Htrans_disj trans_rel.
+    clear Htrans_disj Htrans_neq trans_rel.
     set ps_mem_in_trans := (accessible_in_trans_memory_pages i trans').
 
     iAssert (⌜p_rx0 = p_rx⌝%I) with "[rx rx']" as %Hrx_eq.
@@ -79,6 +78,8 @@ Section fundamental.
     }
     iDestruct "tx" as "[tx pgt_tx]".
     clear mem_rx mem_tx mem_all; subst ps_mem_in_trans.
+    iAssert (∃ (P: iProp Σ), VMProp i P (1%Qp))%I with "[propi]" as "propi".
+    iExists _;done.
     iCombine "R0z R1z R2z prop0 propi" as "Yielding".
 
     iLöb as "IH" forall (regs ps_acc trans' rxs' Htotal_rxs Htotal_regs Hsubset_mb Hsubset_acc Hnin_rx Hnin_tx).
@@ -220,16 +221,17 @@ Section fundamental.
             assert (∀ (trans0 trans'0 : gmap Addr transaction) (rxs rxs'0 : gmap VMID (option (Addr * VMID))),
                       delete i rxs = delete i rxs'0
                       → except i trans0 = except i trans'0
-                      → (∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
-                          (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans0 rxs) (1 / 2) ∗ VMProp i (vmprop_unknown i) 1
+                      → (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans0 trans'0)
+                      → ((∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
+                          (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans0 rxs) (1 / 2) ∗ (∃ P, VMProp i P 1)
                         ⊣⊢ (∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
-                             (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans'0 rxs'0) (1 / 2) ∗ VMProp i (vmprop_unknown i) 1).
+                             (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans'0 rxs'0) (1 / 2) ∗ ∃ P, VMProp i P 1)%I).
             {
               intros.
-              do 5 f_equiv.
+              do 4 f_equiv.
               rewrite (vmprop_zero_equiv_trans trans0 trans'0);last auto.
               rewrite (vmprop_zero_equiv_rxs rxs rxs'0);last auto.
-              done.
+              done. done.
             }
             destruct (hvc_f).
             { (*RUN*)

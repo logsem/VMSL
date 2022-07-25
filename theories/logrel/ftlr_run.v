@@ -53,7 +53,7 @@ Lemma ftlr_run {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0}:
               (∃ mem : lang.mem, memory_pages (a0 ∪ (accessible_in_trans_memory_pages i a1)) mem) -∗
               ((∃ r0 : Addr, R0 @@ V0 ->r r0 ∗ ⌜decode_hvc_func r0 = Some Run⌝) ∗
               (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗ (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗
-              ▷ VMProp V0 (vmprop_zero i a1 a2) (1 / 2) ∗ VMProp i (vmprop_unknown i) 1) -∗
+              ▷ VMProp V0 (vmprop_zero i a1 a2) (1 / 2) ∗ ∃ P, VMProp i P 1) -∗
               WP ExecI @ i {{ _, True }}) -∗
    ([∗ map] r↦w ∈ regs, r @@ i ->r w) -∗
    TX@i:=p_tx -∗
@@ -73,7 +73,7 @@ Lemma ftlr_run {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0}:
    (∃ mem2 : mem, memory_page p_tx mem2) -∗
    ((∃ r0 : Addr, R0 @@ V0 ->r r0 ∗ ⌜decode_hvc_func r0 = Some Run⌝) ∗
     (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗ (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗
-    ▷ VMProp V0 (vmprop_zero i trans rxs) (1 / 2) ∗ VMProp i (vmprop_unknown i) 1) -∗
+    ▷ VMProp V0 (vmprop_zero i trans rxs) (1 / 2) ∗ ∃ P, VMProp i P 1) -∗
    SSWP ExecI @ i {{ bm, (if bm.1 then VMProp_holds i (1 / 2) else True) -∗ WP bm.2 @ i {{ _, True }} }}.
   Proof.
     iIntros (Htotal_regs Htotal_rxs Hsubset_mb Hneq_0 Hsubset_acc Hnin_rx Hnin_tx Hlookup_PC Hin_ps_acc Hneq_ptx Hdom_mem_acc_tx Hin_ps_acc_tx

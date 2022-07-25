@@ -199,13 +199,30 @@ Section fundamental_prim.
             assert (∀ (trans0 trans' : gmap Addr transaction) (rxs0 rxs' : gmap VMID (option (Addr * VMID))),
                       delete V0 rxs0 = delete V0 rxs'
                       → except V0 trans0 = except V0 trans'
-                      → (∃ P0 : iProp Σ, VMProp i P0 1) ∗ ([∗ set] y ∈ (set_of_vmids ∖ {[i]}), ▷ VMProp (y:VMID) (vmprop_unknown y Φ_t Φ_r) (1 / 2)) ∗
+                      -> (∀ (x:VMID), x ≠ V0 -> trans_rel_secondary x trans0 trans')
+                      → (∃ P0 : iProp Σ, VMProp i P0 1) ∗ ([∗ set] y ∈ (set_of_vmids ∖ {[i]}), ▷ VMProp (y:VMID) (vmprop_unknown y Φ_t Φ_r trans0) (1 / 2)) ∗
                           ▷ (big_sepSS_except set_of_vmids i (Φ_t trans0) ∗ rx_states_transferred Φ_r (delete i rxs0)) ⊣⊢ (∃ P0 : iProp Σ, VMProp i P0 1) ∗
-                      ([∗ set] y ∈ (set_of_vmids ∖ {[i]}), ▷ VMProp (y:VMID) (vmprop_unknown y Φ_t Φ_r) (1 / 2)) ∗
+                      ([∗ set] y ∈ (set_of_vmids ∖ {[i]}), ▷ VMProp (y:VMID) (vmprop_unknown y Φ_t Φ_r trans') (1 / 2)) ∗
                       ▷ (big_sepSS_except set_of_vmids i (Φ_t trans') ∗ rx_states_transferred Φ_r (delete i rxs'))).
             {
+              intros ? ? ? ? ? ? Hrel.
+              do 2 f_equiv.
+              iApply big_sepS_proper.
               intros.
-              do 4 f_equiv.
+              f_equiv.
+              rewrite /VMProp /=.
+              do 6 f_equiv.
+              rewrite vmprop_unknown_eq. rewrite vmprop_unknown_eq.
+              do 6 f_equiv.
+              {
+                specialize (Hrel x).
+                feed specialize Hrel. set_solver + H1.
+                rewrite /trans_rel_secondary.
+                rewrite /trans_rel_secondary in Hrel.
+                destruct Hrel as [-> ->].
+                done.
+              }
+              f_equiv. f_equiv.
               rewrite /big_sepSS_except /big_sepSS.
               iApply big_sepS_proper.
               intros.

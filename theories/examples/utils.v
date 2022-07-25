@@ -45,8 +45,7 @@ Section Utils.
   Definition access_layout (σ : state) (m : gmap VMID (dfrac_agreeR (gsetO PID))) :=
     map_Forall (λ (k : VMID) (v : (dfrac_agreeR (gsetO PID))),
                 to_frac_agree 1
-                              (dom (gset PID)
-                                   (map_filter (λ kv : PID * gset VMID, k ∈ kv.2)
+                              (dom (map_filter (λ kv : PID * gset VMID, k ∈ kv.2)
                                                (λ x : PID * gset VMID, decide_rel elem_of k x.2)
                                                ((λ p : option VMID * bool * gset VMID, p.2) <$> σ.1.1.1.2))) = v
       ) m.

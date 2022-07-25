@@ -13,7 +13,9 @@ Section ftlr_reclaim.
   Context `{vmG: !gen_VMG Σ}.
 
 Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
-  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
+  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' ->
+                            (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans trans') ->
+                            P trans rxs ⊣⊢ P trans' rxs') ->
   base_extra.is_total_gmap regs ->
   base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -371,6 +373,27 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
     {
       iApply (P_eq with "P"). done.
       symmetry. eapply except_delete_False. done. left;done.
+      intros.
+      destruct (decide (x = tran.1.1.1.1)).
+      subst x.
+      split.
+      rewrite map_filter_delete_not /=. done.
+      intros ? ?.
+      intros [_ ?].
+      rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+      rewrite map_filter_delete_not /=. auto.
+      intros ? ?.
+      intros [? _].
+      rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+      auto.
+      split.
+      rewrite map_filter_delete_not /=. auto.
+      intros ? ?.
+      intros [_ ?]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+      rewrite map_filter_delete_not /=. auto.
+      intros ? ?.
+      intros [_ ?]. rewrite H0 in Hlookup_tran. inversion Hlookup_tran. subst y.
+      rewrite Heq_retri in H1.  inversion H1.
     }
     }
     { (* apply [mem_reclaim_share] *)
@@ -500,6 +523,19 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
     {
       iApply (P_eq with "P"). done.
       symmetry. eapply except_delete_False. done. left;done.
+      intros.
+      destruct (decide (x = tran.1.1.1.1)).
+      subst x.
+      rewrite Heq_tran in H0.
+      exfalso. apply H0. auto.
+      split.
+      rewrite map_filter_delete_not /=. auto.
+      intros ? ?.
+      intros [? _]. rewrite H1 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+      rewrite map_filter_delete_not /=. auto.
+      intros ? ?.
+      intros [_ ?]. rewrite H1 in Hlookup_tran. inversion Hlookup_tran. subst y.
+      rewrite Heq_retri in H2.  inversion H2.
     }
     }
     { (* apply [mem_reclaim_lend] *)
@@ -615,6 +651,19 @@ Lemma ftlr_reclaim {i mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0} P:
     {
       iApply (P_eq with "P"). done.
       symmetry. eapply except_delete_False. done. left;done.
+      intros.
+      destruct (decide (x = tran.1.1.1.1)).
+      subst x.
+      rewrite Heq_tran in H0.
+      exfalso. apply H0. auto.
+      split.
+      rewrite map_filter_delete_not /=. auto.
+      intros ? ?.
+      intros [? _]. rewrite H1 in Hlookup_tran. inversion Hlookup_tran. subst y. auto.
+      rewrite map_filter_delete_not /=. auto.
+      intros ? ?.
+      intros [_ ?]. rewrite H1 in Hlookup_tran. inversion Hlookup_tran. subst y.
+      rewrite Heq_retri in H2.  inversion H2.
     }
     }
   Qed.

@@ -558,9 +558,6 @@ Section logrel_prim_extra.
     }
   Qed.
 
-  Definition trans_neq (trans: gmap Addr transaction) :=
-      map_Forall (λ (k:Addr) (v:transaction), v.1.1.1.1 ≠ v.1.1.1.2) trans.
-
   Lemma transaction_pagetable_entries_transferred_only_equiv i v (trans: gmap Addr transaction):
     trans_neq trans ->
     i ≠ v ->
@@ -1119,16 +1116,6 @@ Section logrel_prim_extra.
     rewrite !big_sepS_sep.
     iDestruct "H1" as "[$ [$ $]]".
     iDestruct "H2" as "[[$ [$ $]] [$ [$ $]]]".
-  Qed.
-
-  Lemma get_trans_neq trans:
-    transaction_hpool_global_transferred trans ⊢ ⌜trans_neq trans⌝.
-  Proof.
-    iIntros "(%s & %Hall & fresh & global_tran)".
-    iIntros (h tran Hlk).
-    iDestruct (big_sepM_lookup with "global_tran") as "[mp _]";eauto.
-    iDestruct (trans_valid_tran_Some with "mp") as %Hvalid.
-    iPureIntro. done.
   Qed.
 
   Lemma rx_states_split_zero {Φ_r} rxs:

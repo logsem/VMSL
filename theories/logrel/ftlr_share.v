@@ -13,7 +13,9 @@ Section ftlr_share.
   Context `{vmG: !gen_VMG Σ}.
 
 Lemma ftlr_share {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P:
-  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' -> P trans rxs ⊣⊢ P trans' rxs') ->
+  (∀ trans trans' rxs rxs', delete i rxs = delete i rxs' -> except i trans = except i trans' ->
+                            (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans trans') ->
+                            P trans rxs ⊣⊢ P trans' rxs') ->
   base_extra.is_total_gmap regs ->
   base_extra.is_total_gmap rxs ->
   {[p_tx; p_rx]} ⊆ ps_acc ->
@@ -382,6 +384,23 @@ Lemma ftlr_share {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P:
       {
         iApply (P_eq with "P"). done.
         symmetry. apply except_insert_False_None. done. left;done.
+        intros.
+        destruct (decide (x = j)).
+        subst j.
+        split.
+        rewrite map_filter_insert_not' //=.
+        intros [? _]. done.
+        intros. rewrite H0 // in Hlookup_wh_None.
+        rewrite map_filter_insert_not' //=.
+        intros [_ ?]. done.
+        intros. rewrite H0 // in Hlookup_wh_None.
+        split.
+        rewrite map_filter_insert_not' //=.
+        intros [? _]. done.
+        intros. rewrite H0 // in Hlookup_wh_None.
+        rewrite map_filter_insert_not' //=.
+        intros [_ ?]. done.
+        intros. rewrite H0 // in Hlookup_wh_None.
       }
     }
     { (* at least one page is not exclusively owned by i (i.e. is involved in a transaction) *)
