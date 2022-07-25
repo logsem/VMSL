@@ -129,6 +129,7 @@ Ltac fold_finz_plus_one :=
   repeat (rewrite finz_succN_idemp);
   iEval (simpl) in "∗".
 
+Section proof.
 Program Instance rywu_vmconfig : HypervisorConstants :=
     {vm_count := 3;
      vm_count_pos := _;
