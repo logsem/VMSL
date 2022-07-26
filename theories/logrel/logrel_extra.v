@@ -1422,21 +1422,59 @@ Qed.
     (tran.1.1.1.1 = i ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
     accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
   Proof.
-  Admitted.
+    intros.
+    rewrite /accessible_in_trans_memory_pages.
+    rewrite union_comm_L.
+    rewrite map_filter_insert_True //.
+    apply pages_in_trans_insert.
+    rewrite map_filter_lookup_None.
+    left. done.
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_insert_True_Some i trans h tran tran':
     trans !! h = Some tran ->
-    (tran'.1.1.1.1 = i  ∧ ¬(tran'.2 = true ∧ tran'.1.2 = Lending)) ∨ tran'.1.1.1.2 = i ->
+    (tran'.1.1.1.1 = i ∧ ¬(tran'.2 = true ∧ tran'.1.2 = Lending)) ∨ tran'.1.1.1.2 = i ->
+    trans_ps_disj trans ->
     accessible_in_trans_memory_pages i (<[h:= tran']>trans) = accessible_in_trans_memory_pages i trans  ∖ tran.1.1.2 ∪ tran'.1.1.2.
   Proof.
-  Admitted.
+    intros Hlk P' Hdisj.
+    rewrite /accessible_in_trans_memory_pages.
+    rewrite map_filter_insert_True //.
+    destruct (decide ((tran.1.1.1.1 = i ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i)).
+    {
+      apply pages_in_trans_insert_strong.
+      rewrite map_filter_lookup_Some.
+      split;auto.
+      eapply trans_ps_disj_subseteq;eauto.
+      apply map_filter_subseteq.
+    }
+    {
+      rewrite pages_in_trans_insert.
+      2: {
+        rewrite map_filter_lookup_None.
+        right;simpl. intros ? Hlk'.
+        rewrite Hlk' in Hlk.
+        inversion Hlk.
+        done.
+      }
+      feed pose proof(accessible_in_trans_memory_pages_lookup_False i trans h tran);auto.
+      set_solver + H.
+    }
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_insert_False_None i trans h tran:
     trans !! h = None ->
     ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
     accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans.
   Proof.
-  Admitted.
+    intros.
+    rewrite /accessible_in_trans_memory_pages.
+    rewrite map_filter_insert_False //.
+    rewrite map_filter_delete.
+    rewrite pages_in_trans_delete_None //.
+    rewrite map_filter_lookup_None.
+    left;done.
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_insert_False_Some i trans h tran tran':
     trans !! h = Some tran ->
@@ -1444,15 +1482,47 @@ Qed.
     trans_ps_disj trans ->
     accessible_in_trans_memory_pages i (<[h:= tran']>trans) = accessible_in_trans_memory_pages i trans ∖ tran.1.1.2.
   Proof.
-  Admitted.
+    intros Hlk nP' Hdisj.
+    rewrite /accessible_in_trans_memory_pages.
+    rewrite map_filter_insert_False //.
+    rewrite map_filter_delete.
+    destruct (decide ((tran.1.1.1.1 = i ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i)).
+    {
+      apply pages_in_trans_delete.
+      rewrite map_filter_lookup_Some.
+      split;auto.
+      eapply trans_ps_disj_subseteq;eauto.
+      apply map_filter_subseteq.
+    }
+    {
+      feed pose proof(accessible_in_trans_memory_pages_lookup_False i trans h tran);auto.
+      rewrite pages_in_trans_delete_None.
+      2: {
+        rewrite map_filter_lookup_None.
+        right;simpl. intros ? Hlk'.
+        rewrite Hlk' in Hlk.
+        inversion Hlk.
+        done.
+      }
+      set_solver + H.
+    }
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_delete_True i trans h tran:
     trans !! h = Some tran ->
-    (tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
+    (tran.1.1.1.1 = i ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
     trans_ps_disj trans ->
     accessible_in_trans_memory_pages i (delete h trans) = accessible_in_trans_memory_pages i trans ∖ tran.1.1.2.
   Proof.
-  Admitted.
+    intros Hlk P Hdisj.
+    rewrite /accessible_in_trans_memory_pages.
+    rewrite map_filter_delete.
+    apply pages_in_trans_delete.
+    rewrite map_filter_lookup_Some.
+    split;done.
+    eapply trans_ps_disj_subseteq;eauto.
+    apply map_filter_subseteq.
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_delete_False i trans h tran:
     trans !! h = Some tran ->
@@ -1460,7 +1530,14 @@ Qed.
     trans_ps_disj trans ->
     accessible_in_trans_memory_pages i (delete h trans) = accessible_in_trans_memory_pages i trans.
   Proof.
-  Admitted.
+    intros Hlk P Hdisj.
+    rewrite /accessible_in_trans_memory_pages.
+    rewrite map_filter_delete_not //.
+    intros.
+    rewrite H in Hlk.
+    inversion Hlk.
+    done.
+  Qed.
 
   (** currently_accessible_in_trans_memory_pages **)
   Lemma currently_accessible_in_trans_memory_pages_lookup_True i trans h tran:
@@ -1588,7 +1665,6 @@ Qed.
       split;auto.
       eapply trans_ps_disj_subseteq;eauto.
       apply map_filter_subseteq.
-
     }
     {
       feed pose proof(currently_accessible_in_trans_memory_pages_lookup_False i trans h tran);auto.
@@ -1610,7 +1686,15 @@ Qed.
     trans_ps_disj trans ->
     currently_accessible_in_trans_memory_pages i (delete h trans) = currently_accessible_in_trans_memory_pages i trans ∖ tran.1.1.2.
   Proof.
-  Admitted.
+    intros Hlk P Hdisj.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    rewrite map_filter_delete.
+    apply pages_in_trans_delete.
+    rewrite map_filter_lookup_Some.
+    split;done.
+    eapply trans_ps_disj_subseteq;eauto.
+    apply map_filter_subseteq.
+  Qed.
 
   Lemma currently_accessible_in_trans_memory_pages_delete_False i trans h tran:
     trans !! h = Some tran ->
@@ -1618,7 +1702,14 @@ Qed.
     trans_ps_disj trans ->
     currently_accessible_in_trans_memory_pages i (delete h trans) = currently_accessible_in_trans_memory_pages i trans.
   Proof.
-  Admitted.
+    intros Hlk P Hdisj.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    rewrite map_filter_delete_not //.
+    intros.
+    rewrite H in Hlk.
+    inversion Hlk.
+    done.
+  Qed.
 
   Lemma memory_pages_oea_transferred {i} ps_acc p_rx p_tx trans':
     let ps_macc_trans' := (transferred_memory_pages i trans') in
