@@ -78,20 +78,59 @@ Section logrel_extra.
     rewrite -sep_assoc //.
   Qed.
 
-  Lemma pgt_valid ps (q1 q2:Qp) vo1 be1 vo2 be2:
-  pgt ps q1 vo1 be1 ∗ pgt ps q2 vo2 be2 ⊢ ⌜(q1 + q2 ≤ 1)%Qp⌝.
-  Proof.
-    Admitted.
+  (* Lemma pgt_valid ps (q1 q2:Qp) vo1 be1 vo2 be2: *)
+  (* ps ≠ ∅ -> *)
+  (* pgt ps q1 vo1 be1 ∗ pgt ps q2 vo2 be2 ⊢ ⌜(q1 + q2 ≤ 1)%Qp⌝. *)
+  (* Proof. *)
+  (*   rewrite /pgt. *)
+  (*   rewrite -big_sepS_sep. *)
+  (*   iIntros (s) "H". *)
+  (*   rewrite big_sepS_elem_of. *)
+  (*   Admitted. *)
 
   Lemma pgt_invalid_3_4 ps vo1 be1 vo2 be2:
+   (∃ x, x ∈ ps) ->
   pgt_3_4 ps vo1 be1 ∗ pgt_3_4 ps vo2 be2 ⊢ False.
   Proof.
-    Admitted.
+    rewrite /pgt_3_4.
+    rewrite /pgt.
+    iIntros (s) "H".
+    destruct s.
+    rewrite -2!big_sepS_sep.
+    rewrite big_sepS_elem_of //.
+    rewrite big_sepS_elem_of //.
+    rewrite -?sep_assoc.
+    iDestruct "H" as "(q&_&h&_&_&_&h'&_)".
+    iDestruct (own_comb with "[$h $h']")as "f".
+    iApply (own_invalid with "[$q $f]").
+  Qed.
 
   Lemma pgt_valid_3_4 ps1 ps2 vo1 be1 vo2 be2:
   pgt_3_4 ps1 vo1 be1 ∗ pgt_3_4 ps2 vo2 be2 ⊢ ⌜ps1 ## ps2⌝.
   Proof.
-    Admitted.
+    rewrite /pgt_3_4.
+    rewrite /pgt.
+    iIntros "H".
+    rewrite -2!big_sepS_sep.
+    destruct (decide (ps1 ## ps2)). done.
+    rewrite elem_of_disjoint in n.
+    apply not_set_Forall_Exists in n.
+    rewrite /set_Exists in n.
+    simpl in n.
+    destruct n as [? [? false]].
+    assert (x ∈ ps2).
+    set_solver + false.
+    clear false.
+    rewrite big_sepS_elem_of //.
+    rewrite big_sepS_elem_of //.
+    rewrite -?sep_assoc.
+    iDestruct "H" as "(q&_&h&_&_&_&h'&_)".
+    iDestruct (own_comb with "[$h $h']")as "f".
+    iExFalso.
+    iApply (own_invalid with "[$q $f]").
+    intros.
+    apply _.
+ Qed.
 
   Lemma ra_big_sepM_split_upd5 `{Countable K} { V :Type} (map : gmap K V) (k1 k2 k3 k4 k5 : K) (v1 v2 v3 v4 v5 : V)
         (total:= (λ m, (∀ k, is_Some (m !! k))) : gmap K V -> Prop) (f: K -> V -> iProp Σ):
@@ -471,7 +510,6 @@ Section logrel_extra.
     apply pages_in_trans_subseteq'.
     rewrite map_subseteq_spec in Hsub.
     rewrite map_subseteq_spec.
-
     intros.
     rewrite /lift_option_gmap in H.
     apply lookup_fmap_Some in H.
@@ -481,6 +519,17 @@ Section logrel_extra.
     rewrite lookup_fmap_Some.
     exists x0.
     split;auto.
+  Qed.
+
+  Lemma pages_in_trans_lookup m h t:
+     m !! h = Some t -> t.1.1.2 ⊆ pages_in_trans m.
+  Proof.
+    intros lk.
+    rewrite /pages_in_trans.
+    apply (pages_in_trans_lookup' (h:=h)).
+    rewrite /lift_option_gmap.
+    rewrite lookup_fmap.
+    rewrite lk //.
   Qed.
 
   Lemma subseteq_pages_in_trans h tran trans:
@@ -1324,18 +1373,53 @@ Qed.
     ((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
     tran.1.1.2 ⊆ (accessible_in_trans_memory_pages i trans).
   Proof.
-  Admitted.
+    intros.
+    rewrite /accessible_in_trans_memory_pages.
+    apply (pages_in_trans_lookup _ h).
+    rewrite map_filter_lookup_Some.
+    split;done.
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_lookup_False i trans h tran:
     trans !! h = Some tran ->
-    ¬((tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
+    ¬((tran.1.1.1.1 = i ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i) ->
+    trans_ps_disj trans ->
     tran.1.1.2 ## (accessible_in_trans_memory_pages i trans).
   Proof.
-  Admitted.
+    intros Hlk P Hdisj.
+    rewrite /accessible_in_trans_memory_pages.
+    intros x Hin1 Hin2.
+    apply elem_of_pages_in_trans in Hin2.
+    destruct Hin2 as [? [? [Hlk' Hin2]]].
+    rewrite map_filter_lookup_Some in Hlk'.
+    destruct Hlk'.
+    specialize (Hdisj h (Some tran)).
+    feed specialize Hdisj.
+    rewrite /lift_option_gmap lookup_fmap.
+    rewrite Hlk //.
+    simpl in Hdisj.
+    destruct (decide (h = x0)).
+    subst x0.
+    rewrite H in Hlk.
+    inversion Hlk. subst x1.
+    done.
+    rewrite elem_of_disjoint in Hdisj.
+    specialize (Hdisj x).
+    apply Hdisj.
+    done.
+    apply elem_of_pages_in_trans'.
+    exists x0, x1.
+    split;[|done].
+    rewrite /lift_option_gmap.
+    rewrite lookup_delete_ne //.
+    rewrite lookup_fmap.
+    rewrite H.
+    done.
+  Qed.
 
   Lemma accessible_in_trans_memory_pages_insert_True_None i trans h tran:
     trans !! h = None ->
-    (tran.1.1.1.1 = i  ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
+    (tran.1.1.1.1 = i ∧ ¬(tran.2 = true ∧ tran.1.2 = Lending)) ∨ tran.1.1.1.2 = i ->
     accessible_in_trans_memory_pages i (<[h:= tran]>trans) = accessible_in_trans_memory_pages i trans ∪ tran.1.1.2.
   Proof.
   Admitted.
@@ -1384,7 +1468,12 @@ Qed.
     ((tran.1.1.1.1 = i ∧ tran.1.2 = Sharing) ∨ (tran.1.1.1.2 = i ∧ tran.2 = true)) ->
     tran.1.1.2 ⊆ (currently_accessible_in_trans_memory_pages i trans).
   Proof.
-  Admitted.
+    intros.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    apply (pages_in_trans_lookup _ h).
+    rewrite map_filter_lookup_Some.
+    split;done.
+  Qed.
 
   Lemma currently_accessible_in_trans_memory_pages_lookup_False i trans h tran:
     trans !! h = Some tran ->
@@ -1392,7 +1481,36 @@ Qed.
     trans_ps_disj trans ->
     tran.1.1.2 ## (currently_accessible_in_trans_memory_pages i trans).
   Proof.
-  Admitted.
+    intros Hlk P Hdisj.
+    rewrite /currently_accessible_in_trans_memory_pages.
+    intros x Hin1 Hin2.
+    apply elem_of_pages_in_trans in Hin2.
+    destruct Hin2 as [? [? [Hlk' Hin2]]].
+    rewrite map_filter_lookup_Some in Hlk'.
+    destruct Hlk'.
+    specialize (Hdisj h (Some tran)).
+    feed specialize Hdisj.
+    rewrite /lift_option_gmap lookup_fmap.
+    rewrite Hlk //.
+    simpl in Hdisj.
+    destruct (decide (h = x0)).
+    subst x0.
+    rewrite H in Hlk.
+    inversion Hlk. subst x1.
+    done.
+    rewrite elem_of_disjoint in Hdisj.
+    specialize (Hdisj x).
+    apply Hdisj.
+    done.
+    apply elem_of_pages_in_trans'.
+    exists x0, x1.
+    split;[|done].
+    rewrite /lift_option_gmap.
+    rewrite lookup_delete_ne //.
+    rewrite lookup_fmap.
+    rewrite H.
+    done.
+  Qed.
 
   Lemma currently_accessible_in_trans_memory_pages_insert_True_None i trans h tran:
     trans !! h = None ->

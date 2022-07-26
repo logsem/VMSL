@@ -230,58 +230,6 @@ Module List.
     | (cons f' fs, ls) => app (fmap f' ls) (ap_list fs ls)
     end.
 
-  (* TODO *)
-  (*
-  Instance applicative_list : Applicative list.
-  Proof.
-    refine {| pure := fun _ x => [x];
-              ap := @ap_list;
-           |}.
-    - intros A [| x xs]; [reflexivity |].
-      simpl.
-      f_equal.
-      rewrite map_id.
-      exact (app_nil_r _).
-    - admit.
-    - intros ? ? f x; reflexivity.
-    - intros ? ? f.
-      induction f as [| f fs IHf].
-      + reflexivity.
-      + intros y.
-        simpl.
-        rewrite app_nil_r.
-        f_equal.
-        rewrite (IHf y).
-        destruct fs.
-        * reflexivity.
-        * simpl.
-          f_equal.
-          rewrite app_nil_r.
-          reflexivity.
-  Admitted.
-
-  (* TODO *)
-  Instance monad_list : Monad list.
-  Proof.
-    refine {| unit t x := [x];
-              bind t u := list_bind
-           |}.
-    - intros ? ? f a; rewrite <- app_nil_r.
-      reflexivity.
-    - intros ? ? l; induction l as [| x xs IHl].
-      + reflexivity.
-      + simpl.
-        f_equal.
-        assumption.
-    - intros ? ? ? f g ma.
-      induction ma as [| x xs IHl].
-      + reflexivity.
-      + simpl.
-        rewrite IHl.
-        admit.
-  Admitted.
-   *)
-
 End List.
 
 Module ListNoDup.

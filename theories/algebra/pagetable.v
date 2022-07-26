@@ -29,6 +29,30 @@ Section pagetable_rules.
     iApply (ghost_map_elem_split p _ q (Some o)).
   Qed.
 
+  Lemma own_comb {q} p o o' :
+     p -@{q/2}O> o ∗ p -@{q/2}O> o' ⊢ p -@{q}O> o.
+  Proof.
+    rewrite own_mapsto_eq /own_mapsto_def.
+    iIntros "[H1 H2]".
+    iDestruct (ghost_map_elem_combine with "H1 H2") as "[H %]".
+    rewrite dfrac_op_own.
+    rewrite Qp_div_2 //.
+  Qed.
+
+  Lemma own_invalid {q} p o o' :
+     p -@O> o ∗ p -@{q}O> o' ⊢ False.
+  Proof.
+    rewrite own_mapsto_eq /own_mapsto_def.
+    iIntros "[H1 H2]".
+    iDestruct (ghost_map_elem_valid_2 with "H1 H2") as "[% %]".
+    rewrite dfrac_op_own in H.
+    rewrite dfrac_valid_own in H.
+    exfalso.
+    rewrite Qp_le_ngt in H.
+    apply H.
+    apply Qp_lt_add_l.
+  Qed.
+
   Lemma own_agree {gm: gmap PID (option VMID )} { q γ} p s:
    ghost_map_auth γ 1 gm  -∗
    ghost_map_elem γ p (DfracOwn q) s -∗
