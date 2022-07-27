@@ -945,10 +945,9 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iPureIntro.
           rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=;auto.
           rewrite -Hrewrite in Hnin_rx Hnin_tx.
-          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx.
+          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx;auto.
           simpl in Hnin_tx,Hnin_rx.
           set_solver + Hsubset_acc Hnin_rx Hnin_tx.
-          right;done.
         }
         {
           iPureIntro.
@@ -1150,10 +1149,9 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iPureIntro.
           rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=;auto.
           simpl. rewrite -Hrewrite in Hnin_rx Hnin_tx.
-          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx.
+          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx;auto.
           simpl in Hnin_tx,Hnin_rx.
           set_solver + Hsubset_acc Hnin_rx Hnin_tx.
-          right;done.
         }
         {
           iPureIntro.
@@ -1353,10 +1351,9 @@ Lemma ftlr_retrieve {i mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr trans r0} P
           iPureIntro.
           rewrite (currently_accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /=;auto.
           simpl. rewrite -Hrewrite in Hnin_rx Hnin_tx.
-          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx.
+          rewrite (accessible_in_trans_memory_pages_insert_True_Some i trans r1 _ _ Hlookup_tran) /= in Hnin_rx Hnin_tx;auto.
           simpl in Hnin_tx,Hnin_rx.
           set_solver + Hsubset_acc Hnin_rx Hnin_tx.
-          right;done.
         }
         {
           iPureIntro.
