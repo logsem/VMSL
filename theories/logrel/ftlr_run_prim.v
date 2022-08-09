@@ -33,10 +33,10 @@ Lemma ftlr_run_prim {Φ_t Φ_r mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr tra
   SliceTransWf Φ_t ->
   SliceRxsWf Φ_r ->
   (∀ (i0 j : VMID) (trans0 : gmap Addr transaction), i0 = V0 ∨ j = V0 → Φ_t trans0 i0 j ⊣⊢ slice_transfer_all trans0 i0 j) ->
-  (∀ (i0 : VMID) (os : option (Addr * VMID)), match os with
-                                                    | Some (_, j) => j = V0
-                                                    | None => True
-                                                    end → Φ_r i0 os i0 ⊣⊢ slice_rx_state i0 os) ->
+  (∀ i os, match os with
+                 | None => True
+                 | Some (_,j) => j = V0 -> Φ_r i os i ⊣⊢ slice_rx_state i os
+                end) ->
   (∀ (i0 : VMID) (os : option (Addr * VMID)), match os with
                                                     | Some (_, k) => k = V0
                                                     | None => True
@@ -45,7 +45,10 @@ Lemma ftlr_run_prim {Φ_t Φ_r mem_acc_tx ai regs rxs ps_acc p_tx p_rx instr tra
                                                       | Some (_, j0) => j0 = V0
                                                       | None => True
                                                       end → j ≠ i0 → j ≠ V0 → Φ_r i0 os j ⊣⊢ True) ->
-  (∀ i0 : option (Addr * VMID), Φ_r V0 i0 V0 ⊣⊢ slice_rx_state V0 i0) ->
+  (∀ os, match os with
+              | None => True
+              | _  => Φ_r V0 os V0 ⊣⊢ slice_rx_state V0 os
+              end) ->
   ⊢ ▷ (∀ (a : gmap reg_name Addr) (a0 : gset PID) (a1 : gmap Addr transaction) (a2 : gmap VMID (option (Addr * VMID))),
               ⌜base_extra.is_total_gmap a2⌝ -∗
               ⌜base_extra.is_total_gmap a⌝ -∗

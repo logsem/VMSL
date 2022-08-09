@@ -13,10 +13,10 @@ Section ftlr_msg_send_prim.
 
   Lemma ftlr_msg_send_prim {Φ_t Φ_r mem_acc_tx ai regs ps_acc p_tx p_rx instr trans rxs r0}:
     let i := V0 in
-    (∀ i os, (match os with
+    (∀ i os, match os with
                  | None => True
-                 | Some (_,j) => j = V0
-                end) -> Φ_r i os i ⊣⊢ slice_rx_state i os) ->
+                 | Some (_,j) => j = V0 -> Φ_r i os i ⊣⊢ slice_rx_state i os
+                end) ->
     (∀ i os, match os with
                | None => True
                | Some (_ ,k) => k = V0
@@ -265,7 +265,7 @@ Section ftlr_msg_send_prim.
       rewrite delete_insert_delete.
       iFrame.
       iApply HΦr2. done.
-      iApply HΦr1. done.
+      rewrite (HΦr1 v (Some (r2, V0))) //.
       rewrite /slice_rx_state.
       iFrame.
       iExists p_rx_v. iFrame.

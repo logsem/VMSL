@@ -1,5 +1,5 @@
 From HypVeri.algebra Require Import base.
-From HypVeri.rules Require Import rules_base mov.
+From HypVeri.rules Require Import rules_base.
 
 Section instr.
   (* shorthands for writing programs *)
@@ -12,6 +12,7 @@ Section instr.
   Definition halt_I := encode_instruction Halt.
   Definition str_I ra rb := encode_instruction (Str ra rb).
   Definition ldr_I ra rb := encode_instruction (Ldr ra rb).
+  Definition br_I r := encode_instruction (Br r).
 
   Definition hvc_I := encode_instruction Hvc.
   Definition run_I := encode_hvc_func Run.

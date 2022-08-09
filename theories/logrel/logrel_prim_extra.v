@@ -350,25 +350,25 @@ Section logrel_prim_extra.
     rewrite /slice_transfer_all /=. apply _.
   Qed.
 
-  Global Instance slice_rxs_wf_sep Φ1 Φ2:
-    SliceRxsWf Φ1 ->
-    SliceRxsWf Φ2 ->
-    SliceRxsWf (λ trans i j, ((Φ1 trans i j) :iProp Σ) ∗ ((Φ2 trans i j) :iProp Σ))%I.
-  Proof.
-    intros.
-    split.
-    {
-      intros.
-      rewrite (slice_rxs_empty Φ1) //.
-      rewrite (slice_rxs_empty Φ2) //.
-      iSplit;done.
-    }
-    {
-      intros.
-      rewrite (slice_rxs_sym Φ1) //.
-      rewrite (slice_rxs_sym Φ2) //.
-    }
-  Qed.
+  (* Global Instance slice_rxs_wf_sep Φ1 Φ2: *)
+  (*   SliceRxsWf Φ1 -> *)
+  (*   SliceRxsWf Φ2 -> *)
+  (*   SliceRxsWf (λ trans i j, ((Φ1 trans i j) :iProp Σ) ∗ ((Φ2 trans i j) :iProp Σ))%I. *)
+  (* Proof. *)
+  (*   intros. *)
+  (*   split. *)
+  (*   { *)
+  (*     intros. *)
+  (*     rewrite (slice_rxs_empty Φ1) //. *)
+  (*     rewrite (slice_rxs_empty Φ2) //. *)
+  (*     iSplit;done. *)
+  (*   } *)
+  (*   { *)
+  (*     intros. *)
+  (*     rewrite (slice_rxs_sym Φ1) //. *)
+  (*     rewrite (slice_rxs_sym Φ2) //. *)
+  (*   } *)
+  (* Qed. *)
 
   Lemma slice_preserve_except i s {Φ : _ -> _ -> _ -> iProp Σ} `{!SliceTransWf Φ} trans trans':
     except i trans = except i trans' ->
@@ -1082,6 +1082,7 @@ Section logrel_prim_extra.
     rewrite -(HΦ x k);last (right;done).
     done.
   Qed.
+
   Lemma transferred_only_equiv_later k (trans: gmap Addr transaction) Φ:
       (∀ i j trans, (i = k ∨ j = k) -> Φ trans i j ⊣⊢ slice_transfer_all trans i j) ->
       trans_neq trans ->
@@ -1120,7 +1121,10 @@ Section logrel_prim_extra.
 
   Lemma rx_states_split_zero {Φ_r} rxs:
       is_total_gmap rxs ->
-      (∀ j, Φ_r V0 j V0 ⊣⊢ slice_rx_state V0 j) ->
+      (∀ os, match os with
+              | None => True
+              | _ => Φ_r V0 os V0 ⊣⊢ slice_rx_state V0 os
+              end) ->
       rx_states_global rxs ∗
       rx_states_transferred Φ_r rxs
       ⊢
@@ -1138,7 +1142,7 @@ Section logrel_prim_extra.
     iFrame.
     destruct rs.
     {
-      iDestruct (Hequiv (Some p) with "t") as "[R ( % & ? & ?)]".
+      iDestruct (Hequiv  (Some p) with "t") as "[R ( % & ? & ?)]".
       rewrite /rx_state_match /slice_rx_state /=.
       iSplitL "rs R".
       rewrite /rx_state_get.
@@ -1163,7 +1167,10 @@ Section logrel_prim_extra.
 
   Lemma rx_states_split_zero_later {Φ_r} rxs:
       is_total_gmap rxs ->
-      (∀ j, Φ_r V0 j V0 ⊣⊢ slice_rx_state V0 j) ->
+      (∀ os, match os with
+              | None => True
+              | _ => Φ_r V0 os V0 ⊣⊢ slice_rx_state V0 os
+              end) ->
       rx_states_global rxs ∗
       ▷ rx_states_transferred Φ_r rxs
       ⊢
@@ -1209,7 +1216,10 @@ Section logrel_prim_extra.
 
   Lemma rx_state_merge_zero {Φ_r} rxs:
       is_total_gmap rxs ->
-      (∀ j, Φ_r V0 j V0 ⊣⊢ slice_rx_state V0 j) ->
+      (∀ os, match os with
+              | None => True
+              | _ => Φ_r V0 os V0 ⊣⊢ slice_rx_state V0 os
+              end) ->
       rx_states_global (delete V0 rxs) ∗
       rx_states_transferred Φ_r (delete V0 rxs) ∗
       rx_state_get V0 rxs ∗
@@ -1243,7 +1253,10 @@ Section logrel_prim_extra.
 
   Lemma rx_state_merge_zero_later {Φ_r} rxs:
       is_total_gmap rxs ->
-      (∀ j, Φ_r V0 j V0 ⊣⊢ slice_rx_state V0 j) ->
+      (∀ os, match os with
+              | None => True
+              | _ => Φ_r V0 os V0 ⊣⊢ slice_rx_state V0 os
+              end) ->
       rx_states_global (delete V0 rxs) ∗
       ▷ rx_states_transferred Φ_r (delete V0 rxs) ∗
       rx_state_get V0 rxs ∗
@@ -1306,7 +1319,9 @@ Section logrel_prim_extra.
       destruct p.
       destruct (decide (v = V0)).
       iDestruct (H with "t") as "t";done.
-      iDestruct (slice_rxs_sym Φ_r i with "t") as "t";done.
+      pose proof (@slice_rxs_sym _ _ Φ_r _ i (Some (f, v))).
+      simpl in H0.
+      rewrite H0 //.
     }
     {
       rewrite (slice_rxs_empty).
@@ -1344,7 +1359,9 @@ Section logrel_prim_extra.
       destruct p.
       destruct (decide (v = V0)).
       iDestruct (H with "t") as "t";done.
-      iDestruct (slice_rxs_sym Φ_r i with "t") as "t";done.
+      pose proof (@slice_rxs_sym _ _ Φ_r _ i (Some (f, v))).
+      simpl in H0.
+      rewrite H0 //.
     }
     {
       rewrite (slice_rxs_empty).

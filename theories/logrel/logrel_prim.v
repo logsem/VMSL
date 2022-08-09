@@ -40,8 +40,8 @@ Section slice_rxs.
       slice_rxs_sym : ∀ i os k k',
         (match os with
          | None => True
-         | Some (_,j) => j ≠ V0
-         end) -> Φ i os k ⊣⊢ Φ i os k';
+         | Some (_,j) => j ≠ V0 ->  Φ i os k ⊣⊢ Φ i os k'
+         end);
     }.
 
 End slice_rxs.
@@ -173,8 +173,8 @@ Section logrel_prim.
       ⌜∀ i j trans, (i = V0 ∨ j = V0) -> Φ_t trans i j ⊣⊢ slice_transfer_all trans i j⌝ ∗
       ⌜∀ i os, (match os with
                  | None => True
-                 | Some (_,j) => j = V0
-                end) -> Φ_r i os i ⊣⊢ slice_rx_state i os⌝ ∗
+                 | Some (_,j) => j = V0 -> Φ_r i os i ⊣⊢ slice_rx_state i os
+                end)⌝ ∗
       ⌜∀ i os, match os with
                | None => True
                | Some (_ ,k) => k = V0
@@ -183,7 +183,10 @@ Section logrel_prim.
                  | None => True
                  | Some (_,j) => j = V0
                 end) -> j ≠ i -> j ≠ V0 -> Φ_r i os j ⊣⊢ True⌝ ∗
-      ⌜∀ i, Φ_r V0 i V0 ⊣⊢ slice_rx_state V0 i⌝ ∗
+      ⌜∀ os, (match os with
+              | None => True
+              | _ => Φ_r V0 os V0 ⊣⊢ slice_rx_state V0 os
+              end)⌝ ∗
       let ps_oea := ps_acc ∖ {[p_rx;p_tx]} ∖ (currently_accessible_in_trans_memory_pages V0 trans) in
       (∃ regs, ⌜is_total_gmap regs⌝ ∗ [∗ map] r ↦ w ∈ regs, r @@ V0 ->r w) ∗
       (tx_page V0 p_tx ∗ ∃ mem_tx, memory_page p_tx mem_tx) ∗
