@@ -194,69 +194,24 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
 
 
   Lemma up_machine1 jump_i γ1 γ3 :
-    (* let RX0 := (RX_state@V0 := None ∗ mailbox.rx_page V0 p_rx0 ∗ ∃ mem_rx, memory_page p_rx0 mem_rx)%I in *)
-    (* let RX1 := (RX_state@V1 := None ∗ mailbox.rx_page V1 p_rx1 ∗ ∃ mem_rx, memory_page p_rx1 mem_rx)%I in *)
-    (* let RX2 := (RX_state@V2 := None ∗ RX@V2:=p_rx2 ∗ ∃ mem_rx, memory_page p_rx2 mem_rx)%I in *)
     let program1 := up_program1 jump_i in
     of_imm (jump_i) = (pprog1 ^+ 4)%f ->
-    (* (* Disjoint pages *) *)
-    (* (of_pid p_tx0 = p_tx0imm) -> *)
-    (* (of_pid p_rx1 = p_rx1imm) -> *)
-    (* (of_pid p_pg0 = p_pg0imm) -> *)
-    (* (p_pg0 ∉ ({[(tpa addr); p_tx0; p_pg2; p_tx2; p_rx2]}:gset _)) -> *)
-    (* tpa addr ≠ p_rx0 -> *)
-    (* tpa addr ≠ p_pg0 -> *)
-    (* tpa addr ≠ p_tx0 -> *)
-    (* p_tx0 ≠ p_rx0 -> *)
-    (* Addresses-values connection *)
     seq_in_page (of_pid pprog1) (length program1) pprog1->
     inv_pshare γ1 γ3 pshare ∗
     EXCL γ1 ∗
-    (* Mem for program *)
     (program (program1) (of_pid pprog1)) ∗
-      (* Work mem *)
-      (* (∃ w, addr ->a w) ∗ *)
-      (* TX mem *)
-      (* (∃ (v1 v2 v3 v4 v5 : Word), ([∗ list] a;w ∈ (finz.seq p_tx0 5);[v1; v2; v3; v4; v5], (a ->a w))) ∗ *)
-      (* (∃ txmem, memory_page (tpa p_tx0) txmem) ∗ *)
-      (* (* Pages for VM 0 *) *)
-      (* ([∗ set] p ∈ {[tpa addr]}, p -@O> V0 ∗ p -@E> true) ∗ *)
-      V1 -@A> {[pprog1;pshare;ptx1]} ∗
-      (* TX page *)
-      TX@ V1 := (tpa ptx1) ∗
-      RX@ V1 := (tpa prx1) ∗
-      (* Program counter *)
-      PC @@ V1 ->r (of_pid pprog1) ∗
-      (* Work registers *)
-      (∃ r0, R0 @@ V1 ->r r0) ∗
-      (∃ r1, R1 @@ V1 ->r r1) ∗
-      (∃ r2, R2 @@ V1 ->r r2) ∗
-      (* Protocol for VM 0 *)
-      (* VMProp V0 True%I 1 ∗ *)
-      (* Protocol for VM 1 *)
-      (* VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ *)
-      (*                                                                               wh ->re false ∗ RX_state@V1 := Some (of_imm one, V0) ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗ *)
-      (*               VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ RX_state@V1 := None ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗ *)
-      (*                            VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I (1/2)%Qp ∗ *)
-      (* Protocol for unknown vm *)
-      VMProp V1 (VMProp1 (* p_tx2 p_rx2 *)) (1/2)%Qp 
-      (* Pages for unknown VM *)
-      (* V2 -@{1/2}A> {[p_pg2;p_tx2;p_rx2]} ∗ *)
-      (* trans.fresh_handles 1 \ ∗ *)
-      (* (* RX states *) *)
-      (* RX0 ∗ RX1 ∗ RX2 *)
-      ⊢ VMProp_holds V1 (1/2)%Qp -∗ WP ExecI @ V1
-            {{ (λ m,
-                 (* ⌜m = HaltI⌝ ∗ *)
-                 (* (* program program0 (of_pid p_pg0) ∗ *) *)
-                 (* addr ->a four ∗ *)
-                 (* V0 -@A> (union (singleton (tpa addr)) (union (singleton p_pg0) (singleton (tpa p_tx0)))) ∗ *)
-                 (* TX@ V0 := (tpa p_tx0) ∗ *)
-                 (* PC @@ V0 ->r ((of_pid p_pg0) ^+ (length program0))%f *)
-                 (* R0 @@ V0 ->r yield_I ∗ *)
-                 (* R1 @@ V0 ->r encode_vmid V2 *)
-                 False
-                 )}}%I.
+    V1 -@A> {[pprog1;pshare;ptx1]} ∗
+    (* TX page *)
+    TX@ V1 := (tpa ptx1) ∗
+    RX@ V1 := (tpa prx1) ∗
+    PC @@ V1 ->r (of_pid pprog1) ∗
+    (* Work registers *)
+    (∃ r0, R0 @@ V1 ->r r0) ∗
+    (∃ r1, R1 @@ V1 ->r r1) ∗
+    (∃ r2, R2 @@ V1 ->r r2) ∗
+    VMProp V1 (VMProp1) (1/2)%Qp
+    ⊢ VMProp_holds V1 (1/2)%Qp -∗ WP ExecI @ V1
+          {{ (λ m, False)}}%I.
   Proof.
     intro. rewrite /program1.
     iIntros (Hjump HIn) "(#inv & excl1 & (p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p7 & _) & acc & tx & rx & pc & (%r0 & r0) & (%r1 & r1) & (%r2 & r2)
@@ -386,3 +341,80 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     done.
     iExists _. iExact "prop1".
    Qed.
+
+
+  Lemma up_machine3 γ1 γ3 :
+    let program3 := up_program3 in
+    (* Addresses-values connection *)
+    seq_in_page (of_pid pprog3) (length program3) pprog3 ->
+    inv_pshare γ1 γ3 pshare ∗
+    EXCL γ3 ∗
+    (* Mem for program *)
+    (program (program3) (of_pid pprog3)) ∗
+    V3 -@A> {[pprog3;pshare;ptx3]} ∗
+    TX@ V3 := (tpa ptx3) ∗
+    RX@ V3 := (tpa prx3) ∗
+    (* Program counter *)
+    PC @@ V3 ->r (of_pid pprog3) ∗
+    (* Work registers *)
+    (∃ r0, R0 @@ V3 ->r r0) ∗
+    (∃ r1, R1 @@ V3 ->r r1) ∗
+    (∃ r2, R2 @@ V3 ->r r2) ∗
+    VMProp V3 (VMProp3) (1/2)%Qp
+    ⊢ VMProp_holds V3 (1/2)%Qp -∗ WP ExecI @ V3
+           {{ (λ m, ⌜m = HaltI⌝ ∗ R1 @@ V3 ->r fortytwo)}}%I.
+  Proof.
+    intro. rewrite /program3.
+    iIntros (HIn) "(#inv & excl3 & (p_1 & p_2 & p_3 & _) & acc & tx & rx & pc & (%r0 & r0) & (%r1 & r1) & (%r2 & r2)
+                   & vmprop) holds".
+    assert (pprog3 ≠ ptx3) as Hneqtx.
+    {
+      intro.
+      feed pose proof (NoDup_lookup _ 3 6 ptx3 Hps_nd).
+      simplify_eq /=. done.
+      simplify_eq /=. done.
+      lia.
+    }
+    rewrite to_pid_aligned_eq.
+    pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
+    clear HIn; rename Hforall into HIn.
+    rewrite wp_sswp.
+    iApply ((mov_word pprog3) with "[p_1 pc acc tx r2]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+    set_solver.
+    iNext. iIntros "(pc & _ & acc & tx & r2) _".
+    rewrite wp_sswp.
+    iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑(N .@ "shared")) ⊤).
+    iInv (N .@ "shared") as ">Inv" "HIClose".
+    iDestruct "Inv" as "[[excl3' _] | [excl1' share]]".
+    {
+      iExFalso.
+      iApply (excl_exclusive with "excl3 excl3'").
+    }
+    iApply ((ldr (pprog3 ^+ 1)%f) with "[p_2 pc acc tx r1 r2 share]"); rewrite -?Hpshare_eq ?to_pid_aligned_eq; iFrameAutoSolve.
+    rewrite (HIn (pprog3 ^+ 1)%f).
+    rewrite to_pid_aligned_eq.
+    set_solver +.
+    set_solver +.
+    {
+      rewrite to_pid_aligned_eq.
+      intro.
+      feed pose proof (NoDup_lookup _ 4 6 ptx3 Hps_nd).
+      simplify_eq /=. done.
+      simplify_eq /=. done.
+      lia.
+    }
+    rewrite HIn. done.
+    set_solver +. iModIntro.
+    iNext. iIntros "(pc & _ & r2 & share & r1 & acc & tx)".
+    iDestruct ("HIClose" with "[excl1' share]") as ">_".
+    iNext;iRight. iFrame.
+    iModIntro. iIntros "_".
+    rewrite wp_sswp.
+    iApply ((halt ((pprog3 ^+ 1) ^+ 1)%f) with "[p_3 pc acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+    rewrite HIn. set_solver +.
+    set_solver +.
+    rewrite HIn //. set_solver +.
+    iNext. iIntros "(pc & _ & acc & tx) _".
+    iApply wp_terminated. done.
+    simpl. iSplit;done.
+  Qed.
