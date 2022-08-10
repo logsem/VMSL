@@ -2,15 +2,16 @@ From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.algebra Require Import base base_extra mem pagetable trans.
 From HypVeri.rules Require Import rules_base mov halt run yield ldr str br.
 From HypVeri.examples Require Import instr utils.
-From HypVeri.logrel Require Import logrel logrel_extra logrel_prim logrel_prim_extra.
+From HypVeri.logrel Require Import logrel logrel_extra fundamental logrel_prim logrel_prim_extra fundamental_prim.
 From HypVeri Require Import proofmode machine_extra.
 Require Import Setoid.
 
-Section proof.
-Program Instance rywu_vmconfig : HypervisorConstants :=
+Program Instance up_vmconfig : HypervisorConstants :=
     {vm_count := 4;
      vm_count_pos := _;
      valid_handles := {[W0]}}.
+
+Section up_proof.
 
 Program Definition V1 : VMID := (@nat_to_fin 1 _ _).
 Program Definition V2 : VMID := (@nat_to_fin 2 _ _).
@@ -26,7 +27,8 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
   Context (pshare:PID) (pshare_i: Imm) (Hpshare_eq: of_pid pshare = pshare_i).
   Context (pprog0 pprog1 pprog2 pprog3:PID) (pprog1_i: Imm) (Hpprog1_eq: of_pid pprog1 = pprog1_i).
   Context (ptx1 ptx3 prx1 prx3 :PID).
-  Context (Hps_nd: NoDup [pprog0;pprog1;pprog2;pprog3;pshare;ptx1;ptx3;prx1;prx3]).
+  Context (ptx0 ptx2 prx0 prx2 :PID).
+  Context (Hps_nd: NoDup [pprog0;pprog1;pprog2;pprog3;pshare;ptx0;ptx1;ptx2;ptx3;prx0;prx1;prx2;prx3]).
 
   Definition up_program1 (jump : Imm) : list Word :=
     [
@@ -141,7 +143,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
               end);
     }.
 
-  Instance up_slice_wf: SliceWfPrim up_slice_trans up_slice_rxs.
+  Global Instance up_slice_wf: SliceWfPrim up_slice_trans up_slice_rxs.
   Proof.
     split;rewrite /up_slice_trans /up_slice_rxs.
     {
@@ -200,7 +202,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     inv_pshare γ1 γ3 pshare ∗
     EXCL γ1 ∗
     (program (program1) (of_pid pprog1)) ∗
-    V1 -@A> {[pprog1;pshare;ptx1]} ∗
+    V1 -@A> {[pprog1;pshare;ptx1;prx1]} ∗
     (* TX page *)
     TX@ V1 := (tpa ptx1) ∗
     RX@ V1 := (tpa prx1) ∗
@@ -221,7 +223,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     assert (pprog1 ≠ ptx1) as Hneqtx.
     {
       intro.
-      feed pose proof (NoDup_lookup _ 1 5 ptx1 Hps_nd).
+      feed pose proof (NoDup_lookup _ 1 6 ptx1 Hps_nd).
       simplify_eq /=. done.
       simplify_eq /=. done.
       lia.
@@ -258,7 +260,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     {
       rewrite to_pid_aligned_eq.
       intro.
-      feed pose proof (NoDup_lookup _ 4 7 prx1 Hps_nd).
+      feed pose proof (NoDup_lookup _ 4 10 prx1 Hps_nd).
       simplify_eq /=. done.
       simplify_eq /=. done.
       lia.
@@ -277,7 +279,6 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     {
       iExists _. iExact "vmprop".
     }
-    (* set vmprop1 := ({[W0 := (V1, V3, {[pshare]}, Sharing, true)]}). *)
     iLöb as "L" forall (r0) "r0".
     iApply wp_sswp.
     iApply (mov_word ((((pprog1 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f with "[p_5 pc acc tx r0]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
@@ -351,7 +352,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     EXCL γ3 ∗
     (* Mem for program *)
     (program (program3) (of_pid pprog3)) ∗
-    V3 -@A> {[pprog3;pshare;ptx3]} ∗
+    V3 -@A> {[pprog3;pshare;ptx3;prx3]} ∗
     TX@ V3 := (tpa ptx3) ∗
     RX@ V3 := (tpa prx3) ∗
     (* Program counter *)
@@ -370,7 +371,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     assert (pprog3 ≠ ptx3) as Hneqtx.
     {
       intro.
-      feed pose proof (NoDup_lookup _ 3 6 ptx3 Hps_nd).
+      feed pose proof (NoDup_lookup _ 3 8 ptx3 Hps_nd).
       simplify_eq /=. done.
       simplify_eq /=. done.
       lia.
@@ -398,7 +399,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     {
       rewrite to_pid_aligned_eq.
       intro.
-      feed pose proof (NoDup_lookup _ 4 6 ptx3 Hps_nd).
+      feed pose proof (NoDup_lookup _ 4 8 ptx3 Hps_nd).
       simplify_eq /=. done.
       simplify_eq /=. done.
       lia.
@@ -418,3 +419,17 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     iApply wp_terminated. done.
     simpl. iSplit;done.
   Qed.
+
+  Definition up_interp_access2 := interp_access (V2 : leibnizO VMID) ptx2 prx2 {[pprog2; ptx2; prx2]}
+                                    ({[W0 := (V1, V3, {[pshare]}, Sharing, true)]}).
+
+  Lemma up_ftlr2: up_interp_access2 ⊢ interp_execute V2.
+  Proof. iApply ftlr. Qed.
+
+  Definition up_interp_access0 rxs := interp_access_prim up_slice_trans up_slice_rxs ptx0 prx0 {[pprog0; ptx0; prx0]}
+                                    {[W0 := (V1, V3, {[pshare]}, Sharing, true)]} rxs.
+
+  Lemma up_ftlr0 rxs : up_interp_access0 rxs ⊢ interp_execute_prim.
+  Proof. iApply ftlr_p. Qed.
+
+End up_proof.
