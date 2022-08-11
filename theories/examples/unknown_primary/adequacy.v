@@ -8,6 +8,7 @@ From HypVeri.logrel Require Import logrel logrel_prim.
 From HypVeri.examples.unknown_primary Require Import proof.
 Require Import Setoid.
 
+
 Section up_adequacy.
   Context `{hypparams: !HypervisorParameters}.
   Context (p_prog0 p_prog1 p_prog2 p_prog3 p_tx0 p_tx1 p_tx2 p_tx3 p_rx0 p_rx1 p_rx2 p_rx3 p_share : PID).
@@ -58,6 +59,7 @@ Section up_adequacy.
                   pgt ∧ mem ∧ regs ∧ mailbox ∧ transactions.
 
   Context {vm_preG: gen_VMPreG Addr VMID Word reg_name PID transaction_type irisΣ}.
+  Context {excl_preG : exclG irisΣ}.
 
   Lemma memory_list_gmap (pid : PID) (mem_list : list Word) (Hle: length mem_list < (Z.to_nat page_size))
         (mem_gmap : gmap Addr Word)
@@ -146,9 +148,15 @@ Section up_adequacy.
     (* φ : vm 0 is scheduled but halted *)
   Proof.
     intros Hinit.
-    set (saved_props := (let (_, x, _, _) := iris_subG irisΣ (subG_refl irisΣ) in x)).
-    set (prop_name := (let (_, _, x, _) := iris_subG irisΣ (subG_refl irisΣ) in x)).
-    set (name_map := (let (_, _, _, x) := iris_subG irisΣ (subG_refl irisΣ) in x)).
+    assert (HsubG: subG irisΣ irisΣ). apply subG_refl.
+    (* rewrite /Σ. apply subG_app_l. apply subG_refl. *)
+    (* assert (HsubG': subG gen_VMΣ Σ). *)
+    (* rewrite /Σ. apply subG_app_r. apply subG_app_r. apply subG_refl. *)
+    pose proof (iris_subG irisΣ HsubG) as HirisG.
+    set (saved_props := (let (_, x, _, _) := HirisG in x)).
+    set (prop_name := (let (_, _, x, _) := HirisG in x)).
+    set (name_map := (let (_, _, _, x) := HirisG in x)).
+    (* set Σ := (gFunctors.app irisΣ (gFunctors.app exclΣ gen_VMΣ)). *)
     destruct Hinit as (Hcur & -> & -> & Hpgt & Hmem & Hreg & Hmb & Htrans).
     eapply (wp_adequacy irisΣ); auto.
     intro Hinv.
@@ -165,13 +173,14 @@ Section up_adequacy.
     iMod (gen_retri_alloc σ) as (retri_gname) "[Hσretri Hretri]".
 
     iModIntro. iIntros (name_map_name).
+
     pose ((GenVMG irisΣ vm_preG Hinv _ _ _ name_map_name mem_gname reg_gname mb_gname rx_state_gname
                   own_gname access_gname excl_gname trans_gname hpool_gname retri_gname)) as VMG.
     iExists (gen_vm_interp (Σ := irisΣ)).
-
     (* use assumptions to extract resources *)
     (** extract regs  **)
     destruct Hreg as (Hlookup_reg1 & Hlookup_reg3 & Htotal_reg).
+
     iDestruct (get_reg_gmap_split with "Hreg") as "(Hreg0 & Hreg1 & Hreg2 & Hreg3 & _)".
     (* TODO: move, do the same for other resources *)
     assert (∀ σ f, ([∗ map] p↦w ∈ get_reg_gmap_vm σ f, p ↪[reg_gname] w)%I =
@@ -323,9 +332,9 @@ Section up_adequacy.
     clear Heq.
     apply dom_union_inv_L in Hdom_mem1.
     2 : { apply set_of_addr_disj. done. }
-    destruct Hdom_mem1 as (mem2 & mem_p_prog2 &  -> & Hmem2_disj  & Hdom_mem2 & Hdom_mem_p_prog2).
+    destruct Hdom_mem1 as (mem2 & mem_p_prog3 &  -> & Hmem2_disj  & Hdom_mem2 & Hdom_mem_p_prog3).
     clear Hdisj.
-    iDestruct ((big_sepM_union _ _) with "Hmem1") as "(Hmem2 & mem_p_prog2)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem1") as "(Hmem2 & mem_p_prog3)";auto.
     pose proof (union_split_difference_intersection_subseteq_L (({[p_prog0; p_prog1; p_prog2; p_prog3; p_share; p_tx0; p_tx1; p_tx2; p_tx3; p_rx0; p_rx1; p_rx2; p_rx3]} ∖ {[p_prog1]}) ∖ {[p_prog3]}) {[p_share]}) as [Heq Hdisj].
     assert (p_share ≠ p_prog1) as Hneq.
     {
@@ -420,7 +429,7 @@ Section up_adequacy.
       solve_NoDup 12.
     }
     destruct Hdom_mem' as (mem3 & mem_p_rx3 &  -> & Hmem3_disj  & Hdom_mem1 & Hdom_mem_p_rx3).
-    iDestruct ((big_sepM_union _ _) with "Hmem") as "(Hmem2 & p_rx3)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem") as "(Hmem2 & p_rx3)". auto.
     rewrite set_of_addr_union in Hdom_mem1.
     2 : solve_NoDup 11.
     apply dom_union_inv_L in Hdom_mem1.
@@ -429,7 +438,7 @@ Section up_adequacy.
       solve_NoDup 11.
     }
     destruct Hdom_mem1 as (mem4 & mem_p_rx2 &  -> & Hmem4_disj  & Hdom_mem2 & Hdom_mem_p_rx2).
-    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_rx2)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_rx2)". auto.
     rewrite set_of_addr_union in Hdom_mem2.
     2 : solve_NoDup 10.
     apply dom_union_inv_L in Hdom_mem2.
@@ -438,7 +447,7 @@ Section up_adequacy.
       solve_NoDup 10.
     }
     destruct Hdom_mem2 as (mem5 & mem_p_rx1 &  -> & Hmem5_disj  & Hdom_mem1 & Hdom_mem_p_rx1).
-    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_rx1)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_rx1)". auto.
     rewrite set_of_addr_union in Hdom_mem1.
     2 : solve_NoDup 9.
     apply dom_union_inv_L in Hdom_mem1.
@@ -447,7 +456,7 @@ Section up_adequacy.
       solve_NoDup 9.
     }
     destruct Hdom_mem1 as (mem3 & mem_p_rx0 & -> & Hmem6_disj  & Hdom_mem2 & Hdom_mem_p_rx0).
-    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_rx0)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_rx0)". auto.
     rewrite set_of_addr_union in Hdom_mem2.
     2 : solve_NoDup 8.
     apply dom_union_inv_L in Hdom_mem2.
@@ -456,7 +465,7 @@ Section up_adequacy.
       solve_NoDup 8.
     }
     destruct Hdom_mem2 as (mem4 & mem_p_tx3 & -> & Hmem7_disj  & Hdom_mem2 & Hdom_mem_p_tx3).
-    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx3)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx3)". auto.
     rewrite set_of_addr_union in Hdom_mem2.
     2 : solve_NoDup 7.
     apply dom_union_inv_L in Hdom_mem2.
@@ -465,7 +474,7 @@ Section up_adequacy.
       solve_NoDup 7.
     }
     destruct Hdom_mem2 as (mem5 & mem_p_tx2 & -> & Hmem8_disj  & Hdom_mem2 & Hdom_mem_p_tx2).
-    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx2)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx2)". auto.
     rewrite set_of_addr_union in Hdom_mem2.
     2 : solve_NoDup 6.
     apply dom_union_inv_L in Hdom_mem2.
@@ -474,7 +483,7 @@ Section up_adequacy.
       solve_NoDup 6.
     }
     destruct Hdom_mem2 as (mem6 & mem_p_tx1 & -> & Hmem9_disj  & Hdom_mem2 & Hdom_mem_p_tx1).
-    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx1)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx1)". auto.
     rewrite set_of_addr_union in Hdom_mem2.
     2 : solve_NoDup 5.
     apply dom_union_inv_L in Hdom_mem2.
@@ -483,12 +492,21 @@ Section up_adequacy.
       solve_NoDup 5.
     }
     destruct Hdom_mem2 as (mem7 & mem_p_tx0 & -> & Hmem10_disj  & Hdom_mem2 & Hdom_mem_p_tx0).
-    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx0)";auto.
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_tx0)". auto.
+    rewrite set_of_addr_union in Hdom_mem2.
+    2 : solve_NoDup 2.
+    apply dom_union_inv_L in Hdom_mem2.
+    2 : {
+      apply set_of_addr_disj.
+      solve_NoDup 2.
+    }
+    destruct Hdom_mem2 as (mem_p_prog0 & mem_p_prog2 & -> & Hmem11_disj  & Hdom_mem_prog0 & Hdom_mem_p_prog2).
+    iDestruct ((big_sepM_union _ _) with "Hmem2") as "(Hmem2 & p_prog0)". auto.
 
     subst p q r t.
 
     (* clear Hmem10_disj Hmem9_disj Hmem8_disj Hmem7_disj Hmem6_disj Hmem5_disj Hmem4_disj Hmem3_disj. *)
-    clear Hmem10_disj Hmem8_disj Hmem6_disj Hmem5_disj Hmem4_disj Hmem3_disj.
+    clear Hmem11_disj Hmem10_disj Hmem9_disj Hmem8_disj Hmem7_disj Hmem6_disj Hmem5_disj Hmem4_disj Hmem3_disj Hmem2_disj Hmem_disj.
 
     iAssert (trans.fresh_handles 1 ∅)%I with "[Hhpool]" as "Hp".
     {
@@ -1095,6 +1113,30 @@ Section up_adequacy.
     iDestruct (ghost_map_elem_persist with "mb2RX") as ">mb2RX".
     iDestruct (ghost_map_elem_persist with "mb3RX") as ">mb3RX".
 
+
+    iDestruct (own_alloc (Excl ())) as ">[%γ1 token1]". done.
+    iDestruct (own_alloc (Excl ())) as ">[%γ3 token3]". done.
+    iDestruct (inv_alloc (⊤ .@ "shared") ⊤ (((EXCL γ3 ∗ ∃ w, p_share ->a w) ∨ EXCL γ1 ∗ p_share ->a (of_imm fortytwo)))%I with "[mem_p token3]") as ">#Hinv".
+    {
+      iLeft. iNext. unfold EXCL. clear -Hdom_mem_p.
+      iSplitL "token3".
+      iExact "token3".
+      rewrite set_of_addr_singleton in Hdom_mem_p.
+      assert (∃ w, mem !! (of_pid p_share) = Some w).
+      {
+        apply elem_of_dom. rewrite Hdom_mem_p.
+        rewrite elem_of_list_to_set.
+        rewrite elem_of_addr_of_page_iff.
+        rewrite to_pid_aligned_eq //.
+      }
+      destruct H as [? ?].
+      rewrite big_sepM_lookup.
+      2:{ exact H. }
+      iExists _.
+      rewrite mem_mapsto_eq  /mem_mapsto_def /=.
+      iExact "mem_p".
+    }
+
     iModIntro.
 
     (* allocate VMProps *)
@@ -1151,7 +1193,7 @@ Section up_adequacy.
     }
 
     iIntros "(VMProp0 & VMProp1 & VMProp2 & VMProp3 & _)".
-    rewrite /scheduled /machine.scheduler //= /scheduler Hcur //=.
+    rewrite /scheduled /machine.scheduler /= /scheduler Hcur /=.
 
     iDestruct (VMProp_split with "VMProp1") as "[VMProp1_half VMProp1_half']".
     iDestruct (VMProp_split with "VMProp2") as "[VMProp2_half VMProp2_half']".
@@ -1171,7 +1213,7 @@ Section up_adequacy.
       iFrame "mb3RX".
     }
 
-    iSplitL "Hreg0 Htrans Hp p_tx0 p_rx0 p_rx1 p_rx2 p_rx3 VMProp0 VMProp1_half' VMProp2_half' VMProp3_half'
+    iSplitL "Hreg0 Htrans Hmem2 p_tx0 p_rx0 p_rx1 p_rx2 p_rx3 VMProp0 VMProp1_half' VMProp2_half' VMProp3_half'
             mb0RX mb1RX mb2RX mb3RX RX0St RX1St RX2St RX3St mb0TX access0 exclp0 exclrx0 excltx0 ownp0 ownrx0 owntx0".
     iIntros "_".
     iPoseProof (up_ftlr0 p_share p_prog0 p_tx0 p_rx0
@@ -1238,71 +1280,96 @@ Section up_adequacy.
       rewrite excl_mapsto_eq own_mapsto_eq /excl_mapsto_def /own_mapsto_def.
       iSimpl. iFrame.
       iExists mem_p_tx0.
-      (* rewrite difference_empty_L. *)
-      (* unfold transaction_pagetable_entries_owned. *)
-      (* unfold retrieved_transaction_owned. *)
-      (* unfold big_sepFM. simpl. *)
-      (* rewrite map_filter_singleton. *)
-      (* jj *)
-      (* rewrite !big_sepM_empty. *)
-      (* assert (({[p_prog3; p_tx3; p_rx3]} ∖ {[p_rx3; p_tx3]}) = {[p_prog3]}) as ->. *)
-      (* { *)
-      (*   rewrite !difference_union_distr_l_L. *)
-      (*   rewrite difference_disjoint_L. *)
-      (*   assert ({[p_tx3]} ∖ {[p_rx3; p_tx3]} = ∅) as ->. *)
-      (*   { set_solver +. } *)
-      (*   assert ({[p_rx3]} ∖ {[p_rx3; p_tx3]} = ∅) as ->. *)
-      (*   { set_solver +. } *)
-      (*   set_solver +. *)
-      (*   apply disjoint_singleton_l. *)
-      (*   intros contra. *)
-      (*   rewrite elem_of_union in contra. *)
-      (*   rewrite !elem_of_singleton in contra. *)
-      (*   solve_NoDup_pre'. *)
-      (*   solve_NoDup_pre'' 2 8. *)
-      (*   solve_NoDup_pre'' 2 5. *)
-      (* } *)
-      (* unfold pagetable_entries_excl_owned. *)
-      (* unfold logrel.pgt. *)
-      (* rewrite !big_sepS_singleton. *)
       unfold memory_page. iSplit. iPureIntro.
+      rewrite Hdom_mem_p_tx0.
+      apply set_of_addr_singleton.
+      rewrite mem_mapsto_eq /mem_mapsto_def.
+      iFrame "p_tx0".
+      rewrite access_mapsto_eq /access_mapsto_def /=.
+      iFrame "access0".
+      unfold rx_page.
+
+      iSplitL "mb0RX exclrx0 ownrx0".
+      {
+        rewrite excl_mapsto_eq /excl_mapsto_def.
+        rewrite own_mapsto_eq /own_mapsto_def.
+        rewrite mb_mapsto_eq /mb_mapsto_def.
+        iFrame.
+      }
+
+      iSplit. iPureIntro. set_solver +.
+      iSplit. iPureIntro. set_solver +.
+      assert (({[p_prog0; p_tx0; p_rx0]} ∖ {[p_rx0; p_tx0]}) = {[p_prog0]}) as ->.
+      {
+        rewrite !difference_union_distr_l_L.
+        rewrite difference_disjoint_L.
+        assert ({[p_tx0]} ∖ {[p_rx0; p_tx0]} = ∅) as ->.
+        { set_solver +. }
+        assert ({[p_rx0]} ∖ {[p_rx0; p_tx0]} = ∅) as ->.
+        { set_solver +. }
+        set_solver +.
+        apply disjoint_singleton_l.
+        intros contra.
+        rewrite elem_of_union in contra.
+        rewrite !elem_of_singleton in contra.
+        solve_NoDup 0.
+      }
+      assert (currently_accessible_in_trans_memory_pages V0 {[W0 := (V1, V3, {[p_share]}, Sharing, true)]} = ∅) as ->.
+      {
+        rewrite /currently_accessible_in_trans_memory_pages.
+        rewrite map_filter_singleton_False.
+        apply pages_in_trans_empty.
+        simpl. intro.
+        destruct H0 as [[] | []].
+        inversion H0.
+        inversion H0.
+      }
+      rewrite difference_empty_L.
+
+      iSplitL "exclp0 ownp0".
+      {
+        unfold pagetable_entries_excl_owned.
+        unfold logrel.pgt.
+        rewrite big_sepS_singleton.
+        rewrite excl_mapsto_eq /excl_mapsto_def.
+        rewrite own_mapsto_eq /own_mapsto_def.
+        iFrame.
+      }
+
+      unfold transaction_pagetable_entries_owned.
+      unfold retrieved_transaction_owned.
+      unfold big_sepFM. simpl.
+      rewrite !map_filter_singleton_False.
+      rewrite !big_sepM_empty.
+      iSplit; first done.
+      iSplit; first done.
+      2:{
+        intros []. done.
+      }
+      2:{
+        intros []. done.
+      }
+
+      assert (retrieved_lending_memory_pages V0 {[W0 := (V1, V3, {[p_share]}, Sharing, true)]} = ∅) as ->.
+      {
+        rewrite /retrieved_lending_memory_pages.
+        rewrite map_filter_singleton_False.
+        apply pages_in_trans_empty.
+        simpl. intros [? _]. done.
+      }
+
+      rewrite union_empty_r_L.
+      iSplitL "Hmem2".
+
+      iExists mem_p_prog0. unfold memory_pages. iSplit.
+      iPureIntro. done.
+      rewrite mem_mapsto_eq /mem_mapsto_def.
+      iFrame "Hmem2".
+
+      iSplitL "VMProp0".
+      iExists _. iExact "VMProp0".
+
       (* TODO *)
-   (*    rewrite Hdom_mem_p_tx0. *)
-   (*    apply set_of_addr_singleton. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def. *)
-   (*    iFrame "p_tx3". *)
-   (*    rewrite access_mapsto_eq /access_mapsto_def /=. *)
-   (*    assert ({[p_tx3; p_rx3; p_prog3]} = {[p_prog3; p_tx3; p_rx3]}) as -> by set_solver +. *)
-   (*    iFrame "access3". *)
-   (*    unfold rx_page. *)
-
-   (*    iSplitL "mb2RX' excl3 own3". *)
-   (*    { *)
-   (*      rewrite excl_mapsto_eq /excl_mapsto_def. *)
-   (*      rewrite own_mapsto_eq /own_mapsto_def. *)
-   (*      rewrite mb_mapsto_eq /mb_mapsto_def. *)
-   (*      iFrame. *)
-   (*    } *)
-
-   (*    iSplit. iPureIntro. set_solver +. *)
-   (*    iSplit. iPureIntro. set_solver +. *)
-
-   (*    iSplitL "excl5 own5". *)
-   (*    { *)
-   (*      rewrite excl_mapsto_eq /excl_mapsto_def. *)
-   (*      rewrite own_mapsto_eq /own_mapsto_def. *)
-   (*      iFrame. *)
-   (*    } *)
-
-   (*    iSplit; first done. *)
-   (*    iSplit; first done. *)
-
-   (*    iExists mem5. unfold memory_pages. iSplit. *)
-   (*    iPureIntro. *)
-   (*    rewrite /retrieved_lending_memory_pages. *)
-   (*    rewrite map_filter_empty pages_in_trans_empty union_empty_r_L //. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def. *)
-   (*    iFrame "Hmem2". *)
    (*  } *)
 
    (*  iDestruct (lending_machine0 p_prog1 p_tx1 p_prog3 p_tx3 p_rx1 p_rx2 p_rx3 addr txbase rxbase with "[-]") as "HWP". *)

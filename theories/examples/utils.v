@@ -446,7 +446,7 @@ Section Utils.
       lia.
       apply (H (length l - x) (length l - y)); simpl; [lia | lia | assumption | assumption].
   Qed.  
-  
+
 End Utils.
 
 Ltac solve_NoDup_pre :=
