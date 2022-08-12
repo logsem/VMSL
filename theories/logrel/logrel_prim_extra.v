@@ -2,7 +2,7 @@ From iris.proofmode Require Import tactics.
 From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang.
 From HypVeri.algebra Require Import base base_extra mem pagetable trans mailbox.
-From HypVeri.logrel Require Export logrel_prim big_sepSS map_zip_extra.
+From HypVeri.logrel Require Export logrel big_sepSS map_zip_extra logrel_extra big_sepSS.
 From HypVeri Require Import proofmode.
 From stdpp Require fin_map_dom.
 Import uPred.
@@ -1118,6 +1118,131 @@ Section logrel_prim_extra.
     iDestruct "H1" as "[$ [$ $]]".
     iDestruct "H2" as "[[$ [$ $]] [$ [$ $]]]".
   Qed.
+
+  Lemma rx_state_match_equiv_later i rxs Φ:
+    (∀ os, (match os with
+                 | None => True
+                 | _ => Φ i os i ⊣⊢ slice_rx_state i os
+                end)) ->
+    (Φ i None i ⊣⊢ True) ->
+    base_extra.is_total_gmap rxs ->
+   ▷ (∀ rs : option (Addr * VMID), ⌜rxs !! i = Some rs⌝ -∗ rx_state_match i rs ∗ Φ i rs i)
+   ⊣⊢
+   ▷ (rx_state_get i rxs ∗ (∃ p_rx : PID, RX@i:=p_rx ∗ (∃ mem_rx : lang.mem, memory_page p_rx mem_rx))).
+  Proof.
+    iIntros (HΦ HΦ' total).
+    iSplit.
+      {
+        iIntros "H".
+        iNext.
+        specialize (total i).
+        destruct total.
+        iDestruct ("H" $! x with "[]") as "[H1 H2]".
+        iPureIntro. done.
+        rewrite /rx_state_get.
+        specialize (HΦ x).
+        destruct x.
+        rewrite HΦ.
+        rewrite /rx_state_match.
+        destruct p.
+        rewrite /slice_rx_state /=.
+        iDestruct "H2" as "[H1' H2]".
+        iSplitL "H1 H1'".
+        iIntros "% %".
+        rewrite H0 in H.
+        inversion H. subst rs.
+        iDestruct (rx_state_split i 1%Qp (Some (f,v))) as "[_ H]".
+        iApply ("H" with "[$H1 $H1']").
+        iFrame.
+        rewrite /slice_rx_state /=.
+        iDestruct "H1" as "[H1 $]".
+        iIntros "% %".
+        rewrite H0 in H.
+        inversion H.
+        iFrame "H1".
+      }
+      {
+        iIntros "H".
+        iNext.
+        rewrite /rx_state_get.
+        iDestruct "H" as "[H1 H2]".
+        iIntros "% %".
+        iDestruct ("H1" $! rs with "[]") as "H1".
+        iPureIntro. done.
+        specialize (HΦ rs).
+        destruct rs.
+        rewrite HΦ.
+        rewrite /rx_state_match.
+        destruct p.
+        rewrite /slice_rx_state /=.
+        iFrame "H2".
+        iDestruct (rx_state_split i 1%Qp (Some (f,v))) as "[H _]".
+        iApply ("H" with "H1").
+        rewrite /slice_rx_state /=.
+        iFrame "H2".
+        iFrame.
+        rewrite HΦ' //.
+      }
+  Qed.
+
+  Lemma rx_state_match_equiv i rs rxs Φ:
+    (∀ os, (match os with
+                 | None => True
+                 | _ => Φ i os V0 ⊣⊢ slice_rx_state i os
+                end)) ->
+    (∀ i j, Φ i None j ⊣⊢ True) ->
+    rxs !! i = Some rs ->
+   rx_state_match i rs ∗ Φ i rs V0 ⊣⊢
+                   rx_state_get i rxs ∗ (∃ p_rx : PID, RX@i:=p_rx ∗ (∃ mem_rx : lang.mem, memory_page p_rx mem_rx)).
+   Proof.
+    iIntros (HΦ HΦ' Hlookup).
+    iSplit.
+    {
+        iIntros "H".
+        iDestruct "H" as "[H1 H2]".
+        rewrite /rx_state_get.
+        specialize (HΦ rs).
+        destruct rs.
+        rewrite HΦ.
+        rewrite /rx_state_match.
+        destruct p.
+        rewrite /slice_rx_state /=.
+        iDestruct "H2" as "[H1' H2]".
+        iSplitL "H1 H1'".
+        iIntros "% %".
+        rewrite H in Hlookup.
+        inversion Hlookup.
+        iDestruct (rx_state_split i 1%Qp (Some (f,v))) as "[_ H]".
+        iApply ("H" with "[$H1 $H1']").
+        iFrame.
+        rewrite /slice_rx_state /=.
+        iDestruct "H1" as "[H1 $]".
+        iIntros "% %".
+        rewrite H in Hlookup.
+        inversion Hlookup.
+        iFrame "H1".
+      }
+      {
+        iIntros "H".
+        rewrite /rx_state_get.
+        iDestruct "H" as "[H1 H2]".
+        iDestruct ("H1" $! rs with "[]") as "H1".
+        iPureIntro. done.
+        specialize (HΦ rs).
+        destruct rs.
+        rewrite HΦ.
+        rewrite /rx_state_match.
+        destruct p.
+        rewrite /slice_rx_state /=.
+        iFrame "H2".
+        iDestruct (rx_state_split i 1%Qp (Some (f,v))) as "[H _]".
+        iApply ("H" with "H1").
+        rewrite /slice_rx_state /=.
+        iFrame "H2".
+        iFrame.
+        rewrite HΦ' //.
+      }
+    Qed.
 
   Lemma rx_states_split_zero {Φ_r} rxs:
       is_total_gmap rxs ->

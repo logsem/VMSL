@@ -4,7 +4,7 @@ From HypVeri Require Import machine_extra lifting.
 From HypVeri.algebra Require Import base mailbox pagetable mem.
 From HypVeri.lang Require Import reg_extra.
 From HypVeri.examples Require Import instr utils.
-From HypVeri.logrel Require Import logrel logrel_prim.
+From HypVeri.logrel Require Import logrel logrel_prim logrel_prim_extra.
 From HypVeri.examples.unknown_primary Require Import proof.
 Require Import Setoid.
 
@@ -16,6 +16,7 @@ Section up_adequacy.
   Context (σ : state).
   Context (i_jump : Imm) (Hjump_eq: of_imm (i_jump) = (p_prog1 ^+ 4)%f).
   Context (i_pshare: Imm) (Hpshare_eq: of_pid p_share = i_pshare).
+  Context (i_pprog3 : Imm) (Hpprog3_eq : of_pid p_prog3 = i_pprog3).
 
   Definition pgt :=
     access_layout σ {[V0 := to_dfrac_agree (DfracOwn 1) {[p_prog0; p_tx0; p_rx0]};
@@ -34,7 +35,7 @@ Section up_adequacy.
   Program Definition mem :=
     let mem := ((get_mem σ): gmap Addr Word)  in
     (∀ (m : gmap Addr Addr), dom m = set_of_addr {[p_prog1]} -> m ⊆ mem -> m = mem_page_program p_prog1 (up_program1 i_pshare i_jump) _) ∧
-    (∀ (m : gmap Addr Addr), dom m = set_of_addr {[p_prog3]} -> m ⊆ mem -> m = mem_page_program p_prog3 (up_program3 i_pshare) _) ∧
+    (∀ (m : gmap Addr Addr), dom m = set_of_addr {[p_prog3]} -> m ⊆ mem -> m = mem_page_program p_prog3 (up_program3 i_pshare i_pprog3) _) ∧
     ((set_of_addr {[p_prog0;p_prog1;p_prog2;p_prog3;p_share;p_tx0;p_tx1;p_tx2;p_tx3;p_rx0;p_rx1;p_rx2;p_rx3]}) ⊆ dom mem).
   Next Obligation. lia. Qed.
   Next Obligation. lia. Qed.
@@ -230,9 +231,11 @@ Section up_adequacy.
     pose proof (Htotal_reg V3 R0) as [r0__ Hlookup_reg3_r0].
     pose proof (Htotal_reg V3 R1) as [r1__ Hlookup_reg3_r1].
     pose proof (Htotal_reg V3 R2) as [r2__ Hlookup_reg3_r2].
+    pose proof (Htotal_reg V3 NZ) as [nz Hlookup_reg3_nz].
     iDestruct (big_sepM_subseteq _ (get_reg_gmap_vm σ V3) {[(PC, V3):= (of_pid p_prog3); (R0, V3) := r0__;
-                      (R1, V3) := r1__; (R2, V3) := r2__]} with "Hreg3") as "Hreg3";eauto.
+                      (R1, V3) := r1__; (R2, V3) := r2__; (NZ, V3):= nz]} with "Hreg3") as "Hreg3";eauto.
     {
+      apply (λ x, reg_layout_extend σ _ _ x NZ nz Hlookup_reg3_nz) in Hlookup_reg3.
       apply (λ x, reg_layout_extend σ _ _ x R2 r2__ Hlookup_reg3_r2) in Hlookup_reg3.
       apply (λ x, reg_layout_extend σ _ _ x R1 r1__ Hlookup_reg3_r1) in Hlookup_reg3.
       apply (λ x, reg_layout_extend σ _ _ x R0 r0__ Hlookup_reg3_r0) in Hlookup_reg3.
@@ -242,10 +245,11 @@ Section up_adequacy.
       rewrite kmap_empty in Hlookup_reg3.
       rewrite insert_empty in Hlookup_reg3.
 
+      rewrite (insert_commute _ (NZ, V3) (PC, V3)) in Hlookup_reg3.
       rewrite (insert_commute _ (R2, V3) (PC, V3)) in Hlookup_reg3.
       rewrite (insert_commute _ (R1, V3) (PC, V3)) in Hlookup_reg3.
       rewrite (insert_commute _ (R0, V3) (PC, V3)) in Hlookup_reg3.
-      assumption. 1-3: done.
+      assumption. 1-4: done.
     }
     clear Hlookup_reg3_r0 Hlookup_reg3_r1 Hlookup_reg3_r2 Hlookup_reg3.
 
@@ -256,6 +260,8 @@ Section up_adequacy.
     iDestruct (big_sepM_insert with "Hreg3") as "(R13 & Hreg3)".
     { rewrite !lookup_insert_None; repeat (split; eauto). }
     iDestruct (big_sepM_insert with "Hreg3") as "(R23 & Hreg3)".
+    { rewrite !lookup_insert_None; repeat (split; eauto). }
+    iDestruct (big_sepM_insert with "Hreg3") as "(NZ3 & Hreg3)".
     { rewrite lookup_empty; eauto. }
 
     (** extract mb **)
@@ -506,7 +512,7 @@ Section up_adequacy.
     subst p q r t.
 
     (* clear Hmem10_disj Hmem9_disj Hmem8_disj Hmem7_disj Hmem6_disj Hmem5_disj Hmem4_disj Hmem3_disj. *)
-    clear Hmem11_disj Hmem10_disj Hmem9_disj Hmem8_disj Hmem7_disj Hmem6_disj Hmem5_disj Hmem4_disj Hmem3_disj Hmem2_disj Hmem_disj.
+    clear Hmem11_disj Hmem10_disj Hmem9_disj Hmem8_disj Hmem7_disj Hmem6_disj Hmem5_disj Hmem4_disj Hmem3_disj Hmem_disj.
 
     iAssert (trans.fresh_handles 1 ∅)%I with "[Hhpool]" as "Hp".
     {
@@ -1125,13 +1131,10 @@ Section up_adequacy.
     iDestruct (ghost_map_elem_persist with "mb3RX") as ">mb3RX".
 
 
-    iDestruct (own_alloc (Excl ())) as ">[%γ1 token1]". done.
-    iDestruct (own_alloc (Excl ())) as ">[%γ3 token3]". done.
-    iDestruct (inv_alloc (⊤ .@ "shared") ⊤ (((EXCL γ3 ∗ ∃ w, p_share ->a w) ∨ EXCL γ1 ∗ p_share ->a (of_imm fortytwo)))%I with "[mem_p token3]") as ">#Hinv".
+    iDestruct (own_alloc (Excl ())) as ">[%γ token3]". done.
+    iDestruct (inv_alloc ((nroot: namespace) .@ "shared") ⊤ ((∃ w, p_share ->a w) ∨ EXCL γ ∗ p_share ->a (of_imm fortytwo))%I with "[mem_p]") as ">#Hinv".
     {
-      iLeft. iNext. unfold EXCL. clear -Hdom_mem_p.
-      iSplitL "token3".
-      iExact "token3".
+      iNext. iLeft. unfold EXCL. clear -Hdom_mem_p.
       rewrite set_of_addr_singleton in Hdom_mem_p.
       assert (∃ w, mem !! (of_pid p_share) = Some w).
       {
@@ -1218,12 +1221,8 @@ Section up_adequacy.
       iFrame.
     }
     
-    (* iDestruct (pgt_split_half with "pgtshare") as "[pgtshare_half pgtshare']". *)
     iDestruct (pgt_split_quarter with "pgtshare") as "[pgtshare_quar pgtshare_quar']".
     
-    (* pose proof (@access_split rywu_vmconfig irisΣ VMG 1 V2) as Hsplit. *)
-    (* rewrite access_mapsto_eq /access_mapsto_def in Hsplit. *)
-    (* iDestruct "access3" as "(access3 & access3')". *)
     iAssert ((V0, RX) ↪[ mb_gname ]□ p_rx0 ∗ (V0, RX) ↪[ mb_gname ]□ p_rx0)%I with "[mb0RX]" as "(mb0RX & mb0RX')".
     {
       iDestruct "mb0RX" as "#mb0RX".
@@ -1558,10 +1557,8 @@ Section up_adequacy.
       intros [? _]. done.
       intros [? _]. done.
 
-
       rewrite /set_of_vmids.
-      simpl.
-      clear.
+      simpl. clear.
       set S := (( _ ∖ {[V0]})).
       assert (S = ({[V1]} ∪ ({[V2]} ∪ ({[V3]}: gset VMID)))) as ->.
       rewrite /S. set_solver +.
@@ -1573,9 +1570,9 @@ Section up_adequacy.
     }
 
     (* VM1 *)
-    iSplitL "Htrans' mem_p_prog1 token1 mb1TX mb1RX' VMProp1_half access1 PC1 R01 R11 R21".
+    iSplitL "Htrans' mem_p_prog1 token3 mb1TX mb1RX' VMProp1_half access1 PC1 R01 R11 R21".
     iIntros "hold".
-    iPoseProof (up_machine1 _ _ _  _  _ _ _ _ _  _ _ _ _ _  _ Hps_nd (⊤.@"share") _ γ1 γ3) as "wp1".
+    iPoseProof (up_machine1 p_share i_pshare Hpshare_eq _  _ _ _ _ _  _ _ _ _ _ _ Hps_nd i_pprog3 Hpprog3_eq nroot _ γ) as "wp1".
     exact Hjump_eq. simpl. rewrite /seq_in_page. repeat (split; first try solve_finz +).
     rewrite Z.leb_refl. done.
     pose proof (last_addr_in_bound p_prog1). solve_finz + H0.
@@ -1584,11 +1581,11 @@ Section up_adequacy.
     solve_finz + H0.
     rewrite H1. done.
     iSimpl in "wp1".
-    iApply ("wp1" with "[Htrans' mem_p_prog1 token1 mb1TX mb1RX' VMProp1_half access1 PC1 R01 R11 R21] hold").
+    iApply ("wp1" with "[Htrans' mem_p_prog1 token3 mb1TX mb1RX' VMProp1_half access1 PC1 R01 R11 R21] hold").
     iSplitR.
     rewrite /inv_pshare.
     iFrame "Hinv".
-    iFrame "token1 PC1".
+    iFrame "token3 PC1".
     iSplitL "mem_p_prog1".
       {
         unfold program.
@@ -1647,6 +1644,61 @@ Section up_adequacy.
     iSimpl in "wp2".
     iApply ("wp2" with "[Hreg2 p_prog0 p_tx2 VMProp2_half mb2RX' mb2TX access2 exclp2 exclrx2 excltx2 ownp2 ownrx2 owntx2] [] hold"). iClear "wp2".
     rewrite /up_interp_access2. rewrite /interp_access.
+    repeat (iSplit;[iPureIntro|]).
+    {
+      rewrite /up_slice_trans.
+      intros ? ? ? [|].
+      case_bool_decide. subst k. done.
+      case_bool_decide. subst k. done.
+      done.
+      case_bool_decide.
+      case_bool_decide. subst j. done.
+      case_bool_decide. subst j. done.
+      done.
+      case_bool_decide;auto.
+      case_bool_decide;auto.
+      subst j. done.
+    }
+    {
+      rewrite /up_slice_rxs.
+      intros ?.
+      destruct os.
+      destruct p.
+      case_bool_decide.
+      case_bool_decide. done.
+      case_bool_decide. done.
+      exfalso. apply H2. done.
+      done.
+      done.
+    }
+    {
+      rewrite /up_slice_rxs.
+      intros ?.
+      destruct os.
+      destruct p.
+      case_bool_decide.
+      case_bool_decide. done.
+      case_bool_decide. done.
+      exfalso. apply H1. done.
+      done.
+      done.
+    }
+    {
+      rewrite /up_slice_rxs.
+      intros ??.
+      destruct os.
+      destruct p.
+      intros.
+      case_bool_decide.
+      subst o. exfalso. done.
+      done.
+      done.
+    }
+    {
+      intros.
+      rewrite /up_slice_rxs.
+      done.
+    }
     {
       iSplitL "Hreg2".
       iExists (get_reg_files σ !!! V2).
@@ -1784,123 +1836,80 @@ Section up_adequacy.
       iPureIntro. done.
       rewrite mem_mapsto_eq /mem_mapsto_def.
       iFrame "p_prog0".
-      iAssert (⌜vmprop_unknown V2 up_slice_trans up_slice_rxs {[W0 := (V1, V3, {[p_share]}, Sharing, true)]} ⊣⊢
-   logrel.vmprop_unknown V2 {[W0 := (V1, V3, {[p_share]}, Sharing, true)]}⌝)%I as "%Heq".
-      iPureIntro.
-      rewrite vmprop_unknown_eq.
-      rewrite logrel.vmprop_unknown_eq.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      assert (transaction_pagetable_entries_transferred V2 a ∗ retrievable_transaction_transferred V2 a ∗
-  (∃ mem_trans : lang.mem, memory_pages (transferred_memory_pages V2 a) mem_trans) ⊣⊢ big_sepSS_singleton set_of_vmids V2 (up_slice_trans a)).
-      admit.
-      rewrite -H0.
-      rewrite -2!bi.sep_assoc.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      f_equiv.
-      clear.
-      done.
-      f_equiv.
-      assert ((∀ rs : option (Addr * VMID), ⌜a0 !! V2 = Some rs⌝ -∗ rx_state_match V2 rs ∗ up_slice_rxs V2 rs V2) ∗ rx_states_global (delete V2 a0) ∗
-  ⌜base_extra.is_total_gmap a0⌝ ⊣⊢
-       (rx_state_get V2 a0 ∗ (∃ p_rx : PID, RX@V2:=p_rx ∗ (∃ mem_rx : lang.mem, memory_page p_rx mem_rx))) ∗
-  rx_states_global (delete V2 a0) ∗ ⌜base_extra.is_total_gmap a0⌝).
-      iSplit.
-      {
-        iIntros "[H [? %total]]".
-        iFrame.
-        iSplitL.
-        2: done.
-        specialize (total V2).
-        destruct total.
-        iDestruct ("H" $! x with "[]") as "[H1 H2]".
-        iPureIntro. done.
-        rewrite /rx_state_get.
-        rewrite /up_slice_rxs /=.
-        destruct x.
-        rewrite /rx_state_match.
-        destruct p.
-        case_bool_decide.
-        rewrite /slice_rx_state /=.
-        iDestruct "H2" as "[H1' H2]".
-        iSplitL "H1 H1'".
-        iIntros "% %".
-        rewrite H3 in H1.
-        inversion H1. subst rs.
-        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[_ H]".
-        iApply ("H" with "[$H1 $H1']").
-        iFrame.
-        rewrite /slice_rx_state /=.
-        iDestruct "H2" as "[H1' H2]".
-        iSplitL "H1 H1'".
-        iIntros "% %".
-        rewrite H3 in H1.
-        inversion H1. subst rs.
-        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[_ H]".
-        iApply ("H" with "[$H1 $H1']").
-        iFrame.
-        rewrite /rx_state_match.
-        iDestruct "H1" as "[H1 $]".
-        iIntros "% %".
-        rewrite H2 in H1.
-        inversion H1.
-        iFrame "H1".
-      }
-      {
-        iIntros "[[H1 H2] [$ %total]]".
-        iSplitL. 2: done.
-        specialize (total V2).
-        destruct total.
-        iIntros "% %".
-        rewrite H2 in H1.
-        inversion H1. subst rs.
-        rewrite /rx_state_get.
-        iDestruct ("H1" $! x with "[]") as "H1".
-        iPureIntro. done.
-        rewrite /up_slice_rxs /=.
-        destruct x.
-        rewrite /rx_state_match.
-        destruct p.
-        case_bool_decide.
-        rewrite /slice_rx_state /=.
-        iFrame "H2".
-        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[H _]".
-        iApply ("H" with "H1").
-        rewrite /slice_rx_state /=.
-        iFrame "H2".
-        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[H _]".
-        iApply ("H" with "H1").
-        rewrite /rx_state_match.
-        iFrame.
-      }
-      rewrite bi.sep_assoc.
-      rewrite bi.sep_assoc.
-      rewrite -(bi.sep_assoc _ _ (⌜base_extra.is_total_gmap a0⌝)%I).
-      rewrite H1.
-  (*     (∀ rs : option (Addr * VMID), ⌜a0 !! V2 = Some rs⌝ -∗ rx_state_match V2 rs ∗ up_slice_rxs V2 rs V2) ⊣⊢ rx_state_get V2 a0 ∗ *)
-  (* (∃ p_rx : PID, RX@V2:=p_rx ∗ (∃ mem_rx : lang.mem, memory_page p_rx mem_rx)) *)
-      rewrite -bi.sep_assoc.
-     f_equiv.
-
-      rewrite -bi.sep_assoc.
-     f_equiv. done.
-     f_equiv.
-
-      admit.
-      admit.
+      iFrame "VMProp2_half".
     }
     iPureIntro. done.
-
     (* VM3 *)
-    admit.
-   (* Qed. *)
-  Admitted.
+    iSplitL "mem_p_prog3 mb3TX mb3RX' VMProp3_half access3 PC3 R03 R13 R23 NZ3".
+    iIntros "hold".
+    iPoseProof (up_machine3 p_share i_pshare Hpshare_eq _ _ _ _ _ _  _ _ _ _ _ _ Hps_nd i_pprog3 Hpprog3_eq nroot γ) as "wp1".
+    rewrite /seq_in_page. repeat (split; first try solve_finz +).
+    rewrite Z.leb_refl. done.
+    pose proof (last_addr_in_bound p_prog3). solve_finz + H0.
+    pose proof (last_addr_in_bound p_prog3). simpl.
+    assert (((p_prog3 ^+ (6%nat - 1))%f <=? (p_prog3 ^+ (1000 - 1))%f)%Z = true).
+    solve_finz + H0.
+    rewrite H1. done.
+    iApply (wp_mono _ _ _ (λ m , ⌜m = HaltI⌝ ∗ R1 @@ V3 ->r fortytwo))%I.
+    iIntros (?) "[$ _]".
+    iSimpl in "wp1".
+    iApply ("wp1" with "[mem_p_prog3 mb3TX mb3RX' VMProp3_half access3 PC3 R03 R13 R23 NZ3] hold").
+    iSplitR.
+    rewrite /inv_pshare.
+    iFrame "Hinv".
+    iFrame "PC3".
+    iSplitL "mem_p_prog3".
+      {
+        unfold program.
+        iEval (rewrite big_opM_map_to_list) in "mem_p_prog3".
+        rewrite big_sepL2_alt.
+        iSplitR "mem_p_prog3".
+        {
+          simpl.
+          by iPureIntro.
+        }
+        {
+          rewrite mem_mapsto_eq /mem_mapsto_def.
+          assert (mem_p_prog3 ⊆ σ.1.2) as Hsubseteq.
+          {
+            rewrite Hunion_mem'.
+            apply map_union_subseteq_r'.
+            assumption.
+            apply map_union_subseteq_l'.
+            apply map_union_subseteq_r'.
+            assumption.
+            done.
+          }
+          iApply (memory_list_gmap _ _ _ mem_p_prog3).
+          - rewrite fst_zip.
+            + apply finz_seq_NoDup'.
+              simpl.
+              pose proof (last_addr_in_bound p_prog3).
+              solve_finz + H0.
+            + simpl.
+              lia.
+          - apply HmemH3; done.
+          - by iFrame.
+        }
+      }
+    iSplitL "access3".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    simpl.
+    rewrite /to_frac_agree. iFrame "access3".
+    iSplitL "mb3TX".
+    rewrite mb_mapsto_eq /mb_mapsto_def /=. rewrite to_pid_aligned_eq. iFrame "mb3TX".
+    iSplitL "mb3RX'".
+    rewrite mb_mapsto_eq /mb_mapsto_def /=. rewrite !to_pid_aligned_eq. iFrame "mb3RX'".
+    iSplitL "NZ3".
+    iExists _. iExact "NZ3".
+    iSplitL "R03".
+    iExists _. iExact "R03".
+    iSplitL "R13".
+    iExists _. iExact "R13".
+    iSplitL "R23".
+    iExists _. iExact "R23".
+    iFrame "VMProp3_half".
+    done.
+   Qed.
 
 End up_adequacy.

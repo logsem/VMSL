@@ -13,6 +13,8 @@ Section instr.
   Definition str_I ra rb := encode_instruction (Str ra rb).
   Definition ldr_I ra rb := encode_instruction (Ldr ra rb).
   Definition br_I r := encode_instruction (Br r).
+  Definition cmp_word_I ra w := encode_instruction (Cmp ra (inl w)).
+  Definition bne_I r := encode_instruction (Bne r).
 
   Definition hvc_I := encode_instruction Hvc.
   Definition run_I := encode_hvc_func Run.

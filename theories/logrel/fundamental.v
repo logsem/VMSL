@@ -3,10 +3,10 @@ From machine_program_logic.program_logic Require Import weakestpre.
 From HypVeri.lang Require Import lang trans_extra.
 From HypVeri.algebra Require Import base pagetable mem trans mailbox.
 From HypVeri.rules Require Import rules_base halt fail.
-From HypVeri.logrel Require Import logrel logrel_extra.
+From HypVeri.logrel Require Import logrel logrel_extra logrel_prim_extra.
 From HypVeri.logrel Require Import ftlr_nop ftlr_mov ftlr_ldr ftlr_str ftlr_cmp ftlr_add ftlr_sub ftlr_mult ftlr_bne ftlr_br
-  ftlr_run ftlr_yield ftlr_share ftlr_lend ftlr_donate ftlr_retrieve ftlr_relinquish ftlr_reclaim
-  ftlr_msg_send ftlr_msg_wait ftlr_msg_poll ftlr_invalid_hvc.
+  ftlr_run ftlr_yield ftlr_share ftlr_lend ftlr_donate ftlr_retrieve ftlr_relinquish ftlr_reclaim ftlr_msg_send ftlr_msg_wait
+  ftlr_msg_poll ftlr_invalid_hvc.
 From HypVeri Require Import proofmode.
 Import uPred.
 
@@ -15,21 +15,25 @@ Section fundamental.
   Context `{hypparams:!HypervisorParameters}.
   Context `{vmG: !gen_VMG Σ}.
 
-  Lemma ftlr (i:VMID) :
-  ∀ p_tx p_rx ps_acc trans, interp_access i p_tx p_rx ps_acc trans ⊢ interp_execute i.
+  Lemma ftlr Φ_t Φ_r (i:VMID) :
+  ∀ p_tx p_rx ps_acc trans, interp_access i Φ_t Φ_r p_tx p_rx ps_acc trans ⊢ interp_execute i.
   Proof.
     rewrite /interp_access /=.
-    iIntros (????) "((%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & rx & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
+    iIntros (????) "(%HΦt & %HΦr1 & %HΦr2 & %HΦr3 & %HΦr4 & (%regs & %Htotal_regs & regs) & (tx & [% mem_tx]) & rx & pgt_acc & %Hsubset_mb & %Hsubset_acc & pgt_owned & tran_pgt_owned &
                            retri_owned & mem_owned & VMProp) %Hneq_0 VMProp_holds".
     iDestruct (VMProp_holds_agree i with "[$VMProp_holds $VMProp]") as "[Hres propi]".
     iEval (rewrite vmprop_unknown_eq) in "Hres".
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (trans') "Hres".
     iEval (rewrite later_exist) in "Hres". iDestruct "Hres" as (rxs') "Hres".
-    iEval (rewrite 11!later_sep) in "Hres".
-    iDestruct "Hres" as "(>%trans_rel & >trans_hpool_global & >tran_pgt_transferred &
-                         >retri & >mem_transferred & >R0z & >R1z & >R2z & (>rx_state & >[% [rx' [% mem_rx]]]) & >other_rx & >%Htotal_rxs & prop0)".
+    iEval (rewrite 9!later_sep) in "Hres".
+    iDestruct "Hres" as "(>%trans_rel & >trans_hpool_global & Φ_t & >R0z & >R1z & >R2z & Φ_r & >other_rx & >%Htotal_rxs & prop0)".
     iDestruct (get_trans_ps_disj with "[$trans_hpool_global]" ) as %Htrans_disj.
     iDestruct (get_trans_neq with "[$trans_hpool_global]" ) as %Htrans_neq.
+    rewrite big_sepSS_singleton_later /=.
+    rewrite transferred_only_equiv_later //.
+    iDestruct "Φ_t" as "(>tran_pgt_transferred & >retri & >mem_transferred)".
+    rewrite rx_state_match_equiv_later //.
+    iDestruct  "Φ_r"  as "(>rx_state & >[% [rx' [% mem_rx]]])".
     erewrite (trans_rel_secondary_retrieved_lending_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages);eauto.
     erewrite (trans_rel_secondary_currently_accessible_memory_pages) in Hsubset_acc;eauto.
@@ -223,9 +227,9 @@ Section fundamental.
                       → except i trans0 = except i trans'0
                       → (∀ (x:VMID), x ≠ i -> trans_rel_secondary x trans0 trans'0)
                       → ((∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
-                          (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans0 rxs) (1 / 2) ∗ (∃ P, VMProp i P 1)
+                          (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i Φ_t Φ_r trans0 rxs) (1 / 2) ∗ (∃ P, VMProp i P 1)
                         ⊣⊢ (∃ r1 : Addr, R0 @@ V0 ->r r1 ∗ ⌜decode_hvc_func r1 = Some Run⌝) ∗ (∃ r1 : Addr, R1 @@ V0 ->r r1 ∗ ⌜decode_vmid r1 = Some i⌝) ∗
-                             (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i trans'0 rxs'0) (1 / 2) ∗ ∃ P, VMProp i P 1)%I).
+                             (∃ r2 : Addr, R2 @@ V0 ->r r2) ∗ ▷ VMProp V0 (vmprop_zero i Φ_t Φ_r trans'0 rxs'0) (1 / 2) ∗ ∃ P, VMProp i P 1)%I).
             {
               intros.
               do 4 f_equiv.

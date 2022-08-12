@@ -29,6 +29,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
   Context (ptx1 ptx3 prx1 prx3 :PID).
   Context (ptx0 ptx2 prx0 prx2 :PID).
   Context (Hps_nd: NoDup [pprog0;pprog1;pprog2;pprog3;pshare;ptx0;ptx1;ptx2;ptx3;prx0;prx1;prx2;prx3]).
+  Context (pprog3_i : Imm) (Hpprog3_eq : of_pid pprog3 = pprog3_i).
 
   Definition up_program1 (jump : Imm) : list Word :=
     [
@@ -43,11 +44,15 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
       br_I R2
     ].
 
+
   Definition up_program3 : list Word :=
     [
-      (* Store 42 to shared page *)
+      (* read 42 from shared page *)
       mov_word_I R2 pshare_i;
+      mov_word_I R0 pprog3_i;
       ldr_I R1 R2;
+      cmp_word_I R1 fortytwo;
+      bne_I R0;
       halt_I
     ].
 
@@ -190,17 +195,17 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     }
   Qed.
 
-  Definition inv_pshare γ1 γ3 pshare : iProp Σ:=
+  Definition inv_pshare γ pshare : iProp Σ:=
    inv (N .@ "shared")
-     ((EXCL γ3 ∗ ∃ w, pshare ->a w) ∨ EXCL γ1 ∗ pshare ->a (of_imm fortytwo)).
+     ((∃ w, pshare ->a w) ∨ EXCL γ ∗ pshare ->a (of_imm fortytwo)).
 
 
-  Lemma up_machine1 jump_i γ1 γ3 :
+  Lemma up_machine1 jump_i γ :
     let program1 := up_program1 jump_i in
     of_imm (jump_i) = (pprog1 ^+ 4)%f ->
     seq_in_page (of_pid pprog1) (length program1) pprog1->
-    inv_pshare γ1 γ3 pshare ∗
-    EXCL γ1 ∗
+    inv_pshare γ pshare ∗
+    EXCL γ ∗
     (program (program1) (of_pid pprog1)) ∗
     V1 -@A> {[pprog1;pshare;ptx1;prx1]} ∗
     (* TX page *)
@@ -218,8 +223,6 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     intro. rewrite /program1.
     iIntros (Hjump HIn) "(#inv & excl1 & (p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p7 & _) & acc & tx & rx & pc & (%r0 & r0) & (%r1 & r1) & (%r2 & r2)
                    & vmprop) holds".
-    (* iDestruct (VMProp_holds_agree V1 with "[holds vmprop]") as "[P prop1]". *)
-    (* iFrame. *)
     assert (pprog1 ≠ ptx1) as Hneqtx.
     {
       intro.
@@ -244,7 +247,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     rewrite wp_sswp.
     iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑(N .@ "shared")) ⊤).
     iInv (N .@ "shared") as ">Inv" "HIClose".
-    iDestruct "Inv" as "[[excl3 (%w & share)] | [excl1' _]]".
+    iDestruct "Inv" as "[(%w & share) | [excl1' share]]".
     2:{
       iExFalso.
       iApply (excl_exclusive with "excl1 excl1'").
@@ -336,7 +339,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     set_solver +.
     rewrite HIn //. set_solver +.
     iNext. iIntros "(pc & [p7 r2] & acc & tx) _".
-    iApply ("L" with "p5 p6 p7 holds excl3 r1 rx [pc] acc tx r2 [prop1] r0").
+    iApply ("L" with "p5 p6 p7 holds r1 rx [pc] acc tx r2 [prop1] r0").
     assert (((((pprog1 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f = jump_i) as ->.
     solve_finz + Hjump.
     done.
@@ -344,12 +347,11 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
    Qed.
 
 
-  Lemma up_machine3 γ1 γ3 :
+  Lemma up_machine3 γ :
     let program3 := up_program3 in
     (* Addresses-values connection *)
     seq_in_page (of_pid pprog3) (length program3) pprog3 ->
-    inv_pshare γ1 γ3 pshare ∗
-    EXCL γ3 ∗
+    inv_pshare γ pshare ∗
     (* Mem for program *)
     (program (program3) (of_pid pprog3)) ∗
     V3 -@A> {[pprog3;pshare;ptx3;prx3]} ∗
@@ -357,6 +359,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     RX@ V3 := (tpa prx3) ∗
     (* Program counter *)
     PC @@ V3 ->r (of_pid pprog3) ∗
+    (∃ nz, NZ @@ V3 ->r nz) ∗
     (* Work registers *)
     (∃ r0, R0 @@ V3 ->r r0) ∗
     (∃ r1, R1 @@ V3 ->r r1) ∗
@@ -366,7 +369,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
            {{ (λ m, ⌜m = HaltI⌝ ∗ R1 @@ V3 ->r fortytwo)}}%I.
   Proof.
     intro. rewrite /program3.
-    iIntros (HIn) "(#inv & excl3 & (p_1 & p_2 & p_3 & _) & acc & tx & rx & pc & (%r0 & r0) & (%r1 & r1) & (%r2 & r2)
+    iIntros (HIn) "(#inv & (p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & _) & acc & tx & rx & pc & (%nz & nz) & (%r0 & r0) & (%r1 & r1) & (%r2 & r2)
                    & vmprop) holds".
     assert (pprog3 ≠ ptx3) as Hneqtx.
     {
@@ -379,48 +382,178 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
     rewrite to_pid_aligned_eq.
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     clear HIn; rename Hforall into HIn.
-    rewrite wp_sswp.
+    iLöb as "L" forall (nz r0 r1 r2) "nz r0 r1 r2".
+    iApply wp_sswp.
     iApply ((mov_word pprog3) with "[p_1 pc acc tx r2]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
     set_solver.
-    iNext. iIntros "(pc & _ & acc & tx & r2) _".
-    rewrite wp_sswp.
+    iNext. iIntros "(pc & p_1 & acc & tx & r2) _".
+    iApply wp_sswp.
+    iApply ((mov_word (pprog3 ^+ 1)%f) with "[p_2 pc acc tx r0]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+    set_solver.
+    rewrite HIn.
+    {
+      intro.
+      feed pose proof (NoDup_lookup _ 3 8 ptx3 Hps_nd).
+      simplify_eq /=. done.
+      simplify_eq /=.
+    }
+    set_solver +.
+    iNext. iIntros "(pc & p_2 & acc & tx & r0) _".
+    iApply wp_sswp.
     iApply (sswp_fupd_around _ ⊤ (⊤ ∖ ↑(N .@ "shared")) ⊤).
     iInv (N .@ "shared") as ">Inv" "HIClose".
-    iDestruct "Inv" as "[[excl3' _] | [excl1' share]]".
+    iDestruct "Inv" as "[ (% & share) | [excl1' share]]".
     {
-      iExFalso.
-      iApply (excl_exclusive with "excl3 excl3'").
-    }
-    iApply ((ldr (pprog3 ^+ 1)%f) with "[p_2 pc acc tx r1 r2 share]"); rewrite -?Hpshare_eq ?to_pid_aligned_eq; iFrameAutoSolve.
-    rewrite (HIn (pprog3 ^+ 1)%f).
-    rewrite to_pid_aligned_eq.
-    set_solver +.
-    set_solver +.
-    {
+      iApply ((ldr ((pprog3 ^+ 1) ^+ 1)%f) with "[p_3 pc acc tx r1 r2 share]"); rewrite -?Hpshare_eq ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite (HIn ((pprog3 ^+ 1) ^+ 1)%f).
       rewrite to_pid_aligned_eq.
-      intro.
-      feed pose proof (NoDup_lookup _ 4 8 ptx3 Hps_nd).
-      simplify_eq /=. done.
-      simplify_eq /=. done.
-      lia.
+      set_solver +.
+      set_solver +.
+      {
+        rewrite to_pid_aligned_eq.
+        intro.
+        feed pose proof (NoDup_lookup _ 4 8 ptx3 Hps_nd).
+        simplify_eq /=. done.
+        simplify_eq /=. done.
+        lia.
+      }
+      rewrite HIn. done.
+      set_solver +. iModIntro.
+      iNext. iIntros "(pc & p_3 & r2 & share & r1 & acc & tx)".
+      iDestruct ("HIClose" with "[share]") as ">_".
+      iNext;iLeft. iExists _; iFrame.
+      iModIntro. iIntros "_".
+      iApply wp_sswp.
+      iApply ((cmp.cmp_word (((pprog3 ^+ 1) ^+ 1) ^+ 1)%f) with "[p_4 pc nz r1 acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite (HIn (((pprog3 ^+ 1) ^+ 1) ^+ 1)%f).
+      set_solver +.
+      set_solver +.
+      rewrite (HIn (((pprog3 ^+ 1) ^+ 1) ^+ 1)%f).
+      {
+        intro.
+        feed pose proof (NoDup_lookup _ 3 8 ptx3 Hps_nd).
+        simplify_eq /=. done.
+        done.
+      }
+      set_solver +.
+      iNext. iIntros "(pc & p_4 & r1 & acc & nz & tx)".
+      (* destruct (decide (w = fortytwo)). *)
+      iIntros "_".
+      iApply wp_sswp.
+      iApply ((bne.bne ((((pprog3 ^+ 1) ^+ 1) ^+ 1) ^+1)%f) with "[p_5 pc nz r0 acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite HIn.
+      set_solver +.
+      set_solver +.
+      rewrite HIn.
+      {
+        intro.
+        feed pose proof (NoDup_lookup _ 3 8 ptx3 Hps_nd).
+        simplify_eq /=. done.
+        done.
+      }
+      set_solver +.
+      iNext. iIntros "(pc & p_5 & r0 & acc & nz & tx)".
+      iIntros "_".
+      destruct (decide (w = fortytwo)).
+      assert (w <? fortytwo = false)%f as ->.
+      solve_finz + e.
+      assert (fortytwo <? w = false)%f as ->.
+      solve_finz + e.
+      assert ((W1 =? W1)%f = true) as ->.
+      solve_finz.
+      iApply wp_sswp.
+      iApply ((halt (((((pprog3 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) with "[p_6 pc acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite HIn. set_solver +.
+      set_solver +.
+      rewrite HIn //. set_solver +.
+      iNext. iIntros "(pc & _ & acc & tx) _".
+      iApply wp_terminated. done.
+      rewrite e. iFrame "r1". done.
+      assert (((if w <? fortytwo then W2 else if fortytwo <? w then W0 else W1) =? W1) = false)%f as ->.
+      {
+        destruct (decide (w < fortytwo)%f).
+        assert (w <? fortytwo = true)%f as ->.
+        solve_finz + l.
+        solve_finz +.
+        assert (w <? fortytwo = false)%f as ->.
+        solve_finz + n n0.
+        assert (fortytwo <? w = true)%f as ->.
+        solve_finz + n n0.
+        solve_finz +.
+      }
+      iApply ("L" with "p_1 p_2 p_3 p_4 p_5 p_6 acc tx rx [pc] [vmprop] [holds] nz r0 r1 r2").
+      rewrite Hpprog3_eq. done.
+      done.
+      rewrite /VMProp_holds.
+      iDestruct "holds" as "[% [H1 H2]]".
+      iExists _. iSplitL "H1". 2:{ iExact "H2". }
+                             iNext. done.
     }
-    rewrite HIn. done.
-    set_solver +. iModIntro.
-    iNext. iIntros "(pc & _ & r2 & share & r1 & acc & tx)".
-    iDestruct ("HIClose" with "[excl1' share]") as ">_".
-    iNext;iRight. iFrame.
-    iModIntro. iIntros "_".
-    rewrite wp_sswp.
-    iApply ((halt ((pprog3 ^+ 1) ^+ 1)%f) with "[p_3 pc acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
-    rewrite HIn. set_solver +.
-    set_solver +.
-    rewrite HIn //. set_solver +.
-    iNext. iIntros "(pc & _ & acc & tx) _".
-    iApply wp_terminated. done.
-    simpl. iSplit;done.
+      iApply ((ldr ((pprog3 ^+ 1) ^+ 1)%f) with "[p_3 pc acc tx r1 r2 share]"); rewrite -?Hpshare_eq ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite (HIn ((pprog3 ^+ 1) ^+ 1)%f).
+      rewrite to_pid_aligned_eq.
+      set_solver +.
+      set_solver +.
+      {
+        rewrite to_pid_aligned_eq.
+        intro.
+        feed pose proof (NoDup_lookup _ 4 8 ptx3 Hps_nd).
+        simplify_eq /=. done.
+        simplify_eq /=. done.
+        lia.
+      }
+      rewrite HIn. done.
+      set_solver +. iModIntro.
+      iNext. iIntros "(pc & p_3 & r2 & share & r1 & acc & tx)".
+      iDestruct ("HIClose" with "[share]") as ">_".
+      iNext;iLeft. iExists _; iFrame.
+      iModIntro. iIntros "_".
+      iApply wp_sswp.
+      iApply ((cmp.cmp_word (((pprog3 ^+ 1) ^+ 1) ^+ 1)%f) with "[p_4 pc nz r1 acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite (HIn (((pprog3 ^+ 1) ^+ 1) ^+ 1)%f).
+      set_solver +.
+      set_solver +.
+      rewrite (HIn (((pprog3 ^+ 1) ^+ 1) ^+ 1)%f).
+      {
+        intro.
+        feed pose proof (NoDup_lookup _ 3 8 ptx3 Hps_nd).
+        simplify_eq /=. done.
+        done.
+      }
+      set_solver +.
+      iNext. iIntros "(pc & p_4 & r1 & acc & nz & tx)".
+      (* destruct (decide (w = fortytwo)). *)
+      iIntros "_".
+      iApply wp_sswp.
+      iApply ((bne.bne ((((pprog3 ^+ 1) ^+ 1) ^+ 1) ^+1)%f) with "[p_5 pc nz r0 acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite HIn.
+      set_solver +.
+      set_solver +.
+      rewrite HIn.
+      {
+        intro.
+        feed pose proof (NoDup_lookup _ 3 8 ptx3 Hps_nd).
+        simplify_eq /=. done.
+        done.
+      }
+      set_solver +.
+      iNext. iIntros "(pc & p_5 & r0 & acc & nz & tx)".
+      iIntros "_".
+      assert (fortytwo <? fortytwo = false)%f as ->.
+      solve_finz + .
+      assert ((W1 =? W1)%f = true) as ->.
+      solve_finz.
+      iApply wp_sswp.
+      iApply ((halt (((((pprog3 ^+ 1) ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f) with "[p_6 pc acc tx]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+      rewrite HIn. set_solver +.
+      set_solver +.
+      rewrite HIn //. set_solver +.
+      iNext. iIntros "(pc & _ & acc & tx) _".
+      iApply wp_terminated. done.
+      iFrame "r1". done.
   Qed.
 
-  Definition up_interp_access2 := interp_access (V2 : leibnizO VMID) ptx2 prx2 {[pprog2; ptx2; prx2]}
+  Definition up_interp_access2 := interp_access (V2 : leibnizO VMID) up_slice_trans up_slice_rxs ptx2 prx2 {[pprog2; ptx2; prx2]}
                                     ({[W0 := (V1, V3, {[pshare]}, Sharing, true)]}).
 
   Lemma up_ftlr2: up_interp_access2 ⊢ interp_execute V2.

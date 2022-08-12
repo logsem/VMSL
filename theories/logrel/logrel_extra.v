@@ -1874,10 +1874,10 @@ Qed.
     iPureIntro. rewrite map_union_assoc //. set_solver + Hneq_tx_rx.
   Qed.
 
-  Lemma vmprop_zero_equiv_rxs {i trans} rxs rxs' :
+  Lemma vmprop_zero_equiv_rxs {i Φ_t Φ_r trans} rxs rxs' :
   delete i rxs = delete i rxs' ->
-  VMProp V0 (vmprop_zero i trans rxs) (1 / 2) ⊣⊢
-  VMProp V0 (vmprop_zero i trans rxs') (1 / 2).
+  VMProp V0 (vmprop_zero i Φ_t Φ_r trans rxs) (1 / 2) ⊣⊢
+  VMProp V0 (vmprop_zero i Φ_t Φ_r trans rxs') (1 / 2).
   Proof.
     intro.
     rewrite /VMProp /=.
@@ -1886,16 +1886,32 @@ Qed.
     rewrite /vmprop_zero_pre.
     do 11 f_equiv.
     rewrite /return_reg_rx.
-    do 6 f_equiv.
-    done.
-    rewrite H.
+    do 4 f_equiv.
+    rewrite H //.
+    do 3 f_equiv.
+    rewrite /rx_states_global.
+    rewrite /rx_state_match.
     iStartProof. iSplit.
-    iIntros "[% ([? %Hneq] & (?&?&%&?))]".
-    iExists _. iFrame. iSplit;first done.
-    simpl in Hneq. iPureIntro. rewrite -(lookup_delete_ne _ i j) //. rewrite -H lookup_delete_ne //.
-    iIntros "[% ([? %Hneq] & (?&?&%&?))]".
-    iExists _. iFrame. iSplit;first done.
-    simpl in Hneq. iPureIntro. rewrite -(lookup_delete_ne _ i j) //. rewrite H lookup_delete_ne //.
+    iIntros "(H & % & $)".
+    destruct (decide (a4 = i)). subst a4.
+    rewrite big_sepM_insert.
+    iDestruct "H" as "[[? %] _]".
+    done.
+    apply lookup_delete.
+    rewrite H. iFrame "H".
+    rewrite -(lookup_delete_ne _ i a4) //.
+    rewrite -H.
+    rewrite lookup_delete_ne //.
+    iIntros "(H & % & $)".
+    destruct (decide (a4 = i)). subst a4.
+    rewrite big_sepM_insert.
+    iDestruct "H" as "[[? %] _]".
+    done.
+    apply lookup_delete.
+    rewrite H. iFrame "H".
+    rewrite -(lookup_delete_ne _ i a4) //.
+    rewrite H.
+    rewrite lookup_delete_ne //.
   Qed.
 
   Lemma except_only_union i trans trans':
@@ -2128,11 +2144,11 @@ Qed.
     done.
   Qed.
 
-  Lemma vmprop_zero_equiv_trans {i rxs} trans trans' :
+  Lemma vmprop_zero_equiv_trans {i Φ_t Φ_r rxs} trans trans' :
   except i trans = except i trans' ->
   (∀ x, x ≠ i -> trans_rel_secondary x trans trans') ->
-  VMProp V0 (vmprop_zero i trans rxs) (1 / 2) ⊣⊢
-  VMProp V0 (vmprop_zero i trans' rxs) (1 / 2).
+  VMProp V0 (vmprop_zero i Φ_t Φ_r trans rxs) (1 / 2) ⊣⊢
+  VMProp V0 (vmprop_zero i Φ_t Φ_r trans' rxs) (1 / 2).
   Proof.
     intros.
     rewrite /VMProp /=.
