@@ -25,7 +25,7 @@ Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
 
   Context `{hypparams: !HypervisorParameters}.
   Context (pshare:PID) (pshare_i: Imm) (Hpshare_eq: of_pid pshare = pshare_i).
-  Context (pprog0 pprog1 pprog2 pprog3:PID) (pprog1_i: Imm) (Hpprog1_eq: of_pid pprog1 = pprog1_i).
+  Context (pprog0 pprog1 pprog2 pprog3:PID).
   Context (ptx1 ptx3 prx1 prx3 :PID).
   Context (ptx0 ptx2 prx0 prx2 :PID).
   Context (Hps_nd: NoDup [pprog0;pprog1;pprog2;pprog3;pshare;ptx0;ptx1;ptx2;ptx3;prx0;prx1;prx2;prx3]).

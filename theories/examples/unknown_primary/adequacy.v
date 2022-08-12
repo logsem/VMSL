@@ -520,6 +520,17 @@ Section up_adequacy.
       rewrite hpool_mapsto_eq /hpool_mapsto_def /=.
       iSplitL;done.
     }
+
+    iEval (rewrite /get_trans_gmap /get_transactions_gmap Htrans map_fmap_singleton big_sepM_singleton /=) in "Htrans".
+    iPoseProof (trans.trans_split W0 1 (V1, V3, {[p_share]}, Sharing)) as "[HST _]".
+    iDestruct ("HST" with "[Htrans]") as "[Htrans Htrans']".
+    rewrite  trans_mapsto_eq /trans_mapsto_def.
+    {
+      iFrame. iPureIntro. split. set_solver +. rewrite /valid_transaction. simpl. done.
+    }
+
+    iClear "HST".
+
     (*   simpl. *)
     (*   iSplitR;. *)
     (*   assert ((filter (λ (kv : Addr * option transaction), kv.2 = None) σ.2) = σ.2) as Heq. *)
@@ -1199,9 +1210,30 @@ Section up_adequacy.
     iDestruct (VMProp_split with "VMProp2") as "[VMProp2_half VMProp2_half']".
     iDestruct (VMProp_split with "VMProp3") as "[VMProp3_half VMProp3_half']".
 
+    iAssert (logrel.pgt {[p_share]} 1 V1 false)%I with "[ownpshare exclpshare]" as "pgtshare".
+    {
+      rewrite /logrel.pgt. rewrite big_sepS_singleton.
+      rewrite own_mapsto_eq /own_mapsto_def.
+      rewrite excl_mapsto_eq /excl_mapsto_def.
+      iFrame.
+    }
+    
+    (* iDestruct (pgt_split_half with "pgtshare") as "[pgtshare_half pgtshare']". *)
+    iDestruct (pgt_split_quarter with "pgtshare") as "[pgtshare_quar pgtshare_quar']".
+    
     (* pose proof (@access_split rywu_vmconfig irisΣ VMG 1 V2) as Hsplit. *)
     (* rewrite access_mapsto_eq /access_mapsto_def in Hsplit. *)
     (* iDestruct "access3" as "(access3 & access3')". *)
+    iAssert ((V0, RX) ↪[ mb_gname ]□ p_rx0 ∗ (V0, RX) ↪[ mb_gname ]□ p_rx0)%I with "[mb0RX]" as "(mb0RX & mb0RX')".
+    {
+      iDestruct "mb0RX" as "#mb0RX".
+      iFrame "mb0RX".
+    }
+    iAssert ((V1, RX) ↪[ mb_gname ]□ p_rx1 ∗ (V1, RX) ↪[ mb_gname ]□ p_rx1)%I with "[mb1RX]" as "(mb1RX & mb1RX')".
+    {
+      iDestruct "mb1RX" as "#mb1RX".
+      iFrame "mb1RX".
+    }
     iAssert ((V2, RX) ↪[ mb_gname ]□ p_rx2 ∗ (V2, RX) ↪[ mb_gname ]□ p_rx2)%I with "[mb2RX]" as "(mb2RX & mb2RX')".
     {
       iDestruct "mb2RX" as "#mb2RX".
@@ -1213,8 +1245,8 @@ Section up_adequacy.
       iFrame "mb3RX".
     }
 
-    iSplitL "Hreg0 Htrans Hmem2 p_tx0 p_rx0 p_rx1 p_rx2 p_rx3 VMProp0 VMProp1_half' VMProp2_half' VMProp3_half'
-            mb0RX mb1RX mb2RX mb3RX RX0St RX1St RX2St RX3St mb0TX access0 exclp0 exclrx0 excltx0 ownp0 ownrx0 owntx0".
+    iSplitL "Hreg0 Htrans Hp Hmem2 pgtshare_quar' p_tx0 p_rx0 p_rx1 p_rx2 p_rx3 VMProp0 VMProp1_half' VMProp2_half' VMProp3_half'
+            mb0RX mb0RX' mb1RX mb2RX mb3RX RX0St RX1St RX2St RX3St mb0TX access0 exclp0 exclrx0 excltx0 ownp0 ownrx0 owntx0".
     iIntros "_".
     iPoseProof (up_ftlr0 p_share p_prog0 p_tx0 p_rx0
                 {[V0 := None; V1 := None; V2 := None; V3 := None]}) as "wp0".
@@ -1369,426 +1401,506 @@ Section up_adequacy.
       iSplitL "VMProp0".
       iExists _. iExact "VMProp0".
 
-      (* TODO *)
-   (*  } *)
+      iSplitL "Hp Htrans pgtshare_quar'".
+      rewrite /transaction_hpool_global_transferred.
+      iExists ∅.
+      iSplit. rewrite dom_singleton_L. iPureIntro. set_solver +.
+      iFrame "Hp". rewrite big_sepM_singleton.
+      simpl. iFrame "Htrans".
+      case_bool_decide. exfalso. apply H0;auto.
+      iFrame.
 
-   (*  iDestruct (lending_machine0 p_prog1 p_tx1 p_prog3 p_tx3 p_rx1 p_rx2 p_rx3 addr txbase rxbase with "[-]") as "HWP". *)
-   (*  { *)
-   (*    assumption. *)
-   (*  } *)
-   (*  { *)
-   (*    assumption. *)
-   (*  } *)
-   (*  { *)
-   (*    assumption. *)
-   (*  } *)
-   (*  { *)
-   (*    solve_NoDup 0. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros <-. *)
-   (*    solve_NoDup_pre'' 6 9. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros <-. *)
-   (*    solve_NoDup_pre'' 0 9. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros <-. *)
-   (*    solve_NoDup_pre'' 3 9. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros <-. *)
-   (*    solve_NoDup_pre'' 3 6. *)
-   (*  } *)
-   (*  { *)
-   (*    program_in_seq. *)
-   (*  } *)
-   (*  { *)
-   (*    iSplitL "mem_p_prog1". *)
-   (*    { *)
-   (*      unfold program. *)
-   (*      iEval (rewrite big_opM_map_to_list) in "mem_p_prog1". *)
-   (*      rewrite big_sepL2_alt. *)
-   (*      iSplitR "mem_p_prog1". *)
-   (*      { *)
-   (*        simpl. *)
-   (*        by iPureIntro. *)
-   (*      } *)
-   (*      { *)
-   (*        rewrite mem_mapsto_eq /mem_mapsto_def. *)
-   (*        assert (mem_p_prog1 ⊆ σ.1.2) as Hsubseteq. *)
-   (*        { *)
-   (*          rewrite Hunion_mem'. *)
-   (*          apply map_union_subseteq_r'. *)
-   (*          assumption. *)
-   (*          apply map_union_subseteq_r'. *)
-   (*          assumption. *)
-   (*          done. *)
-   (*        } *)
-   (*        iApply (memory_list_gmap _ _ _ mem_p_prog1 σ). *)
-   (*        - rewrite fst_zip. *)
-   (*          + apply finz_seq_NoDup'. *)
-   (*            simpl. *)
-   (*            pose proof (last_addr_in_bound p_prog1). *)
-   (*            solve_finz. *)
-   (*          + simpl. *)
-   (*            lia. *)
-   (*        - apply HmemH1; done. *)
-   (*        - by iFrame. *)
-   (*      } *)
-   (*    } *)
-   (*    iSplitL "mem_p". *)
-   (*    { *)
-   (*      rewrite mem_mapsto_eq /mem_mapsto_def. *)
-   (*      assert (mem ⊆ σ.1.2) as Hsubseteq. *)
-   (*      { *)
-   (*        rewrite Hunion_mem'. *)
-   (*        apply map_union_subseteq_r'. *)
-   (*        assumption. *)
-   (*        apply map_union_subseteq_l'. *)
-   (*        apply map_union_subseteq_l'. *)
-   (*        apply map_union_subseteq_r'. *)
-   (*        assumption. *)
-   (*        done. *)
-   (*      } *)
-   (*      assert (of_imm addr ∈ set_of_addr {[tpa addr]}) as H. *)
-   (*      { *)
-   (*        apply elem_of_set_of_addr with (tpa addr). *)
-   (*        apply elem_of_addr_of_page_tpa. *)
-   (*        set_solver +. *)
-   (*      } *)
-   (*      rewrite <-Hdom_mem_p in H. *)
-   (*      rewrite elem_of_dom in H. *)
-   (*      destruct H as [waddr Hwaddr]. *)
-   (*      iDestruct (big_sepM_delete _ mem addr waddr with "mem_p") as "(mem & memacc)". *)
-   (*      assumption. *)
-   (*      iExists waddr. *)
-   (*      iFrame. *)
-   (*    } *)
-   (*    iSplitL "p_tx1". *)
-   (*    { *)
-   (*      unfold memory_page. *)
-   (*      iExists mem_p_tx1. iSplit. rewrite Hdom_mem_p_tx1. iPureIntro. *)
-   (*      rewrite set_of_addr_singleton. *)
-   (*      rewrite to_pid_aligned_eq. *)
-   (*      reflexivity. *)
-   (*      rewrite mem_mapsto_eq /mem_mapsto_def /=. *)
-   (*      iFrame. *)
-   (*    } *)
-   (*    rewrite rx_state_mapsto_eq /rx_state_mapsto_def /=. *)
-   (*    iFrame "RX0St RX1St RX2St". *)
-   (*    unfold rx_page. *)
-   (*    rewrite mb_mapsto_eq /mb_mapsto_def /=. *)
-   (*    rewrite to_pid_aligned_eq. *)
-   (*    iFrame "mb0TX". *)
-   (*    iFrame "PCz". *)
-   (*    rewrite access_mapsto_eq /access_mapsto_def /=. *)
-   (*    rewrite big_sepS_singleton. *)
-   (*    iSplitL "excl6 own6". *)
-   (*    { *)
-   (*      rewrite excl_mapsto_eq own_mapsto_eq /excl_mapsto_def /own_mapsto_def /=. *)
-   (*      iFrame. *)
-   (*    } *)
-   (*    iSplitL "access1". *)
-   (*    { *)
-   (*      assert ({[tpa addr; p_prog1; p_tx1]} = {[tpa addr]} ∪ {[p_prog1; p_tx1]}) as ->. *)
-   (*      { *)
-   (*        set_solver +. *)
-   (*      } *)
-   (*      iFrame. *)
-   (*    } *)
-   (*    iSplitL "R0z". *)
-   (*    iExists r0_; iFrame. *)
-   (*    iSplitL "R1z". *)
-   (*    iExists r1_; iFrame. *)
-   (*    iSplitL "R2z". *)
-   (*    iExists r2_; iFrame. *)
-   (*    iSplitL "R3z". *)
-   (*    iExists r3_; iFrame. *)
-   (*    iSplitL "R4z". *)
-   (*    iExists r4_; iFrame. *)
-   (*    iSplitL "R5z". *)
-   (*    iExists r5_; iFrame. *)
-   (*    iFrame "VMProp0". *)
-   (*    iFrame "VMProp1_half'". *)
-   (*    iFrame "VMProp2_half'". *)
-   (*    iFrame "Hp". *)
-   (*    iFrame. *)
+      iSplit. iPureIntro.
+      rewrite /base_extra.is_total_gmap.
+      intro. pose proof (in_list_of_vmids k).
+      rewrite /list_of_vmids /= in H0.
+      clear -H0.
+      repeat destruct H0 as [<- | H0];
+      exists None;
+      simplify_map_eq;auto. done.
 
-   (*    iSplitL "p_rx1 excl1 own1". *)
-   (*    iSplitR "p_rx1". *)
-   (*    rewrite excl_mapsto_eq own_mapsto_eq /excl_mapsto_def /own_mapsto_def /=. *)
-   (*    iFrame. *)
-   (*    unfold memory_page. *)
-   (*    iExists mem_p_rx1. iSplit. rewrite Hdom_mem_p_rx1. iPureIntro. *)
-   (*    apply set_of_addr_singleton. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def /=. *)
-   (*    iFrame "p_rx1". *)
-   (*    iSplitL "p_rx2 excl2 own2". *)
-   (*    iSplitR "p_rx2". *)
-   (*    rewrite excl_mapsto_eq own_mapsto_eq /excl_mapsto_def /own_mapsto_def /=. *)
-   (*    iFrame. *)
-   (*    unfold memory_page. *)
-   (*    iExists mem_p_rx2. iSplit. rewrite Hdom_mem_p_rx2. iPureIntro. *)
-   (*    apply set_of_addr_singleton. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def /=. *)
-   (*    iFrame "p_rx2". *)
+      iSplitL "p_rx0 p_rx1 p_rx2 p_rx3 mb0RX' mb1RX mb2RX mb3RX RX0St RX1St RX2St RX3St".
+      {
+        rewrite /rx_states_global.
+        rewrite !big_sepM_insert.
+        rewrite /rx_state_match /=.
+        rewrite rx_state_mapsto_eq /rx_state_mapsto_def /=.
+        rewrite mb_mapsto_eq /mb_mapsto_def /=.
+        iSplitL "p_rx0 mb0RX' RX0St".
+        iSplitL "RX0St". iFrame.
+        iExists p_rx0. iFrame.
+        iExists mem_p_rx0.
+        rewrite /memory_page.
+        iSplit.
+        iPureIntro. rewrite Hdom_mem_p_rx0. rewrite set_of_addr_singleton //.
+        rewrite mem_mapsto_eq /mem_mapsto_def /=. 
+        iFrame.
+        iSplitL "p_rx1 mb1RX RX1St".
+        iSplitL "RX1St". iFrame.
+        iExists p_rx1. iFrame.
+        iExists mem_p_rx1.
+        rewrite /memory_page.
+        iSplit.
+        iPureIntro. rewrite Hdom_mem_p_rx1. rewrite set_of_addr_singleton //.
+        rewrite mem_mapsto_eq /mem_mapsto_def /=. 
+        iFrame.
+        iSplitL "p_rx2 mb2RX RX2St".
+        iSplitL "RX2St". iFrame.
+        iExists p_rx2. iFrame.
+        iExists mem_p_rx2.
+        rewrite /memory_page.
+        iSplit.
+        iPureIntro. rewrite Hdom_mem_p_rx2. rewrite set_of_addr_singleton //.
+        rewrite mem_mapsto_eq /mem_mapsto_def /=. 
+        iFrame.
+        iSplitR "".
+        iSplitL "RX3St". iFrame.
+        iExists p_rx3. iFrame.
+        iExists mem_p_rx3.
+        rewrite /memory_page.
+        iSplit.
+        iPureIntro. rewrite Hdom_mem_p_rx3. rewrite set_of_addr_singleton //.
+        rewrite mem_mapsto_eq /mem_mapsto_def /=. 
+        iFrame.
+        rewrite big_sepM_empty //.
+        rewrite lookup_empty //.
+        clear. simplify_map_eq /=. auto.
+        clear. simplify_map_eq /=. auto.
+        clear. simplify_map_eq /=. auto.
+      }
 
-   (*    unfold memory_page. *)
-   (*    iExists mem_p_rx3. iSplit. rewrite Hdom_mem_p_rx3. iPureIntro. *)
-   (*    apply set_of_addr_singleton. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def /=. *)
-   (*    iFrame "p_rx3". *)
-   (*  } *)
+      iSplitR.
+      rewrite /rx_states_transferred.
+      rewrite !big_sepM_insert.
+      repeat (iSplit;first auto).
+      rewrite big_sepM_empty //.
+      rewrite lookup_empty //.
+      clear. simplify_map_eq /=. auto.
+      clear. simplify_map_eq /=. auto.
+      clear. simplify_map_eq /=. auto.
+      
+      iSplitR.
+      rewrite /big_sepSS.
+      rewrite /set_of_vmids.
+      simpl.
+      rewrite !big_sepS_union;try set_solver +.
+      rewrite !big_sepS_singleton.
+      rewrite big_sepS_empty.
+      iSplitL.
+      rewrite !big_sepS_union;try set_solver +.
+      rewrite !big_sepS_singleton.
+      rewrite big_sepS_empty.
+      rewrite /up_slice_trans /=.
+      rewrite /slice_transfer_all.
+      rewrite /transaction_pagetable_entries_transferred_slice.
+      rewrite /retrievable_transaction_transferred_slice.
+      rewrite /transferred_memory_slice.
+      rewrite /big_sepFM.
+      repeat (rewrite map_filter_singleton_False;[|simpl; try (intros [[? _] _]; done)]).
+      rewrite !big_sepM_empty.
+      rewrite !bi.sep_emp. done.
+      intros [? _]. done.
+      intros [? _]. done.
+      intros [? _]. done.
+      intros [? _]. done.
+      iSplitL.
+      rewrite !big_sepS_union;try set_solver +.
+      rewrite !big_sepS_singleton.
+      rewrite big_sepS_empty.
+      rewrite /up_slice_trans /=.
+      rewrite /slice_transfer_all.
+      rewrite /transaction_pagetable_entries_transferred_slice.
+      rewrite /retrievable_transaction_transferred_slice.
+      rewrite /transferred_memory_slice.
+      rewrite /big_sepFM.
+      iSplitL. repeat (rewrite map_filter_singleton_False;[|simpl; try (intros [[_ ?] _]; done)]).
+      rewrite !big_sepM_empty.
+      rewrite !bi.sep_emp. done.
+      intros [_ ?]. done.
+      iSplitL. repeat (rewrite map_filter_singleton_False;[|simpl; try (intros [[_ ?] _]; done)]).
+      rewrite !big_sepM_empty.
+      rewrite !bi.sep_emp. done.
+      intros [_ ?]. done.
+      iSplitL. repeat (rewrite map_filter_singleton_False;[|simpl; try (intros [[_ ?] _]; done)]).
+      rewrite !big_sepM_empty.
+      rewrite !bi.sep_emp. done.
+      intros [_ ?]. done. iSplit. done. done.
+      iSplitL.
+      rewrite !big_sepS_union;try set_solver +.
+      rewrite big_sepS_empty.
+      rewrite !big_sepS_singleton.
+      rewrite /up_slice_trans /=.
+      rewrite /slice_transfer_all.
+      rewrite /transaction_pagetable_entries_transferred_slice.
+      rewrite /retrievable_transaction_transferred_slice.
+      rewrite /transferred_memory_slice.
+      rewrite /big_sepFM.
+      repeat (rewrite map_filter_singleton_False;[|simpl; try (intros [[? _] _]; done)]).
+      rewrite !big_sepM_empty.
+      rewrite !bi.sep_emp. done.
+      intros [? _]. done.
+      intros [? _]. done.
+      intros [? _]. done.
+      intros [? _]. done.
+      rewrite !big_sepS_union;try set_solver +.
+      rewrite big_sepS_empty.
+      rewrite !big_sepS_singleton.
+      rewrite /up_slice_trans /=.
+      rewrite /slice_transfer_all.
+      rewrite /transaction_pagetable_entries_transferred_slice.
+      rewrite /retrievable_transaction_transferred_slice.
+      rewrite /transferred_memory_slice.
+      rewrite /big_sepFM.
+      repeat (rewrite map_filter_singleton_False;[|simpl; try (intros [[? _] _]; done)]).
+      rewrite !big_sepM_empty.
+      rewrite !bi.sep_emp. done.
+      intros [? _]. done.
+      intros [? _]. done.
+      intros [? _]. done.
 
-   (*  iApply (wp_mono with "HWP"). *)
-   (*  intros k. *)
-   (*  simpl. *)
-   (*  iIntros "[$ _]". *)
 
-   (*  iSplitL "VMProp1_half PC1 R01 R11 R21 R31 R41 R51 mem_p_prog2 p_tx2 mb1TX access2". *)
-   (*  iApply (lending_machine1 p_prog2 p_tx2 p_rx2 addr rxbase). *)
-   (*  { *)
-   (*    assumption. *)
-   (*  } *)
-   (*  { *)
-   (*    assumption. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros contra. *)
-   (*    rewrite !elem_of_union in contra. *)
-   (*    rewrite !elem_of_singleton in contra. *)
-   (*    destruct contra as [[H | H] | H]; subst. *)
-   (*    solve_NoDup_pre'' 1 9. *)
-   (*    solve_NoDup_pre'' 1 4. *)
-   (*    solve_NoDup_pre'' 1 7. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros contra. *)
-   (*    subst. *)
-   (*    solve_NoDup_pre'' 7 9. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros contra. *)
-   (*    subst. *)
-   (*    solve_NoDup_pre'' 1 9. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros contra. *)
-   (*    subst. *)
-   (*    solve_NoDup_pre'' 4 9. *)
-   (*  } *)
-   (*  { *)
-   (*    clear -Hnodup_p. *)
-   (*    intros contra. *)
-   (*    subst. *)
-   (*    solve_NoDup_pre'' 4 7. *)
-   (*  } *)
-   (*  { *)
-   (*    program_in_seq. *)
-   (*  } *)
-   (*  iFrame. *)
-   (*  iSplitL "mem_p_prog2". *)
-   (*  unfold program. *)
-   (*  iEval (rewrite big_opM_map_to_list) in "mem_p_prog2". *)
-   (*  rewrite big_sepL2_alt. *)
-   (*  iSplit; first done. *)
-   (*  rewrite mem_mapsto_eq /mem_mapsto_def. *)
-   (*  { *)
-   (*    assert (mem_p_prog2 ⊆ σ.1.2) as Hsubseteq. *)
-   (*    { *)
-   (*      rewrite Hunion_mem'. *)
-   (*      apply map_union_subseteq_r'. *)
-   (*      assumption. *)
-   (*      apply map_union_subseteq_l'. *)
-   (*      apply map_union_subseteq_r'. *)
-   (*      assumption. *)
-   (*      done. *)
-   (*    } *)
-   (*    iApply (memory_list_gmap _ _ _ mem_p_prog2 σ). *)
-   (*    - rewrite fst_zip. *)
-   (*      + apply finz_seq_NoDup'. *)
-   (*        simpl. *)
-   (*        pose proof (last_addr_in_bound p_prog2). *)
-   (*        solve_finz. *)
-   (*      + simpl. *)
-   (*        lia. *)
-   (*    - apply HmemH2; done. *)
-   (*    - by iFrame. *)
-   (*  } *)
-   (*  iSplitL "p_tx2". *)
-   (*  { *)
-   (*    unfold memory_page. *)
-   (*    iExists mem_p_tx2. iSplit. rewrite Hdom_mem_p_tx2. iPureIntro. *)
-   (*    rewrite set_of_addr_singleton. *)
-   (*    rewrite to_pid_aligned_eq. *)
-   (*    reflexivity. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def /=. *)
-   (*    iFrame. *)
-   (*  } *)
+      rewrite /set_of_vmids.
+      simpl.
+      clear.
+      set S := (( _ ∖ {[V0]})).
+      assert (S = ({[V1]} ∪ ({[V2]} ∪ ({[V3]}: gset VMID)))) as ->.
+      rewrite /S. set_solver +.
+      rewrite !big_sepS_union.
+      rewrite !big_sepS_singleton.
+      iFrame.
+      set_solver +.
+      set_solver +.
+    }
 
-   (*  iSplitL "access2". *)
-   (*  { *)
-   (*    rewrite access_mapsto_eq /access_mapsto_def. *)
-   (*    simpl. *)
-   (*    rewrite !to_pid_aligned_eq. *)
-   (*    iFrame "access2". *)
-   (*  } *)
+    (* VM1 *)
+    iSplitL "Htrans' mem_p_prog1 token1 mb1TX mb1RX' VMProp1_half access1 PC1 R01 R11 R21".
+    iIntros "hold".
+    iPoseProof (up_machine1 _ _ _  _  _ _ _ _ _  _ _ _ _ _  _ Hps_nd (⊤.@"share") _ γ1 γ3) as "wp1".
+    exact Hjump_eq. simpl. rewrite /seq_in_page. repeat (split; first try solve_finz +).
+    rewrite Z.leb_refl. done.
+    pose proof (last_addr_in_bound p_prog1). solve_finz + H0.
+    pose proof (last_addr_in_bound p_prog1).
+    assert (((p_prog1 ^+ (7%nat - 1))%f <=? (p_prog1 ^+ (1000 - 1))%f)%Z = true).
+    solve_finz + H0.
+    rewrite H1. done.
+    iSimpl in "wp1".
+    iApply ("wp1" with "[Htrans' mem_p_prog1 token1 mb1TX mb1RX' VMProp1_half access1 PC1 R01 R11 R21] hold").
+    iSplitR.
+    rewrite /inv_pshare.
+    iFrame "Hinv".
+    iFrame "token1 PC1".
+    iSplitL "mem_p_prog1".
+      {
+        unfold program.
+        iEval (rewrite big_opM_map_to_list) in "mem_p_prog1".
+        rewrite big_sepL2_alt.
+        iSplitR "mem_p_prog1".
+        {
+          simpl.
+          by iPureIntro.
+        }
+        {
+          rewrite mem_mapsto_eq /mem_mapsto_def.
+          assert (mem_p_prog1 ⊆ σ.1.2) as Hsubseteq.
+          {
+            rewrite Hunion_mem'.
+            apply map_union_subseteq_r'.
+            assumption.
+            apply map_union_subseteq_r'.
+            assumption.
+            done.
+          }
+          iApply (memory_list_gmap _ _ _ mem_p_prog1).
+          - rewrite fst_zip.
+            + apply finz_seq_NoDup'.
+              simpl.
+              pose proof (last_addr_in_bound p_prog1).
+              solve_finz + H0.
+            + simpl.
+              lia.
+          - apply HmemH1; done.
+          - by iFrame.
+        }
+      }
+    iSplitL "access1".
+    rewrite access_mapsto_eq /access_mapsto_def.
+    simpl.
+    rewrite /to_frac_agree. iFrame "access1".
+    iSplitL "mb1TX".
+    rewrite mb_mapsto_eq /mb_mapsto_def /=. rewrite to_pid_aligned_eq. iFrame "mb1TX".
+    iSplitL "mb1RX'".
+    rewrite mb_mapsto_eq /mb_mapsto_def /=. rewrite !to_pid_aligned_eq. iFrame "mb1RX'".
+    iSplitL "R01".
+    iExists _. iExact "R01".
+    iSplitL "R11".
+    iExists _. iExact "R11".
+    iSplitL "R21".
+    iExists _. iExact "R21".
+    iFrame "VMProp1_half".
 
-   (*  iSplitL "mb1TX". *)
-   (*  { *)
-   (*    rewrite mb_mapsto_eq /mb_mapsto_def /=. *)
-   (*    rewrite to_pid_aligned_eq. *)
-   (*    iFrame. *)
-   (*  } *)
+    (* VM2 *)
+    iSplitL "Hreg2 p_prog0 p_tx2 VMProp2_half
+            mb2RX' mb2TX access2 exclp2 exclrx2 excltx2 ownp2 ownrx2 owntx2".
+    iIntros "hold".
+    iPoseProof (up_ftlr2 p_share p_prog2 p_tx2 p_rx2) as "wp2".
+    rewrite /interp_execute.
+    iSimpl in "wp2".
+    iApply ("wp2" with "[Hreg2 p_prog0 p_tx2 VMProp2_half mb2RX' mb2TX access2 exclp2 exclrx2 excltx2 ownp2 ownrx2 owntx2] [] hold"). iClear "wp2".
+    rewrite /up_interp_access2. rewrite /interp_access.
+    {
+      iSplitL "Hreg2".
+      iExists (get_reg_files σ !!! V2).
+      unfold get_reg_gmap_vm.
+      iSplit.
+      iPureIntro.
+      unfold base_extra.is_total_gmap.
+      apply Htotal_reg.
+      simpl.
+      {
+        set g := (λ p0 : reg_name * Addr, (p0.1, 2%fin, p0.2)).
+        unfold V2. simpl.
+        set l := (σ.1.1.1.1.1 !!! 2%fin).
+        iEval (rewrite big_opM_map_to_list) in "Hreg2".
+        rewrite map_to_list_to_map.
+        rewrite big_opL_fmap.
+        subst g.
+        simpl.
+        rewrite big_opM_map_to_list.
+        iFrame "Hreg2".
+        subst g.
+        apply NoDup_fmap_fst.
+        intros [x1 x2] y1 y2 Hh Hh'.
+        rewrite elem_of_list_In in Hh.
+        rewrite elem_of_list_In in Hh'.
+        rewrite in_map_iff in Hh.
+        rewrite in_map_iff in Hh'.
+        destruct Hh as [(x & x') [Hheq Hh]].
+        destruct Hh' as [(t & t') [Hh'eq Hh']].
+        simpl in Hheq.
+        simpl in Hh'eq.
+        inversion Hheq.
+        inversion Hh'eq.
+        simplify_eq.
+        clear Hheq Hh'eq.
+        rewrite <-elem_of_list_In in Hh.
+        rewrite <-elem_of_list_In in Hh'.
+        apply map_to_list_unique with l x1; auto.
+        apply NoDup_fmap_2.
+        intros a b abeq.
+        inversion abeq.
+        destruct a, b; simpl in *.
+        by simplify_eq.
+        apply NoDup_map_to_list.
+      }
+      iSplitL "mb2TX p_tx2 excltx2 owntx2".
+      unfold tx_page.
+      iSplitR "p_tx2".
+      rewrite mb_mapsto_eq /mb_mapsto_def.
+      rewrite excl_mapsto_eq own_mapsto_eq /excl_mapsto_def /own_mapsto_def.
+      iSimpl. iFrame.
+      iExists mem_p_tx2.
+      unfold memory_page. iSplit. iPureIntro.
+      rewrite Hdom_mem_p_tx2.
+      apply set_of_addr_singleton.
+      rewrite mem_mapsto_eq /mem_mapsto_def.
+      iFrame "p_tx2".
+      rewrite access_mapsto_eq /access_mapsto_def /=.
+      iFrame "access2".
+      unfold rx_page.
 
-   (*  iSplitL "R01". *)
-   (*  iExists r0__. *)
-   (*  iFrame. *)
-   (*  iSplitL "R11". *)
-   (*  iExists r1__. *)
-   (*  iFrame. *)
-   (*  iSplitL "R21". *)
-   (*  iExists r2__. *)
-   (*  iFrame. *)
-   (*  iSplitL "R31". *)
-   (*  iExists r3__. *)
-   (*  iFrame. *)
-   (*  iSplitL "R41". *)
-   (*  iExists r4__. *)
-   (*  iFrame. *)
-   (*  iExists r5__. *)
-   (*  iFrame. *)
+      iSplitL "mb2RX' exclrx2 ownrx2".
+      {
+        rewrite excl_mapsto_eq /excl_mapsto_def.
+        rewrite own_mapsto_eq /own_mapsto_def.
+        rewrite mb_mapsto_eq /mb_mapsto_def.
+        iFrame.
+      }
 
-   (*  iSplitR ""; last done. *)
-   (*  iApply (mtms_ftlr p_prog3 p_tx3 p_rx3 with "[-] []"). *)
-   (*  2: { iPureIntro. cbn. done. } *)
-   (*  { rewrite /mtms_interp_access /interp_access. *)
-   (*    iSplitL "Hreg2". *)
-   (*    iExists (get_reg_files σ !!! V2). *)
-   (*    unfold get_reg_gmap_vm. *)
-   (*    iSplit. *)
-   (*    iPureIntro. *)
-   (*    unfold base_extra.is_total_gmap. *)
-   (*    apply Htotal_reg. *)
-   (*    simpl. *)
-   (*    { *)
-   (*      set g := (λ p0 : reg_name * Addr, (p0.1, 2%fin, p0.2)). *)
-   (*      unfold V2. *)
-   (*      simpl. *)
-   (*      set l := (σ.1.1.1.1.1 !!! 2%fin). *)
-   (*      iEval (rewrite big_opM_map_to_list) in "Hreg2". *)
-   (*      rewrite map_to_list_to_map. *)
-   (*      rewrite big_opL_fmap. *)
-   (*      subst g. *)
-   (*      simpl. *)
-   (*      rewrite big_opM_map_to_list. *)
-   (*      iFrame "Hreg2". *)
-   (*      subst g. *)
-   (*      apply NoDup_fmap_fst. *)
-   (*      intros [x1 x2] y1 y2 Hh Hh'. *)
-   (*      rewrite elem_of_list_In in Hh. *)
-   (*      rewrite elem_of_list_In in Hh'. *)
-   (*      rewrite in_map_iff in Hh. *)
-   (*      rewrite in_map_iff in Hh'. *)
-   (*      destruct Hh as [(x & x') [Hheq Hh]]. *)
-   (*      destruct Hh' as [(t & t') [Hh'eq Hh']]. *)
-   (*      simpl in Hheq. *)
-   (*      simpl in Hh'eq. *)
-   (*      inversion Hheq. *)
-   (*      inversion Hh'eq. *)
-   (*      simplify_eq. *)
-   (*      clear Hheq Hh'eq. *)
-   (*      rewrite <-elem_of_list_In in Hh. *)
-   (*      rewrite <-elem_of_list_In in Hh'. *)
-   (*      apply map_to_list_unique with l x1; auto. *)
-   (*      apply NoDup_fmap_2. *)
-   (*      intros a b abeq. *)
-   (*      inversion abeq. *)
-   (*      destruct a, b; simpl in *. *)
-   (*      by simplify_eq. *)
-   (*      apply NoDup_map_to_list. *)
-   (*    } *)
-   (*    iFrame "VMProp2_half". *)
-   (*    rewrite difference_empty_L. *)
-   (*    unfold transaction_pagetable_entries_owned. *)
-   (*    unfold retrieved_transaction_owned. *)
-   (*    unfold big_sepFM. simpl. *)
-   (*    rewrite map_filter_empty. *)
-   (*    rewrite !big_sepM_empty. *)
-   (*    assert (({[p_prog3; p_tx3; p_rx3]} ∖ {[p_rx3; p_tx3]}) = {[p_prog3]}) as ->. *)
-   (*    { *)
-   (*      rewrite !difference_union_distr_l_L. *)
-   (*      rewrite difference_disjoint_L. *)
-   (*      assert ({[p_tx3]} ∖ {[p_rx3; p_tx3]} = ∅) as ->. *)
-   (*      { set_solver +. } *)
-   (*      assert ({[p_rx3]} ∖ {[p_rx3; p_tx3]} = ∅) as ->. *)
-   (*      { set_solver +. } *)
-   (*      set_solver +. *)
-   (*      apply disjoint_singleton_l. *)
-   (*      intros contra. *)
-   (*      rewrite elem_of_union in contra. *)
-   (*      rewrite !elem_of_singleton in contra. *)
-   (*      solve_NoDup_pre'. *)
-   (*      solve_NoDup_pre'' 2 8. *)
-   (*      solve_NoDup_pre'' 2 5. *)
-   (*    } *)
-   (*    unfold pagetable_entries_excl_owned. *)
-   (*    unfold logrel.pgt. *)
-   (*    rewrite !big_sepS_singleton. *)
-   (*    unfold tx_page. *)
-   (*    iSplitL "mb2TX p_tx3 excl4 own4". *)
-   (*    iSplitR "p_tx3". *)
-   (*    rewrite mb_mapsto_eq /mb_mapsto_def. *)
-   (*    rewrite excl_mapsto_eq own_mapsto_eq /excl_mapsto_def /own_mapsto_def. *)
-   (*    iFrame. *)
-   (*    iExists mem_p_tx3. unfold memory_page. iSplit. iPureIntro. *)
-   (*    rewrite Hdom_mem_p_tx3. *)
-   (*    apply set_of_addr_singleton. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def. *)
-   (*    iFrame "p_tx3". *)
-   (*    rewrite access_mapsto_eq /access_mapsto_def /=. *)
-   (*    assert ({[p_tx3; p_rx3; p_prog3]} = {[p_prog3; p_tx3; p_rx3]}) as -> by set_solver +. *)
-   (*    iFrame "access3". *)
-   (*    unfold rx_page. *)
+      iSplit. iPureIntro. set_solver +.
+      iSplit. iPureIntro. set_solver +.
+      assert (({[p_prog2; p_tx2; p_rx2]} ∖ {[p_rx2; p_tx2]}) = {[p_prog2]}) as ->.
+      {
+        rewrite !difference_union_distr_l_L.
+        rewrite difference_disjoint_L.
+        assert ({[p_tx2]} ∖ {[p_rx2; p_tx2]} = ∅) as ->.
+        { set_solver +. }
+        assert ({[p_rx2]} ∖ {[p_rx2; p_tx2]} = ∅) as ->.
+        { set_solver +. }
+        set_solver +.
+        apply disjoint_singleton_l.
+        intros contra.
+        rewrite elem_of_union in contra.
+        rewrite !elem_of_singleton in contra.
+        solve_NoDup 2.
+      }
+      assert (currently_accessible_in_trans_memory_pages V2 {[W0 := (V1, V3, {[p_share]}, Sharing, true)]} = ∅) as ->.
+      {
+        rewrite /currently_accessible_in_trans_memory_pages.
+        rewrite map_filter_singleton_False.
+        apply pages_in_trans_empty.
+        simpl. intro.
+        destruct H0 as [[] | []].
+        inversion H0.
+        inversion H0.
+      }
+      rewrite difference_empty_L.
 
-   (*    iSplitL "mb2RX' excl3 own3". *)
-   (*    { *)
-   (*      rewrite excl_mapsto_eq /excl_mapsto_def. *)
-   (*      rewrite own_mapsto_eq /own_mapsto_def. *)
-   (*      rewrite mb_mapsto_eq /mb_mapsto_def. *)
-   (*      iFrame. *)
-   (*    } *)
+      iSplitL "exclp2 ownp2".
+      {
+        unfold pagetable_entries_excl_owned.
+        unfold logrel.pgt.
+        rewrite big_sepS_singleton.
+        rewrite excl_mapsto_eq /excl_mapsto_def.
+        rewrite own_mapsto_eq /own_mapsto_def.
+        iFrame.
+      }
 
-   (*    iSplit. iPureIntro. set_solver +. *)
-   (*    iSplit. iPureIntro. set_solver +. *)
+      unfold transaction_pagetable_entries_owned.
+      unfold retrieved_transaction_owned.
+      unfold big_sepFM. simpl.
+      rewrite !map_filter_singleton_False.
+      rewrite !big_sepM_empty.
+      iSplit; first done.
+      iSplit; first done.
+      2:{
+        intros []. done.
+      }
+      2:{
+        intros []. done.
+      }
 
-   (*    iSplitL "excl5 own5". *)
-   (*    { *)
-   (*      rewrite excl_mapsto_eq /excl_mapsto_def. *)
-   (*      rewrite own_mapsto_eq /own_mapsto_def. *)
-   (*      iFrame. *)
-   (*    } *)
+      assert (retrieved_lending_memory_pages V2 {[W0 := (V1, V3, {[p_share]}, Sharing, true)]} = ∅) as ->.
+      {
+        rewrite /retrieved_lending_memory_pages.
+        rewrite map_filter_singleton_False.
+        apply pages_in_trans_empty.
+        simpl. intros [? _]. done.
+      }
 
-   (*    iSplit; first done. *)
-   (*    iSplit; first done. *)
+      rewrite union_empty_r_L.
+      iSplitL "p_prog0".
 
-   (*    iExists mem5. unfold memory_pages. iSplit. *)
-   (*    iPureIntro. *)
-   (*    rewrite /retrieved_lending_memory_pages. *)
-   (*    rewrite map_filter_empty pages_in_trans_empty union_empty_r_L //. *)
-   (*    rewrite mem_mapsto_eq /mem_mapsto_def. *)
-   (*    iFrame "Hmem2". *)
-   (*  } *)
+      iExists mem_p_prog2. unfold memory_pages. iSplit.
+      iPureIntro. done.
+      rewrite mem_mapsto_eq /mem_mapsto_def.
+      iFrame "p_prog0".
+      iAssert (⌜vmprop_unknown V2 up_slice_trans up_slice_rxs {[W0 := (V1, V3, {[p_share]}, Sharing, true)]} ⊣⊢
+   logrel.vmprop_unknown V2 {[W0 := (V1, V3, {[p_share]}, Sharing, true)]}⌝)%I as "%Heq".
+      iPureIntro.
+      rewrite vmprop_unknown_eq.
+      rewrite logrel.vmprop_unknown_eq.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      assert (transaction_pagetable_entries_transferred V2 a ∗ retrievable_transaction_transferred V2 a ∗
+  (∃ mem_trans : lang.mem, memory_pages (transferred_memory_pages V2 a) mem_trans) ⊣⊢ big_sepSS_singleton set_of_vmids V2 (up_slice_trans a)).
+      admit.
+      rewrite -H0.
+      rewrite -2!bi.sep_assoc.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      clear.
+      done.
+      f_equiv.
+      assert ((∀ rs : option (Addr * VMID), ⌜a0 !! V2 = Some rs⌝ -∗ rx_state_match V2 rs ∗ up_slice_rxs V2 rs V2) ∗ rx_states_global (delete V2 a0) ∗
+  ⌜base_extra.is_total_gmap a0⌝ ⊣⊢
+       (rx_state_get V2 a0 ∗ (∃ p_rx : PID, RX@V2:=p_rx ∗ (∃ mem_rx : lang.mem, memory_page p_rx mem_rx))) ∗
+  rx_states_global (delete V2 a0) ∗ ⌜base_extra.is_total_gmap a0⌝).
+      iSplit.
+      {
+        iIntros "[H [? %total]]".
+        iFrame.
+        iSplitL.
+        2: done.
+        specialize (total V2).
+        destruct total.
+        iDestruct ("H" $! x with "[]") as "[H1 H2]".
+        iPureIntro. done.
+        rewrite /rx_state_get.
+        rewrite /up_slice_rxs /=.
+        destruct x.
+        rewrite /rx_state_match.
+        destruct p.
+        case_bool_decide.
+        rewrite /slice_rx_state /=.
+        iDestruct "H2" as "[H1' H2]".
+        iSplitL "H1 H1'".
+        iIntros "% %".
+        rewrite H3 in H1.
+        inversion H1. subst rs.
+        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[_ H]".
+        iApply ("H" with "[$H1 $H1']").
+        iFrame.
+        rewrite /slice_rx_state /=.
+        iDestruct "H2" as "[H1' H2]".
+        iSplitL "H1 H1'".
+        iIntros "% %".
+        rewrite H3 in H1.
+        inversion H1. subst rs.
+        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[_ H]".
+        iApply ("H" with "[$H1 $H1']").
+        iFrame.
+        rewrite /rx_state_match.
+        iDestruct "H1" as "[H1 $]".
+        iIntros "% %".
+        rewrite H2 in H1.
+        inversion H1.
+        iFrame "H1".
+      }
+      {
+        iIntros "[[H1 H2] [$ %total]]".
+        iSplitL. 2: done.
+        specialize (total V2).
+        destruct total.
+        iIntros "% %".
+        rewrite H2 in H1.
+        inversion H1. subst rs.
+        rewrite /rx_state_get.
+        iDestruct ("H1" $! x with "[]") as "H1".
+        iPureIntro. done.
+        rewrite /up_slice_rxs /=.
+        destruct x.
+        rewrite /rx_state_match.
+        destruct p.
+        case_bool_decide.
+        rewrite /slice_rx_state /=.
+        iFrame "H2".
+        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[H _]".
+        iApply ("H" with "H1").
+        rewrite /slice_rx_state /=.
+        iFrame "H2".
+        iDestruct (rx_state_split V2 1%Qp (Some (f,v))) as "[H _]".
+        iApply ("H" with "H1").
+        rewrite /rx_state_match.
+        iFrame.
+      }
+      rewrite bi.sep_assoc.
+      rewrite bi.sep_assoc.
+      rewrite -(bi.sep_assoc _ _ (⌜base_extra.is_total_gmap a0⌝)%I).
+      rewrite H1.
+  (*     (∀ rs : option (Addr * VMID), ⌜a0 !! V2 = Some rs⌝ -∗ rx_state_match V2 rs ∗ up_slice_rxs V2 rs V2) ⊣⊢ rx_state_get V2 a0 ∗ *)
+  (* (∃ p_rx : PID, RX@V2:=p_rx ∗ (∃ mem_rx : lang.mem, memory_page p_rx mem_rx)) *)
+      rewrite -bi.sep_assoc.
+     f_equiv.
+
+      rewrite -bi.sep_assoc.
+     f_equiv. done.
+     f_equiv.
+
+      admit.
+      admit.
+    }
+    iPureIntro. done.
+
+    (* VM3 *)
+    admit.
    (* Qed. *)
+  Admitted.
 
 End up_adequacy.
