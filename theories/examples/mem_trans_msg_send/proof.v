@@ -129,8 +129,7 @@ Ltac fold_finz_plus_one :=
   repeat (rewrite finz_succN_idemp);
   iEval (simpl) in "∗".
 
-Section proof.
-Program Instance rywu_vmconfig : HypervisorConstants :=
+Program Instance mtms_vmconfig : HypervisorConstants :=
     {vm_count := 3;
      vm_count_pos := _;
      valid_handles := {[W0]}}.
@@ -144,16 +143,26 @@ Program Definition two : Imm := I (finz.FinZ 2 _ _) _.
 Program Definition four : Imm := I (finz.FinZ 4 _ _) _.
 Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
 
-  Context `{hypparams: !HypervisorParameters}.
+Section proof.
 
-  Definition lending_program0 (addr tx_base : Imm) : list Word :=
+  Context `{hypparams: !HypervisorParameters}.
+  Context (pprog0 pprog1 pprog2 : PID).
+  Context (ptx0 prx0 ptx1 prx1 ptx2 prx2 : PID).
+  Context (pshare : PID).
+  Context (Hps_nd: NoDup [pprog0;pprog1;pprog2;pshare;ptx0;ptx1;ptx2;prx0;prx1;prx2]).
+  Context (addr : Imm) (Heq_pshare : of_pid pshare = addr).
+  Context (i_ptx0 : Imm) (Heq_ptx0 : of_pid ptx0 = i_ptx0).
+  Context (i_prx1 : Imm) (Heq_prx1 : of_pid prx1 = i_prx1).
+
+
+  Definition mtms_program0 : list Word :=
     [
       (* Store 2 to mem *)
       mov_word_I R4 two;
       mov_word_I R5 addr;
       str_I R4 R5;
       (* Memory descriptor *)
-      mov_word_I R5 tx_base;
+      mov_word_I R5 i_ptx0;
       mov_word_I R3 one;
       mov_word_I R4 (encode_vmid V0);
       str_I R4 R5;
@@ -174,25 +183,17 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       mov_word_I R1 mem_descriptor_length;
       hvc_I;
       (* Send handle *)
-      mov_word_I R5 tx_base;
+      mov_word_I R5 i_ptx0;
       str_I R2 R5;
       mov_reg_I R3 R2;
       mov_word_I R0 msg_send_I;
       mov_word_I R1 (encode_vmid V1);
       mov_word_I R2 one;
       hvc_I;
-      (* (* Run VM 2 (unknown vm *) *)
-      (* mov_word_I R0 run_I; *)
-      (* mov_word_I R1 (encode_vmid V2); *)
-      (* hvc_I; *)
       (* Run VM 1 *)
       mov_word_I R0 run_I;
       mov_word_I R1 (encode_vmid V1);
       hvc_I;
-      (* (* Reclaim page *) *)
-      (* mov_word_I R0 mem_reclaim_I; *)
-      (* mov_reg_I R1 R3; *)
-      (* hvc_I; *)
       (* Run VM 2 (unknown vm *)
       mov_word_I R0 run_I;
       mov_word_I R1 (encode_vmid V2);
@@ -201,10 +202,10 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       halt_I
     ].
 
-  Definition lending_program1 (addr rx_base : Imm) : list Word :=
+  Definition mtms_program1 : list Word :=
     [
       (* Fetch handle *)
-      mov_word_I R5 rx_base;
+      mov_word_I R5 i_prx1;
       ldr_I R4 R5;
       (* Clean rx status *)
       mov_word_I R0 msg_poll_I;
@@ -217,9 +218,6 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       mov_word_I R3 four;
       mov_word_I R5 addr;
       str_I R3 R5;
-      (* (* Relinquish page *) *)
-      (* mov_word_I R0 mem_relinquish_I; *)
-      (* mov_reg_I R1 R4; *)
       (* hvc_I; *)
       mov_word_I R0 msg_poll_I;
       hvc_I;
@@ -229,40 +227,44 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     ].
 
   Context `{!gen_VMG Σ}.
-  Notation VMProp_2 (* p_tx p_rx *) := (vmprop_unknown V2 (* p_tx p_rx  *) ∅) (only parsing).
 
+  Definition mtms_slice_trans trans i j : iProp Σ := slice_transfer_all trans i j.
 
-  Lemma lending_machine0 p_pg0 (p_tx0 : PID) p_pg2 p_tx2 p_rx0 p_rx1 p_rx2 (addr : Imm) p_tx0imm (p_rx1imm : Imm) :
-    let RX0 := (RX_state@V0 := None ∗ mailbox.rx_page V0 p_rx0 ∗ ∃ mem_rx, memory_page p_rx0 mem_rx)%I in
-    let RX1 := (RX_state@V1 := None ∗ mailbox.rx_page V1 p_rx1 ∗ ∃ mem_rx, memory_page p_rx1 mem_rx)%I in
-    let RX2 := (RX_state@V2 := None ∗ RX@V2:=p_rx2 ∗ ∃ mem_rx, memory_page p_rx2 mem_rx)%I in
-    let program0 := lending_program0 addr p_tx0imm in
-    of_pid (tpa addr) = addr ->
-    (* Disjoint pages *)
-    (of_pid p_tx0 = p_tx0imm) ->
-    (of_pid p_rx1 = p_rx1imm) ->
-    (* (of_pid p_pg0 = p_pg0imm) -> *)
-    (p_pg0 ∉ ({[(tpa addr); p_tx0; p_pg2; p_tx2; p_rx2]}:gset _)) ->
-    tpa addr ≠ p_rx0 ->
-    tpa addr ≠ p_pg0 ->
-    tpa addr ≠ p_tx0 ->
-    p_tx0 ≠ p_rx0 ->
+  Definition mtms_slice_rxs i os (j: VMID) : iProp Σ :=
+    (match os with
+    | None => True
+    | _ => slice_rx_state i os
+    end)%I.
+
+  Lemma mtms_machine0 :
+    let RX0 := (RX_state@V0 := None ∗ mailbox.rx_page V0 prx0 ∗ ∃ mem_rx, memory_page prx0 mem_rx)%I in
+    let RX1 := (RX_state@V1 := None ∗ RX@V1:=prx1 ∗ ∃ mem_rx, memory_page prx1 mem_rx)%I in
+    let RX2 := (RX_state@V2 := None ∗ RX@V2:=prx2 ∗ ∃ mem_rx, memory_page prx2 mem_rx)%I in
+    let program0 := mtms_program0 in
+    (* of_pid pshare = addr -> *)
+    (* (* Disjoint pages *) *)
+    (* (of_pid ptx0 = i_ptx0) -> *)
+    (* (of_pid prx1 = i_prx1) -> *)
+    (* (pprog0 ∉ ({[pshare; ptx0; pprog2; ptx2; prx2]}:gset _)) -> *)
+    (* pshare ≠ prx0 -> *)
+    (* pshare ≠ pprog0 -> *)
+    (* pshare ≠ ptx0 -> *)
+    (* ptx0 ≠ prx0 -> *)
     (* Addresses-values connection *)
-    seq_in_page (of_pid p_pg0) (length program0) p_pg0 ->
+    seq_in_page (of_pid pprog0) (length program0) pprog0 ->
     (* Mem for program *)
-    (program (program0) (of_pid p_pg0)) ∗
+    (program (program0) (of_pid pprog0)) ∗
       (* Work mem *)
       (∃ w, addr ->a w) ∗
       (* TX mem *)
-      (* (∃ (v1 v2 v3 v4 v5 : Word), ([∗ list] a;w ∈ (finz.seq p_tx0 5);[v1; v2; v3; v4; v5], (a ->a w))) ∗ *)
-      (∃ txmem, memory_page (tpa p_tx0) txmem) ∗
+      (∃ txmem, memory_page ptx0 txmem) ∗
       (* Pages for VM 0 *)
-      ([∗ set] p ∈ {[tpa addr]}, p -@O> V0 ∗ p -@E> true) ∗
-      V0 -@A> (union (singleton (tpa addr)) (union (singleton p_pg0) (singleton (tpa p_tx0)))) ∗
+      ([∗ set] p ∈ {[pshare]}, p -@O> V0 ∗ p -@E> true) ∗
+      V0 -@A> {[pshare;pprog0;ptx0]} ∗
       (* TX page *)            
-      TX@ V0 := (tpa p_tx0) ∗
+      TX@ V0 := ptx0 ∗
       (* Program counter *)                      
-      PC @@ V0 ->r (of_pid p_pg0) ∗
+      PC @@ V0 ->r (of_pid pprog0) ∗
       (* Work registers *)                        
       (∃ r0, R0 @@ V0 ->r r0) ∗
       (∃ r1, R1 @@ V0 ->r r1) ∗
@@ -273,31 +275,28 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       (* Protocol for VM 0 *)            
       VMProp V0 True%I 1 ∗
       (* Protocol for VM 1 *)            
-      VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗
-                                                                                    wh ->re false ∗ RX_state@V1 := Some (of_imm one, V0) ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗
-                    VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ RX_state@V1 := None ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗
+      VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[pshare]}, Sharing) ∗
+                                                                                    wh ->re false ∗ RX_state@V1 := Some (of_imm one, V0) ∗ RX@V1:=prx1 ∗ memory_page prx1 β ∗ ⌜β !! (of_imm i_prx1) = Some wh⌝) ∗
+                    VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ RX_state@V1 := None ∗ (∃ mem_rx, memory_page prx1 mem_rx)) ∗
                                  VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I (1/2)%Qp ∗
       (* Protocol for unknown vm *)
-      VMProp V2 (VMProp_2 (* p_tx2 p_rx2 *)) (1/2)%Qp ∗
+      VMProp V2 (vmprop_unknown V2 mtms_slice_trans mtms_slice_rxs ∅) (1/2)%Qp ∗
       (* Pages for unknown VM *)            
-      (* V2 -@{1/2}A> {[p_pg2;p_tx2;p_rx2]} ∗ *)
       trans.fresh_handles 1 valid_handles ∗
       (* RX states *)               
       RX0 ∗ RX1 ∗ RX2 
       ⊢ WP ExecI @ V0
             {{ (λ m,
                  ⌜m = HaltI⌝ ∗
-                 (* program program0 (of_pid p_pg0) ∗ *)
-                 addr ->a four ∗       
-                 V0 -@A> (union (singleton (tpa addr)) (union (singleton p_pg0) (singleton (tpa p_tx0)))) ∗
-                 TX@ V0 := (tpa p_tx0) ∗
-                 PC @@ V0 ->r ((of_pid p_pg0) ^+ (length program0))%f
-                 (* R0 @@ V0 ->r yield_I ∗ *)
-                 (* R1 @@ V0 ->r encode_vmid V2 *)
+                 addr ->a four ∗
+                 V0 -@A> {[pshare;pprog0;ptx0]} ∗
+                 TX@ V0 := ptx0 ∗
+                 PC @@ V0 ->r ((of_pid pprog0) ^+ (length program0))%f
                  )}}%I.
   Proof.
     rewrite /vmprop_unknown.
-    iIntros (Haddr Htxeq Hrxeq (* Hpgeq *) HnIn_p HneAddr_RX0 HneAddr_PG0 HneAddr_TX0 HneTX0_RX0 HIn) "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 
+(* Haddr Htxeq Hrxeq HnIn_p HneAddr_RX0 HneAddr_PG0 HneAddr_TX0 HneTX0_RX0  *)
+    iIntros (HIn) "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7
             & p_8 & p_9 & p_10 & p_11 & p_12 & p_13 & p_14 & p_15 & p_16 
             & p_17 & p_18 & p_19 & p_20 & p_21 & p_22 & p_23 & p_24 & p_25
             & p_26 & p_27 & p_28 & p_29 & p_30 & p_31 & p_32 & p_33 & p_34
@@ -305,35 +304,32 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
          & (%memv & mem) & (%txmemgm & txmem) & OE & acc & tx & PCz & (%r0 & R0z) & (%r1 & R1z) & (%r2 & R2z) 
          & (%r3 & R3z) & (%r4 & R4z) & (%r5 & R5z) 
          & prop0 & prop1 & prop2 & hp & ((RX0st & _) & (RX0page & RX0own & RX0excl) & RX0mem)
-         & ((RX1st & _) & (RX1page & RX1own & RX1excl) & RX1mem) & ((RX2st & _) & RX2page & RX2mem))". 
+         & ((RX1st & _) & RX1page & RX1mem) & ((RX2st & _) & RX2page & RX2mem))".
     pose proof (seq_in_page_forall2 _ _ _ HIn) as Hforall.
     fold_finz_plus_one.
     repeat (rewrite finz_succN_correct).
-    (* iEval (rewrite finz_succN_one) in "p_2". *)
     clear HIn; rename Hforall into HIn.
-    assert (p_pg0 ≠ p_tx0) as Hnottx. set_solver + HnIn_p.
+    assert (pprog0 ≠ ptx0) as Hnottx.
+    {
+      intro.
+      feed pose proof (NoDup_lookup _ 0 4 ptx0 Hps_nd).
+      simplify_eq /=. done.
+      simplify_eq /=. done.
+      lia.
+    }
     (* mov_word_I R4 two *)
     rewrite wp_sswp.    
-    iApply ((mov_word (of_pid p_pg0) two R4) with "[p_1 PCz acc tx R4z]"); iFrameAutoSolve.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    apply to_pid_aligned_eq.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    iApply ((mov_word (of_pid pprog0) two R4) with "[p_1 PCz acc tx R4z]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
     set_solver +.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R4z) _".    
     (* mov_word_I R5 addr *)
     rewrite wp_sswp.
-    iApply ((mov_word _ addr R5) with "[p_2 PCz acc tx R5z]"); iFrameAutoSolve.
+    iApply ((mov_word _ addr R5) with "[p_2 PCz acc tx R5z]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
     rewrite HIn.
     set_solver +.
     set_solver +.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite HIn. done.
     set_solver +.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R5z) _".
@@ -343,20 +339,24 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (repeat (rewrite finz_succN_idemp)) in "PCz".
     iEval (simpl) in "PCz".
     iEval (repeat (rewrite finz_succN_correct)) in "PCz".
-    iApply ((str _ addr R4 R5) with "[p_3 PCz acc mem RX0page tx R4z R5z]"); iFrameAutoSolve.
-    apply union_mono_l.
-    apply union_subseteq_l'.
-    rewrite singleton_subseteq.    
-    rewrite HIn.
-    reflexivity.
-    apply finz_succN_in_seq.
-    simpl.
-    lia.
-    rewrite HIn.
+    iApply ((str _ addr R4 R5) with "[p_3 PCz acc mem RX0page tx R4z R5z]"); rewrite ?to_pid_aligned_eq; iFrameAutoSolve.
+    rewrite -Heq_pshare.
     rewrite to_pid_aligned_eq.
-    intros contra.
-    contradiction.
+    rewrite HIn.
+    set_solver +.
+    apply finz_succN_in_seq.
+    simpl. lia.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
+    rewrite -Heq_pshare.
+    rewrite to_pid_aligned_eq.
+    {
+      intro.
+      feed pose proof (NoDup_lookup _ 3 7 prx0 Hps_nd).
+      simplify_eq /=. done.
+      simplify_eq /=. done.
+      lia.
+    }
     iModIntro.
     iIntros "(PCz & _ & R5z & mem & R4z & acc & tx & RX0page) _".
     (* mov_word_I R5 tx_addr *)
@@ -364,13 +364,11 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((mov_word _ p_tx0imm R5) with "[p_4 PCz acc tx R5z]"); iFrameAutoSolve.
+    iApply ((mov_word _ i_ptx0 R5) with "[p_4 PCz acc tx R5z]"); iFrameAutoSolve.
     rewrite HIn.
     set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R5z) _".
@@ -383,9 +381,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     rewrite HIn.
     set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R3z) _".
@@ -399,8 +395,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     set_solver +.
     apply finz_succN_in_seq; simpl; lia.
     rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    done.
     apply finz_succN_in_seq; simpl; lia.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R4z) _".
@@ -412,300 +407,31 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (unfold memory_page) in "txmem".
     iDestruct "txmem" as "(%domtxmem & txmem)".
     (* Set *)
-    iDestruct (@mem_big_sepM_split_upd5 _ txmemgm p_tx0imm (p_tx0 ^+ 1)%f ((p_tx0 ^+ 1) ^+ 1)%f (((p_tx0 ^+ 1) ^+ 1) ^+ 1)%f ((((p_tx0 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f with "txmem") as "txmem".
-    {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      rewrite <-Htxeq.
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      unfold finz.incr_default in contra.
-      destruct (finz.FinZ z finz_lt finz_nonneg + 1)%f eqn:Heqn.
-      destruct f.
-      simplify_eq.
-      solve_finz.
-      clear -align Heqn.
-      unfold finz.incr in Heqn.
-      repeat case_match; simplify_eq.
-      solve_finz.
-      apply n.
-      simpl.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      lia.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
-    {
-      intros contra.
-      clear -contra.
-      destruct p_tx0.
-      simpl in *.
-      destruct z.
-      simpl in *.
-      assert ((z <=? 1999000)%Z = true).
-      {
-        rewrite Z.eqb_eq in align.
-        rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-        rewrite Zmod_divides in align; last lia.
-        destruct align as [c align].
-        simplify_eq.
-        assert (c <? 2000 = true)%Z.
-        lia.
-        assert (1999000 = 1000 * 1999)%Z as ->.
-        lia.
-        apply Zle_imp_le_bool.
-        apply Zmult_le_compat_l; lia.
-      }
-      solve_finz.
-    }
+    pose proof (last_addr_in_bound ptx0) as Hlast_ptx.
+    iDestruct (@mem_big_sepM_split_upd5 _ txmemgm i_ptx0 (ptx0 ^+ 1)%f ((ptx0 ^+ 1) ^+ 1)%f (((ptx0 ^+ 1) ^+ 1) ^+ 1)%f ((((ptx0 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f with "txmem") as "txmem";rewrite -?Heq_ptx0.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
+    solve_finz + Hlast_ptx.
     {
       rewrite <-elem_of_dom.
       rewrite domtxmem.
       rewrite elem_of_list_to_set.
-      rewrite Htxeq.        
-      apply elem_of_addr_of_page_tpa.
+      apply elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq //.
     }
     {
       rewrite <-elem_of_dom.
       rewrite domtxmem.
       rewrite elem_of_list_to_set.      
       apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      symmetry.
-      rewrite (finz_succN_pid' p_tx0 1).
+      rewrite (finz_succN_pid' ptx0 1).
       reflexivity.
       lia.
     }
@@ -714,13 +440,12 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       rewrite domtxmem.
       rewrite elem_of_list_to_set.      
       apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
       symmetry.
       repeat (rewrite finz_succN_one).
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 2).
+      rewrite (finz_succN_pid' ptx0 2).
       reflexivity.
       lia.
     }
@@ -729,13 +454,12 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       rewrite domtxmem.
       rewrite elem_of_list_to_set.      
       apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
       symmetry.
       repeat (rewrite finz_succN_one).
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
     }
@@ -744,39 +468,36 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       rewrite domtxmem.
       rewrite elem_of_list_to_set.      
       apply elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
       symmetry.
       repeat (rewrite finz_succN_one).
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
     }
     iDestruct "txmem" as "(%w1 & %w2 & %w3 & %w4 & %w5 & txmem1 & txmem2 & txmem3 & txmem4 & txmem5 & txacc)".    
-    iApply ((@str _ _ _ _ _ V0 (str_I R4 R5) (encode_vmid V0) w1 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (p_pg0 ^+ 6%nat)%f p_tx0imm R4 R5) with "[PCz p_7 acc txmem1 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ V0 (str_I R4 R5) (encode_vmid V0) w1 1%Qp prx0 ptx0 {[pshare;pprog0; ptx0]} (pprog0 ^+ 6%nat)%f
+               i_ptx0 R4 R5) with "[PCz p_7 acc txmem1 RX0page tx R4z R5z]") ; rewrite ?to_pid_aligned_eq.
     apply decode_encode_instruction.
-    apply union_subseteq_r'.
-    apply union_least.
-    rewrite singleton_subseteq_l.    
-    apply elem_of_union_r.
-    rewrite Htxeq.
-    apply elem_of_singleton_2.
-    reflexivity.
-    rewrite singleton_subseteq_l.    
-    apply elem_of_union_l.
+    rewrite -Heq_ptx0.
+    rewrite ?to_pid_aligned_eq.
     rewrite HIn.
-    apply elem_of_singleton_2.
-    reflexivity.
+    set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite <-Htxeq.
+    rewrite -Heq_ptx0.
     rewrite to_pid_aligned_eq.
-    assumption.
+    {
+      intros Heq.
+      feed pose proof (NoDup_lookup _ 4 7 prx0 Hps_nd).
+      rewrite Heq. done.
+      rewrite Heq. done.
+      lia.
+    }
+    rewrite -Heq_ptx0.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & R5z & txmem1 & R4z & acc & tx & RX0page) _".
@@ -785,27 +506,24 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@add _ _ _ _ _ _ (add_I R5 R3) p_tx0imm one 1%Qp (tpa p_tx0) (p_pg0 ^+ 7%nat)%f R5 R3 ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) with "[p_8 PCz acc R5z R3z tx]").
+    iApply ((@add _ _ _ _ _ _ (add_I R5 R3) i_ptx0 one 1%Qp ptx0 (pprog0 ^+ 7%nat)%f R5 R3 {[pshare;pprog0; tpa ptx0]})
+             with "[p_8 PCz acc R5z R3z tx]"); rewrite ?to_pid_aligned_eq.
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
     rewrite HIn.
-    reflexivity.
+    set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
     iFrame.    
     iModIntro.
     iIntros "(PCz & _ & R5z & R3z & acc & tx) _".
+    (* TODO *)
     (* mov_word_I R4 zero *)
     rewrite wp_sswp.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 8%nat)%f zero R4) with "[p_9 PCz acc tx R4z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 8%nat)%f zero R4) with "[p_9 PCz acc tx R4z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -825,7 +543,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ zero w2 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (p_pg0 ^+ 9%nat)%f (p_tx0 ^+ 1)%f R4 R5) with "[p_10 PCz acc txmem2 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ zero w2 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 9%nat)%f (ptx0 ^+ 1)%f R4 R5) with "[p_10 PCz acc txmem2 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -834,7 +552,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     apply elem_of_singleton_2.
     {
       rewrite to_pid_aligned_eq.
-      rewrite (finz_succN_pid' p_tx0 1).
+      rewrite (finz_succN_pid' ptx0 1).
       reflexivity.
       lia.
     }
@@ -847,7 +565,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     rewrite to_pid_aligned_eq.
     assumption.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite (finz_succN_pid' p_tx0 1).
+    rewrite (finz_succN_pid' ptx0 1).
     assumption.
     lia.
     rewrite Htxeq.
@@ -859,14 +577,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (p_tx0imm ^+ 1)%f one 1%Qp (tpa p_tx0)
-              (p_pg0 ^+ 10%nat)%f
-              R5 R3 ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) with "[p_11 PCz acc R5z R3z tx]").
+    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (i_ptx0 ^+ 1)%f one 1%Qp (tpa ptx0)
+              (pprog0 ^+ 10%nat)%f
+              R5 R3 ({[pshare]} ∪ {[pprog0; tpa ptx0]}) with "[p_11 PCz acc R5z R3z tx]").
     apply decode_encode_instruction. 
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 10).
+    rewrite (finz_succN_pid' pprog0 10).
     reflexivity.
     lia.
     rewrite HIn.
@@ -882,14 +600,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0)
-               (p_pg0 ^+ 11%nat)%f
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+               (pprog0 ^+ 11%nat)%f
                one R4) with "[p_12 PCz acc tx R4z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 11).
+    rewrite (finz_succN_pid' pprog0 11).
     reflexivity.
     lia.
     rewrite HIn.
@@ -904,7 +622,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ one w3 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (p_pg0 ^+ 12%nat)%f ((p_tx0 ^+ 1) ^+ 1)%f R4 R5) with "[p_13 PCz acc txmem3 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ one w3 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 12%nat)%f ((ptx0 ^+ 1) ^+ 1)%f R4 R5) with "[p_13 PCz acc txmem3 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -917,7 +635,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 2).
+      rewrite (finz_succN_pid' ptx0 2).
       reflexivity.
       lia.
     }
@@ -934,7 +652,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     repeat (rewrite finz_succN_idemp).
     simpl.
     rewrite finz_succN_correct.
-    rewrite (finz_succN_pid' p_tx0 2).
+    rewrite (finz_succN_pid' ptx0 2).
     assumption.
     lia.
     rewrite Htxeq.
@@ -946,14 +664,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply (@add _ _ _ _ _ _ (add_I R5 R3) ((p_tx0imm ^+ 1) ^+ 1)%f one 1%Qp (tpa p_tx0)
-              (p_pg0 ^+ 13%nat)%f
-              R5 R3 ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) with "[p_14 PCz acc R5z R3z tx]").
+    iApply (@add _ _ _ _ _ _ (add_I R5 R3) ((i_ptx0 ^+ 1) ^+ 1)%f one 1%Qp (tpa ptx0)
+              (pprog0 ^+ 13%nat)%f
+              R5 R3 ({[pshare]} ∪ {[pprog0; tpa ptx0]}) with "[p_14 PCz acc R5z R3z tx]").
     apply decode_encode_instruction. 
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 13).
+    rewrite (finz_succN_pid' pprog0 13).
     reflexivity.
     lia.
     rewrite HIn.
@@ -969,14 +687,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0)
-               (p_pg0 ^+ 14%nat)%f
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+               (pprog0 ^+ 14%nat)%f
                (encode_vmid V1) R4) with "[p_15 PCz acc tx R4z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 14).
+    rewrite (finz_succN_pid' pprog0 14).
     reflexivity.
     lia.
     rewrite HIn.
@@ -991,7 +709,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ (encode_vmid V1) w4 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (p_pg0 ^+ 15%nat)%f (((p_tx0 ^+ 1) ^+ 1) ^+ 1)%f R4 R5) with "[p_16 PCz acc txmem4 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ (encode_vmid V1) w4 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 15%nat)%f (((ptx0 ^+ 1) ^+ 1) ^+ 1)%f R4 R5) with "[p_16 PCz acc txmem4 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -1004,7 +722,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
     }
@@ -1021,7 +739,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     repeat (rewrite finz_succN_idemp).
     simpl.
     rewrite finz_succN_correct.
-    rewrite (finz_succN_pid' p_tx0 3).
+    rewrite (finz_succN_pid' ptx0 3).
     assumption.
     lia.
     rewrite Htxeq.
@@ -1033,14 +751,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (((p_tx0imm ^+ 1) ^+ 1) ^+ 1)%f one 1%Qp (tpa p_tx0)
-              (p_pg0 ^+ 16%nat)%f
-              R5 R3 ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) with "[p_17 PCz acc R5z R3z tx]").
+    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (((i_ptx0 ^+ 1) ^+ 1) ^+ 1)%f one 1%Qp (tpa ptx0)
+              (pprog0 ^+ 16%nat)%f
+              R5 R3 ({[pshare]} ∪ {[pprog0; tpa ptx0]}) with "[p_17 PCz acc R5z R3z tx]").
     apply decode_encode_instruction. 
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 16).
+    rewrite (finz_succN_pid' pprog0 16).
     reflexivity.
     lia.
     rewrite HIn.
@@ -1056,14 +774,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0)
-               (p_pg0 ^+ 17%nat)%f
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+               (pprog0 ^+ 17%nat)%f
                addr R4) with "[p_18 PCz acc tx R4z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 17).
+    rewrite (finz_succN_pid' pprog0 17).
     reflexivity.
     lia.
     rewrite HIn.
@@ -1078,7 +796,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ addr w5 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (p_pg0 ^+ 18%nat)%f ((((p_tx0 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f R4 R5) with "[p_19 PCz acc txmem5 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ addr w5 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 18%nat)%f ((((ptx0 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f R4 R5) with "[p_19 PCz acc txmem5 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -1091,7 +809,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
     }
@@ -1108,7 +826,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     repeat (rewrite finz_succN_idemp).
     simpl.
     rewrite finz_succN_correct.
-    rewrite (finz_succN_pid' p_tx0 4).
+    rewrite (finz_succN_pid' ptx0 4).
     assumption.
     lia.
     rewrite Htxeq.
@@ -1119,14 +837,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0)
-               (p_pg0 ^+ 19%nat)%f
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+               (pprog0 ^+ 19%nat)%f
                mem_share_I R0) with "[p_20 PCz acc tx R0z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 19).
+    rewrite (finz_succN_pid' pprog0 19).
     reflexivity.
     lia.
     rewrite HIn.
@@ -1141,14 +859,14 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0)
-               (p_pg0 ^+ 20%nat)%f
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+               (pprog0 ^+ 20%nat)%f
                mem_descriptor_length R1) with "[p_21 PCz acc tx R1z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' p_pg0 20).
+    rewrite (finz_succN_pid' pprog0 20).
     reflexivity.
     lia.
     rewrite HIn.
@@ -1168,12 +886,12 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     match goal with
     | |- context [([∗ map] k↦y ∈ ?p, k ->a y)%I] => set q := p
     end.
-    iApply ((mem_share (p_tx := tpa p_tx0) (wi := hvc_I) (hvcf := Share)
-               (sacc := ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}))
+    iApply ((mem_share (p_tx := tpa ptx0) (wi := hvc_I) (hvcf := Share)
+               (sacc := ({[pshare]} ∪ {[pprog0; tpa ptx0]}))
                (r0 := mem_share_I) (r1 := mem_descriptor_length) (r2 := r2)
-               (p_pg0 ^+ 21%nat)%f
+               (pprog0 ^+ 21%nat)%f
                V1 q
-               valid_handles (singleton (tpa addr)))
+               valid_handles (singleton pshare))
              with "[p_22 PCz acc R0z R1z R2z hp tx txmem OE]").
     {
       apply elem_of_union_r.
@@ -1205,12 +923,12 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     }
     {
       unfold parse_transaction_descriptor.
-      assert (parse_list_of_Word q (tpa p_tx0) (Z.to_nat mem_descriptor_length) = Some ([of_imm (encode_vmid V0); of_imm zero; of_imm one; of_imm (encode_vmid V1); of_pid (tpa addr)] : list Addr)) as ->.
+      assert (parse_list_of_Word q (tpa ptx0) (Z.to_nat mem_descriptor_length) = Some ([of_imm (encode_vmid V0); of_imm zero; of_imm one; of_imm (encode_vmid V1); of_pid pshare] : list Addr)) as ->.
       {
         clear -Htxeq Haddr.
         unfold parse_list_of_Word.
         unfold sequence_a.
-        remember (tpa p_tx0) as A.
+        remember (tpa ptx0) as A.
         match goal with
         | |- context G [Some ?l] => remember l as l'
         end.
@@ -1242,7 +960,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
           - rewrite to_pid_aligned_eq.
             rewrite <-Htxeq.
             intros contra.
-            destruct p_tx0.
+            destruct ptx0.
             simpl in *.
             destruct z.
             simpl in *.
@@ -1278,7 +996,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
           - rewrite to_pid_aligned_eq.
             rewrite <-Htxeq.
             intros contra.
-            destruct p_tx0.
+            destruct ptx0.
             simpl in *.
             destruct z.
             simpl in *.
@@ -1302,7 +1020,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
             split.
             + rewrite to_pid_aligned_eq.
               intros contra.
-              destruct p_tx0.
+              destruct ptx0.
               simpl in *.
               destruct z.
               simpl in *.
@@ -1338,7 +1056,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
           - rewrite to_pid_aligned_eq.
             rewrite <-Htxeq.
             intros contra.
-            destruct p_tx0.
+            destruct ptx0.
             simpl in *.
             destruct z.
             simpl in *.
@@ -1362,7 +1080,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
             split.
             + rewrite to_pid_aligned_eq.              
               intros contra.
-              destruct p_tx0.
+              destruct ptx0.
               simpl in *.
               destruct z.
               simpl in *.
@@ -1386,7 +1104,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
               split.
               * rewrite to_pid_aligned_eq.
                 intros contra.
-                destruct p_tx0.
+                destruct ptx0.
                 simpl in *.
                 destruct z.
                 simpl in *.
@@ -1410,7 +1128,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
                 split; last done.
                 by rewrite to_pid_aligned_eq.
         }
-        assert (e' = Some (of_pid (tpa addr))) as ->.
+        assert (e' = Some (of_pid pshare)) as ->.
         {
           subst e'.
           subst q.
@@ -1422,7 +1140,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
           - rewrite to_pid_aligned_eq.
             rewrite <-Htxeq.
             intros contra.
-            destruct p_tx0.
+            destruct ptx0.
             simpl in *.
             destruct z.
             simpl in *.
@@ -1446,7 +1164,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
             split.
             + rewrite to_pid_aligned_eq.
               intros contra.
-              destruct p_tx0.
+              destruct ptx0.
               simpl in *.
               destruct z.
               simpl in *.
@@ -1470,7 +1188,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
               split.
               * rewrite to_pid_aligned_eq.
                 intros contra.
-                destruct p_tx0.
+                destruct ptx0.
                 simpl in *.
                 destruct z.
                 simpl in *.
@@ -1494,7 +1212,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
                 split.
                 -- rewrite to_pid_aligned_eq.                   
                    intros contra.
-                   destruct p_tx0.
+                   destruct ptx0.
                    simpl in *.
                    destruct z.
                    simpl in *.
@@ -1523,7 +1241,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
         simpl.
         reflexivity.        
       }
-      remember (tpa addr) as A.
+      remember pshare as A.
       cbn.
       rewrite decode_encode_vmid.
       rewrite decode_encode_vmid.
@@ -1532,7 +1250,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       rewrite Nat.eqb_refl.
       cbn.
       rewrite HeqA.
-      assert (to_pid (tpa addr) = Some (tpa addr)) as ->.
+      assert (to_pid pshare = Some pshare) as ->.
       {
         rewrite to_of_pid.
         reflexivity.
@@ -1571,7 +1289,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1584,7 +1302,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1596,32 +1314,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 2).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1634,7 +1327,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 2).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1646,32 +1339,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 1).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1684,7 +1352,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1696,7 +1364,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1709,7 +1377,57 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 2).
+      rewrite (finz_succN_pid' ptx0 1).
+      reflexivity.
+      lia.
+      rewrite <-elem_of_dom.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' ptx0 4).
+      reflexivity.
+      lia.
+      rewrite <-elem_of_dom.
+      rewrite !dom_insert_lookup_L.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' ptx0 3).
+      reflexivity.
+      lia.
+      rewrite <-elem_of_dom.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' ptx0 4).
+      reflexivity.
+      lia.
+      rewrite <-elem_of_dom.
+      rewrite !dom_insert_lookup_L.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' ptx0 2).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.      
@@ -1721,7 +1439,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1734,7 +1452,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1746,7 +1464,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1770,7 +1488,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1783,7 +1501,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1795,32 +1513,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 2).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1833,7 +1526,32 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 2).
+      reflexivity.
+      lia.
+      rewrite <-elem_of_dom.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' ptx0 4).
+      reflexivity.
+      lia.
+      rewrite <-elem_of_dom.
+      rewrite !dom_insert_lookup_L.
+      rewrite domtxmem.
+      rewrite elem_of_list_to_set.
+      rewrite elem_of_addr_of_page_iff.
+      rewrite to_pid_aligned_eq.
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite finz_succN_correct.
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.      
@@ -1845,7 +1563,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1858,7 +1576,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 1).
+      rewrite (finz_succN_pid' ptx0 1).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1870,7 +1588,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1883,7 +1601,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.      
@@ -1895,7 +1613,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1908,7 +1626,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 2).
+      rewrite (finz_succN_pid' ptx0 2).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1920,7 +1638,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1933,7 +1651,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 3).
+      rewrite (finz_succN_pid' ptx0 3).
       reflexivity.
       lia.
       rewrite <-elem_of_dom.
@@ -1945,7 +1663,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       repeat (rewrite finz_succN_idemp).
       simpl.
       rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' p_tx0 4).
+      rewrite (finz_succN_pid' ptx0 4).
       reflexivity.
       lia.
     }
@@ -1962,7 +1680,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 22%nat)%f p_tx0imm R5) with "[p_23 PCz acc tx R5z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 22%nat)%f i_ptx0 R5) with "[p_23 PCz acc tx R5z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -1985,7 +1703,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (unfold memory_page) in "txmem".
     iDestruct "txmem" as "(%domtxmem' & txmem)".
     (* Set *)
-    iDestruct (@mem_big_sepM_split_upd _ q p_tx0imm (encode_vmid V0) with "txmem") as "txmem".
+    iDestruct (@mem_big_sepM_split_upd _ q i_ptx0 (encode_vmid V0) with "txmem") as "txmem".
     {
       subst q.
       rewrite lookup_insert_Some.
@@ -1993,7 +1711,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       split; reflexivity.
     }
     iDestruct "txmem" as "(txmem1 & txacc)".    
-    iApply ((@str _ _ _ _ _ _ _ wh (encode_vmid V0) 1%Qp p_rx0 (tpa p_tx0) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (p_pg0 ^+ 23%nat)%f p_tx0imm R2 R5) with "[p_24 PCz acc txmem1 RX0page tx R2z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ wh (encode_vmid V0) 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 23%nat)%f i_ptx0 R2 R5) with "[p_24 PCz acc txmem1 RX0page tx R2z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -2026,7 +1744,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (simpl) in "PCz".
     iSpecialize ("txacc" $! wh).
     iDestruct ("txacc" with "[$txmem1]") as "txmem".
-    iApply ((@mov_reg _ _ _ _ _ _ _ wh 1%Qp ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 24%nat)%f one R3 R2) with "[PCz p_25 acc tx R2z R3z]").
+    iApply ((@mov_reg _ _ _ _ _ _ _ wh 1%Qp ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 24%nat)%f one R3 R2) with "[PCz p_25 acc tx R2z R3z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2044,7 +1762,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 25%nat)%f msg_send_I R0) with "[p_26 PCz acc tx R0z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 25%nat)%f msg_send_I R0) with "[p_26 PCz acc tx R0z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2063,7 +1781,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 26%nat)%f (encode_vmid V1) R1) with "[p_27 PCz acc tx R1z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 26%nat)%f (encode_vmid V1) R1) with "[p_27 PCz acc tx R1z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2082,7 +1800,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 27%nat)%f one R2) with "[p_28 PCz acc tx R2z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 27%nat)%f one R2) with "[p_28 PCz acc tx R2z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2105,7 +1823,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     match goal with
     | |- context [([∗ map] k↦y ∈ ?p, k ->a y)%I] => set q' := p
     end.
-    iApply ((@msg_send_primary _ _ _ _ _ hvc_I msg_send_I (encode_vmid V1) ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) q' 1%Qp p_rx1 rxmem one (p_pg0 ^+ 28%nat)%f V1) with "[p_29 PCz acc tx R0z R1z R2z txmem RX1st rxmem RX1page]").
+    iApply ((@msg_send_primary _ _ _ _ _ hvc_I msg_send_I (encode_vmid V1) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) q' 1%Qp prx1 rxmem one (pprog0 ^+ 28%nat)%f V1) with "[p_29 PCz acc tx R0z R1z R2z txmem RX1st rxmem RX1page]").
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     assumption.
@@ -2139,7 +1857,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 29%nat)%f run_I R0) with "[p_30 PCz acc tx R0z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 29%nat)%f run_I R0) with "[p_30 PCz acc tx R0z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2158,7 +1876,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 30%nat)%f (encode_vmid V1) R1) with "[p_31 PCz acc tx R1z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 30%nat)%f (encode_vmid V1) R1) with "[p_31 PCz acc tx R1z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2190,9 +1908,9 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     }
     rewrite Hdescr in descrsubseteq.
     match goal with
-    | |- context G [memory_page p_rx1 ?s] => set β := s
+    | |- context G [memory_page prx1 ?s] => set β := s
     end.
-    assert (β !! (of_imm p_rx1imm) = Some wh) as Hrx.
+    assert (β !! (of_imm i_prx1) = Some wh) as Hrx.
     {
       subst β.
       simpl.
@@ -2202,7 +1920,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       assert (α = wh) as ->.
       {
         rewrite map_subseteq_spec in descrsubseteq.
-        specialize (descrsubseteq (of_imm p_tx0imm) α).
+        specialize (descrsubseteq (of_imm i_ptx0) α).
         feed specialize descrsubseteq.
         {
           apply elem_of_list_to_map_1.
@@ -2218,9 +1936,9 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       rewrite Hrxeq.
       apply lookup_insert.
     }    
-    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V1) 1%Qp ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) ((PC @@ V0 ->r (p_pg0 ^+ 32%nat)%f) ∗ (V0 -@A> ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) ∗ (TX@V0:=tpa p_tx0))%I (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ wh ->re false ∗ (rx_state_mapsto V1 1 (Some (of_imm one, V0)) ∗ ⌜V0 ≠ V1⌝) ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗
-              VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗
-              VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I True%I (p_pg0 ^+ 31%nat)%f V1 True%I ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I) with "[PCz p_32 acc tx R0z R1z prop0 prop1 mem rxmem whretri whtans RX1page RX1st]").
+    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V1) 1%Qp ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) ((PC @@ V0 ->r (pprog0 ^+ 32%nat)%f) ∗ (V0 -@A> ({[pshare]} ∪ {[pprog0; tpa ptx0]})) ∗ (TX@V0:=tpa ptx0))%I (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[pshare]}, Sharing) ∗ wh ->re false ∗ (rx_state_mapsto V1 1 (Some (of_imm one, V0)) ∗ ⌜V0 ≠ V1⌝) ∗ RX@V1:=prx1 ∗ memory_page prx1 β ∗ ⌜β !! (of_imm i_prx1) = Some wh⌝) ∗
+              VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page prx1 mem_rx)) ∗
+              VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I True%I (pprog0 ^+ 31%nat)%f V1 True%I ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page prx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I) with "[PCz p_32 acc tx R0z R1z prop0 prop1 mem rxmem whretri whtans RX1page RX1st]").
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
@@ -2268,7 +1986,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iDestruct "P'" as "(P' & prop1)".
     iDestruct "P'" as "(>R0z & >R1z & >mem & >whtrans & >RX1page & >RX1st & >RX1mem)".
     rewrite wp_sswp.
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 32%nat)%f run_I R0) with "[p_33 PCz acc tx R0z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 32%nat)%f run_I R0) with "[p_33 PCz acc tx R0z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2287,7 +2005,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) (p_pg0 ^+ 33%nat)%f (encode_vmid V2) R1) with "[p_34 PCz acc tx R1z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 33%nat)%f (encode_vmid V2) R1) with "[p_34 PCz acc tx R1z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2306,7 +2024,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".    
-    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V2) 1%Qp ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]}) (tpa p_tx0) ((PC @@ V0 ->r (p_pg0 ^+ 35%nat)%f) ∗ (V0 -@A> ({[tpa addr]} ∪ {[p_pg0; tpa p_tx0]})) ∗ (TX@V0:=tpa p_tx0))%I (fixpoint (vmprop_unknown_pre V2) ∅) ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a finz.FinZ 4 four_obligation_1 four_obligation_2 ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx : mem, memory_page p_rx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I (p_pg0 ^+ 34%nat)%f V2 (trans.fresh_handles 1 (valid_handles ∖ {[wh]}) ∗ (∃ mem_rx : mem, memory_page p_rx0 mem_rx) ∗ (∃ mem_rx : mem, memory_page p_rx1 mem_rx) ∗ (∃ mem_rx : mem, memory_page p_rx2 mem_rx) ∗ RX@V0:=p_rx0 ∗ RX@V1:=p_rx1 ∗ RX@V2:=p_rx2 ∗ rx_state_mapsto V0 1 None ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ rx_state_mapsto V2 1 None ∗ ([∗ set] p ∈ {[tpa addr]}, p -@O> V0 ∗ p -@E> false) ∗ R2 @@ V0 ->r one)%I (vmprop_zero V2 (<[wh := ((V0, V1, ({[tpa addr]} : gset PID), Sharing), true)]> ∅) (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))))%I) with "[PCz p_35 acc tx R0z R1z prop0 prop2 whfresh RX0page RX0mem RX0st RX1page RX1mem RX1st RX2page RX2mem RX2st R2z OE whtrans]").
+    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V2) 1%Qp ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) ((PC @@ V0 ->r (pprog0 ^+ 35%nat)%f) ∗ (V0 -@A> ({[pshare]} ∪ {[pprog0; tpa ptx0]})) ∗ (TX@V0:=tpa ptx0))%I (fixpoint (vmprop_unknown_pre V2) ∅) ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a finz.FinZ 4 four_obligation_1 four_obligation_2 ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx : mem, memory_page prx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I (pprog0 ^+ 34%nat)%f V2 (trans.fresh_handles 1 (valid_handles ∖ {[wh]}) ∗ (∃ mem_rx : mem, memory_page prx0 mem_rx) ∗ (∃ mem_rx : mem, memory_page prx1 mem_rx) ∗ (∃ mem_rx : mem, memory_page prx2 mem_rx) ∗ RX@V0:=prx0 ∗ RX@V1:=prx1 ∗ RX@V2:=prx2 ∗ rx_state_mapsto V0 1 None ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ rx_state_mapsto V2 1 None ∗ ([∗ set] p ∈ {[pshare]}, p -@O> V0 ∗ p -@E> false) ∗ R2 @@ V0 ->r one)%I (vmprop_zero V2 (<[wh := ((V0, V1, ({[pshare]} : gset PID), Sharing), true)]> ∅) (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))))%I) with "[PCz p_35 acc tx R0z R1z prop0 prop2 whfresh RX0page RX0mem RX0st RX1page RX1mem RX1st RX2page RX2mem RX2st R2z OE whtrans]").
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
@@ -2330,7 +2048,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
       iEval (simpl) in "PCz".    
       iFrame.
       iApply vmprop_unknown_eq.
-      iExists (<[wh := ((V0, V1, ({[tpa addr]} : gset PID), Sharing), true)]> ∅), (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))).
+      iExists (<[wh := ((V0, V1, ({[pshare]} : gset PID), Sharing), true)]> ∅), (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))).
       iSplit.
       - iPureIntro.
         unfold trans_rel_secondary.
@@ -2446,7 +2164,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
                                  apply lookup_insert_rev in contra.
                                  rewrite <-contra.
                                  iFrame.
-                             *** iExists p_rx2.
+                             *** iExists prx2.
                                  iFrame.
                              *** iSplitR "prop0".
                                  ---- unfold rx_states_global.
@@ -2456,7 +2174,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
                                       rewrite big_opM_insert_delete.
                                       iFrame "RX1st".
                                       iSplitL "RX1page RX1mem".
-                                      iExists p_rx1.
+                                      iExists prx1.
                                       iFrame.
                                       assert (delete V1 {[V0 := None]} = {[V0 := None]}) as ->.
                                       {
@@ -2467,7 +2185,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
                                       }
                                       rewrite big_opM_singleton.
                                       iSplitL "RX0st"; first iFrame.
-                                      iExists p_rx0.
+                                      iExists prx0.
                                       iFrame.
                                       rewrite insert_empty.
                                       rewrite lookup_insert_None.
@@ -2493,7 +2211,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     (* getting back resources *)
     rewrite wp_sswp.
     clear -HIn Hnottx.
-    iApply ((halt (p_pg0 ^+ 35%nat)%f) with "[PCz p_36 acc tx]"); iFrameAutoSolve.
+    iApply ((halt (pprog0 ^+ 35%nat)%f) with "[PCz p_36 acc tx]"); iFrameAutoSolve.
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
@@ -2516,25 +2234,25 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     done.
   Qed.
 
-  Lemma lending_machine1 p_pg1 (p_tx1 : PID) p_rx1 (addr : Imm) (p_rx1imm : Imm) :
-    let program1 := lending_program1 addr p_rx1imm in
-    of_pid (tpa addr) = addr ->
+  Lemma mtms_machine1 p_pg1 (p_tx1 : PID) prx1 (addr : Imm) (i_prx1 : Imm) :
+    let program1 := mtms_program1 addr i_prx1 in
+    of_pid pshare = addr ->
     (* Disjoint pages *)
     (* (of_pid p_tx1 = p_tx1imm) -> *)
-    (of_pid p_rx1 = p_rx1imm) ->
+    (of_pid prx1 = i_prx1) ->
     (* (of_pid p_pg1 = p_pg1imm) -> *)
-    (p_pg1 ∉ ({[(tpa addr); p_tx1; p_rx1]}:gset _)) ->
-    tpa addr ≠ p_rx1 ->
-    tpa addr ≠ p_pg1 ->
-    tpa addr ≠ p_tx1 ->
-    p_tx1 ≠ p_rx1 ->
+    (p_pg1 ∉ ({[pshare; p_tx1; prx1]}:gset _)) ->
+    pshare ≠ prx1 ->
+    pshare ≠ p_pg1 ->
+    pshare ≠ p_tx1 ->
+    p_tx1 ≠ prx1 ->
     (* Addresses-values connection *)
     seq_in_page (of_pid p_pg1) (length program1) p_pg1 ->
     (* Mem for program *)
     (program (program1) (of_pid p_pg1)) ∗
     (* TX mem *)
     (∃ txmem, memory_page (tpa p_tx1) txmem) ∗
-    V1 -@A> (union (union (singleton p_pg1) (singleton (tpa p_tx1))) (singleton (tpa p_rx1))) ∗
+    V1 -@A> (union (union (singleton p_pg1) (singleton (tpa p_tx1))) (singleton (tpa prx1))) ∗
     (* TX page *)            
     TX@ V1 := (tpa p_tx1) ∗
     (* Program counter *)                      
@@ -2546,9 +2264,9 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     (∃ r3, R3 @@ V1 ->r r3) ∗
     (∃ r4, R4 @@ V1 ->r r4) ∗
     (∃ r5, R5 @@ V1 ->r r5) ∗                        
-    VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗
-               wh ->re false ∗ RX_state@V1 := Some (of_imm one, V0) ∗ RX@V1:=p_rx1 ∗ memory_page p_rx1 β ∗ ⌜β !! (of_imm p_rx1imm) = Some wh⌝) ∗
-      VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[tpa addr]}, Sharing) ∗ RX@V1:=p_rx1 ∗ RX_state@V1 := None ∗ (∃ mem_rx, memory_page p_rx1 mem_rx)) ∗
+    VMProp V1 (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[pshare]}, Sharing) ∗
+               wh ->re false ∗ RX_state@V1 := Some (of_imm one, V0) ∗ RX@V1:=prx1 ∗ memory_page prx1 β ∗ ⌜β !! (of_imm i_prx1) = Some wh⌝) ∗
+      VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ RX_state@V1 := None ∗ (∃ mem_rx, memory_page prx1 mem_rx)) ∗
         VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I (1/2)%Qp
     ⊢ VMProp_holds V1 (1/2)%Qp -∗ WP ExecI @ V1 {{ (λ m, False) }}%I.
   Proof.
@@ -2568,7 +2286,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     assert (p_pg1 ≠ p_tx1) as Hnottx. set_solver + HnIn_p.
     rewrite wp_sswp.
     iDestruct "P" as "(R0z & R1z & mem & temp)".
-    iApply ((mov_word (of_pid p_pg1) p_rx1imm R5) with "[p_1 PCs acc tx R5s]"); iFrameAutoSolve.
+    iApply ((mov_word (of_pid p_pg1) i_prx1 R5) with "[p_1 PCs acc tx R5s]"); iFrameAutoSolve.
     do 2 apply elem_of_union_l.
     apply elem_of_singleton_2.
     by rewrite to_pid_aligned_eq.
@@ -2580,8 +2298,8 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     rewrite wp_sswp.
     iEval (unfold memory_page) in "RX1mem".
     iDestruct "RX1mem" as "(%rxmemdom & RX1mem)".
-    iDestruct (@mem_big_sepM_split_upd _ _ p_rx1imm wh with "RX1mem") as "(rxbase & rxmemacc)"; auto.
-    iApply ((ldr (p := p_tx1) (w1 := ldr_I R4 R5) (s := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (w2 := wh) (w3 := r4) (q := 1%Qp) (p_pg1 ^+ 1)%f p_rx1imm R4 R5) with "[PCs p_2 acc tx R4s R5s rxbase]").
+    iDestruct (@mem_big_sepM_split_upd _ _ i_prx1 wh with "RX1mem") as "(rxbase & rxmemacc)"; auto.
+    iApply ((ldr (p := p_tx1) (w1 := ldr_I R4 R5) (s := {[p_pg1; tpa p_tx1; tpa prx1]}) (w2 := wh) (w3 := r4) (q := 1%Qp) (p_pg1 ^+ 1)%f i_prx1 R4 R5) with "[PCs p_2 acc tx R4s R5s rxbase]").
     by rewrite decode_encode_instruction.
     apply union_subseteq.
     split; rewrite singleton_subseteq_l.
@@ -2607,7 +2325,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (repeat (rewrite finz_succN_idemp)) in "PCs".
     iEval (simpl) in "PCs".
     iEval (repeat (rewrite finz_succN_correct)) in "PCs".
-    iApply ((mov_word (w3 := r0) (p_tx := p_tx1) (w1 := mov_word_I R0 msg_poll_I) (q := 1%Qp) (s := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 2%nat)%f msg_poll_I R0) with "[p_3 PCs acc tx R0s]").
+    iApply ((mov_word (w3 := r0) (p_tx := p_tx1) (w1 := mov_word_I R0 msg_poll_I) (q := 1%Qp) (s := {[p_pg1; tpa p_tx1; tpa prx1]}) (p_pg1 ^+ 2%nat)%f msg_poll_I R0) with "[p_3 PCs acc tx R0s]").
     by rewrite decode_encode_instruction.
     do 2 apply elem_of_union_l.
     apply elem_of_singleton_2.    
@@ -2624,7 +2342,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((msg_poll_full (r0 := msg_poll_I) (r1 := r1) (r2 := r2) (wi := hvc_I) (l := one) (i := V1) (j := V0) (p_tx := p_tx1) (q := 1%Qp) (s := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 3%nat)%f) with "[p_4 PCs acc tx R0s R1s R2s RX1st]").
+    iApply ((msg_poll_full (r0 := msg_poll_I) (r1 := r1) (r2 := r2) (wi := hvc_I) (l := one) (i := V1) (j := V0) (p_tx := p_tx1) (q := 1%Qp) (s := {[p_pg1; tpa p_tx1; tpa prx1]}) (p_pg1 ^+ 3%nat)%f) with "[p_4 PCs acc tx R0s R1s R2s RX1st]").
     do 2 apply elem_of_union_l.
     apply elem_of_singleton_2.    
     rewrite HIn.
@@ -2642,7 +2360,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((@mov_reg _ _ _ _ _ _ _ wh 1%Qp {[p_pg1; tpa p_tx1; tpa p_rx1]} (tpa p_tx1) (p_pg1 ^+ 4%nat)%f one R1 R4) with "[PCs p_5 acc tx R1s R4s]").
+    iApply ((@mov_reg _ _ _ _ _ _ _ wh 1%Qp {[p_pg1; tpa p_tx1; tpa prx1]} (tpa p_tx1) (p_pg1 ^+ 4%nat)%f one R1 R4) with "[PCs p_5 acc tx R1s R4s]").
     apply decode_encode_instruction.
     do 2 apply elem_of_union_l.    
     apply elem_of_singleton_2.
@@ -2660,7 +2378,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[p_pg1; tpa p_tx1; tpa p_rx1]} (tpa p_tx1) (p_pg1 ^+ 5%nat)%f mem_retrieve_I R0) with "[p_6 PCs acc tx R0s]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[p_pg1; tpa p_tx1; tpa prx1]} (tpa p_tx1) (p_pg1 ^+ 5%nat)%f mem_retrieve_I R0) with "[p_6 PCs acc tx R0s]").
     apply decode_encode_instruction.
     do 2 apply elem_of_union_l.
     apply elem_of_singleton_2.
@@ -2679,7 +2397,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
     iSpecialize ("rxmemacc" $! wh with "rxbase").
-    iApply ((mem_retrieve_share (sacc := {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_tx := tpa p_tx1) (p_pg1 ^+ 6%nat)%f wh) with "[PCs p_7 R0s R1s acc tx whretri whtrans RX1page RX1st rxmemacc]").
+    iApply ((mem_retrieve_share (sacc := {[p_pg1; tpa p_tx1; tpa prx1]}) (p_tx := tpa p_tx1) (p_pg1 ^+ 6%nat)%f wh) with "[PCs p_7 R0s R1s acc tx whretri whtrans RX1page RX1st rxmemacc]").
     rewrite to_pid_aligned_eq.
     rewrite HIn.
     assumption.
@@ -2704,7 +2422,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (tpa p_tx1) (p_pg1 ^+ 7%nat)%f four R3) with "[p_8 PCs acc tx R3s]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[p_pg1; tpa p_tx1; tpa prx1]}) (tpa p_tx1) (p_pg1 ^+ 7%nat)%f four R3) with "[p_8 PCs acc tx R3s]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     do 2 apply elem_of_union_l.
@@ -2723,7 +2441,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (tpa p_tx1) (p_pg1 ^+ 8%nat)%f addr R5) with "[p_9 PCs acc tx R5s]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[p_pg1; tpa p_tx1; tpa prx1]}) (tpa p_tx1) (p_pg1 ^+ 8%nat)%f addr R5) with "[p_9 PCs acc tx R5s]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     do 2 apply elem_of_union_l.
@@ -2742,7 +2460,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((@str _ _ _ _ _ _ _ four two 1%Qp p_rx1 (tpa p_tx1) ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 9%nat)%f addr R3 R5) with "[p_10 PCs acc mem RX1page tx R3s R5s]").
+    iApply ((@str _ _ _ _ _ _ _ four two 1%Qp prx1 (tpa p_tx1) ({[pshare]} ∪ {[p_pg1; tpa p_tx1; tpa prx1]}) (p_pg1 ^+ 9%nat)%f addr R3 R5) with "[p_10 PCs acc mem RX1page tx R3s R5s]").
     apply decode_encode_instruction.
     apply union_subseteq.
     split; rewrite singleton_subseteq_l.
@@ -2767,7 +2485,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((mov_word (w3 := encode_hvc_ret_code Succ) (p_tx := p_tx1) (w1 := mov_word_I R0 msg_poll_I) (q := 1%Qp) (s := {[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 10%nat)%f msg_poll_I R0) with "[p_11 PCs acc tx R0s]").
+    iApply ((mov_word (w3 := encode_hvc_ret_code Succ) (p_tx := p_tx1) (w1 := mov_word_I R0 msg_poll_I) (q := 1%Qp) (s := {[pshare]} ∪ {[p_pg1; tpa p_tx1; tpa prx1]}) (p_pg1 ^+ 10%nat)%f msg_poll_I R0) with "[p_11 PCs acc tx R0s]").
     by rewrite decode_encode_instruction.
     apply elem_of_union_r.
     do 2 apply elem_of_union_l.
@@ -2786,7 +2504,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((msg_poll_full (r0 := msg_poll_I) (r1 := wh) (r2 := encode_vmid V0) (wi := hvc_I) (l := l) (i := V1) (j := V0) (p_tx := p_tx1) (q := 1%Qp) (s := {[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_pg1 ^+ 11%nat)%f) with "[p_12 PCs acc tx R0s R1s R2s RX1st]").
+    iApply ((msg_poll_full (r0 := msg_poll_I) (r1 := wh) (r2 := encode_vmid V0) (wi := hvc_I) (l := l) (i := V1) (j := V0) (p_tx := p_tx1) (q := 1%Qp) (s := {[pshare]} ∪ {[p_pg1; tpa p_tx1; tpa prx1]}) (p_pg1 ^+ 11%nat)%f) with "[p_12 PCs acc tx R0s R1s R2s RX1st]").
     apply elem_of_union_r.
     do 2 apply elem_of_union_l.
     apply elem_of_singleton_2.    
@@ -2806,7 +2524,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (tpa p_tx1) (p_pg1 ^+ 12%nat)%f yield_I R0) with "[p_13 PCs acc tx R0s]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[p_pg1; tpa p_tx1; tpa prx1]}) (tpa p_tx1) (p_pg1 ^+ 12%nat)%f yield_I R0) with "[p_13 PCs acc tx R0s]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     do 2 apply elem_of_union_l.
@@ -2826,7 +2544,7 @@ Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _.
     iEval (rewrite finz_plus_one_simpl) in "PCs".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCs".
-    iApply ((yield (s := {[tpa addr]} ∪ {[p_pg1; tpa p_tx1; tpa p_rx1]}) (p_tx := tpa p_tx1) (p_pg1 ^+ 13%nat)%f True False%I) with "[PCs p_14 acc tx R0s R0z R1z prop0 prop1 mem whtrans RX1page RX1st RX1mem]").
+    iApply ((yield (s := {[pshare]} ∪ {[p_pg1; tpa p_tx1; tpa prx1]}) (p_tx := tpa p_tx1) (p_pg1 ^+ 13%nat)%f True False%I) with "[PCs p_14 acc tx R0s R0z R1z prop0 prop1 mem whtrans RX1page RX1st RX1mem]").
     apply elem_of_union_r.
     do 2 apply elem_of_union_l.
     apply elem_of_singleton_2.
