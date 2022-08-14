@@ -11,10 +11,5 @@ Section mtms_ftlr.
   Context `{hypparams: !@HypervisorParameters rywu_vmconfig}.
   Context `{vmG: !@gen_VMG rywu_vmconfig Σ}.
 
-  Definition mtms_interp_access (p_prog3 p_tx p_rx :PID):= interp_access (V2 : leibnizO VMID) p_tx p_rx {[p_prog3; p_tx; p_rx]} ∅.
-
-  Lemma mtms_ftlr (p_prog3 p_tx p_rx :PID):
-   mtms_interp_access p_prog3 p_tx p_rx ⊢ interp_execute V2.
-  Proof. iApply ftlr. Qed.
 
 End mtms_ftlr.
