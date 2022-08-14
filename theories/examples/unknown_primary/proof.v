@@ -18,10 +18,6 @@ Program Definition V2 : VMID := (@nat_to_fin 2 _ _).
 Program Definition V3 : VMID := (@nat_to_fin 3 _ _).
 
 Program Definition fortytwo : Imm := I (finz.FinZ 42 _ _) _.
-(* Program Definition one : Imm := I (finz.FinZ 1 _ _) _. *)
-(* Program Definition two : Imm := I (finz.FinZ 2 _ _) _. *)
-(* Program Definition four : Imm := I (finz.FinZ 4 _ _) _. *)
-(* Program Definition mem_descriptor_length : Imm := I (finz.FinZ 5 _ _) _. *)
 
   Context `{hypparams: !HypervisorParameters}.
   Context (pshare:PID) (pshare_i: Imm) (Hpshare_eq: of_pid pshare = pshare_i).
