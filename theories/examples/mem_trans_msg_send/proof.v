@@ -517,23 +517,16 @@ Section proof.
     iFrame.    
     iModIntro.
     iIntros "(PCz & _ & R5z & R3z & acc & tx) _".
-    (* TODO *)
     (* mov_word_I R4 zero *)
     rewrite wp_sswp.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 8%nat)%f zero R4) with "[p_9 PCz acc tx R4z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 8%nat)%f zero R4) with "[p_9 PCz acc tx R4z]").
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite HIn.
-    reflexivity.
+    rewrite HIn. set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
     iFrame.
     iModIntro.
@@ -543,33 +536,23 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ zero w2 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 9%nat)%f (ptx0 ^+ 1)%f R4 R5) with "[p_10 PCz acc txmem2 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ zero w2 1%Qp prx0 ptx0 {[pshare;pprog0; ptx0]} (pprog0 ^+ 9%nat)%f (ptx0 ^+ 1)%f R4 R5) with "[p_10 PCz acc txmem2 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
-    apply union_subseteq_r'.
-    apply union_least.
-    rewrite singleton_subseteq_l.    
-    apply elem_of_union_r.
-    apply elem_of_singleton_2.
+    rewrite (finz_succN_pid' ptx0 1);try lia.
+    rewrite HIn.
+    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn. done.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite (finz_succN_pid' ptx0 1); try lia.
     {
-      rewrite to_pid_aligned_eq.
-      rewrite (finz_succN_pid' ptx0 1).
-      reflexivity.
+      intros Heq.
+      feed pose proof (NoDup_lookup _ 4 7 prx0 Hps_nd).
+      rewrite Heq. done.
+      rewrite Heq. done.
       lia.
     }
-    rewrite singleton_subseteq_l.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    apply HIn.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite (finz_succN_pid' ptx0 1).
-    assumption.
-    lia.
-    rewrite Htxeq.
-    iFrame.
+    iFrame. rewrite Heq_ptx0. simpl. iFrame.
     iModIntro.
     iIntros "(PCz & _ & R5z & txmem2 & R4z & acc & tx & RX0page) _".
     (* add_I R5 R3 *)
@@ -577,22 +560,16 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (i_ptx0 ^+ 1)%f one 1%Qp (tpa ptx0)
+    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (i_ptx0 ^+ 1)%f one 1%Qp ptx0
               (pprog0 ^+ 10%nat)%f
-              R5 R3 ({[pshare]} ∪ {[pprog0; tpa ptx0]}) with "[p_11 PCz acc R5z R3z tx]").
+              R5 R3 {[pshare;pprog0; ptx0]} with "[p_11 PCz acc R5z R3z tx]").
     apply decode_encode_instruction. 
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 10).
-    reflexivity.
-    lia.
     rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
-    iFrame.
+    rewrite (finz_succN_pid' pprog0 10);[|lia].
+    done.
+    iFrame. rewrite Heq_ptx0. simpl. iFrame.
     iModIntro.
     iIntros "(PCz & _ & R5z & R3z & acc & tx) _".
     (* (* mov_word_I R4 one *) *)
@@ -600,21 +577,15 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0
                (pprog0 ^+ 11%nat)%f
                one R4) with "[p_12 PCz acc tx R4z]").
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 11).
-    reflexivity.
-    lia.
     rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
+    rewrite (finz_succN_pid' pprog0 11);[|lia].
+    done.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R4z) _".
@@ -622,41 +593,31 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ one w3 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 12%nat)%f ((ptx0 ^+ 1) ^+ 1)%f R4 R5) with "[p_13 PCz acc txmem3 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ one w3 1%Qp prx0 ptx0 {[pshare;pprog0; ptx0]} (pprog0 ^+ 12%nat)%f ((ptx0 ^+ 1) ^+ 1)%f R4 R5) with "[p_13 PCz acc txmem3 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
-    apply union_subseteq_r'.
-    apply union_least.
-    rewrite singleton_subseteq_l.    
-    apply elem_of_union_r.
-    apply elem_of_singleton_2.
-    {
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 2).
-      reflexivity.
-      lia.
-    }
-    rewrite singleton_subseteq_l.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    apply HIn.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
     repeat (rewrite finz_succN_one).
     repeat (rewrite finz_succN_idemp).
     simpl.
     rewrite finz_succN_correct.
-    rewrite (finz_succN_pid' ptx0 2).
-    assumption.
-    lia.
-    rewrite Htxeq.
-    iFrame.
+    rewrite (finz_succN_pid' ptx0 2);[|lia].
+    rewrite HIn.
+    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite finz_succN_pid';[|lia].
+    done.
+    repeat (rewrite finz_succN_one).
+    repeat (rewrite finz_succN_idemp).
+    simpl.
+    rewrite finz_succN_correct.
+    rewrite (finz_succN_pid' ptx0 2);[|lia].
+    {
+      intros Heq.
+      feed pose proof (NoDup_lookup _ 4 7 prx0 Hps_nd).
+      rewrite Heq. done.
+      rewrite Heq. done.
+      lia.
+    }
+    rewrite Heq_ptx0. iFrame.
     iModIntro.
     iIntros "(PCz & _ & R5z & txmem3 & R4z & acc & tx & RX0page) _".
     (* add_I R5 R3 *)
@@ -664,21 +625,19 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply (@add _ _ _ _ _ _ (add_I R5 R3) ((i_ptx0 ^+ 1) ^+ 1)%f one 1%Qp (tpa ptx0)
+    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (ptx0 ^+ 2)%f one 1%Qp ptx0
               (pprog0 ^+ 13%nat)%f
-              R5 R3 ({[pshare]} ∪ {[pprog0; tpa ptx0]}) with "[p_14 PCz acc R5z R3z tx]").
+              R5 R3 {[pshare;pprog0; ptx0]} with "[p_14 PCz acc R5z R3z tx]").
     apply decode_encode_instruction. 
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 13).
-    reflexivity.
-    lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
+    rewrite (finz_succN_pid' pprog0 13);[|lia].
+    set_solver +.
+    rewrite (finz_succN_pid' pprog0 13);[|lia].
+    done.
+    iFrame.
+    repeat (rewrite finz_succN_one).
+    repeat (rewrite finz_succN_idemp).
+    simpl.
+    rewrite !finz_succN_correct.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & R5z & R3z & acc & tx) _".
@@ -687,21 +646,14 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0
                (pprog0 ^+ 14%nat)%f
                (encode_vmid V1) R4) with "[p_15 PCz acc tx R4z]").
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 14).
-    reflexivity.
-    lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite (finz_succN_pid' pprog0 14);[|lia].
+    set_solver +.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R4z) _".
@@ -709,40 +661,34 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ (encode_vmid V1) w4 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 15%nat)%f (((ptx0 ^+ 1) ^+ 1) ^+ 1)%f R4 R5) with "[p_16 PCz acc txmem4 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ (encode_vmid V1) w4 1%Qp prx0 ptx0
+               {[pshare;pprog0; ptx0]} (pprog0 ^+ 15%nat)%f (ptx0 ^+3)%f R4 R5) with "[p_16 PCz acc txmem4 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
-    apply union_subseteq_r'.
-    apply union_least.
-    rewrite singleton_subseteq_l.    
-    apply elem_of_union_r.
-    apply elem_of_singleton_2.
+    rewrite (finz_succN_pid' ptx0 3);[|lia].
+    rewrite HIn.
+    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite (finz_succN_pid' pprog0 15);[|lia].
+    done.
+    rewrite (finz_succN_pid' ptx0 3);[|lia].
     {
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
+      intros Heq.
+      feed pose proof (NoDup_lookup _ 4 7 prx0 Hps_nd).
+      rewrite Heq. done.
+      rewrite Heq. done.
       lia.
     }
-    rewrite singleton_subseteq_l.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    apply HIn.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
+    iFrame.
     repeat (rewrite finz_succN_one).
     repeat (rewrite finz_succN_idemp).
     simpl.
-    rewrite finz_succN_correct.
-    rewrite (finz_succN_pid' ptx0 3).
-    assumption.
-    lia.
-    rewrite Htxeq.
+    rewrite !finz_succN_correct.
+    iFrame.
+    rewrite -finz_succN_correct.
+    rewrite -(finz_succN_correct ptx0 2).
+    repeat (rewrite finz_succN_idemp).
+    simpl.
+    rewrite !finz_succN_correct.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & R5z & txmem4 & R4z & acc & tx & RX0page) _".
@@ -751,21 +697,14 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (((i_ptx0 ^+ 1) ^+ 1) ^+ 1)%f one 1%Qp (tpa ptx0)
+    iApply (@add _ _ _ _ _ _ (add_I R5 R3) (ptx0 ^+ 3)%f one 1%Qp ptx0
               (pprog0 ^+ 16%nat)%f
-              R5 R3 ({[pshare]} ∪ {[pprog0; tpa ptx0]}) with "[p_17 PCz acc R5z R3z tx]").
+              R5 R3 {[pshare;pprog0; ptx0]} with "[p_17 PCz acc R5z R3z tx]").
     apply decode_encode_instruction. 
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 16).
-    reflexivity.
-    lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
+    rewrite (finz_succN_pid' pprog0 16);[|lia].
+    set_solver +.
+    rewrite (finz_succN_pid' pprog0 16);[|lia].
+    done.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & R5z & R3z & acc & tx) _".
@@ -774,21 +713,14 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0
                (pprog0 ^+ 17%nat)%f
                addr R4) with "[p_18 PCz acc tx R4z]").
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 17).
-    reflexivity.
-    lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
+    rewrite (finz_succN_pid' pprog0 17);[|lia].
+    set_solver +.
+    rewrite (finz_succN_pid' pprog0 17);[|lia].
+    done.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R4z) _".
@@ -796,62 +728,45 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@str _ _ _ _ _ _ _ addr w5 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 18%nat)%f ((((ptx0 ^+ 1) ^+ 1) ^+ 1) ^+ 1)%f R4 R5) with "[p_19 PCz acc txmem5 RX0page tx R4z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ addr w5 1%Qp prx0 ptx0 {[pshare;pprog0; ptx0]} (pprog0 ^+ 18%nat)%f
+               (ptx0 ^+ 4)%f R4 R5) with "[p_19 PCz acc txmem5 RX0page tx R4z R5z]").
     apply decode_encode_instruction.
-    apply union_subseteq_r'.
-    apply union_least.
-    rewrite singleton_subseteq_l.    
-    apply elem_of_union_r.
-    apply elem_of_singleton_2.
+    rewrite (finz_succN_pid' ptx0 4);[|lia].
+    rewrite (finz_succN_pid' pprog0 18);[|lia].
+    set_solver +.
+    rewrite (finz_succN_pid' pprog0 18);[|lia].
+    done.
+    rewrite (finz_succN_pid' ptx0 4);[|lia].
     {
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
+      intros Heq.
+      feed pose proof (NoDup_lookup _ 4 7 prx0 Hps_nd).
+      rewrite Heq. done.
+      rewrite Heq. done.
       lia.
     }
-    rewrite singleton_subseteq_l.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    apply HIn.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
+    iFrame.
+    rewrite -(finz_succN_correct ptx0 3).
     repeat (rewrite finz_succN_one).
     repeat (rewrite finz_succN_idemp).
     simpl.
-    rewrite finz_succN_correct.
-    rewrite (finz_succN_pid' ptx0 4).
-    assumption.
-    lia.
-    rewrite Htxeq.
+    rewrite !finz_succN_correct.
     iFrame.
+    repeat (rewrite finz_succN_one).
+    rewrite !finz_succN_correct.
     iModIntro.
     iIntros "(PCz & _ & R5z & txmem5 & R4z & acc & tx & RX0page) _".
     rewrite wp_sswp.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0
                (pprog0 ^+ 19%nat)%f
                mem_share_I R0) with "[p_20 PCz acc tx R0z]").
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 19).
-    reflexivity.
-    lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
+    rewrite (finz_succN_pid' pprog0 19);[|lia].
+    set_solver +.
+    rewrite (finz_succN_pid' pprog0 19);[|lia].
+    done.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R0z) _".
@@ -859,21 +774,14 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0)
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0
                (pprog0 ^+ 20%nat)%f
                mem_descriptor_length R1) with "[p_21 PCz acc tx R1z]").
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
-    rewrite (finz_succN_pid' pprog0 20).
-    reflexivity.
-    lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
-    apply finz_succN_in_seq; simpl; lia.
-    rewrite Htxeq.
+    rewrite (finz_succN_pid' pprog0 20);[|lia].
+    set_solver +.
+    rewrite (finz_succN_pid' pprog0 20);[|lia].
+    done.
     iFrame.
     iModIntro.
     iIntros "(PCz & _ & acc & tx & R1z) _".
@@ -882,53 +790,44 @@ Section proof.
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
     iSpecialize ("txacc" $! (encode_vmid V0) zero one (encode_vmid V1) addr).
-    iDestruct ("txacc" with "[$txmem1 $txmem2 $txmem3 $txmem4 $txmem5]") as "txmem".
+    rewrite -Heq_ptx0.
+    (* rewrite finz_plus_one_simpl. *)
+    (* simpl. *)
+
+    iDestruct ("txacc" with "[txmem1 txmem2 txmem3 txmem4 txmem5]") as "txmem".
+    {
+      repeat (rewrite finz_succN_one).
+      repeat (rewrite finz_succN_idemp).
+      simpl.
+      rewrite !finz_succN_correct.
+      iFrame.
+    }
     match goal with
     | |- context [([∗ map] k↦y ∈ ?p, k ->a y)%I] => set q := p
     end.
-    iApply ((mem_share (p_tx := tpa ptx0) (wi := hvc_I) (hvcf := Share)
-               (sacc := ({[pshare]} ∪ {[pprog0; tpa ptx0]}))
+    iApply ((mem_share (p_tx := ptx0) (wi := hvc_I) (hvcf := Share)
+               (sacc := {[pshare;pprog0; ptx0]})
                (r0 := mem_share_I) (r1 := mem_descriptor_length) (r2 := r2)
                (pprog0 ^+ 21%nat)%f
                V1 q
                valid_handles (singleton pshare))
              with "[p_22 PCz acc R0z R1z R2z hp tx txmem OE]").
+    rewrite HIn.
+    set_solver +.
+    apply finz_succN_in_seq; simpl; lia.
+    rewrite HIn. done.
+    apply finz_succN_in_seq; simpl; lia.
+    apply decode_encode_instruction.
+    apply decode_encode_hvc_func.
+    reflexivity.
+    unfold mem_descriptor_length. simpl. lia.
+    unfold parse_transaction_descriptor.
+    assert (parse_list_of_Word q ptx0 (Z.to_nat mem_descriptor_length) = Some ([of_imm (encode_vmid V0); of_imm zero; of_imm one; of_imm (encode_vmid V1); of_pid pshare] : list Addr)) as ->.
     {
-      apply elem_of_union_r.
-      apply elem_of_union_l.
-      apply elem_of_singleton_2.
-      rewrite HIn.
-      reflexivity.
-      apply finz_succN_in_seq; simpl; lia.
-    }
-    {
-      rewrite HIn.
-      rewrite to_pid_aligned_eq.
-      assumption.
-      apply finz_succN_in_seq; simpl; lia.
-    }
-    {
-      apply decode_encode_instruction.
-    }
-    {
-      apply decode_encode_hvc_func.
-    }
-    {
-      reflexivity.
-    }
-    {
-      unfold mem_descriptor_length.
-      simpl.
-      lia.
-    }
-    {
-      unfold parse_transaction_descriptor.
-      assert (parse_list_of_Word q (tpa ptx0) (Z.to_nat mem_descriptor_length) = Some ([of_imm (encode_vmid V0); of_imm zero; of_imm one; of_imm (encode_vmid V1); of_pid pshare] : list Addr)) as ->.
-      {
-        clear -Htxeq Haddr.
+        clear -Heq_ptx0 Heq_pshare.
+        pose proof (last_addr_in_bound ptx0) as Hlast_ptx.
         unfold parse_list_of_Word.
         unfold sequence_a.
-        remember (tpa ptx0) as A.
         match goal with
         | |- context G [Some ?l] => remember l as l'
         end.
@@ -940,308 +839,93 @@ Section proof.
         {
           subst a'.
           subst q.
-          rewrite HeqA.
-          clear -Htxeq.
+          clear -Heq_ptx0.
           rewrite lookup_insert_Some.
           left.
           split; last done.
-          rewrite <-Htxeq.
-          by rewrite to_pid_aligned_eq.
+          done.
         }
         assert (b' = Some (of_imm zero)) as ->.
         {
           subst b'.
           subst q.
-          rewrite HeqA.
-          clear -Htxeq.
           rewrite lookup_insert_Some.
           right.
           split.
-          - rewrite to_pid_aligned_eq.
-            rewrite <-Htxeq.
-            intros contra.
-            destruct ptx0.
-            simpl in *.
-            destruct z.
-            simpl in *.
-            assert ((z <=? 1999000)%Z = true).
-            {
-              rewrite Z.eqb_eq in align.
-              rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-              rewrite Zmod_divides in align; last lia.
-              destruct align as [c align].
-              simplify_eq.
-              assert (c <? 2000 = true)%Z.
-              lia.
-              assert (1999000 = 1000 * 1999)%Z as ->.
-              lia.
-              apply Zle_imp_le_bool.
-              apply Zmult_le_compat_l; lia.
-            }
-            solve_finz.
+          solve_finz + Hlast_ptx.
           - rewrite lookup_insert_Some.
             left.
             split; last done.
-            by rewrite to_pid_aligned_eq.
+            solve_finz +.
         }
         assert (c' = Some (of_imm one)) as ->.
         {
           subst c'.
           subst q.
-          rewrite HeqA.
-          clear -Htxeq.
           rewrite lookup_insert_Some.
           right.
           split.
-          - rewrite to_pid_aligned_eq.
-            rewrite <-Htxeq.
-            intros contra.
-            destruct ptx0.
-            simpl in *.
-            destruct z.
-            simpl in *.
-            assert ((z <=? 1999000)%Z = true).
-            {
-              rewrite Z.eqb_eq in align.
-              rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-              rewrite Zmod_divides in align; last lia.
-              destruct align as [c align].
-              simplify_eq.
-              assert (c <? 2000 = true)%Z.
-              lia.
-              assert (1999000 = 1000 * 1999)%Z as ->.
-              lia.
-              apply Zle_imp_le_bool.
-              apply Zmult_le_compat_l; lia.
-            }
-            solve_finz.
-          - rewrite lookup_insert_Some.
-            right.
-            split.
-            + rewrite to_pid_aligned_eq.
-              intros contra.
-              destruct ptx0.
-              simpl in *.
-              destruct z.
-              simpl in *.
-              assert ((z <=? 1999000)%Z = true).
-              {
-                rewrite Z.eqb_eq in align.
-                rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-                rewrite Zmod_divides in align; last lia.
-                destruct align as [c align].
-                simplify_eq.
-                assert (c <? 2000 = true)%Z.
-                lia.
-                assert (1999000 = 1000 * 1999)%Z as ->.
-                lia.
-                apply Zle_imp_le_bool.
-                apply Zmult_le_compat_l; lia.
-              }
-              solve_finz.
-            + rewrite lookup_insert_Some.
-              left.
-              split; last done.
-              by rewrite to_pid_aligned_eq.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          right.
+          split.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          left.
+          split; last done.
+          solve_finz + Hlast_ptx.
         }
         assert (d' = Some (of_imm (encode_vmid V1))) as ->.
         {
           subst d'.
           subst q.
-          rewrite HeqA.
-          clear -Htxeq.
           rewrite lookup_insert_Some.
           right.
           split.
-          - rewrite to_pid_aligned_eq.
-            rewrite <-Htxeq.
-            intros contra.
-            destruct ptx0.
-            simpl in *.
-            destruct z.
-            simpl in *.
-            assert ((z <=? 1999000)%Z = true).
-            {
-              rewrite Z.eqb_eq in align.
-              rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-              rewrite Zmod_divides in align; last lia.
-              destruct align as [c align].
-              simplify_eq.
-              assert (c <? 2000 = true)%Z.
-              lia.
-              assert (1999000 = 1000 * 1999)%Z as ->.
-              lia.
-              apply Zle_imp_le_bool.
-              apply Zmult_le_compat_l; lia.
-            }
-            solve_finz.
-          - rewrite lookup_insert_Some.
-            right.
-            split.
-            + rewrite to_pid_aligned_eq.              
-              intros contra.
-              destruct ptx0.
-              simpl in *.
-              destruct z.
-              simpl in *.
-              assert ((z <=? 1999000)%Z = true).
-              {
-                rewrite Z.eqb_eq in align.
-                rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-                rewrite Zmod_divides in align; last lia.
-                destruct align as [c align].
-                simplify_eq.
-                assert (c <? 2000 = true)%Z.
-                lia.
-                assert (1999000 = 1000 * 1999)%Z as ->.
-                lia.
-                apply Zle_imp_le_bool.
-                apply Zmult_le_compat_l; lia.
-              }
-              solve_finz.
-            + rewrite lookup_insert_Some.
-              right.
-              split.
-              * rewrite to_pid_aligned_eq.
-                intros contra.
-                destruct ptx0.
-                simpl in *.
-                destruct z.
-                simpl in *.
-                assert ((z <=? 1999000)%Z = true).
-                {
-                  rewrite Z.eqb_eq in align.
-                  rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-                  rewrite Zmod_divides in align; last lia.
-                  destruct align as [c align].
-                  simplify_eq.
-                  assert (c <? 2000 = true)%Z.
-                  lia.
-                  assert (1999000 = 1000 * 1999)%Z as ->.
-                  lia.
-                  apply Zle_imp_le_bool.
-                  apply Zmult_le_compat_l; lia.
-                }
-                solve_finz.
-              * rewrite lookup_insert_Some.
-                left.
-                split; last done.
-                by rewrite to_pid_aligned_eq.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          right.
+          split.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          right.
+          split.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          left.
+          split; last done.
+          solve_finz + Hlast_ptx.
         }
         assert (e' = Some (of_pid pshare)) as ->.
         {
           subst e'.
           subst q.
-          rewrite HeqA.
-          clear -Htxeq Haddr.
           rewrite lookup_insert_Some.
           right.
           split.
-          - rewrite to_pid_aligned_eq.
-            rewrite <-Htxeq.
-            intros contra.
-            destruct ptx0.
-            simpl in *.
-            destruct z.
-            simpl in *.
-            assert ((z <=? 1999000)%Z = true).
-            {
-              rewrite Z.eqb_eq in align.
-              rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-              rewrite Zmod_divides in align; last lia.
-              destruct align as [c align].
-              simplify_eq.
-              assert (c <? 2000 = true)%Z.
-              lia.
-              assert (1999000 = 1000 * 1999)%Z as ->.
-              lia.
-              apply Zle_imp_le_bool.
-              apply Zmult_le_compat_l; lia.
-            }
-            solve_finz.
-          - rewrite lookup_insert_Some.
-            right.
-            split.
-            + rewrite to_pid_aligned_eq.
-              intros contra.
-              destruct ptx0.
-              simpl in *.
-              destruct z.
-              simpl in *.
-              assert ((z <=? 1999000)%Z = true).
-              {
-                rewrite Z.eqb_eq in align.
-                rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-                rewrite Zmod_divides in align; last lia.
-                destruct align as [c align].
-                simplify_eq.
-                assert (c <? 2000 = true)%Z.
-                lia.
-                assert (1999000 = 1000 * 1999)%Z as ->.
-                lia.
-                apply Zle_imp_le_bool.
-                apply Zmult_le_compat_l; lia.
-              }
-              solve_finz.
-            + rewrite lookup_insert_Some.
-              right.
-              split.
-              * rewrite to_pid_aligned_eq.
-                intros contra.
-                destruct ptx0.
-                simpl in *.
-                destruct z.
-                simpl in *.
-                assert ((z <=? 1999000)%Z = true).
-                {
-                  rewrite Z.eqb_eq in align.
-                  rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-                  rewrite Zmod_divides in align; last lia.
-                  destruct align as [c align].
-                  simplify_eq.
-                  assert (c <? 2000 = true)%Z.
-                  lia.
-                  assert (1999000 = 1000 * 1999)%Z as ->.
-                  lia.
-                  apply Zle_imp_le_bool.
-                  apply Zmult_le_compat_l; lia.
-                }
-                solve_finz.
-              * rewrite lookup_insert_Some.
-                right.
-                split.
-                -- rewrite to_pid_aligned_eq.                   
-                   intros contra.
-                   destruct ptx0.
-                   simpl in *.
-                   destruct z.
-                   simpl in *.
-                   assert ((z <=? 1999000)%Z = true).
-                   {
-                     rewrite Z.eqb_eq in align.
-                     rewrite Z.rem_mod_nonneg in align; [| lia | lia].
-                     rewrite Zmod_divides in align; last lia.
-                     destruct align as [c align].
-                     simplify_eq.
-                     assert (c <? 2000 = true)%Z.
-                     lia.
-                     assert (1999000 = 1000 * 1999)%Z as ->.
-                     lia.
-                     apply Zle_imp_le_bool.
-                     apply Zmult_le_compat_l; lia.
-                   }
-                   solve_finz.
-                -- rewrite lookup_insert_Some.
-                   left.
-                   split; last done.
-                   by rewrite to_pid_aligned_eq.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          right.
+          split.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          right.
+          split.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          right.
+          split.
+          solve_finz + Hlast_ptx.
+          rewrite lookup_insert_Some.
+          left.
+          split; last done.
+          solve_finz + Hlast_ptx.
         }
         rewrite Heql'.
         unfold monad.List.sequence_a_list.
         simpl.
         reflexivity.        
       }
-      remember pshare as A.
       cbn.
       rewrite decode_encode_vmid.
       rewrite decode_encode_vmid.
@@ -1249,7 +933,6 @@ Section proof.
       { lia. }
       rewrite Nat.eqb_refl.
       cbn.
-      rewrite HeqA.
       assert (to_pid pshare = Some pshare) as ->.
       {
         rewrite to_of_pid.
@@ -1258,421 +941,35 @@ Section proof.
       simpl.
       rewrite union_empty_r_L.
       reflexivity.
-    }
-    {
-      auto.
-    }
-    {
+      done.
       set_solver +.
-    }
-    {
-      unfold valid_handles.
-      clear.
-      apply non_empty_inhabited_L with W0.
-      unfold rywu_vmconfig.
-      apply elem_of_singleton_2.
-      reflexivity.
-    }
-    {
-      iFrame.      
+      set_solver +.
+      iFrame.
       iNext.
       subst q.
       iPureIntro.
-      rewrite !dom_insert_lookup_L.
-      assumption.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
+      (* rewrite <-elem_of_dom. *)
+      (* rewrite domtxmem. *)
+      (* rewrite elem_of_list_to_set. *)
+      (* rewrite elem_of_addr_of_page_iff. *)
       repeat (rewrite finz_succN_one).
       repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 2).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 1).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 2).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.      
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite <-Htxeq.
-      rewrite to_pid_aligned_eq.
-      reflexivity.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 2).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.      
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 1).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.      
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 2).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite !dom_insert_lookup_L.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 3).
-      reflexivity.
-      lia.
-      rewrite <-elem_of_dom.
-      rewrite domtxmem.
-      rewrite elem_of_list_to_set.
-      rewrite elem_of_addr_of_page_iff.
-      rewrite to_pid_aligned_eq.
-      repeat (rewrite finz_succN_one).
-      repeat (rewrite finz_succN_idemp).
-      simpl.
-      rewrite finz_succN_correct.
-      rewrite (finz_succN_pid' ptx0 4).
-      reflexivity.
-      lia.
-    }
+      rewrite !finz_succN_correct.
+      rewrite !dom_insert_lookup_L;cbn;
+      rewrite -?elem_of_dom;
+      try rewrite !dom_insert_lookup_L -?elem_of_dom;
+      try rewrite !dom_insert_lookup_L -?elem_of_dom;
+      try rewrite !dom_insert_lookup_L -?elem_of_dom;
+      try rewrite !dom_insert_lookup_L -?elem_of_dom;
+      rewrite ?domtxmem ?elem_of_list_to_set;
+      rewrite ?elem_of_addr_of_page_iff;
+      rewrite ?(finz_succN_pid' ptx0);try lia;auto.
+      rewrite to_pid_aligned_eq //.
     iModIntro.
     iIntros "(PCz & _ & OE & acc & R0z & R1z & (%wh & %whin & R2z & whtans & whretri & whfresh) & tx & txmem) _".
     assert (wh = W0) as wheq.
     {
-      unfold valid_handles in whin.
-      unfold rywu_vmconfig in whin.
+      rewrite /valid_handles /= in whin.
       apply elem_of_singleton_1 in whin.
       assumption.      
     }
@@ -1680,17 +977,13 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 22%nat)%f i_ptx0 R5) with "[p_23 PCz acc tx R5z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0
+               (pprog0 ^+ 22%nat)%f i_ptx0 R5) with "[p_23 PCz acc tx R5z]").
     apply decode_encode_instruction.
-    apply elem_of_union_r.
-    apply elem_of_union_l.
-    apply elem_of_singleton_2.
     rewrite HIn.
-    reflexivity.
+    set_solver +.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite HIn.
-    rewrite to_pid_aligned_eq.
-    assumption.
+    rewrite HIn. done.
     apply finz_succN_in_seq; simpl; lia.
     iFrame.
     iModIntro.
@@ -1708,10 +1001,12 @@ Section proof.
       subst q.
       rewrite lookup_insert_Some.
       left.
+      rewrite Heq_ptx0.
       split; reflexivity.
     }
+    (* TODO *)
     iDestruct "txmem" as "(txmem1 & txacc)".    
-    iApply ((@str _ _ _ _ _ _ _ wh (encode_vmid V0) 1%Qp prx0 (tpa ptx0) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (pprog0 ^+ 23%nat)%f i_ptx0 R2 R5) with "[p_24 PCz acc txmem1 RX0page tx R2z R5z]").
+    iApply ((@str _ _ _ _ _ _ _ wh (encode_vmid V0) 1%Qp prx0 ptx0 {[pshare;pprog0; ptx0]} (pprog0 ^+ 23%nat)%f i_ptx0 R2 R5) with "[p_24 PCz acc txmem1 RX0page tx R2z R5z]").
     apply decode_encode_instruction.
     apply union_subseteq_r'.
     apply union_least.
@@ -1719,7 +1014,7 @@ Section proof.
     apply elem_of_union_r.
     apply elem_of_singleton_2.
     {
-      rewrite <-Htxeq.
+      rewrite <-Heq_ptx0.
       rewrite to_pid_aligned_eq.
       reflexivity.
     }
@@ -1732,7 +1027,7 @@ Section proof.
     rewrite to_pid_aligned_eq.
     assumption.
     apply finz_succN_in_seq; simpl; lia.
-    rewrite <-Htxeq.
+    rewrite <-Heq_ptx0.
     rewrite to_pid_aligned_eq.
     assumption.
     iFrame.
@@ -1744,7 +1039,7 @@ Section proof.
     iEval (simpl) in "PCz".
     iSpecialize ("txacc" $! wh).
     iDestruct ("txacc" with "[$txmem1]") as "txmem".
-    iApply ((@mov_reg _ _ _ _ _ _ _ wh 1%Qp ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 24%nat)%f one R3 R2) with "[PCz p_25 acc tx R2z R3z]").
+    iApply ((@mov_reg _ _ _ _ _ _ _ wh 1%Qp {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 24%nat)%f one R3 R2) with "[PCz p_25 acc tx R2z R3z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -1762,7 +1057,7 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 25%nat)%f msg_send_I R0) with "[p_26 PCz acc tx R0z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 25%nat)%f msg_send_I R0) with "[p_26 PCz acc tx R0z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -1781,7 +1076,7 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 26%nat)%f (encode_vmid V1) R1) with "[p_27 PCz acc tx R1z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 26%nat)%f (encode_vmid V1) R1) with "[p_27 PCz acc tx R1z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -1800,7 +1095,7 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 27%nat)%f one R2) with "[p_28 PCz acc tx R2z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 27%nat)%f one R2) with "[p_28 PCz acc tx R2z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -1823,7 +1118,7 @@ Section proof.
     match goal with
     | |- context [([∗ map] k↦y ∈ ?p, k ->a y)%I] => set q' := p
     end.
-    iApply ((@msg_send_primary _ _ _ _ _ hvc_I msg_send_I (encode_vmid V1) ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) q' 1%Qp prx1 rxmem one (pprog0 ^+ 28%nat)%f V1) with "[p_29 PCz acc tx R0z R1z R2z txmem RX1st rxmem RX1page]").
+    iApply ((@msg_send_primary _ _ _ _ _ hvc_I msg_send_I (encode_vmid V1) {[pshare;pprog0; ptx0]} ptx0 q' 1%Qp prx1 rxmem one (pprog0 ^+ 28%nat)%f V1) with "[p_29 PCz acc tx R0z R1z R2z txmem RX1st rxmem RX1page]").
     rewrite HIn.
     rewrite to_pid_aligned_eq.
     assumption.
@@ -1857,7 +1152,7 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 29%nat)%f run_I R0) with "[p_30 PCz acc tx R0z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 29%nat)%f run_I R0) with "[p_30 PCz acc tx R0z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -1876,7 +1171,7 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 30%nat)%f (encode_vmid V1) R1) with "[p_31 PCz acc tx R1z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 30%nat)%f (encode_vmid V1) R1) with "[p_31 PCz acc tx R1z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -1925,7 +1220,7 @@ Section proof.
         {
           apply elem_of_list_to_map_1.
           apply NoDup_singleton.
-          rewrite <-Htxeq.
+          rewrite <-Heq_ptx0.
           rewrite to_pid_aligned_eq.
           apply elem_of_list_singleton.
           reflexivity.
@@ -1936,7 +1231,7 @@ Section proof.
       rewrite Hrxeq.
       apply lookup_insert.
     }    
-    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V1) 1%Qp ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) ((PC @@ V0 ->r (pprog0 ^+ 32%nat)%f) ∗ (V0 -@A> ({[pshare]} ∪ {[pprog0; tpa ptx0]})) ∗ (TX@V0:=tpa ptx0))%I (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[pshare]}, Sharing) ∗ wh ->re false ∗ (rx_state_mapsto V1 1 (Some (of_imm one, V0)) ∗ ⌜V0 ≠ V1⌝) ∗ RX@V1:=prx1 ∗ memory_page prx1 β ∗ ⌜β !! (of_imm i_prx1) = Some wh⌝) ∗
+    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V1) 1%Qp {[pshare;pprog0; ptx0]} ptx0 ((PC @@ V0 ->r (pprog0 ^+ 32%nat)%f) ∗ (V0 -@A> {[pshare;pprog0; ptx0]}) ∗ (TX@V0:=ptx0))%I (R0 @@ V0 ->r run_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a two  ∗ (∃ (wh : Addr), (∃ (β : mem), wh ->t (V0, V1, {[pshare]}, Sharing) ∗ wh ->re false ∗ (rx_state_mapsto V1 1 (Some (of_imm one, V0)) ∗ ⌜V0 ≠ V1⌝) ∗ RX@V1:=prx1 ∗ memory_page prx1 β ∗ ⌜β !! (of_imm i_prx1) = Some wh⌝) ∗
               VMProp V0 ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page prx1 mem_rx)) ∗
               VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I True%I (pprog0 ^+ 31%nat)%f V1 True%I ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a four ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx, memory_page prx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I) with "[PCz p_32 acc tx R0z R1z prop0 prop1 mem rxmem whretri whtans RX1page RX1st]").
     apply elem_of_union_r.
@@ -1986,7 +1281,7 @@ Section proof.
     iDestruct "P'" as "(P' & prop1)".
     iDestruct "P'" as "(>R0z & >R1z & >mem & >whtrans & >RX1page & >RX1st & >RX1mem)".
     rewrite wp_sswp.
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 32%nat)%f run_I R0) with "[p_33 PCz acc tx R0z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 32%nat)%f run_I R0) with "[p_33 PCz acc tx R0z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2005,7 +1300,7 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".
-    iApply ((@mov_word _ _ _ _ _ _ _ _ _ ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) (pprog0 ^+ 33%nat)%f (encode_vmid V2) R1) with "[p_34 PCz acc tx R1z]").
+    iApply ((@mov_word _ _ _ _ _ _ _ _ _ {[pshare;pprog0; ptx0]} ptx0 (pprog0 ^+ 33%nat)%f (encode_vmid V2) R1) with "[p_34 PCz acc tx R1z]").
     apply decode_encode_instruction.
     apply elem_of_union_r.
     apply elem_of_union_l.
@@ -2024,7 +1319,7 @@ Section proof.
     iEval (rewrite finz_plus_one_simpl) in "PCz".
     rewrite Z_of_nat_simpl.
     iEval (simpl) in "PCz".    
-    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V2) 1%Qp ({[pshare]} ∪ {[pprog0; tpa ptx0]}) (tpa ptx0) ((PC @@ V0 ->r (pprog0 ^+ 35%nat)%f) ∗ (V0 -@A> ({[pshare]} ∪ {[pprog0; tpa ptx0]})) ∗ (TX@V0:=tpa ptx0))%I (fixpoint (vmprop_unknown_pre V2) ∅) ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a finz.FinZ 4 four_obligation_1 four_obligation_2 ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx : mem, memory_page prx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I (pprog0 ^+ 34%nat)%f V2 (trans.fresh_handles 1 (valid_handles ∖ {[wh]}) ∗ (∃ mem_rx : mem, memory_page prx0 mem_rx) ∗ (∃ mem_rx : mem, memory_page prx1 mem_rx) ∗ (∃ mem_rx : mem, memory_page prx2 mem_rx) ∗ RX@V0:=prx0 ∗ RX@V1:=prx1 ∗ RX@V2:=prx2 ∗ rx_state_mapsto V0 1 None ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ rx_state_mapsto V2 1 None ∗ ([∗ set] p ∈ {[pshare]}, p -@O> V0 ∗ p -@E> false) ∗ R2 @@ V0 ->r one)%I (vmprop_zero V2 (<[wh := ((V0, V1, ({[pshare]} : gset PID), Sharing), true)]> ∅) (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))))%I) with "[PCz p_35 acc tx R0z R1z prop0 prop2 whfresh RX0page RX0mem RX0st RX1page RX1mem RX1st RX2page RX2mem RX2st R2z OE whtrans]").
+    iApply ((@run _ _ _ _ _ hvc_I run_I (encode_vmid V2) 1%Qp {[pshare;pprog0; ptx0]} ptx0 ((PC @@ V0 ->r (pprog0 ^+ 35%nat)%f) ∗ (V0 -@A> {[pshare;pprog0; ptx0]}) ∗ (TX@V0:=ptx0))%I (fixpoint (vmprop_unknown_pre V2) ∅) ((R0 @@ V0 ->r yield_I ∗ R1 @@ V0 ->r encode_vmid V1 ∗ addr ->a finz.FinZ 4 four_obligation_1 four_obligation_2 ∗ wh ->t (V0, V1, {[pshare]}, Sharing) ∗ RX@V1:=prx1 ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ (∃ mem_rx : mem, memory_page prx1 mem_rx)) ∗ VMProp 1 False (1 / 2))%I (pprog0 ^+ 34%nat)%f V2 (trans.fresh_handles 1 (valid_handles ∖ {[wh]}) ∗ (∃ mem_rx : mem, memory_page prx0 mem_rx) ∗ (∃ mem_rx : mem, memory_page prx1 mem_rx) ∗ (∃ mem_rx : mem, memory_page prx2 mem_rx) ∗ RX@V0:=prx0 ∗ RX@V1:=prx1 ∗ RX@V2:=prx2 ∗ rx_state_mapsto V0 1 None ∗ (rx_state_mapsto V1 1 None ∗ True) ∗ rx_state_mapsto V2 1 None ∗ ([∗ set] p ∈ {[pshare]}, p -@O> V0 ∗ p -@E> false) ∗ R2 @@ V0 ->r one)%I (vmprop_zero V2 (<[wh := ((V0, V1, ({[pshare]} : gset PID), Sharing), true)]> ∅) (<[V2 := None]>(<[V1 := None]>(<[V0 := None]>∅))))%I) with "[PCz p_35 acc tx R0z R1z prop0 prop2 whfresh RX0page RX0mem RX0st RX1page RX1mem RX1st RX2page RX2mem RX2st R2z OE whtrans]").
     apply elem_of_union_r.
     apply elem_of_union_l.
     apply elem_of_singleton_2.
@@ -2270,7 +1565,7 @@ Section proof.
         VMProp V1 False%I (1/2)%Qp) (1/2)%Qp))%I (1/2)%Qp
     ⊢ VMProp_holds V1 (1/2)%Qp -∗ WP ExecI @ V1 {{ (λ m, False) }}%I.
   Proof.
-    iIntros (program1 Haddr (* Htxeq *) Hrxeq (* Hpgeq *) HnIn_p HneAddr_RX1 HneAddr_PG1 HneAddr_TX1 HneTX1_RX1 HIn).
+    iIntros (program1 Haddr (* Heq_ptx0 *) Hrxeq (* Hpgeq *) HnIn_p HneAddr_RX1 HneAddr_PG1 HneAddr_TX1 HneTX1_RX1 HIn).
     iIntros "((p_1 & p_2 & p_3 & p_4 & p_5 & p_6 & p_7 
             & p_8 & p_9 & p_10 & p_11 & p_12 & p_13 & p_14 & _)
          & (%txmemgm & txmem) & acc & tx & PCs & (%r0 & R0s) & (%r1 & R1s) & (%r2 & R2s)
