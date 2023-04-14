@@ -2,8 +2,8 @@ From iris.base_logic.lib Require Export invariants na_invariants gen_heap ghost_
 From iris.algebra Require Export auth agree frac excl gmap gset.
 From iris.algebra.lib Require Export dfrac_agree frac_auth.
 From iris.proofmode Require Export tactics.
-From HypVeri Require Import monad machine machine_extra.
-From HypVeri Require Export lang.
+(* From HypVeri Require Import monad machine machine_extra. *)
+(* From HypVeri Require Export lang. *)
 
 Inductive MailBox :=
   RX

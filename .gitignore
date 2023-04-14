@@ -7,6 +7,7 @@
 .lia.cache
 .coqdeps.d
 _CoqProject
+_opam
 
 # vscode files
 .vscode/
@@ -31,5 +32,3 @@ _region_.tex
 
 *~
 \#*\#
-
-
