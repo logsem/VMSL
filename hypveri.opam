@@ -1,9 +1,9 @@
 opam-version: "2.0"
 name: "hypveri"
-synopsis: "A project on hypervisor verification."
-authors: "anonymous"
-maintainer : "Zongyuan Liu, Sergei Stepanenko"
-license: "MIT"
+synopsis: "Verifying FF-A hypercalls using VMSL."
+authors: "Zongyuan Liu, Sergei Stepanenko"
+maintainer : "Zongyuan Liu"
+license: "BSD 3-Clause"
 build: [
   [make "clean"]
   [make "ci"]
@@ -11,7 +11,7 @@ build: [
 ]
 install: [make]
 depends: [
-  "coq" { (>= "8.14") }
+  "coq" { (= "8.15.2") }
   "coq-iris" { (= "dev.2022-06-10.1.53b20974") }
   "coq-stdpp" { (= "dev.2022-06-08.0.4f82f462") }
   "coq-iris-staging" { (= "dev.2022-06-10.1.53b20974") }
